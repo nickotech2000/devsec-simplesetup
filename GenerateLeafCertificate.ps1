@@ -1060,90 +1060,81 @@ try {
     # GENERATE PFX
     # ========================================================
 
-    if (-not $NoPfx) {
+       if (-not $NoPfx) {
 
         Write-Host ''
         Write-Host 'PFX Password Required' -ForegroundColor Yellow
 
-        $SecurePassword = Read-Host `
-            'Enter PFX password' `
-            -AsSecureString
+        $SecurePassword  = Read-Host 'Enter PFX password'   -AsSecureString
+        $SecureConfirm   = Read-Host 'Confirm PFX password' -AsSecureString
 
-        $PlainPasswordPtr = [IntPtr]::Zero
+        $PlainPassword = ConvertFrom-SecureString -SecureString $SecurePassword -AsPlainText
+        $PlainConfirm  = ConvertFrom-SecureString -SecureString $SecureConfirm  -AsPlainText
+
+        $PasswordFile = Join-Path $TempRoot "$([Guid]::NewGuid().ToString('N')).pwd"
 
         try {
-
-            $PlainPasswordPtr = `
-                [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR(
-                    $SecurePassword
-                )
-
-            $PlainPassword = `
-                [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR(
-                    $PlainPasswordPtr
-                )
 
             if ([string]::IsNullOrEmpty($PlainPassword)) {
                 throw 'PFX password cannot be empty.'
             }
 
-            # Temporary password file avoids putting the password
-            # directly into the OpenSSL process command line.
-            $PasswordFile = Join-Path `
-                $TempRoot `
-                "$([Guid]::NewGuid().ToString('N')).pwd"
-
-            try {
-
-                [System.IO.File]::WriteAllText(
-                    $PasswordFile,
-                    $PlainPassword,
-                    [System.Text.Encoding]::UTF8
-                )
-
-                $PFXArguments = @(
-                    'pkcs12',
-                    '-export',
-                    '-out', $PFX,
-                    '-inkey', $PrivateKey,
-                    '-in', $Certificate,
-                    '-certfile', $IntermediateCertificate,
-                    '-name', $CommonName,
-                    '-passout', "file:$PasswordFile"
-                )
-
-                Invoke-OpenSSL `
-                    -Arguments $PFXArguments `
-                    -Operation 'Generate password-protected PFX'
-
-            }
-            finally {
-
-                if (Test-Path -LiteralPath $PasswordFile) {
-                    Remove-Item `
-                        -LiteralPath $PasswordFile `
-                        -Force `
-                        -ErrorAction SilentlyContinue
-                }
+            if ($PlainPassword -cne $PlainConfirm) {
+                throw 'PFX passwords do not match.'
             }
 
+            # UTF-8 WITHOUT BOM, and no trailing newline.
+            # (Encoding.UTF8 adds a BOM, which silently becomes part of the password.)
+            $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+            [System.IO.File]::WriteAllBytes(
+                $PasswordFile,
+                $Utf8NoBom.GetBytes($PlainPassword)
+            )
+
+            $PFXArguments = @(
+                'pkcs12',
+                '-export',
+                '-out', $PFX,
+                '-inkey', $PrivateKey,
+                '-in', $Certificate,
+                '-certfile', $IntermediateCertificate,
+                '-name', $CommonName,
+                '-passout', "file:$PasswordFile"
+            )
+
+            Invoke-OpenSSL `
+                -Arguments $PFXArguments `
+                -Operation 'Generate password-protected PFX'
+
+            if (-not (Test-Path -LiteralPath $PFX -PathType Leaf)) {
+                throw 'PFX was not created.'
+            }
+
+            # Prove the password actually opens the PFX before reporting success.
+            $PFXCheckArguments = @(
+                'pkcs12',
+                '-info',
+                '-in', $PFX,
+                '-noout',
+                '-passin', "file:$PasswordFile"
+            )
+
+            Invoke-OpenSSL `
+                -Arguments $PFXCheckArguments `
+                -Operation 'Verify PFX password'
+
+            Success "PFX created and password verified: $PFX"
         }
         finally {
 
-            if ($PlainPasswordPtr -ne [IntPtr]::Zero) {
-                [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR(
-                    $PlainPasswordPtr
-                )
+            if (Test-Path -LiteralPath $PasswordFile) {
+                Remove-Item -LiteralPath $PasswordFile -Force -ErrorAction SilentlyContinue
             }
 
             $PlainPassword = $null
+            $PlainConfirm  = $null
         }
-
-        if (-not (Test-Path -LiteralPath $PFX -PathType Leaf)) {
-            throw 'PFX was not created.'
-        }
-
-        Success "PFX created: $PFX"
     }
     else {
         Info 'PFX generation disabled by -NoPfx.'
