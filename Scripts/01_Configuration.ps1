@@ -9,7 +9,9 @@
 #
 # Purpose:
 #   - Initialize the shared PKI configuration
-#   - Load the EV leaf profile from ev_pki.cnf
+#   - Load the EV leaf profile and the Root / Intermediate CA subjects
+#     from ev_pki.cnf (defaults: OU = BizDevSecOps, L = Tallinn,
+#     C = EE, jurisdictionC = EE)
 #   - Store PKI paths and certificate settings
 #   - Store the PFX password supplied by pki_setup.ps1
 #   - Provide the configuration to all dot-sourced PKI modules
@@ -113,6 +115,8 @@ function Initialize-PkiConfiguration {
     $masterConfig  = Join-Path $resolvedScriptRoot 'ev_pki.cnf'
     $runtimeConfig = Join-Path $pkiRoot 'openssl.runtime.cnf'
     $leafReqConfig = Join-Path $pkiRoot 'leaf-ev.req.cnf'
+    $rootReqConfig = Join-Path $pkiRoot 'root-ca.req.cnf'
+    $intermediateReqConfig = Join-Path $pkiRoot 'intermediate-ca.req.cnf'
 
     # --------------------------------------------------------
     # PKI database / state files
@@ -184,6 +188,10 @@ function Initialize-PkiConfiguration {
 
     if ($IntDays -gt $RootDays) {
         throw "IntDays ($IntDays) cannot exceed RootDays ($RootDays)."
+    }
+
+    if ($LeafDays -gt $script:EvMaxLeafDays) {
+        throw "LeafDays ($LeafDays) exceeds the EV maximum of $($script:EvMaxLeafDays) days. EV certificates may be valid for at most $($script:EvMaxLeafDays) days."
     }
 
     if ($LeafDays -ge $IntDays) {
@@ -303,6 +311,10 @@ function Initialize-PkiConfiguration {
 
         LeafReqConfig = $leafReqConfig
 
+        RootReqConfig = $rootReqConfig
+
+        IntermediateReqConfig = $intermediateReqConfig
+
         # EV leaf profile loaded from ev_pki.cnf (+ overrides).
         Ev = $evProfile
 
@@ -393,6 +405,18 @@ function Initialize-PkiConfiguration {
     Set-PkiSecretEnvironment -Password $Password
 
     # --------------------------------------------------------
+    # EV profile notices
+    # --------------------------------------------------------
+
+    foreach ($warning in @($evProfile.Warnings)) {
+        Write-PkiLog $warning 'WARN'
+    }
+
+    foreach ($default in @($evProfile.AppliedDefaults)) {
+        Write-PkiVerbose "EV default applied: $default"
+    }
+
+    # --------------------------------------------------------
     # Verbose diagnostics.
     #
     # NEVER print the actual password.
@@ -415,6 +439,10 @@ function Initialize-PkiConfiguration {
     Write-PkiVerbose "EV policy OID: $($evProfile.PolicyOid)"
 
     Write-PkiVerbose "EV serialNumber: $(Get-EvDnValue -Fields $evProfile.DnFields -Canonical 'serialNumber')"
+
+    Write-PkiVerbose "EV organizationalUnit: $(Get-EvDnValue -Fields $evProfile.DnFields -Canonical 'OU')"
+
+    Write-PkiVerbose "EV locality: $(Get-EvDnValue -Fields $evProfile.DnFields -Canonical 'L')"
 
     Write-PkiVerbose "Leaf DNS names: $($evProfile.DnsNames -join ', ')"
 

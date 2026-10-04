@@ -21,13 +21,17 @@
 # IMPORTANT:
 #   This is a PRIVATE / DEVELOPMENT PKI.
 #
-#   "EV-style" means the certificate uses the configured
-#   EV-style subject and certificate-policy profile.
+#   Every leaf is an EV TLS certificate:
+#       - EKU = serverAuth + clientAuth (nothing else)
+#       - certificatePolicies = 2.23.140.1.1
+#       - EV subject (businessCategory, jurisdictionC, serialNumber,
+#         C, L, O, OU, CN) from ev_pki.cnf
+#       - at most 398 days
 #
 #   It does NOT make the certificate publicly trusted EV.
 #
 # Certificate Validity:
-#   Leaf certificates = 397 days
+#   Leaf certificates = -LeafDays (default 397, EV maximum 398)
 #
 # Key Sizes:
 #   Supported RSA sizes:
@@ -63,17 +67,15 @@ $ErrorActionPreference = 'Stop'
 # Leaf Certificate Configuration
 # ============================================================
 
-# 397 days is intentionally explicit here.
+# Fallback only. New-LeafCertificate replaces this with the
+# configured -LeafDays (default 397, EV maximum 398).
 #
-# This value is passed directly to:
+# The value is passed directly to:
 #
-#     openssl ca -days 397
+#     openssl ca -days <LeafDays>
 #
 # Therefore it takes precedence over default_days in the
 # OpenSSL configuration.
-#
-# Keeping it here makes certificate lifetime deterministic
-# regardless of OpenSSL configuration defaults.
 
 $script:LeafValidityDays = 397
 
@@ -89,44 +91,15 @@ $script:ExpectedEvPolicyOid = '2.23.140.1.1'
 # Expected Leaf EKUs
 # ============================================================
 #
-# These are the EKUs configured in [v3_leaf] in ev_pki.cnf.
-#
-# Textual EKUs:
-#
-#   serverAuth
-#   clientAuth
-#   codeSigning
-#   emailProtection
-#   timeStamping
-#
-# Numeric EKUs:
-#
-#   Smart Card Logon
-#   IPsec IKE
-#   IPsec End System
-#   IPsec Tunnel
-#   IPsec User
-#   Microsoft SGC
-#   Netscape SGC
+# The EV TLS leaf carries exactly these two EKUs (see [v3_leaf]
+# in ev_pki.cnf). Other EKUs (codeSigning, emailProtection, ...)
+# are issued as separate certificates by GenerateLeafCertificate.ps1.
 #
 # ============================================================
 
 $script:ExpectedLeafEkuOids = @(
     '1.3.6.1.5.5.7.3.1',       # serverAuth
-    '1.3.6.1.5.5.7.3.2',       # clientAuth
-    '1.3.6.1.5.5.7.3.3',       # codeSigning
-    '1.3.6.1.5.5.7.3.4',       # emailProtection
-    '1.3.6.1.5.5.7.3.8',       # timeStamping
-
-    '1.3.6.1.4.1.311.20.2.2',  # Microsoft Smart Card Logon
-
-    '1.3.6.1.5.5.7.3.17',      # IPsec IKE
-    '1.3.6.1.5.5.7.3.5',       # IPsec End System
-    '1.3.6.1.5.5.7.3.6',       # IPsec Tunnel
-    '1.3.6.1.5.5.7.3.7',       # IPsec User
-
-    '1.3.6.1.4.1.311.10.3.3',  # Microsoft SGC
-    '2.16.840.1.113730.4.1'    # Netscape SGC
+    '1.3.6.1.5.5.7.3.2'        # clientAuth
 )
 
 
@@ -326,6 +299,14 @@ function Test-LeafCertificate {
         )
     }
 
+    if ($text -notmatch 'TLS Web Client Authentication') {
+
+        throw (
+            "Leaf certificate is missing the clientAuth EKU: " +
+            "$Certificate"
+        )
+    }
+
 
     # --------------------------------------------------------
     # EV Certificate Policy
@@ -472,6 +453,9 @@ function New-LeafCertificate {
     # Validate Leaf Configuration
     # --------------------------------------------------------
 
+    $script:LeafValidityDays = [int]$p.LeafDays
+
+
     if ($script:LeafValidityDays -lt 1) {
 
         throw (
@@ -481,11 +465,12 @@ function New-LeafCertificate {
     }
 
 
-    if ($script:LeafValidityDays -gt 397) {
+    if ($script:LeafValidityDays -gt $script:EvMaxLeafDays) {
 
-        Write-PkiVerbose (
-            "WARNING: Leaf validity is configured for " +
-            "$script:LeafValidityDays days."
+        throw (
+            "EV leaf certificates may be valid for at most " +
+            "$($script:EvMaxLeafDays) days. " +
+            "Current value: $script:LeafValidityDays"
         )
     }
 
@@ -712,7 +697,7 @@ function New-LeafCertificate {
     #
     # Certificate validity:
     #
-    #   397 days
+    #   -LeafDays (default 397, EV maximum 398)
     #
     # The explicit -days parameter intentionally overrides any
     # default_days setting in the OpenSSL configuration.
@@ -894,7 +879,7 @@ function New-LeafCertificate {
 
 
     Write-PkiVerbose (
-        "Leaf certificate profile: EV-style/private PKI"
+        "Leaf certificate profile: EV TLS (serverAuth + clientAuth) / private PKI"
     )
 }
 

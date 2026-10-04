@@ -12,19 +12,28 @@
 #   - Generate public keys
 #   - Generate PFX files
 #
-# Certificate Identity:
+# Certificate Identity (defaults; ev_pki.cnf [ dn_root_ev ] and
+# [ dn_intermediate_ev ] override every value):
 #
 # Root CA
-#   CN = Agantra Inovatif Global Root G1
-#   O  = Agantra Inovatif OU
-#   OU = Root-Certs
-#   C  = EE
+#   jurisdictionC   = EE
+#   serialNumber    = EEARIREG.17344131
+#   C               = EE
+#   L               = Tallinn
+#   O               = Agantra Inovatif OU
+#   OU              = Root-Certs
+#   CN              = Agantra Inovatif Global Root G1
+#   name            = Nicko Satria Utama      (contact name)
+#   emailAddress    = nicko@nextmantra.com    (contact e-mail)
+#   telephoneNumber = (+372)53194019          (contact phone)
 #
 # Intermediate CA
+#   same, with OU = Intermediate-CA and
 #   CN = Agantra Inovatif EV RSA CA G1
-#   O  = Agantra Inovatif OU
-#   OU = Intermediate-CA
-#   C  = EE
+#
+# The subject is written to pki\root-ca.req.cnf and
+# pki\intermediate-ca.req.cnf by 03_RuntimeConfig.ps1, so every
+# attribute keeps its proper ASN.1 string type.
 #
 # Certificate Validity:
 #
@@ -32,11 +41,11 @@
 #   Intermediate CA  = 250 years
 #
 # Leaf certificate validity is handled by the leaf-generation
-# script and should be configured for 50 years there.
+# script: 397 days by default, 398 days at most (EV limit).
 #
 # IMPORTANT:
 #   OpenSSL-facing subject values are converted to ASCII-safe
-#   values before being passed to OpenSSL.
+#   values before being written to the CA request configuration.
 #
 #   Example:
 #
@@ -246,87 +255,24 @@ function Get-OpenSslOrganization {
 
 
 # ============================================================
-# Build OpenSSL Subject
+# Human-readable CA subject (verbose logging only)
 # ============================================================
-function New-PkiSubject {
+function Get-CaSubjectText {
 
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [string]$Country,
-
-        [Parameter(Mandatory)]
-        [string]$Organization,
-
-        [Parameter(Mandatory)]
-        [string]$OrganizationalUnit,
-
-        [Parameter(Mandatory)]
-        [string]$CommonName
+        $Fields
     )
 
-    # --------------------------------------------------------
-    # Convert ALL subject components to ASCII.
-    #
-    # This is intentional. Do not pass the original Unicode
-    # values directly to OpenSSL.
-    # --------------------------------------------------------
-    $asciiCountry =
-        ConvertTo-Ascii `
-            -Text $Country
+    $parts = foreach ($field in $Fields) {
 
-    $asciiOrganization =
-        ConvertTo-Ascii `
-            -Text $Organization
+        '{0}={1}' -f `
+            $field.Key,
+            (ConvertFrom-OpenSslConfValue -Raw $field.Raw)
+    }
 
-    $asciiOrganizationalUnit =
-        ConvertTo-Ascii `
-            -Text $OrganizationalUnit
-
-    $asciiCommonName =
-        ConvertTo-Ascii `
-            -Text $CommonName
-
-
-    # --------------------------------------------------------
-    # Escape values for OpenSSL subject syntax.
-    #
-    # Escape-OpenSslValue is expected to be provided by
-    # 00_Common.ps1 in the existing PKI framework.
-    # --------------------------------------------------------
-    $escapedCountry =
-        Escape-OpenSslValue `
-            $asciiCountry
-
-    $escapedOrganization =
-        Escape-OpenSslValue `
-            $asciiOrganization
-
-    $escapedOrganizationalUnit =
-        Escape-OpenSslValue `
-            $asciiOrganizationalUnit
-
-    $escapedCommonName =
-        Escape-OpenSslValue `
-            $asciiCommonName
-
-
-    # --------------------------------------------------------
-    # Build complete subject.
-    #
-    # Order:
-    #
-    #   C
-    #   O
-    #   OU
-    #   CN
-    # --------------------------------------------------------
-    return (
-        "/C=$escapedCountry" +
-        "/O=$escapedOrganization" +
-        "/OU=$escapedOrganizationalUnit" +
-        "/CN=$escapedCommonName"
-    )
+    return ($parts -join ', ')
 }
 
 
@@ -379,34 +325,14 @@ function New-RootCA {
     # --------------------------------------------------------
     # Root CA certificate identity
     #
-    #   CN = Agantra Inovatif Global Root G1
-    #   O  = Agantra Inovatif OU
-    #   OU = Root-Certs
-    #   C  = EE
+    # Complete EV-style subject from pki\root-ca.req.cnf
+    # (generated from ev_pki.cnf [ dn_root_ev ] + defaults).
     # --------------------------------------------------------
-    $rootCountry =
-        'EE'
-
-    $rootOrganization =
-        'Agantra Inovatif OU'
-
-    $rootOrganizationalUnit =
-        'Root-Certs'
-
-    $rootCommonName =
-        'Agantra Inovatif Global Root G1'
-
-
-    $subject =
-        New-PkiSubject `
-            -Country $rootCountry `
-            -Organization $rootOrganization `
-            -OrganizationalUnit $rootOrganizationalUnit `
-            -CommonName $rootCommonName
-
+    Assert-PkiFile -Path $p.RootReqConfig
 
     Write-PkiVerbose (
-        "Root CA subject: $subject"
+        "Root CA subject: " +
+        (Get-CaSubjectText -Fields $p.Ev.RootDnFields)
     )
 
 
@@ -426,11 +352,9 @@ function New-RootCA {
             '-out',
             $p.RootCrt,
             '-config',
-            $p.RuntimeConfig,
+            $p.RootReqConfig,
             '-extensions',
-            'v3_root',
-            '-subj',
-            $subject
+            'v3_root'
         ) |
         Out-Null
 
@@ -494,34 +418,14 @@ function New-IntermediateCA {
     # --------------------------------------------------------
     # Intermediate CA certificate identity
     #
-    #   CN = Agantra Inovatif EV RSA CA G1
-    #   O  = Agantra Inovatif OU
-    #   OU = Intermediate-CA
-    #   C  = EE
+    # Complete EV-style subject from pki\intermediate-ca.req.cnf
+    # (generated from ev_pki.cnf [ dn_intermediate_ev ] + defaults).
     # --------------------------------------------------------
-    $intermediateCountry =
-        'EE'
-
-    $intermediateOrganization =
-        'Agantra Inovatif OU'
-
-    $intermediateOrganizationalUnit =
-        'Intermediate-CA'
-
-    $intermediateCommonName =
-        'Agantra Inovatif EV RSA CA G1'
-
-
-    $subject =
-        New-PkiSubject `
-            -Country $intermediateCountry `
-            -Organization $intermediateOrganization `
-            -OrganizationalUnit $intermediateOrganizationalUnit `
-            -CommonName $intermediateCommonName
-
+    Assert-PkiFile -Path $p.IntermediateReqConfig
 
     Write-PkiVerbose (
-        "Intermediate CA subject: $subject"
+        "Intermediate CA subject: " +
+        (Get-CaSubjectText -Fields $p.Ev.IntermediateDnFields)
     )
 
 
@@ -538,9 +442,7 @@ function New-IntermediateCA {
             '-out',
             $p.IntermediateCsr,
             '-config',
-            $p.RuntimeConfig,
-            '-subj',
-            $subject
+            $p.IntermediateReqConfig
         ) |
         Out-Null
 

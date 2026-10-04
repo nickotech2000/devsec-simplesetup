@@ -9,8 +9,7 @@
 # Purpose:
 #   - Private Root CA
 #   - Private Intermediate CA
-#   - EV-style Leaf Certificates
-#   - TLS / Client / Code Signing / Email / IPsec EKUs
+#   - EV Leaf Certificates (TLS server + client authentication)
 #   - Development / Internal PKI
 #
 # IMPORTANT:
@@ -20,8 +19,26 @@
 #   The generated certificates are trusted only on systems where
 #   the private Root CA has explicitly been installed.
 #
+#   Browsers (Chrome / Edge) only show the "Issued to: <company>"
+#   line for EV certificates that chain to a root in the browser's
+#   built-in EV list, so a private root can never trigger it. The
+#   company name is always visible under "Show certificate".
+#
 # OpenSSL:
-#   Compatible with OpenSSL 4.x configuration syntax.
+#   Compatible with OpenSSL 3.x / 4.x configuration syntax.
+#
+# EV rules enforced by the PowerShell generators:
+#   - EV leaf EKU is exactly serverAuth + clientAuth
+#   - certificatePolicies carries 2.23.140.1.1
+#   - Subject has businessCategory, jurisdictionC, serialNumber,
+#     C, L (or ST), O and CN
+#   - Leaf validity is at most 398 days
+#   - Defaults when a value is not supplied:
+#       OU = BizDevSecOps, L = Tallinn, C = EE, jurisdictionC = EE
+#
+#   Other EKUs (codeSigning, emailProtection, ...) are NOT put in this
+#   certificate. GenerateLeafCertificate.ps1 issues them as separate
+#   certificates, one file set per EKU.
 #
 # ============================================================
 
@@ -133,6 +150,74 @@ CN = MakananMurah Private PKI
 
 
 # ============================================================
+# ROOT CA SUBJECT
+# ============================================================
+#
+# Used by 04_CertificateAuthority.ps1 for the Root CA.
+# Any field removed from this section falls back to the same
+# value shown here.
+#
+# The three contact fields use the standard X.500 attributes
+#   name            -> contact name
+#   emailAddress    -> contact e-mail
+#   telephoneNumber -> contact phone
+# because a certificate subject cannot carry free-text labels.
+# Remove them from the section if you ever need a strictly
+# EV-conformant CA subject.
+#
+# ============================================================
+
+[ dn_root_ev ]
+
+jurisdictionCountryName = EE
+
+serialNumber = EEARIREG.17344131
+
+C = EE
+
+L = Tallinn
+
+O = Agantra Inovatif OU
+
+OU = Root-Certs
+
+CN = Agantra Inovatif Global Root G1
+
+name = Nicko Satria Utama
+
+emailAddress = nicko@nextmantra.com
+
+telephoneNumber = (+372)53194019
+
+
+# ============================================================
+# INTERMEDIATE CA SUBJECT
+# ============================================================
+
+[ dn_intermediate_ev ]
+
+jurisdictionCountryName = EE
+
+serialNumber = EEARIREG.17344131
+
+C = EE
+
+L = Tallinn
+
+O = Agantra Inovatif OU
+
+OU = Intermediate-CA
+
+CN = Agantra Inovatif EV RSA CA G1
+
+name = Nicko Satria Utama
+
+emailAddress = nicko@nextmantra.com
+
+telephoneNumber = (+372)53194019
+
+
+# ============================================================
 # ROOT CA
 # ============================================================
 
@@ -149,6 +234,13 @@ authorityKeyIdentifier = keyid:always
 
 # ============================================================
 # INTERMEDIATE CA
+# ============================================================
+#
+# No extendedKeyUsage here on purpose: the same intermediate also
+# signs the separate codeSigning / emailProtection / ... certificates
+# made by GenerateLeafCertificate.ps1. An EKU on the CA would restrict
+# every certificate below it to that EKU on Windows.
+#
 # ============================================================
 
 [ v3_intermediate ]
@@ -172,49 +264,22 @@ certificatePolicies = @ev_policy_ca
 
 policyIdentifier = 2.23.140.1.1
 
+CPS.1 = https://cps.nextmantra.com/ev_cps.pdf
+
 
 # ============================================================
-# EV-STYLE LEAF CERTIFICATE
+# EV LEAF CERTIFICATE (serverAuth + clientAuth)
 # ============================================================
 #
 # IMPORTANT:
 #
 # Keep the extendedKeyUsage value on ONE PHYSICAL LINE.
+# The PowerShell EV profile validator requires exactly
+# serverAuth and clientAuth here. Any other EKU is rejected
+# because an EV TLS certificate may not carry them.
 #
-# The PowerShell EV profile validator used by this project
-# expects "serverAuth" to be present directly in the value.
-#
-# Numeric OIDs are intentionally used for EKUs that may not
-# resolve consistently as textual aliases in OpenSSL 4.x.
-#
-# Requested EKUs:
-#
-#   serverAuth
-#   clientAuth
-#   codeSigning
-#   emailProtection
-#   timeStamping
-#
-#   Smart Card Logon
-#       1.3.6.1.4.1.311.20.2.2
-#
-#   IPsec IKE
-#       1.3.6.1.5.5.7.3.17
-#
-#   IPsec End System
-#       1.3.6.1.5.5.7.3.5
-#
-#   IPsec Tunnel
-#       1.3.6.1.5.5.7.3.6
-#
-#   IPsec User
-#       1.3.6.1.5.5.7.3.7
-#
-#   Microsoft Server Gated Cryptography
-#       1.3.6.1.4.1.311.10.3.3
-#
-#   Netscape Server Gated Cryptography
-#       2.16.840.1.113730.4.1
+# For RSA keys keyEncipherment is allowed. (The standalone
+# GenerateLeafCertificate.ps1 drops it automatically for ECC.)
 #
 # ============================================================
 
@@ -224,7 +289,7 @@ basicConstraints = critical,CA:false
 
 keyUsage = critical,digitalSignature,keyEncipherment
 
-extendedKeyUsage = serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,1.3.6.1.4.1.311.20.2.2,1.3.6.1.5.5.7.3.17,1.3.6.1.5.5.7.3.5,1.3.6.1.5.5.7.3.6,1.3.6.1.5.5.7.3.7,1.3.6.1.4.1.311.10.3.3,2.16.840.1.113730.4.1
+extendedKeyUsage = serverAuth,clientAuth
 
 subjectKeyIdentifier = hash
 
@@ -236,7 +301,7 @@ certificatePolicies = @ev_policy
 
 
 # ============================================================
-# EV-STYLE LEAF CERTIFICATE POLICY
+# EV LEAF CERTIFICATE POLICY
 # ============================================================
 
 [ ev_policy ]
@@ -254,8 +319,9 @@ CPS.1 = https://cps.nextmantra.com/ev_cps.pdf
 # IP addresses
 # Email addresses
 #
-# Email addresses are intentionally placed in SAN rather than
-# the certificate subject.
+# EV Guidelines allow only registered DNS names here (no wildcard).
+# localhost, IP addresses and e-mail addresses are kept because this
+# is a private PKI, but the generator prints a warning for them.
 #
 # ============================================================
 
@@ -295,7 +361,19 @@ distinguished_name = dn_leaf_ev
 
 
 # ============================================================
-# EV-STYLE LEAF SUBJECT
+# EV LEAF SUBJECT
+# ============================================================
+#
+# Fields you leave out get these defaults:
+#   OU = BizDevSecOps
+#   L  = Tallinn
+#   C  = EE
+#   jurisdictionCountryName = EE
+#
+# Optional fields (add as needed):
+#   ST, street, postalCode, jurisdictionStateOrProvinceName,
+#   jurisdictionLocalityName
+#
 # ============================================================
 
 [ dn_leaf_ev ]
@@ -311,6 +389,8 @@ C = EE
 L = Tallinn
 
 O = Agantra Inovatif OU
+
+# OU = BizDevSecOps
 
 CN = nextmantra.com
 

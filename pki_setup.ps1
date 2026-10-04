@@ -13,10 +13,19 @@
     Creates a Root CA, Intermediate CA, RSA leaf certificates, PFX files,
     certificate chains, validation artifacts, and optional LocalMachine trust.
 
-    Every leaf certificate is an EV certificate (CA/Browser Forum EV policy
-    OID 2.23.140.1.1 plus the EV subject fields). All EV values are read from
-    ev_pki.cnf. A command-line parameter overrides the file only when it is
-    passed explicitly.
+    Every leaf certificate is an EV TLS certificate (CA/Browser Forum EV
+    policy OID 2.23.140.1.1, EKU = serverAuth + clientAuth, EV subject
+    fields, at most 398 days). All EV values are read from ev_pki.cnf. A
+    command-line parameter overrides the file only when it is passed
+    explicitly. Values that are not defined anywhere default to
+    OU = BizDevSecOps, Locality = Tallinn, Country = EE, Jurisdiction = EE.
+
+    The Root and Intermediate CA subjects carry Locality, Jurisdiction,
+    Serial Number and contact name / e-mail / phone
+    ([ dn_root_ev ] and [ dn_intermediate_ev ] in ev_pki.cnf).
+
+    Other EKUs (codeSigning, emailProtection, ...) are issued as separate
+    certificates by GenerateLeafCertificate.ps1.
 .AUTHOR
     Nicko Satria Utama
     Company: Agantra Inovatif OÜ
@@ -31,6 +40,7 @@ param(
     # ---- Subject / EV values: default comes from ev_pki.cnf ----
     [string]$Domain,
     [string]$Organization,
+    [string]$OrganizationalUnit,
     [string]$Country,
     [string]$Serial,
     [string]$BusinessCategory,
@@ -47,7 +57,7 @@ param(
     [int[]]$LeafSizes = @(2048, 3072, 4096),
     [int]$RootDays = 3650,
     [int]$IntDays = 3650,
-    [int]$LeafDays = 3649,
+    [int]$LeafDays = 397,
     [string]$Password = 'Abc12345!',
     [switch]$LegacyPfx,
     [switch]$InstallTrust,
@@ -84,15 +94,16 @@ EV SUBJECT OPTIONS
 
   -Domain <string>              Leaf CN and DNS SAN (also adds www.<domain>).
   -Organization <string>        Subject O.
-  -Country <string>             Subject C (ISO 3166 alpha-2).
+  -OrganizationalUnit <string>  Subject OU. Default: BizDevSecOps
+  -Country <string>             Subject C (ISO 3166 alpha-2). Default: EE
   -Serial <string>              Subject serialNumber (registration number).
   -BusinessCategory <string>    Private Organization | Government Entity |
                                 Business Entity | Non-Commercial Entity
-  -JurisdictionCountry <string> jurisdictionC (ISO 3166 alpha-2).
+  -JurisdictionCountry <string> jurisdictionC (ISO 3166 alpha-2). Default: EE
   -JurisdictionState <string>   jurisdictionST.
   -JurisdictionLocality <string> jurisdictionL.
   -State <string>               Subject ST.
-  -Locality <string>            Subject L.
+  -Locality <string>            Subject L. Default: Tallinn
   -Street <string>              Subject street address.
   -PostalCode <string>          Subject postal code.
   -CpsUrl <string>              CPS URI in the certificate policy.
@@ -101,7 +112,7 @@ GENERATION OPTIONS
   -LeafSizes <int[]>            RSA sizes. Default: 2048,3072,4096
   -RootDays <int>               Root validity. Default: 3650
   -IntDays <int>                Intermediate validity. Default: 3650
-  -LeafDays <int>               Leaf validity. Default: 3649
+  -LeafDays <int>               Leaf validity. Default: 397, EV maximum: 398
   -Password <string>            PFX password. Default: Abc12345!
   -LegacyPfx                    Use OpenSSL legacy PFX algorithms.
   -InstallTrust                 Import Root/Intermediate/leaf certificates.
@@ -111,6 +122,12 @@ GENERATION OPTIONS
   -Verbose                      Show detailed execution information.
   -Help                         Show this help.
   -?                            PowerShell parameter help.
+
+EV LEAF PROFILE
+  EKU is exactly serverAuth + clientAuth, policy 2.23.140.1.1, no
+  wildcard names, at most 398 days. Root/Intermediate subjects are read
+  from [ dn_root_ev ] / [ dn_intermediate_ev ] (Locality, Jurisdiction,
+  Serial Number, contact name / e-mail / phone).
 
 IMPORTANT
   ev_pki.cnf must sit next to this script (UTF-8, no BOM) and contain
@@ -128,7 +145,7 @@ if ($Help) {
 # Only parameters passed explicitly override ev_pki.cnf.
 $evOverrides = @{}
 foreach ($name in @(
-    'Domain', 'Organization', 'Country', 'Serial', 'BusinessCategory',
+    'Domain', 'Organization', 'OrganizationalUnit', 'Country', 'Serial', 'BusinessCategory',
     'JurisdictionCountry', 'JurisdictionState', 'JurisdictionLocality',
     'State', 'Locality', 'Street', 'PostalCode', 'CpsUrl'
 )) {

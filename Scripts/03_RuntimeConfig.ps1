@@ -10,8 +10,16 @@
 # Purpose:
 #   - Read the EV leaf profile from ev_pki.cnf
 #   - Apply optional command-line overrides (-Serial, -Locality ...)
-#   - Generate pki/openssl.runtime.cnf  (CA + extensions)
-#   - Generate pki/leaf-ev.req.cnf      (EV subject for leaf CSRs)
+#   - Apply EV defaults when a value is not defined
+#         OU = BizDevSecOps, L = Tallinn, C = EE, jurisdictionC = EE
+#   - Enforce the EV TLS leaf profile (EKU = serverAuth + clientAuth,
+#     EV policy OID, EV subject fields, no wildcard names)
+#   - Load the Root / Intermediate CA subjects (Locality, Jurisdiction,
+#     Serial Number and contact fields) from ev_pki.cnf
+#   - Generate pki/openssl.runtime.cnf         (CA + extensions)
+#   - Generate pki/leaf-ev.req.cnf             (EV subject for leaf CSRs)
+#   - Generate pki/root-ca.req.cnf             (Root CA subject)
+#   - Generate pki/intermediate-ca.req.cnf     (Intermediate CA subject)
 #
 # Source of truth:
 #   ev_pki.cnf supplies every EV default. A command-line value is
@@ -22,6 +30,7 @@
 #   [ v3_leaf ]      leaf extensions (must carry certificatePolicies)
 #   [ ev_policy ]    policy section referenced by v3_leaf
 #   [ leaf_san ]     SAN section referenced by v3_leaf
+#   [ dn_root_ev ], [ dn_intermediate_ev ]   CA subjects (optional)
 #   [ v3_root ], [ v3_intermediate ], [ new_oids ]   (optional)
 #
 # ============================================================
@@ -39,6 +48,36 @@ $script:EvBusinessCategories = @(
     'Business Entity'
     'Non-Commercial Entity'
 )
+
+# Values used when a field is not defined in ev_pki.cnf or on the command line.
+$script:EvDefaults = @{
+    BusinessCategory    = 'Private Organization'
+    Country             = 'EE'
+    JurisdictionCountry = 'EE'
+    Locality            = 'Tallinn'
+    OrganizationalUnit  = 'BizDevSecOps'
+}
+
+# EV Guidelines: an EV certificate may be valid for at most 398 days.
+$script:EvMaxLeafDays = 398
+
+# EV TLS leaf EKU: exactly these two.
+$script:EvTlsEkuAliases = @{
+    'serverauth'           = 'serverAuth'
+    '1.3.6.1.5.5.7.3.1'    = 'serverAuth'
+    'clientauth'           = 'clientAuth'
+    '1.3.6.1.5.5.7.3.2'    = 'clientAuth'
+}
+
+# Default Root / Intermediate CA subject (item "Locality, Jurisdiction,
+# Serial Number and contact fields"). ev_pki.cnf overrides every value.
+$script:CaContactName   = 'Nicko Satria Utama'
+$script:CaContactEmail  = 'nicko@nextmantra.com'
+$script:CaContactPhone  = '(+372)53194019'
+$script:CaSerialNumber  = 'EEARIREG.17344131'
+
+# Characters X.520 allows in a PrintableString (serialNumber, C, jurisdictionC).
+$script:PrintableStringPattern = '^[A-Za-z0-9 ''()+,\-./:=?]+$'
 
 # Subject key aliases -> canonical OpenSSL short name.
 $script:EvDnAliases = @{
@@ -65,6 +104,9 @@ $script:EvDnAliases = @{
     'organizationalunitname'          = 'OU'
     'cn'                              = 'CN'
     'commonname'                      = 'CN'
+    'name'                            = 'name'
+    'emailaddress'                    = 'emailAddress'
+    'telephonenumber'                 = 'telephoneNumber'
 }
 
 # Canonical key -> long name (as printed by `openssl x509 -nameopt multiline`).
@@ -82,6 +124,31 @@ $script:EvDnLongNames = @{
     'O'                = 'organizationName'
     'OU'               = 'organizationalUnitName'
     'CN'               = 'commonName'
+    'name'             = 'name'
+    'emailAddress'     = 'emailAddress'
+    'telephoneNumber'  = 'telephoneNumber'
+}
+
+# Subject order used for every generated certificate (EV certificates from
+# DigiCert / GlobalSign use the same order: EV fields, C, ST, L, street,
+# postalCode, O, OU, CN).
+$script:EvDnRank = @{
+    'businessCategory' = 1
+    'jurisdictionC'    = 2
+    'jurisdictionST'   = 3
+    'jurisdictionL'    = 4
+    'serialNumber'     = 5
+    'C'                = 6
+    'ST'               = 7
+    'L'                = 8
+    'street'           = 9
+    'postalCode'       = 10
+    'O'                = 11
+    'OU'               = 12
+    'CN'               = 14
+    'name'             = 15
+    'emailAddress'     = 16
+    'telephoneNumber'  = 17
 }
 
 # ============================================================
@@ -301,7 +368,7 @@ function Get-EvDnCanonicalKey {
 function Get-EvDnValue {
     # Decoded (plain text) value of a canonical subject key, or $null.
     param(
-        [Parameter(Mandatory)]$Fields,
+        [Parameter(Mandatory)][AllowEmptyCollection()]$Fields,
         [Parameter(Mandatory)][string]$Canonical
     )
 
@@ -312,6 +379,168 @@ function Get-EvDnValue {
     }
 
     return $null
+}
+
+function Set-EvDnDefault {
+    # Adds a subject field with a default value when the field is missing or
+    # blank. Existing non-blank values are never touched.
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()]$Fields,
+        [Parameter(Mandatory)][string]$Canonical,
+        [Parameter(Mandatory)][string]$Value,
+        $Applied,
+        [string]$Label = ''
+    )
+
+    $existing = Get-EvDnValue -Fields $Fields -Canonical $Canonical
+    if (-not [string]::IsNullOrWhiteSpace($existing)) { return }
+
+    for ($i = $Fields.Count - 1; $i -ge 0; $i--) {
+        if ($Fields[$i].Canonical -ieq $Canonical) { $Fields.RemoveAt($i) }
+    }
+
+    [void]$Fields.Add(
+        [pscustomobject]@{
+            Key       = $Canonical
+            Canonical = $Canonical
+            Raw       = (ConvertTo-OpenSslConfValue -Value $Value)
+        }
+    )
+
+    if ($null -ne $Applied) {
+        $prefix = if ($Label) { "$Label " } else { '' }
+        [void]$Applied.Add("$prefix$Canonical=$Value")
+    }
+}
+
+function Sort-EvDnFields {
+    # Stable sort into the EV subject order.
+    param([Parameter(Mandatory)][AllowEmptyCollection()]$Fields)
+
+    $decorated = [System.Collections.Generic.List[object]]::new()
+    $index = 0
+
+    foreach ($f in $Fields) {
+        $rank = 13
+        if ($script:EvDnRank.ContainsKey([string]$f.Canonical)) {
+            $rank = [int]$script:EvDnRank[[string]$f.Canonical]
+        }
+        [void]$decorated.Add([pscustomobject]@{ Rank = $rank; Index = $index; Field = $f })
+        $index++
+    }
+
+    $sorted = [System.Collections.Generic.List[object]]::new()
+    foreach ($d in ($decorated | Sort-Object -Property Rank, Index)) {
+        [void]$sorted.Add($d.Field)
+    }
+
+    return ,$sorted
+}
+
+function Get-EvEkuTokens {
+    # Splits an extendedKeyUsage value into canonical tokens
+    # (serverAuth / clientAuth / anything else as written).
+    param([AllowEmptyString()][string]$Raw)
+
+    $tokens = [System.Collections.Generic.List[string]]::new()
+    $plain  = ConvertFrom-OpenSslConfValue -Raw $Raw
+
+    foreach ($part in ($plain -split ',')) {
+        $t = $part.Trim()
+        if ($t.Length -eq 0 -or $t -ieq 'critical') { continue }
+
+        $key = $t.ToLowerInvariant()
+        if ($script:EvTlsEkuAliases.ContainsKey($key)) {
+            [void]$tokens.Add([string]$script:EvTlsEkuAliases[$key])
+        }
+        else {
+            [void]$tokens.Add($t)
+        }
+    }
+
+    return @($tokens)
+}
+
+function Get-CaDnFields {
+    # Root / Intermediate subject: [ dn_root_ev ] / [ dn_intermediate_ev ] from
+    # ev_pki.cnf, with defaults for everything that is not defined.
+    param(
+        [Parameter(Mandatory)]$Ini,
+        [Parameter(Mandatory)][ValidateSet('Root', 'Intermediate')][string]$Kind,
+        [Parameter(Mandatory)][string]$Organization,
+        [Parameter(Mandatory)]$Problems,
+        [Parameter(Mandatory)]$Applied
+    )
+
+    $section = if ($Kind -eq 'Root') { 'dn_root_ev' } else { 'dn_intermediate_ev' }
+
+    $fields = [System.Collections.Generic.List[object]]::new()
+
+    if ($Ini.Sections.ContainsKey($section)) {
+        foreach ($entry in $Ini.Sections[$section]) {
+            [void]$fields.Add(
+                [pscustomobject]@{
+                    Key       = $entry.Key
+                    Canonical = (Get-EvDnCanonicalKey -Key $entry.Key)
+                    Raw       = $entry.Raw
+                }
+            )
+        }
+    }
+
+    $ou = if ($Kind -eq 'Root') { 'Root-Certs' } else { 'Intermediate-CA' }
+    $cn = if ($Kind -eq 'Root') { 'Agantra Inovatif Global Root G1' } else { 'Agantra Inovatif EV RSA CA G1' }
+
+    $defaults = [ordered]@{
+        jurisdictionC   = $script:EvDefaults.JurisdictionCountry
+        serialNumber    = $script:CaSerialNumber
+        C               = $script:EvDefaults.Country
+        L               = $script:EvDefaults.Locality
+        O               = $Organization
+        OU              = $ou
+        CN              = $cn
+        name            = $script:CaContactName
+        emailAddress    = $script:CaContactEmail
+        telephoneNumber = $script:CaContactPhone
+    }
+
+    foreach ($key in $defaults.Keys) {
+        Set-EvDnDefault `
+            -Fields $fields `
+            -Canonical $key `
+            -Value ([string]$defaults[$key]) `
+            -Applied $Applied `
+            -Label $Kind
+    }
+
+    $fields = Sort-EvDnFields -Fields $fields
+
+    # ---- EV-conformance checks for the CA subject
+    foreach ($key in @('C', 'jurisdictionC')) {
+        $cc = Get-EvDnValue -Fields $fields -Canonical $key
+        if ($cc -notmatch '^[A-Za-z]{2}$') {
+            [void]$Problems.Add("[ $section ] $key must be a two-letter country code: '$cc'.")
+        }
+    }
+
+    $serial = Get-EvDnValue -Fields $fields -Canonical 'serialNumber'
+    if ($serial.Length -gt 64 -or $serial -notmatch $script:PrintableStringPattern) {
+        [void]$Problems.Add("[ $section ] serialNumber '$serial' must be 1-64 PrintableString characters.")
+    }
+
+    $phone = Get-EvDnValue -Fields $fields -Canonical 'telephoneNumber'
+    if (-not [string]::IsNullOrWhiteSpace($phone)) {
+        if ($phone -notmatch '^[0-9 ()+\-./]{5,32}$' -or ($phone -replace '\D', '').Length -lt 5) {
+            [void]$Problems.Add("[ $section ] telephoneNumber '$phone' is not a valid phone number.")
+        }
+    }
+
+    $mail = Get-EvDnValue -Fields $fields -Canonical 'emailAddress'
+    if (-not [string]::IsNullOrWhiteSpace($mail) -and $mail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
+        [void]$Problems.Add("[ $section ] emailAddress '$mail' is not a valid e-mail address.")
+    }
+
+    return ,$fields
 }
 
 function Get-EvOverride {
@@ -432,6 +661,7 @@ function Get-EvProfile {
         Street               = 'street'
         PostalCode           = 'postalCode'
         Organization         = 'O'
+        OrganizationalUnit   = 'OU'
         Domain               = 'CN'
     }
 
@@ -474,6 +704,32 @@ function Get-EvProfile {
     }
 
     # --------------------------------------------------------
+    # Defaults for everything that is not defined
+    #
+    #   OU            -> BizDevSecOps
+    #   L             -> Tallinn
+    #   C             -> EE
+    #   jurisdictionC -> EE
+    # --------------------------------------------------------
+
+    $applied  = [System.Collections.Generic.List[string]]::new()
+    $warnings = [System.Collections.Generic.List[string]]::new()
+
+    Set-EvDnDefault -Fields $fields -Canonical 'businessCategory' -Value $script:EvDefaults.BusinessCategory    -Applied $applied
+    Set-EvDnDefault -Fields $fields -Canonical 'jurisdictionC'    -Value $script:EvDefaults.JurisdictionCountry -Applied $applied
+    Set-EvDnDefault -Fields $fields -Canonical 'C'                -Value $script:EvDefaults.Country             -Applied $applied
+
+    # Locality defaults to Tallinn only when no locality AND no state/province
+    # is defined (an EV subject needs one of them).
+    if ([string]::IsNullOrWhiteSpace((Get-EvDnValue -Fields $fields -Canonical 'ST'))) {
+        Set-EvDnDefault -Fields $fields -Canonical 'L' -Value $script:EvDefaults.Locality -Applied $applied
+    }
+
+    Set-EvDnDefault -Fields $fields -Canonical 'OU'               -Value $script:EvDefaults.OrganizationalUnit  -Applied $applied
+
+    $fields = Sort-EvDnFields -Fields $fields
+
+    # --------------------------------------------------------
     # Validate EV subject
     # --------------------------------------------------------
 
@@ -509,13 +765,40 @@ function Get-EvProfile {
         [void]$problems.Add("serialNumber '$serial' is still the placeholder. Set the real registration number in [ dn_leaf_ev ] or pass -Serial.")
     }
 
+    if (-not [string]::IsNullOrWhiteSpace($serial) -and ($serial.Length -gt 64 -or $serial -notmatch $script:PrintableStringPattern)) {
+        [void]$problems.Add("serialNumber '$serial' must be 1-64 PrintableString characters.")
+    }
+
     if ($policyOid -ne $script:EvPolicyOid) {
         [void]$problems.Add("[ $policySection ] policyIdentifier is '$policyOid'. EV leaf certificates must use $($script:EvPolicyOid).")
     }
 
+    # --------------------------------------------------------
+    # EV TLS leaf extensions: CA:FALSE, EKU = serverAuth + clientAuth only
+    # --------------------------------------------------------
+
+    $bcEntry = Find-OpenSslIniEntry -Ini $ini -Section 'v3_leaf' -Key 'basicConstraints'
+    if ($null -eq $bcEntry -or $bcEntry.Raw -notmatch 'CA\s*:\s*false') {
+        [void]$problems.Add('[ v3_leaf ] basicConstraints must be critical,CA:false.')
+    }
+
     $ekuEntry = Find-OpenSslIniEntry -Ini $ini -Section 'v3_leaf' -Key 'extendedKeyUsage'
-    if ($null -eq $ekuEntry -or $ekuEntry.Raw -notmatch 'serverAuth') {
-        [void]$problems.Add('[ v3_leaf ] extendedKeyUsage must include serverAuth for an EV TLS certificate.')
+    if ($null -eq $ekuEntry) {
+        [void]$problems.Add('[ v3_leaf ] has no extendedKeyUsage. An EV TLS certificate needs: extendedKeyUsage = serverAuth,clientAuth')
+    }
+    else {
+        $ekuTokens = @(Get-EvEkuTokens -Raw $ekuEntry.Raw)
+
+        foreach ($needed in @('serverAuth', 'clientAuth')) {
+            if ($needed -notin $ekuTokens) {
+                [void]$problems.Add("[ v3_leaf ] extendedKeyUsage must include $needed for an EV TLS certificate.")
+            }
+        }
+
+        $extraEku = @($ekuTokens | Where-Object { $_ -notin @('serverAuth', 'clientAuth') })
+        if ($extraEku.Count -gt 0) {
+            [void]$problems.Add("[ v3_leaf ] extendedKeyUsage contains EKUs that an EV TLS certificate may not carry: $($extraEku -join ', '). Keep only serverAuth,clientAuth. Issue the other EKUs as separate certificates with GenerateLeafCertificate.ps1.")
+        }
     }
 
     # --------------------------------------------------------
@@ -585,6 +868,27 @@ function Get-EvProfile {
         [void]$problems.Add("The common name '$domain' must also be listed as a DNS entry in [ $sanSection ].")
     }
 
+    foreach ($dnsName in $dnsNames) {
+        if ($dnsName.Contains('*')) {
+            [void]$problems.Add("DNS name '$dnsName' is a wildcard. EV certificates may not contain wildcard names. Remove it from [ $sanSection ].")
+        }
+    }
+
+    foreach ($dnsName in $dnsNames) {
+        if ($dnsName -ieq 'localhost' -or $dnsName -notmatch '\.') {
+            [void]$warnings.Add("SAN DNS:$dnsName is an internal name. Public EV certificates may not contain it; allowed here because this is a private PKI.")
+        }
+    }
+
+    foreach ($sanItem in $sanItems) {
+        if ($sanItem.Type -ieq 'IP') {
+            [void]$warnings.Add("SAN IP:$(ConvertFrom-OpenSslConfValue -Raw $sanItem.Raw) is an IP address. Public EV certificates may not contain private or loopback addresses; allowed here because this is a private PKI.")
+        }
+        elseif ($sanItem.Type -ieq 'email') {
+            [void]$warnings.Add("SAN email:$(ConvertFrom-OpenSslConfValue -Raw $sanItem.Raw) is an e-mail name. EV TLS certificates normally carry only DNS names; allowed here because this is a private PKI.")
+        }
+    }
+
     # --------------------------------------------------------
     # Policy section (optional -CpsUrl override)
     # --------------------------------------------------------
@@ -601,6 +905,21 @@ function Get-EvProfile {
         if ($null -ne $cpsEntry) { $cpsEntry.Raw = $cpsRaw }
         else { [void]$policyEntries.Add([pscustomobject]@{ Key = 'CPS.1'; Raw = $cpsRaw }) }
     }
+
+    # --------------------------------------------------------
+    # Root / Intermediate CA subjects
+    # --------------------------------------------------------
+
+    $caOrganization = Get-EvDnValue -Fields $fields -Canonical 'O'
+    if ([string]::IsNullOrWhiteSpace($caOrganization)) { $caOrganization = 'Agantra Inovatif OU' }
+
+    $rootDnFields = Get-CaDnFields `
+        -Ini $ini -Kind 'Root' -Organization $caOrganization `
+        -Problems $problems -Applied $applied
+
+    $intermediateDnFields = Get-CaDnFields `
+        -Ini $ini -Kind 'Intermediate' -Organization $caOrganization `
+        -Problems $problems -Applied $applied
 
     if ($problems.Count -gt 0) {
         throw ("EV profile validation failed ({0}):`n - {1}" -f $MasterConfig, ($problems -join "`n - "))
@@ -619,6 +938,10 @@ function Get-EvProfile {
         SanSection    = $sanSection
         SanEntries    = $sanEntries
         DnsNames      = $dnsNames
+        RootDnFields         = $rootDnFields
+        IntermediateDnFields = $intermediateDnFields
+        AppliedDefaults      = @($applied)
+        Warnings             = @($warnings)
     }
 }
 
@@ -762,23 +1085,9 @@ function New-RuntimeOpenSSLConfig {
 
     Add-OpenSslConfSection -Builder $sb -Name 'policy_ev' -Entries $policyEntriesList
 
-    # --------------------------------------------------------
-    # CSR defaults for Root / Intermediate (-subj supplies values)
-    # --------------------------------------------------------
-
-    Add-OpenSslConfSection -Builder $sb -Name 'req' -Entries @(
-        (New-ConfEntry 'prompt'             'no')
-        (New-ConfEntry 'utf8'               'yes')
-        (New-ConfEntry 'string_mask'        'utf8only')
-        (New-ConfEntry 'default_md'         'sha256')
-        (New-ConfEntry 'distinguished_name' 'dn')
-    )
-
-    Add-OpenSslConfSection -Builder $sb -Name 'dn' -Entries @(
-        (New-ConfEntry 'C'  (ConvertTo-OpenSslConfValue -Value $p.Country))
-        (New-ConfEntry 'O'  (ConvertTo-OpenSslConfValue -Value $p.Organization))
-        (New-ConfEntry 'CN' (ConvertTo-OpenSslConfValue -Value $p.Domain))
-    )
+    # The [ req ] / [ dn ] sections for the Root and Intermediate CA are written
+    # to their own request configurations below (root-ca.req.cnf and
+    # intermediate-ca.req.cnf), each with the complete CA subject.
 
     # --------------------------------------------------------
     # Extension sections (from ev_pki.cnf, with built-in fallback)
@@ -825,7 +1134,48 @@ function New-RuntimeOpenSSLConfig {
     Add-OpenSslConfSection -Builder $sb -Name $ev.PolicySection -Entries $ev.PolicyEntries
     Add-OpenSslConfSection -Builder $sb -Name $ev.SanSection    -Entries $ev.SanEntries
 
-    Write-Utf8NoBom -Path $p.RuntimeConfig -Content $sb.ToString()
+    $baseConfigText = $sb.ToString()
+
+    Write-Utf8NoBom -Path $p.RuntimeConfig -Content $baseConfigText
+
+    # --------------------------------------------------------
+    # Root / Intermediate CA request configurations.
+    #
+    # Each is the runtime configuration (so -extensions v3_root /
+    # v3_intermediate resolve) plus [ req ] and the complete CA subject:
+    # jurisdictionC, serialNumber, C, L, O, OU, CN and the contact
+    # fields. A config file (not -subj) is used so every attribute keeps
+    # its correct ASN.1 string type (PrintableString for C,
+    # jurisdictionC, serialNumber).
+    #
+    # Values are converted to ASCII, as before, so the Windows process
+    # boundary never changes the CA names.
+    # --------------------------------------------------------
+
+    foreach ($ca in @(
+        @{ Path = $p.RootReqConfig;         Section = 'dn_root_ev';         Fields = $ev.RootDnFields }
+        @{ Path = $p.IntermediateReqConfig; Section = 'dn_intermediate_ev'; Fields = $ev.IntermediateDnFields }
+    )) {
+
+        $caConfig = [System.Text.StringBuilder]::new($baseConfigText)
+
+        Add-OpenSslConfSection -Builder $caConfig -Name 'req' -Entries @(
+            (New-ConfEntry 'prompt'             'no')
+            (New-ConfEntry 'utf8'               'yes')
+            (New-ConfEntry 'string_mask'        'utf8only')
+            (New-ConfEntry 'default_md'         'sha256')
+            (New-ConfEntry 'distinguished_name' $ca.Section)
+        )
+
+        $caEntries = foreach ($f in $ca.Fields) {
+            $plain = ConvertTo-Ascii -Text (ConvertFrom-OpenSslConfValue -Raw $f.Raw)
+            New-ConfEntry $f.Key (ConvertTo-OpenSslConfValue -Value $plain)
+        }
+
+        Add-OpenSslConfSection -Builder $caConfig -Name $ca.Section -Entries @($caEntries)
+
+        Write-Utf8NoBom -Path $ca.Path -Content $caConfig.ToString()
+    }
 
     # --------------------------------------------------------
     # Leaf CSR configuration: the complete EV subject.
@@ -853,4 +1203,6 @@ function New-RuntimeOpenSSLConfig {
 
     Write-PkiVerbose "Runtime OpenSSL config: $($p.RuntimeConfig)"
     Write-PkiVerbose "EV leaf request config: $($p.LeafReqConfig)"
+    Write-PkiVerbose "Root CA request config: $($p.RootReqConfig)"
+    Write-PkiVerbose "Intermediate CA request config: $($p.IntermediateReqConfig)"
 }
