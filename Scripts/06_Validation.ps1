@@ -20,7 +20,10 @@ function Test-OpenSslCertificate {
 
 function Test-PfxFile {
     param([Parameter(Mandatory)][string]$Path)
-    Invoke-OpenSSL -Arguments @('pkcs12','-in',$Path,'-passin','env:PKI_PFX_PASSWORD','-noout') | Out-Null
+    $arguments = @('pkcs12')
+    if ($script:Pki.LegacyPfx) { $arguments += '-legacy' }
+    $arguments += @('-in', $Path, '-passin', 'env:PKI_PFX_PASSWORD', '-noout')
+    Invoke-OpenSSL -Arguments $arguments | Out-Null
 }
 
 function Test-PkiChain {
@@ -145,7 +148,8 @@ function Test-LeafEvCertificate {
     #   - every EV subject field from ev_pki.cnf is present
     #     (including OU, L, C and jurisdictionC defaults)
     #   - EKU is exactly serverAuth + clientAuth
-    #   - CA:FALSE, SAN lists the common name, no wildcard names
+    #   - CA:FALSE, SAN lists the common name (wildcards are allowed: lab PKI)
+    #   - CRL distribution points and AIA (OCSP + CA Issuers) are present
     #   - validity is at most 398 days
     param([Parameter(Mandatory)]$Leaf)
 
@@ -221,7 +225,18 @@ function Test-LeafEvCertificate {
     }
 
     if ($text -match 'DNS:\*') {
-        [void]$problems.Add('SAN contains a wildcard name; EV certificates may not.')
+        Write-PkiLog 'SAN contains a wildcard name: allowed in this private / lab PKI, not EV-compliant for public use.' 'WARN'
+    }
+
+    if ($text -notmatch 'CRL Distribution Points' -or $text -notmatch 'Authority Information Access') {
+        Write-PkiLog 'The leaf has no CRL Distribution Points / Authority Information Access. Check [ v3_leaf ] in ev_pki.cnf.' 'WARN'
+    }
+    else {
+        foreach ($uri in @($ev.CrlUris) + @($ev.OcspUris) + @($ev.CaIssuerUris)) {
+            if ($text -notmatch ('URI:' + [regex]::Escape($uri))) {
+                [void]$problems.Add("The certificate does not contain the URI $uri.")
+            }
+        }
     }
 
     foreach ($dns in $ev.DnsNames) {
@@ -262,6 +277,34 @@ function Test-CaEvSubject {
     }
 
     Write-PkiLog "$Name subject verified: jurisdictionC=$($actual['jurisdictionCountryName']), serialNumber=$($actual['serialNumber']), L=$($actual['localityName'])" 'OK'
+}
+
+function Test-PublishedCaFiles {
+    # The CRL must verify against the Intermediate CA, and the CA Issuers
+    # file must be the Intermediate certificate itself.
+    $p  = $script:Pki
+    $ev = $p.Ev
+
+    $crlDer = Join-Path $p.PublishDir $ev.CrlFileName
+    $caDer  = Join-Path $p.PublishDir $ev.CaIssuerFileName
+
+    Assert-PkiFile -Path $crlDer
+    Assert-PkiFile -Path $caDer
+
+    Invoke-OpenSSL -Arguments @(
+        'crl', '-in', $crlDer, '-inform', 'DER', '-CAfile', $p.IntermediateCrt, '-noout'
+    ) | Out-Null
+
+    $published = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($caDer)
+    $original  = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($p.IntermediateCrt)
+    try {
+        if ($published.Thumbprint -ne $original.Thumbprint) {
+            throw "The published CA Issuers file is not the Intermediate CA certificate: $caDer"
+        }
+    }
+    finally { $published.Dispose(); $original.Dispose() }
+
+    Write-PkiLog "Published CRL verified against the Intermediate CA: $($ev.CrlFileName)" 'OK'
 }
 
 function Test-PkiOutputBeforeGeneration {
@@ -330,6 +373,7 @@ function Validate-AllPkiArtifacts {
     foreach ($pfx in @($p.RootPfx,$p.IntermediatePfx)) { Assert-PkiFile $pfx; Test-PfxFile $pfx }
     Test-CaEvSubject -Path $p.RootCrt -Fields $p.Ev.RootDnFields -Name 'Root CA'
     Test-CaEvSubject -Path $p.IntermediateCrt -Fields $p.Ev.IntermediateDnFields -Name 'Intermediate CA'
+    Test-PublishedCaFiles
     foreach ($leaf in $p.LeafFiles) {
         foreach ($path in @($leaf.Key,$leaf.Pub,$leaf.Csr,$leaf.Crt,$leaf.Pfx,$leaf.FullChain)) { Assert-PkiFile $path }
         Test-OpenSslKey $leaf.Key

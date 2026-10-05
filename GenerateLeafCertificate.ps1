@@ -8,71 +8,40 @@
 # Company : Agantra Inovatif OÜ (NextMantra)
 # Email   : nicko@nextmantra.com
 #
-# Purpose:
-#   Every certificate this script issues is an EV certificate:
-#     - EV subject (businessCategory, jurisdictionC, serialNumber,
-#       C, L, O, OU, CN) read from ev_pki.cnf
-#     - EV certificate policy (2.23.140.1.1; 2.23.140.1.3 for
-#       code signing)
-#     - CA:FALSE, SAN, at most 398 days, no wildcard names
+# Run  .\GenerateLeafCertificate.ps1 -Help  for every parameter
+# and examples.
 #
-#   One certificate (one set of files) is generated per EKU:
+# Every certificate is an EV certificate:
+#   - EV subject (businessCategory, jurisdictionC, serialNumber, C, L,
+#     O, OU, CN) + contact name / e-mail / phone, from ev_pki.cnf
+#   - EV certificate policy (2.23.140.1.1; 2.23.140.1.3 for code signing)
+#   - CA:FALSE, SAN, CRL distribution points, OCSP and CA Issuers
+#   - at most 398 days
+#   - wildcard names ARE allowed (private / lab PKI, not EV-compliant
+#     for public use)
 #
-#     TLS EV certificate  (serverAuth + clientAuth)   <name>.*
-#     codeSigning                                     <name>-codesigning.*
-#     emailProtection                                 <name>-emailprotection.*
-#     timeStamping                                    <name>-timestamping.*
-#     smartCardLogon                                  <name>-smartcardlogon.*
-#     ipsecIKE / ipsecEndSystem / ipsecTunnel / ipsecUser
-#     msSGC / nsSGC
+# One certificate (one file set) per EKU:
+#   TLS EV certificate (serverAuth + clientAuth)   <name>.*
+#   codeSigning                                    <name>-codesigning.*
+#   emailProtection / timeStamping / smartCardLogon / ipsecIKE /
+#   ipsecEndSystem / ipsecTunnel / ipsecUser / msSGC / nsSGC
+#                                                  <name>-<eku>.*
+#   File set: .key .pub .csr .crt -fullchain.crt .pfx .txt
 #
-#   File set per certificate:
-#     .key  .pub  .csr  .crt  -fullchain.crt  .pfx  .txt
+# Key rules:
+#   RSA (default) 2048 / 3072 / 4096 / 8192, or ECC P-256 / P-384 / P-521
+#   Code signing is always RSA, at least 4096 bits
+#   A missing or too small -Bit (for example 1024) is raised
 #
 # IMPORTANT:
-#   This is a PRIVATE PKI. It is NOT a publicly trusted EV
-#   certificate. Chrome / Edge show "Issued to: <company>" only for
-#   EV certificates that chain to a root in the browser's built-in
-#   EV list, so a private root can never trigger that line. The
-#   company name is always visible under "Show certificate".
-#
-# Repeated parameters are supported:
-#
-#   -Domain example.com -Domain www.example.com
-#   -IP4 127.0.0.1  -IP6 ::1
-#   -Email nicko@example.com
-#
-# Subject parameters (default comes from ev_pki.cnf, then from the
-# built-in EV defaults):
-#
-#   -Organization  -OU  -Locality  -State  -Street  -PostalCode
-#   -Country (EE)  -JurisdictionCountry (EE)  -JurisdictionState
-#   -JurisdictionLocality  -Serial  -BusinessCategory  -CpsUrl
-#   OU defaults to BizDevSecOps, Locality to Tallinn.
-#
-# Key / signature parameters:
-#
-#   -Algorithm RSA|ECC   default RSA
-#   -Bit 2048|3072|4096|8192     (RSA, default 2048)
-#   -Bit 256|384|521 or -Curve P-256|P-384|P-521   (ECC, default P-256)
-#   -Hash SHA256|SHA384|SHA512   default SHA256
-#
-# EKU selection:
-#
-#   (nothing)        TLS certificate + one certificate per other EKU
-#   -TlsOnly         TLS certificate only
-#   -Eku codeSigning -Eku emailProtection   TLS + the chosen EKUs
+#   This is a PRIVATE PKI. It is NOT a publicly trusted EV certificate.
+#   Chrome / Edge show "Issued to: <company>" only for EV certificates
+#   that chain to a root in the browser's built-in EV list, so a private
+#   root can never trigger that line. The company name is visible under
+#   "Show certificate".
 #
 # Example:
-#
-# .\GenerateLeafCertificate.ps1 `
-#     -Domain nextmantra.com `
-#     -Domain www.nextmantra.com `
-#     -IP4 127.0.0.1 `
-#     -Algorithm ECC -Bit 384 -Hash SHA384 `
-#     -Eku codeSigning `
-#     -Days 397 `
-#     -Force
+#   .\GenerateLeafCertificate.ps1 -Domain nextmantra.com -AddDevelopmentSAN -Force
 #
 # ============================================================
 
@@ -118,6 +87,9 @@ $IntermediatePrivateKey = Join-Path $PKIRoot 'intermediate/intermediate.key'
 $LeafRoot = Join-Path $ProjectRoot 'leafcerts'
 
 $TempRoot = Join-Path $LeafRoot '_temp'
+
+# Replaced by -AddPkiContentPath. Documented in -Help.
+$PkiContentPath = ''
 
 # EV Guidelines: at most 398 days.
 $EvMaxDays = 398
@@ -285,6 +257,47 @@ $EkuAliases = @{
 }
 
 # ============================================================
+# DEVELOPMENT SAN SET  (-AddDevelopmentSAN)
+#
+# 'raksakateknologi.api' is used for the last DNS name; the request
+# spelled it 'raksakteknologi.api' once, but every other entry
+# (and the wildcard) uses 'raksakateknologi'.
+# ============================================================
+
+$DevelopmentDns = @(
+    'localhost',
+    'local.dev',
+    'nextmantra.local',
+    'nextmantra.developer',
+    'nextmantra.internal',
+    'nextmantra.api',
+    'raksakateknologi.local',
+    'raksakateknologi.developer',
+    'raksakateknologi.internal',
+    'raksakateknologi.api'
+)
+
+$DevelopmentIPv4 = @('127.0.0.1', '10.10.2.2', '192.168.0.1')
+
+$DevelopmentIPv6 = @('::1')
+
+$DevelopmentWildcardDns = @(
+    '*.raksakateknologi.local',
+    '*.raksakateknologi.developer',
+    '*.raksakateknologi.internal',
+    '*.raksakateknologi.api',
+    '*.nextmantra.local',
+    '*.nextmantra.developer',
+    '*.nextmantra.internal',
+    '*.nextmantra.api'
+)
+
+# Code signing certificates never use less than this many RSA bits.
+$CodeSigningMinimumBits = 4096
+
+$RsaSizes = @(2048, 3072, 4096, 8192)
+
+# ============================================================
 # DEFAULT VALUES
 # ============================================================
 
@@ -316,6 +329,12 @@ $Force = $false
 
 $NoPfx = $false
 
+$LegacyPfx = $false
+
+$AddDevelopmentSAN = $false
+
+$NoRevocationInfo = $false
+
 $NoVerify = $false
 
 $TlsOnly = $false
@@ -340,60 +359,150 @@ function Write-Header {
 
 function Show-LeafHelp {
     @'
+============================================================
+ GenerateLeafCertificate.ps1 - EV leaf certificate generator
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+
+WHAT IT DOES
+  Issues EV leaf certificates from the Intermediate CA of your PKI (.\pki, made by
+  pki_setup.ps1, or any folder given with -AddPkiContentPath).
+
+  One certificate and one file set is made per EKU:
+    TLS      serverAuth + clientAuth          <name>.key .pub .csr .crt
+                                              -fullchain.crt .pfx .txt
+    others   codeSigning, emailProtection, timeStamping, smartCardLogon,
+             ipsecIKE, ipsecEndSystem, ipsecTunnel, ipsecUser, msSGC, nsSGC
+                                              <name>-<eku>.key .pub .csr .crt ...
+  Files are written to  leafcerts\<name>\   (wildcard names: _wildcard.<domain>).
+
 USAGE
-  .\GenerateLeafCertificate.ps1 -Domain example.com [options]
+  .\GenerateLeafCertificate.ps1 -Domain <name> [options]
 
-NAMES
-  -Domain <name>                DNS name (repeatable). First one is the CN.
-  -CommonName <name>            Override the CN (must also be a -Domain).
-  -IP4 <address>                IPv4 SAN (repeatable).
-  -IP6 <address>                IPv6 SAN (repeatable).
-  -Email <address>              E-mail SAN (repeatable).
-  Wildcard names are rejected: EV certificates may not contain them.
+  The PFX password is asked once (used for every certificate). For unattended
+  runs set  $env:PKI_PFX_PASSWORD  first.
 
-EV SUBJECT (default: ev_pki.cnf, then the built-in EV defaults)
-  -Organization <text>          O
-  -OU <text>                    OU.            Default: BizDevSecOps
-  -Locality <text>              L.             Default: Tallinn
-  -State <text>                 ST
-  -Street <text>                street address
-  -PostalCode <text>            postal code
-  -Country <cc>                 C.             Default: EE
-  -JurisdictionCountry <cc>     jurisdictionC. Default: EE
-  -JurisdictionState <text>     jurisdictionST
-  -JurisdictionLocality <text>  jurisdictionL
-  -Serial <text>                serialNumber (registration number)
-  -BusinessCategory <text>      Private Organization | Government Entity |
-                                Business Entity | Non-Commercial Entity
-  -CpsUrl <url>                 CPS URI in the certificate policy
+NAMES (SAN)
+  -Domain <name>               DNS name, repeatable. The first plain name is the CN.
+                               Wildcards are allowed:  -Domain "*.lab.local"
+  -WildcardDomain <name>       Adds both <name> and *.<name>.
+  -CommonName <name>           Choose the CN (must also be one of the -Domain names).
+  -IP4 <address>               IPv4 SAN, repeatable.
+  -IP6 <address>               IPv6 SAN, repeatable.
+  -Email <address>             E-mail SAN, repeatable.
+  -AddDevelopmentSAN           Adds this development set to every certificate:
+      DNS   localhost, local.dev, nextmantra.local, nextmantra.developer,
+            nextmantra.internal, nextmantra.api, raksakateknologi.local,
+            raksakateknologi.developer, raksakateknologi.internal,
+            raksakateknologi.api
+      IPv4  127.0.0.1, 10.10.2.2, 192.168.0.1
+      IPv6  ::1
+      Wildcard DNS  *.raksakateknologi.local / .developer / .internal / .api
+                    *.nextmantra.local / .developer / .internal / .api
+      Without -Domain the common name is localhost.
+
+EV SUBJECT  (default: ev_pki.cnf, then the built-in EV defaults)
+  -Organization <text>         O
+  -OU <text>                   OU.            Default: BizDevSecOps
+  -Locality <text>             L.             Default: Tallinn (when no -State)
+  -State <text>                ST
+  -Street <text>               Street address
+  -PostalCode <text>           Postal code
+  -Country <cc>                C.             Default: EE
+  -JurisdictionCountry <cc>    jurisdictionC. Default: EE
+  -JurisdictionState <text>    jurisdictionST
+  -JurisdictionLocality <text> jurisdictionL
+  -Serial <text>               serialNumber (registration number)
+  -BusinessCategory <text>     Private Organization | Government Entity |
+                               Business Entity | Non-Commercial Entity
+  -ContactName <text>          name.            Default: Application Administrator
+  -ContactEmail <text>         emailAddress.    Default: info@nextmantra.com
+  -ContactPhone <text>         telephoneNumber. Default: (+372)53194019
+  -CpsUrl <url>                CPS URI in the certificate policy
 
 KEY AND SIGNATURE
-  -Algorithm RSA|ECC            Default: RSA
-  -Bit <n>                      RSA: 2048, 3072, 4096, 8192 (default 2048)
-                                ECC: 256, 384, 521 (default 256)
-  -Curve P-256|P-384|P-521      ECC curve (alternative to -Bit)
-  -Hash SHA256|SHA384|SHA512    Signature hash. Default: SHA256
+  -Algorithm RSA|ECC           Default: RSA
+  -Bit <n>                     RSA: 2048, 3072, 4096, 8192 (default 2048).
+                               ECC: 256, 384, 521 (default 256).
+                               A value that is not allowed (for example 1024) is
+                               raised to the next allowed size, with a warning.
+  -Curve P-256|P-384|P-521     ECC curve (alternative to -Bit).
+  -Hash SHA256|SHA384|SHA512   Signature hash. Default: SHA256
+  Code signing certificates are always RSA with at least 4096 bits: a missing
+  -Bit, 1024, 2048 or 3072 becomes 4096; -Algorithm ECC still gives RSA 4096 for
+  code signing.
 
 EKU SELECTION
-  (nothing)                     TLS certificate + one certificate per other EKU
-  -TlsOnly                      TLS certificate (serverAuth + clientAuth) only
-  -Eku <name>                   TLS + the named EKU (repeatable):
-                                codeSigning, emailProtection, timeStamping,
-                                smartCardLogon, ipsecIKE, ipsecEndSystem,
-                                ipsecTunnel, ipsecUser, msSGC, nsSGC
+  (nothing)                    TLS certificate + one certificate per other EKU
+  -TlsOnly                     TLS certificate only
+  -Eku <name>                  TLS + the named EKU, repeatable:
+                               codeSigning, emailProtection, timeStamping,
+                               smartCardLogon, ipsecIKE, ipsecEndSystem,
+                               ipsecTunnel, ipsecUser, msSGC, nsSGC
+
+REVOCATION AND ISSUER INFORMATION (from ev_pki.cnf)
+  Every certificate carries CRL distribution points, OCSP responders and CA
+  Issuers locations:
+      CRL     http://crl-01.nextmantra.com/agantra-rsa-ev-ca-g1.crl
+              http://crl-02.nextmantra.com/agantra-rsa-ev-ca-g1.crl
+              http://crl-dev.nextmantra.internal/agantra-rsa-ev-ca-g1.crl
+      OCSP    http://ocsp.nextmantra.internal   http://ocsp.nextmantra.com
+      Issuer  http://crt-01.nextmantra.com/agantra-rsa-ev-ca-g1.crt (and -02, -dev)
+  -NoRevocationInfo            Leave all of them out (use when the hosts do not
+                               exist: Windows reports "revocation server offline"
+                               for client certificates until one is reachable).
+
+PKI LOCATION
+  -AddPkiContentPath <folder>  Issue from an existing PKI folder instead of .\pki.
+                               Needs root\root.crt, intermediate\intermediate.crt
+                               and intermediate\intermediate.key.
+                               (pki_reuse.ps1 -Help checks / adopts / trusts a folder.)
 
 OTHER
-  -Days <n>                     Validity. Default: 397, EV maximum: 398
-  -Force                        Replace an existing output directory
-  -NoPfx                        Do not create PFX files
-                                (the PFX password is asked once; set
-                                 PKI_PFX_PASSWORD for unattended runs)
-  -NoVerify                     Skip verification
-  -Help                         This help
+  -Days <n>                    Validity. Default: 397, EV maximum: 398
+  -Force                       Replace an existing output folder
+  -NoPfx                       Do not create PFX files
+  -LegacyPfx                   Legacy PFX encryption (3DES/RC2/SHA1, needs the OpenSSL
+                               legacy provider): PHP 5 / very old software
+  -NoVerify                    Skip the chain / EV / compatibility verification
+  -Help                        This help
 
-FILES (leafcerts\<name>\)
-  TLS            <name>.key .pub .csr .crt -fullchain.crt .pfx .txt
-  other EKU      <name>-<eku>.key .pub .csr .crt -fullchain.crt .pfx .txt
+EXAMPLES
+  Default TLS + all other EKUs, RSA 2048 (codeSigning RSA 4096):
+    .\GenerateLeafCertificate.ps1 -Domain nextmantra.com -Domain www.nextmantra.com -Force
+
+  Development certificate with the full development SAN set, TLS only:
+    .\GenerateLeafCertificate.ps1 -Domain nextmantra.com -AddDevelopmentSAN -TlsOnly -Force
+
+  ECC P-384 + SHA-384, TLS and code signing:
+    .\GenerateLeafCertificate.ps1 -Domain app.example.com -Algorithm ECC -Bit 384 `
+        -Hash SHA384 -Eku codeSigning -Force
+
+  Wildcard for a lab domain, RSA 3072, no revocation URLs:
+    .\GenerateLeafCertificate.ps1 -WildcardDomain lab.example.local -Bit 3072 `
+        -NoRevocationInfo -TlsOnly -Force
+
+  Different OU, address and contact:
+    .\GenerateLeafCertificate.ps1 -Domain shop.example.com -OU "Web Platform" `
+        -Locality Narva -ContactName "Jane Doe" -ContactEmail jane@example.com
+
+  Issue from a PKI that lives elsewhere:
+    .\GenerateLeafCertificate.ps1 -AddPkiContentPath D:\Backup\pki -Domain api.example.com
+
+COMPATIBILITY
+  The TLS certificate meets the certificate requirements of Chrome / Edge / Brave,
+  Firefox, Safari (macOS, iOS) and Android WebView, and of OpenSSL (Apache, nginx),
+  Schannel (IIS, Kestrel), Node.js, Go, Java and PHP. The Root CA must be installed on
+  every device. See COMPATIBILITY.md for installation steps per platform and
+  configuration snippets per web server.
+
+NOTES
+  * Private PKI: browsers show the company name under "Show certificate"; the
+    "Issued to: <company>" line is only shown for roots in the browser's EV list.
+  * Wildcards, internal names, IP addresses and e-mail SANs are not EV-compliant for
+    public use. They are allowed here and listed as warnings.
 '@ | Write-Host
 }
 
@@ -495,6 +604,15 @@ function Test-DnsName {
 
     if ($Name -eq 'localhost') {
         return $true
+    }
+
+    # Wildcard: *.example.com (a single leading label only).
+    if ($Name.StartsWith('*.')) {
+        $Name = $Name.Substring(2)
+
+        if ($Name.Length -eq 0 -or $Name.Contains('*')) {
+            return $false
+        }
     }
 
     if ($Name -match '^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$') {
@@ -633,6 +751,9 @@ function ConvertTo-SafeFileName {
 
     $Result = $Name
 
+    # A wildcard name becomes _wildcard.example.com
+    $Result = $Result.Replace('*', '_wildcard')
+
     foreach ($Char in $InvalidChars) {
         $Result = $Result.Replace([string]$Char, '_')
     }
@@ -659,13 +780,99 @@ function Get-CertificateSubjectMap {
     return $Map
 }
 
+function Resolve-RsaBits {
+    # Requested size -> an allowed RSA size (2048 / 3072 / 4096 / 8192)
+    # that is not smaller than $Minimum.
+    #
+    #   not defined (<= 0)  -> $Default
+    #   1024                -> 2048  (next allowed size), then $Minimum
+    #   5000                -> 8192
+    param(
+        [int]$Requested,
+        [int]$Minimum,
+        [int]$Default
+    )
+
+    if ($Requested -le 0) {
+        $Result = $Default
+    }
+    else {
+        $Result = $RsaSizes[-1]
+
+        foreach ($Size in $RsaSizes) {
+            if ($Size -ge $Requested) {
+                $Result = $Size
+                break
+            }
+        }
+    }
+
+    if ($Result -lt $Minimum) {
+        $Result = $Minimum
+    }
+
+    return $Result
+}
+
+function Get-CertificateKeySpec {
+    # Key type and size for ONE certificate.
+    #
+    #   TLS / other EKUs : -Algorithm (RSA default), -Bit / -Curve
+    #   codeSigning      : always RSA, at least 4096 bits. A missing or
+    #                      too small -Bit (for example 1024) becomes 4096.
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Target
+    )
+
+    $IsCodeSigning = ($Target -eq 'codesigning')
+
+    if ($IsCodeSigning -or $Algorithm -eq 'RSA') {
+
+        $Minimum = if ($IsCodeSigning) { $CodeSigningMinimumBits } else { 2048 }
+        $Default = $Minimum
+
+        $Requested = if ($Algorithm -eq 'RSA') { $Bit } else { 0 }
+
+        $Bits = Resolve-RsaBits -Requested $Requested -Minimum $Minimum -Default $Default
+
+        $Note = ''
+
+        if ($IsCodeSigning -and $Algorithm -eq 'ECC') {
+            $Note = "Code signing always uses RSA with at least $CodeSigningMinimumBits bits (selected key type was ECC)."
+        }
+        elseif ($Requested -gt 0 -and $Bits -ne $Requested) {
+            $Note = "RSA $Requested bits is not allowed for this certificate; using RSA $Bits."
+        }
+
+        return @{
+            Algorithm    = 'RSA'
+            Bit          = $Bits
+            Curve        = ''
+            OpenSslCurve = ''
+            Note         = $Note
+        }
+    }
+
+    return @{
+        Algorithm    = 'ECC'
+        Bit          = $Bit
+        Curve        = $Curve
+        OpenSslCurve = $OpenSslCurve
+        Note         = ''
+    }
+}
+
 function New-OpenSSLLeafConfig {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path,
 
         [Parameter(Mandatory = $true)]
-        $Spec
+        $Spec,
+
+        [Parameter(Mandatory = $true)]
+        $KeySpec
     )
 
     $Lines = New-Object System.Collections.Generic.List[string]
@@ -709,7 +916,7 @@ function New-OpenSSLLeafConfig {
     # FINAL CERTIFICATE EXTENSIONS
     # --------------------------------------------------------
 
-    $KeyUsage = if ($Algorithm -eq 'ECC') { $Spec.KeyUsageEcc } else { $Spec.KeyUsageRsa }
+    $KeyUsage = if ($KeySpec.Algorithm -eq 'ECC') { $Spec.KeyUsageEcc } else { $Spec.KeyUsageRsa }
 
     $EkuPrefix = if ($Spec.Critical) { 'critical,' } else { '' }
 
@@ -725,6 +932,12 @@ function New-OpenSSLLeafConfig {
     $Lines.Add('authorityKeyIdentifier = keyid,issuer')
     $Lines.Add('subjectAltName = @leaf_san')
     $Lines.Add('certificatePolicies = @ev_policy')
+
+    if (-not $NoRevocationInfo) {
+        $Lines.Add('crlDistributionPoints = @leaf_crl')
+        $Lines.Add('authorityInfoAccess = @leaf_aia')
+    }
+
     $Lines.Add('')
 
     # --------------------------------------------------------
@@ -741,6 +954,42 @@ function New-OpenSSLLeafConfig {
     }
 
     $Lines.Add('')
+
+    # --------------------------------------------------------
+    # CRL distribution points + authority information access
+    # (OCSP and CA Issuers) from ev_pki.cnf
+    # --------------------------------------------------------
+
+    if (-not $NoRevocationInfo) {
+
+        $Lines.Add('[ leaf_crl ]')
+
+        $Number = 1
+
+        foreach ($Uri in $EvProfile.CrlUris) {
+            $Lines.Add("URI.$Number = $Uri")
+            $Number++
+        }
+
+        $Lines.Add('')
+        $Lines.Add('[ leaf_aia ]')
+
+        $Number = 1
+
+        foreach ($Uri in $EvProfile.OcspUris) {
+            $Lines.Add("OCSP;URI.$Number = $Uri")
+            $Number++
+        }
+
+        $Number = 1
+
+        foreach ($Uri in $EvProfile.CaIssuerUris) {
+            $Lines.Add("caIssuers;URI.$Number = $Uri")
+            $Number++
+        }
+
+        $Lines.Add('')
+    }
 
     # --------------------------------------------------------
     # SAN
@@ -795,7 +1044,10 @@ function Test-IssuedEvCertificate {
         [string]$CertificatePath,
 
         [Parameter(Mandatory = $true)]
-        $Spec
+        $Spec,
+
+        [Parameter(Mandatory = $true)]
+        $KeySpec
     )
 
     $Problems = New-Object System.Collections.Generic.List[string]
@@ -816,22 +1068,70 @@ function Test-IssuedEvCertificate {
         [void]$Problems.Add('Subject Alternative Name missing')
     }
 
-    if ($Text -match 'DNS:\*') {
-        [void]$Problems.Add('SAN contains a wildcard name')
+    if (-not $NoRevocationInfo) {
+
+        if ($Text -notmatch 'CRL Distribution Points') {
+            [void]$Problems.Add('CRL Distribution Points missing')
+        }
+
+        if ($Text -notmatch 'Authority Information Access') {
+            [void]$Problems.Add('Authority Information Access (OCSP / CA Issuers) missing')
+        }
+
+        foreach ($Uri in (@($EvProfile.CrlUris) + @($EvProfile.OcspUris) + @($EvProfile.CaIssuerUris))) {
+            if ($Text -notmatch ('URI:' + [regex]::Escape($Uri))) {
+                [void]$Problems.Add("URI $Uri missing")
+            }
+        }
     }
 
     if ($Text -notmatch ('Policy:\s+' + [regex]::Escape($Spec.Policy))) {
         [void]$Problems.Add("EV policy OID $($Spec.Policy) missing")
     }
 
-    if ($Algorithm -eq 'RSA') {
-        if ($Text -notmatch "Public-Key:\s+\($Bit bit\)") {
-            [void]$Problems.Add("RSA key is not $Bit bit")
+    if ($KeySpec.Algorithm -eq 'RSA') {
+        if ($Text -notmatch "Public-Key:\s+\($($KeySpec.Bit) bit\)") {
+            [void]$Problems.Add("RSA key is not $($KeySpec.Bit) bit")
         }
     }
     else {
         if ($Text -notmatch 'id-ecPublicKey') {
             [void]$Problems.Add('public key is not ECC')
+        }
+    }
+
+    # --------------------------------------------------------
+    # Platform compatibility of the TLS certificate (browsers, OS
+    # trust stores and web servers): the certificate properties
+    # that Chrome / Edge / Brave, Firefox, Safari (macOS / iOS),
+    # Android WebView and the OpenSSL / Schannel / Go / .NET TLS
+    # stacks require of a TLS server certificate.
+    # --------------------------------------------------------
+
+    if ($Spec.Slug -eq '') {
+
+        if ($Text -notmatch 'DNS:' -and $Text -notmatch 'IP Address:') {
+            [void]$Problems.Add('compatibility: SAN needs a DNS or IP entry (browsers ignore the common name)')
+        }
+
+        if ($Text -notmatch 'Signature Algorithm:\s+(sha256|sha384|sha512)') {
+            [void]$Problems.Add('compatibility: signature must be SHA-2 (SHA-256 or stronger)')
+        }
+
+        if ($Text -notmatch 'Digital Signature') {
+            [void]$Problems.Add('compatibility: keyUsage must contain digitalSignature')
+        }
+
+        if ($Text -notmatch 'X509v3 Subject Key Identifier' -or $Text -notmatch 'X509v3 Authority Key Identifier') {
+            [void]$Problems.Add('compatibility: Subject / Authority Key Identifier missing (chain building)')
+        }
+
+        $SerialLine = (& $OpenSSL x509 -in $CertificatePath -noout -serial 2>&1) -join ''
+
+        if ($SerialLine -match 'serial=([0-9A-Fa-f]+)') {
+            if ($Matches[1].Length -gt 40) {
+                [void]$Problems.Add('compatibility: serial number is longer than 20 octets')
+            }
         }
     }
 
@@ -878,7 +1178,10 @@ function Test-IssuedEvCertificate {
         'countryName',
         'organizationName',
         'organizationalUnitName',
-        'commonName'
+        'commonName',
+        'name',
+        'emailAddress',
+        'telephoneNumber'
     )) {
         if (-not $Subject.ContainsKey($Required)) {
             [void]$Problems.Add("subject field $Required missing")
@@ -949,10 +1252,6 @@ while ($Index -lt $Arguments.Count) {
                 -Index $Index `
                 -Arguments $Arguments
 
-            if ($Value.Contains('*')) {
-                Fail "Wildcard names are not allowed in an EV certificate: $Value"
-            }
-
             if (-not (Test-DnsName $Value)) {
                 Fail "Invalid DNS domain: $Value"
             }
@@ -965,7 +1264,80 @@ while ($Index -lt $Arguments.Count) {
 
         '^-wildcarddomain$|^-wildcard$' {
 
-            Fail "Wildcard names are not allowed in an EV certificate ($Token). Use explicit -Domain names."
+            # -WildcardDomain example.com  ->  *.example.com and example.com
+            $Value = Test-CommandArgumentValue `
+                -ParameterName $Token `
+                -Index $Index `
+                -Arguments $Arguments
+
+            $BaseDomain = $Value.ToLowerInvariant()
+
+            if ($BaseDomain.StartsWith('*.')) {
+                $BaseDomain = $BaseDomain.Substring(2)
+            }
+
+            if (-not (Test-DnsName $BaseDomain)) {
+                Fail "Invalid DNS domain: $Value"
+            }
+
+            Add-UniqueValue -List $Domains -Value $BaseDomain
+            Add-UniqueValue -List $Domains -Value ('*.' + $BaseDomain)
+
+            $Index += 2
+            continue
+        }
+
+        '^-adddevelopmentsan$' {
+
+            $AddDevelopmentSAN = $true
+
+            $Index++
+            continue
+        }
+
+        '^-norevocationinfo$' {
+
+            $NoRevocationInfo = $true
+
+            $Index++
+            continue
+        }
+
+        '^-legacypfx$' {
+
+            $LegacyPfx = $true
+
+            $Index++
+            continue
+        }
+
+        '^-(addpkicontentpath|pkipath)$' {
+
+            $PkiContentPath = Test-CommandArgumentValue `
+                -ParameterName $Token `
+                -Index $Index `
+                -Arguments $Arguments
+
+            $Index += 2
+            continue
+        }
+
+        '^-contactname$' {
+            $EvOverrides['ContactName'] = Test-CommandArgumentValue -ParameterName $Token -Index $Index -Arguments $Arguments
+            $Index += 2
+            continue
+        }
+
+        '^-contactemail$' {
+            $EvOverrides['ContactEmail'] = Test-CommandArgumentValue -ParameterName $Token -Index $Index -Arguments $Arguments
+            $Index += 2
+            continue
+        }
+
+        '^-contactphone$' {
+            $EvOverrides['ContactPhone'] = Test-CommandArgumentValue -ParameterName $Token -Index $Index -Arguments $Arguments
+            $Index += 2
+            continue
         }
 
         '^-ip4$' {
@@ -1275,6 +1647,31 @@ if ($ShowHelp) {
 }
 
 # ============================================================
+# PKI LOCATION  (-AddPkiContentPath)
+#
+# Use an existing PKI folder instead of .\pki next to this script.
+# The folder needs root\root.crt, intermediate\intermediate.crt and
+# intermediate\intermediate.key (the layout pki_setup.ps1 creates).
+# ============================================================
+
+if ($PkiContentPath -ne '') {
+
+    if (-not (Test-Path -LiteralPath $PkiContentPath -PathType Container)) {
+        Fail "-AddPkiContentPath folder not found: $PkiContentPath"
+    }
+
+    $PKIRoot = (Resolve-Path -LiteralPath $PkiContentPath).Path
+
+    $RootCertificate = Join-Path $PKIRoot 'root/root.crt'
+
+    $IntermediateCertificate = Join-Path $PKIRoot 'intermediate/intermediate.crt'
+
+    $IntermediatePrivateKey = Join-Path $PKIRoot 'intermediate/intermediate.key'
+
+    Info "Using the existing PKI: $PKIRoot"
+}
+
+# ============================================================
 # ENVIRONMENT CHECK
 # ============================================================
 
@@ -1290,7 +1687,7 @@ foreach ($Required in @(
     @($IntermediatePrivateKey, 'Intermediate CA private key')
 )) {
     if (-not (Test-Path -LiteralPath $Required[0] -PathType Leaf)) {
-        Fail "$($Required[1]) not found: $($Required[0])"
+        Fail "$($Required[1]) not found: $($Required[0]). Run pki_setup.ps1 first, or point -AddPkiContentPath at an existing PKI folder (see -Help)."
     }
 }
 
@@ -1298,12 +1695,41 @@ foreach ($Required in @(
 # VALIDATE INPUT
 # ============================================================
 
+if ($AddDevelopmentSAN) {
+
+    if ($Domains.Count -eq 0) {
+        Info 'No -Domain given: the common name will be localhost.'
+        Add-UniqueValue -List $Domains -Value 'localhost'
+    }
+
+    foreach ($Name in ($DevelopmentDns + $DevelopmentWildcardDns)) {
+        Add-UniqueValue -List $Domains -Value $Name
+    }
+
+    foreach ($Address in $DevelopmentIPv4) {
+        Add-UniqueValue -List $IPv4Addresses -Value $Address
+    }
+
+    foreach ($Address in $DevelopmentIPv6) {
+        Add-UniqueValue -List $IPv6Addresses -Value $Address
+    }
+}
+
 if ($Domains.Count -eq 0) {
-    Fail 'At least one -Domain is required.'
+    Fail 'At least one -Domain is required (or use -AddDevelopmentSAN).'
 }
 
 if ([string]::IsNullOrWhiteSpace($CommonName)) {
-    $CommonName = $Domains[0]
+
+    # The first name that is not a wildcard; otherwise the first name.
+    $FirstPlain = @($Domains | Where-Object { -not $_.Contains('*') } | Select-Object -First 1)
+
+    if ($FirstPlain.Count -gt 0) {
+        $CommonName = [string]$FirstPlain[0]
+    }
+    else {
+        $CommonName = $Domains[0]
+    }
 }
 elseif ($CommonName -notin $Domains) {
     Fail "-CommonName '$CommonName' must also be given as a -Domain."
@@ -1325,13 +1751,10 @@ if ($Algorithm -eq 'RSA') {
         Fail '-Curve is only valid with -Algorithm ECC.'
     }
 
-    if ($Bit -eq 0) {
-        $Bit = 2048
-    }
-
-    if ($Bit -notin @(2048, 3072, 4096, 8192)) {
-        Fail "-Bit $Bit is not valid for RSA. Use 2048, 3072, 4096 or 8192."
-    }
+    # The RSA size is resolved per certificate (Get-CertificateKeySpec):
+    # not defined -> 2048 (code signing: 4096); a size that is not allowed,
+    # for example 1024, is raised to the next allowed size (code signing:
+    # at least 4096).
 }
 else {
 
@@ -1411,29 +1834,47 @@ if ($EvProfile.DnFields.Count -eq 0) {
 }
 
 # ============================================================
-# EV WARNINGS
+# KEY SPECIFICATION PER CERTIFICATE
 # ============================================================
 
-foreach ($Domain in $Domains) {
-    if ($Domain -eq 'localhost' -or $Domain -notmatch '\.') {
-        Warn "DNS:$Domain is an internal name. Public EV certificates may not contain it; allowed here because this is a private PKI."
+$KeySpecs = @{}
+
+foreach ($Name in $Targets) {
+    $KeySpecs[$Name] = Get-CertificateKeySpec -Target $Name
+}
+
+# ============================================================
+# NOTICES (private / lab PKI)
+# ============================================================
+
+$WildcardNames = @($Domains | Where-Object { $_.Contains('*') })
+
+$InternalNames = @($Domains | Where-Object { -not $_.Contains('*') -and ($_ -eq 'localhost' -or $_ -notmatch '\.') })
+
+if ($WildcardNames.Count -gt 0) {
+    Warn "$($WildcardNames.Count) wildcard name(s) in the SAN: $($WildcardNames -join ', '). Public EV certificates may not contain wildcards; allowed here because this is a private / lab PKI."
+}
+
+if ($InternalNames.Count -gt 0) {
+    Warn "Internal name(s) in the SAN: $($InternalNames -join ', '). Allowed because this is a private PKI."
+}
+
+if ($IPv4Addresses.Count + $IPv6Addresses.Count -gt 0) {
+    Warn "IP address SAN(s): $((@($IPv4Addresses) + @($IPv6Addresses)) -join ', '). Allowed because this is a private PKI."
+}
+
+if ($EmailAddresses.Count -gt 0) {
+    Warn "E-mail SAN(s): $($EmailAddresses -join ', '). EV TLS certificates normally carry DNS names only; allowed because this is a private PKI."
+}
+
+foreach ($Name in $Targets) {
+    if ($KeySpecs[$Name].Note -ne '') {
+        Warn "$($EkuCatalog[$Name].Label): $($KeySpecs[$Name].Note)"
     }
 }
 
-foreach ($IPv4 in $IPv4Addresses) {
-    Warn "IP:$IPv4 is an IP address. Public EV certificates may not contain it; allowed here because this is a private PKI."
-}
-
-foreach ($IPv6 in $IPv6Addresses) {
-    Warn "IP:$IPv6 is an IP address. Public EV certificates may not contain it; allowed here because this is a private PKI."
-}
-
-foreach ($Email in $EmailAddresses) {
-    Warn "email:$Email is an e-mail name. EV TLS certificates normally carry only DNS names; allowed here because this is a private PKI."
-}
-
-if ('codesigning' -in $Targets -and $Algorithm -eq 'RSA' -and $Bit -lt 3072) {
-    Warn 'EV code signing requires RSA 3072 bits or more; use -Bit 3072 or higher for the code signing certificate.'
+if (-not $NoRevocationInfo) {
+    Warn 'The certificates name CRL / OCSP / CA Issuers URLs (ev_pki.cnf). Windows reports "revocation server offline" for client certificates (IIS, Kestrel mTLS) until one of them is reachable; use -NoRevocationInfo to leave them out.'
 }
 
 # ============================================================
@@ -1445,19 +1886,14 @@ Write-Host 'Certificate Request' -ForegroundColor Yellow
 Write-Host '------------------------------------------------------------'
 
 Write-Host "Common Name       : $CommonName"
-Write-Host "Algorithm         : $Algorithm"
-
-if ($Algorithm -eq 'RSA') {
-    Write-Host "Key Size          : RSA $Bit bit"
-}
-else {
-    Write-Host "Curve             : $Curve (ECC $Bit bit)"
-}
-
+Write-Host "Algorithm         : $Algorithm$(if ($Algorithm -eq 'ECC') { " ($Curve)" })"
 Write-Host "Signature Hash    : $($Hash.ToUpperInvariant())"
 Write-Host "Validity          : $Days days (EV maximum $EvMaxDays)"
+Write-Host "PKI folder        : $PKIRoot"
+Write-Host "Development SAN   : $AddDevelopmentSAN"
+Write-Host "CRL / OCSP / AIA  : $(-not $NoRevocationInfo)"
 Write-Host "Force             : $Force"
-Write-Host "Generate PFX      : $(-not $NoPfx)"
+Write-Host "Generate PFX      : $(-not $NoPfx)$(if ($LegacyPfx) { ' (legacy encryption)' })"
 Write-Host "Verify            : $(-not $NoVerify)"
 
 Write-Host ''
@@ -1482,11 +1918,16 @@ Write-Host ''
 Write-Host 'Certificates to generate:' -ForegroundColor Yellow
 
 foreach ($Name in $Targets) {
-    Write-Host ("  {0,-16} {1}" -f $Name, $EkuCatalog[$Name].Label)
+
+    $Key = $KeySpecs[$Name]
+
+    $KeyText = if ($Key.Algorithm -eq 'RSA') { "RSA $($Key.Bit)" } else { "ECC $($Key.Curve)" }
+
+    Write-Host ("  {0,-16} {1,-38} {2}" -f $Name, $EkuCatalog[$Name].Label, $KeyText)
 }
 
 Write-Host ''
-Write-Host 'DNS SAN:' -ForegroundColor Yellow
+Write-Host "DNS SAN ($($Domains.Count)):" -ForegroundColor Yellow
 
 foreach ($Domain in $Domains) {
     Write-Host "  DNS : $Domain"
@@ -1623,6 +2064,8 @@ try {
 
         $Spec = $EkuCatalog[$Target]
 
+        $KeySpec = $KeySpecs[$Target]
+
         Write-Host ''
         Write-Host '------------------------------------------------------------' -ForegroundColor Cyan
         Write-Host "$($Spec.Label)  [$(($Spec.Oids) -join ', ')]" -ForegroundColor Cyan
@@ -1649,34 +2092,34 @@ try {
 
         Info 'Creating runtime OpenSSL configuration.'
 
-        New-OpenSSLLeafConfig -Path $TempConfig -Spec $Spec
+        New-OpenSSLLeafConfig -Path $TempConfig -Spec $Spec -KeySpec $KeySpec
 
         # ----------------------------------------------------
         # Private key
         # ----------------------------------------------------
 
-        if ($Algorithm -eq 'RSA') {
+        if ($KeySpec.Algorithm -eq 'RSA') {
 
             $KeyArguments = @(
                 'genpkey',
                 '-algorithm', 'RSA',
-                '-pkeyopt', "rsa_keygen_bits:$Bit",
+                '-pkeyopt', "rsa_keygen_bits:$($KeySpec.Bit)",
                 '-out', $PrivateKey
             )
 
-            $KeyOperation = "Generate RSA $Bit-bit private key"
+            $KeyOperation = "Generate RSA $($KeySpec.Bit)-bit private key"
         }
         else {
 
             $KeyArguments = @(
                 'genpkey',
                 '-algorithm', 'EC',
-                '-pkeyopt', "ec_paramgen_curve:$OpenSslCurve",
+                '-pkeyopt', "ec_paramgen_curve:$($KeySpec.OpenSslCurve)",
                 '-pkeyopt', 'ec_param_enc:named_curve',
                 '-out', $PrivateKey
             )
 
-            $KeyOperation = "Generate ECC $Curve private key"
+            $KeyOperation = "Generate ECC $($KeySpec.Curve) private key"
         }
 
         Invoke-OpenSSL -Arguments $KeyArguments -Operation $KeyOperation | Out-Null
@@ -1777,16 +2220,27 @@ try {
 
             $FriendlyName = if ($Spec.Slug -eq '') { $CommonName } else { "$CommonName ($($Spec.Slug))" }
 
+            $PfxArguments = @(
+                'pkcs12', '-export'
+            )
+
+            if ($LegacyPfx) {
+                # Same switch as pki_setup.ps1 -LegacyPfx. Needs the OpenSSL
+                # legacy provider (3DES / RC2 PFX encryption).
+                $PfxArguments += '-legacy'
+            }
+
+            $PfxArguments += @(
+                '-out', $PFX,
+                '-inkey', $PrivateKey,
+                '-in', $Certificate,
+                '-certfile', $IntermediateCertificate,
+                '-name', $FriendlyName,
+                '-passout', "file:$PasswordFile"
+            )
+
             Invoke-OpenSSL `
-                -Arguments @(
-                    'pkcs12', '-export',
-                    '-out', $PFX,
-                    '-inkey', $PrivateKey,
-                    '-in', $Certificate,
-                    '-certfile', $IntermediateCertificate,
-                    '-name', $FriendlyName,
-                    '-passout', "file:$PasswordFile"
-                ) `
+                -Arguments $PfxArguments `
                 -Operation 'Generate password-protected PFX' | Out-Null
 
             if (-not (Test-Path -LiteralPath $PFX -PathType Leaf)) {
@@ -1794,8 +2248,16 @@ try {
             }
 
             # Prove the password actually opens the PFX before reporting success.
+            $PfxCheckArguments = @('pkcs12', '-info')
+
+            if ($LegacyPfx) {
+                $PfxCheckArguments += '-legacy'
+            }
+
+            $PfxCheckArguments += @('-in', $PFX, '-noout', '-passin', "file:$PasswordFile")
+
             Invoke-OpenSSL `
-                -Arguments @('pkcs12', '-info', '-in', $PFX, '-noout', '-passin', "file:$PasswordFile") `
+                -Arguments $PfxCheckArguments `
                 -Operation 'Verify PFX password' | Out-Null
 
             Success "PFX created and password verified: $PFX"
@@ -1811,7 +2273,7 @@ try {
                 -Arguments @('verify', '-CAfile', $RootCertificate, '-untrusted', $IntermediateCertificate, $Certificate) `
                 -Operation 'Verify certificate chain' | Out-Null
 
-            Test-IssuedEvCertificate -CertificatePath $Certificate -Spec $Spec
+            Test-IssuedEvCertificate -CertificatePath $Certificate -Spec $Spec -KeySpec $KeySpec
 
             Success "EV verification passed ($($Spec.Label); policy $($Spec.Policy))."
         }
@@ -1828,13 +2290,13 @@ try {
         $ReportLines.Add("Generated            : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
         $ReportLines.Add("Certificate          : $($Spec.Label)")
         $ReportLines.Add("Common Name          : $CommonName")
-        $ReportLines.Add("Algorithm            : $Algorithm")
+        $ReportLines.Add("Algorithm            : $($KeySpec.Algorithm)")
 
-        if ($Algorithm -eq 'RSA') {
-            $ReportLines.Add("Key Size             : RSA $Bit")
+        if ($KeySpec.Algorithm -eq 'RSA') {
+            $ReportLines.Add("Key Size             : RSA $($KeySpec.Bit)")
         }
         else {
-            $ReportLines.Add("Curve                : $Curve")
+            $ReportLines.Add("Curve                : $($KeySpec.Curve)")
         }
 
         $ReportLines.Add("Signature Hash       : $($Hash.ToUpperInvariant())")
@@ -1845,6 +2307,16 @@ try {
 
         foreach ($Field in $EvProfile.DnFields) {
             $ReportLines.Add(("  {0,-26} = {1}" -f $Field.Key, (ConvertFrom-OpenSslConfValue -Raw $Field.Raw)))
+        }
+
+        if (-not $NoRevocationInfo) {
+            $ReportLines.Add('')
+            $ReportLines.Add('CRL Distribution Points:')
+            foreach ($Uri in $EvProfile.CrlUris) { $ReportLines.Add("  $Uri") }
+            $ReportLines.Add('OCSP:')
+            foreach ($Uri in $EvProfile.OcspUris) { $ReportLines.Add("  $Uri") }
+            $ReportLines.Add('CA Issuers:')
+            foreach ($Uri in $EvProfile.CaIssuerUris) { $ReportLines.Add("  $Uri") }
         }
 
         $ReportLines.Add('')

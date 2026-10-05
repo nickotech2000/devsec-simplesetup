@@ -499,3 +499,88 @@ function New-IntermediateCA {
 # ============================================================
 # END OF 04_CertificateAuthority.ps1
 # ============================================================
+
+
+# ============================================================
+# Publish CRL and CA Issuers files
+#
+# The leaf certificates point at these files through
+# crlDistributionPoints and authorityInfoAccess (ev_pki.cnf):
+#
+#   <crl file name>        DER CRL signed by the Intermediate CA
+#   <crl file name>.pem.crl  the same CRL as PEM (nginx ssl_crl,
+#                            Apache SSLCARevocationFile)
+#   <ca issuer file name>  DER Intermediate CA certificate (AIA caIssuers)
+#   root.crt               Root CA certificate (PEM), for trust installs
+#   README.txt             where each file belongs
+#
+# Copy the files to the hosts named in ev_pki.cnf. Run this step again
+# (openssl ca -gencrl) before the CRL's nextUpdate date passes.
+# ============================================================
+function Publish-PkiCaFiles {
+
+    [CmdletBinding()]
+    param()
+
+    $p  = $script:Pki
+    $ev = $p.Ev
+
+    Ensure-PkiDirectory -Path $p.PublishDir
+
+    $crlDer = Join-Path $p.PublishDir $ev.CrlFileName
+    $crlPem = Join-Path $p.PublishDir ($ev.CrlFileName + '.pem.crl')
+    $caDer  = Join-Path $p.PublishDir $ev.CaIssuerFileName
+    $rootCopy = Join-Path $p.PublishDir 'root.crt'
+
+    Invoke-OpenSSL -Arguments @(
+        'ca', '-gencrl',
+        '-config', $p.RuntimeConfig,
+        '-out', $crlPem
+    ) | Out-Null
+
+    Assert-PkiFile -Path $crlPem
+
+    Invoke-OpenSSL -Arguments @(
+        'crl', '-in', $crlPem, '-inform', 'PEM',
+        '-outform', 'DER', '-out', $crlDer
+    ) | Out-Null
+
+    Assert-PkiFile -Path $crlDer
+
+    Invoke-OpenSSL -Arguments @(
+        'x509', '-in', $p.IntermediateCrt, '-outform', 'DER', '-out', $caDer
+    ) | Out-Null
+
+    Assert-PkiFile -Path $caDer
+
+    Copy-Item -LiteralPath $p.RootCrt -Destination $rootCopy -Force
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $lines.Add('Files to publish for the leaf certificates')
+    $lines.Add('============================================================')
+    $lines.Add('')
+    $lines.Add("CRL (DER)              : $($ev.CrlFileName)")
+    foreach ($u in $ev.CrlUris) { $lines.Add("    served at            : $u") }
+    $lines.Add('')
+    $lines.Add("CA Issuers (DER)       : $($ev.CaIssuerFileName)")
+    foreach ($u in $ev.CaIssuerUris) { $lines.Add("    served at            : $u") }
+    $lines.Add('')
+    $lines.Add('OCSP responders named in the leaf certificates:')
+    foreach ($u in $ev.OcspUris) { $lines.Add("    $u") }
+    $lines.Add('')
+    $lines.Add('A simple OCSP responder for the lab (signs with the Intermediate CA key):')
+    $lines.Add('    openssl ocsp -index <pki>/index.txt -port 2560 -rsigner <pki>/intermediate/intermediate.crt \')
+    $lines.Add('        -rkey <pki>/intermediate/intermediate.key -CA <pki>/intermediate/intermediate.crt')
+    $lines.Add('Put a reverse proxy on ocsp.nextmantra.* that forwards to that port.')
+    $lines.Add('')
+    $lines.Add('Windows reports "revocation server offline" for client certificates when none of the')
+    $lines.Add('CRL / OCSP URLs can be reached. Publish at least one, or accept that for mTLS in IIS')
+    $lines.Add('and Kestrel (see COMPATIBILITY.md).')
+    $lines.Add('')
+    $lines.Add('Regenerate the CRL before its nextUpdate date:')
+    $lines.Add("    openssl ca -gencrl -config $($p.RuntimeConfig) -out <file>.pem.crl")
+
+    Write-Utf8NoBom -Path (Join-Path $p.PublishDir 'README.txt') -Content (($lines -join "`r`n") + "`r`n")
+
+    Write-PkiLog "Published CRL and CA issuer files: $($p.PublishDir)" 'OK'
+}

@@ -36,6 +36,17 @@
 #   - Defaults when a value is not supplied:
 #       OU = BizDevSecOps, L = Tallinn, C = EE, jurisdictionC = EE
 #
+# Deliberate exception (private / development / lab PKI):
+#   - Wildcard DNS names (*.example.local) ARE allowed in the leaf SAN
+#     even though a public EV certificate may not contain them. The
+#     generators print a warning for each wildcard.
+#
+# Revocation / issuer information in every leaf:
+#   - crlDistributionPoints  -> [ leaf_crl ]
+#   - authorityInfoAccess    -> [ leaf_aia ]  (OCSP + CA Issuers)
+#   pki_setup.ps1 writes the matching CRL and CA-issuer files to
+#   pki\publish\ so they can be copied to the web servers named below.
+#
 #   Other EKUs (codeSigning, emailProtection, ...) are NOT put in this
 #   certificate. GenerateLeafCertificate.ps1 issues them as separate
 #   certificates, one file set per EKU.
@@ -84,7 +95,11 @@ unique_subject = no
 copy_extensions = none
 preserve = no
 
-email_in_dn = no
+# yes: the leaf subject carries the contact e-mail address.
+email_in_dn = yes
+
+crlnumber = $dir/crlnumber
+default_crl_days = 365
 
 utf8 = yes
 string_mask = utf8only
@@ -109,6 +124,8 @@ organizationalUnitName  = optional
 commonName              = supplied
 
 emailAddress            = optional
+name                    = optional
+telephoneNumber         = optional
 
 businessCategory        = optional
 serialNumber            = optional
@@ -299,6 +316,10 @@ subjectAltName = @leaf_san
 
 certificatePolicies = @ev_policy
 
+crlDistributionPoints = @leaf_crl
+
+authorityInfoAccess = @leaf_aia
+
 
 # ============================================================
 # EV LEAF CERTIFICATE POLICY
@@ -312,6 +333,48 @@ CPS.1 = https://cps.nextmantra.com/ev_cps.pdf
 
 
 # ============================================================
+# LEAF CRL DISTRIBUTION POINTS
+# ============================================================
+#
+# The CRL is signed by the Intermediate CA, so the file is named after
+# it. pki_setup.ps1 writes pki\publish\agantra-rsa-ev-ca-g1.crl (DER) -
+# copy it to every host below.
+#
+# Windows treats an unreachable CRL as "revocation server offline",
+# which can reject client-certificate (mTLS) logins in IIS / Kestrel.
+# Make at least one URL reachable, or remove the unreachable ones.
+#
+# ============================================================
+
+[ leaf_crl ]
+
+URI.1 = http://crl-01.nextmantra.com/agantra-rsa-ev-ca-g1.crl
+URI.2 = http://crl-02.nextmantra.com/agantra-rsa-ev-ca-g1.crl
+URI.3 = http://crl-dev.nextmantra.internal/agantra-rsa-ev-ca-g1.crl
+
+
+# ============================================================
+# LEAF AUTHORITY INFORMATION ACCESS
+# ============================================================
+#
+# OCSP responders and the CA Issuers (intermediate certificate, DER)
+# download locations. Both families are optional for browsers; Windows
+# uses CA Issuers to build the chain when the intermediate is missing.
+#
+# pki_setup.ps1 writes pki\publish\agantra-rsa-ev-ca-g1.crt (DER).
+#
+# ============================================================
+
+[ leaf_aia ]
+
+OCSP;URI.1 = http://ocsp.nextmantra.internal
+OCSP;URI.2 = http://ocsp.nextmantra.com
+caIssuers;URI.1 = http://crt-01.nextmantra.com/agantra-rsa-ev-ca-g1.crt
+caIssuers;URI.2 = http://crt-02.nextmantra.com/agantra-rsa-ev-ca-g1.crt
+caIssuers;URI.3 = http://crt-dev.nextmantra.internal/agantra-rsa-ev-ca-g1.crt
+
+
+# ============================================================
 # LEAF SUBJECT ALTERNATIVE NAMES
 # ============================================================
 #
@@ -320,8 +383,9 @@ CPS.1 = https://cps.nextmantra.com/ev_cps.pdf
 # Email addresses
 #
 # EV Guidelines allow only registered DNS names here (no wildcard).
-# localhost, IP addresses and e-mail addresses are kept because this
-# is a private PKI, but the generator prints a warning for them.
+# Wildcards (DNS.n = *.example.local), localhost, IP addresses and
+# e-mail addresses are all allowed because this is a private PKI, but
+# the generator prints a warning for each of them.
 #
 # ============================================================
 
@@ -369,6 +433,9 @@ distinguished_name = dn_leaf_ev
 #   L  = Tallinn
 #   C  = EE
 #   jurisdictionCountryName = EE
+#   name            = Application Administrator   (contact name)
+#   emailAddress    = info@nextmantra.com         (contact e-mail)
+#   telephoneNumber = (+372)53194019              (contact phone)
 #
 # Optional fields (add as needed):
 #   ST, street, postalCode, jurisdictionStateOrProvinceName,
@@ -393,6 +460,12 @@ O = Agantra Inovatif OU
 # OU = BizDevSecOps
 
 CN = nextmantra.com
+
+name = Application Administrator
+
+emailAddress = info@nextmantra.com
+
+telephoneNumber = (+372)53194019
 
 
 # ============================================================

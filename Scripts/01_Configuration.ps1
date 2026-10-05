@@ -126,6 +126,8 @@ function Initialize-PkiConfiguration {
     $indexAttrFile   = Join-Path $pkiRoot 'index.txt.attr'
     $serialFile      = Join-Path $pkiRoot 'serial'
     $rootSerialFile  = Join-Path $pkiRoot 'root.serial'
+    $crlNumberFile   = Join-Path $pkiRoot 'crlnumber'
+    $publishDir      = Join-Path $pkiRoot 'publish'
     $manifestFile    = Join-Path $pkiRoot 'pki-manifest.json'
     $telemetryFile   = Join-Path $pkiRoot 'telemetry.json'
 
@@ -333,6 +335,10 @@ function Initialize-PkiConfiguration {
         SerialFile = $serialFile
 
         RootSerialFile = $rootSerialFile
+
+        CrlNumberFile = $crlNumberFile
+
+        PublishDir = $publishDir
 
         ManifestFile = $manifestFile
 

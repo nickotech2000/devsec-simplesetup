@@ -13,7 +13,11 @@
 #   - Apply EV defaults when a value is not defined
 #         OU = BizDevSecOps, L = Tallinn, C = EE, jurisdictionC = EE
 #   - Enforce the EV TLS leaf profile (EKU = serverAuth + clientAuth,
-#     EV policy OID, EV subject fields, no wildcard names)
+#     EV policy OID, EV subject fields). Wildcard names are allowed
+#     (private / lab PKI) and only produce a warning.
+#   - Leaf contact fields default to Application Administrator /
+#     info@nextmantra.com / (+372)53194019
+#   - Read the CRL, OCSP and CA Issuers locations of the leaf
 #   - Load the Root / Intermediate CA subjects (Locality, Jurisdiction,
 #     Serial Number and contact fields) from ev_pki.cnf
 #   - Generate pki/openssl.runtime.cnf         (CA + extensions)
@@ -68,6 +72,28 @@ $script:EvTlsEkuAliases = @{
     'clientauth'           = 'clientAuth'
     '1.3.6.1.5.5.7.3.2'    = 'clientAuth'
 }
+
+# Contact fields carried by every leaf certificate subject.
+$script:LeafContactName  = 'Application Administrator'
+$script:LeafContactEmail = 'info@nextmantra.com'
+$script:LeafContactPhone = '(+372)53194019'
+
+# Used when ev_pki.cnf [ v3_leaf ] has no crlDistributionPoints /
+# authorityInfoAccess entry.
+$script:DefaultCrlUris = @(
+    'http://crl-01.nextmantra.com/agantra-rsa-ev-ca-g1.crl'
+    'http://crl-02.nextmantra.com/agantra-rsa-ev-ca-g1.crl'
+    'http://crl-dev.nextmantra.internal/agantra-rsa-ev-ca-g1.crl'
+)
+$script:DefaultOcspUris = @(
+    'http://ocsp.nextmantra.internal'
+    'http://ocsp.nextmantra.com'
+)
+$script:DefaultCaIssuerUris = @(
+    'http://crt-01.nextmantra.com/agantra-rsa-ev-ca-g1.crt'
+    'http://crt-02.nextmantra.com/agantra-rsa-ev-ca-g1.crt'
+    'http://crt-dev.nextmantra.internal/agantra-rsa-ev-ca-g1.crt'
+)
 
 # Default Root / Intermediate CA subject (item "Locality, Jurisdiction,
 # Serial Number and contact fields"). ev_pki.cnf overrides every value.
@@ -662,6 +688,9 @@ function Get-EvProfile {
         PostalCode           = 'postalCode'
         Organization         = 'O'
         OrganizationalUnit   = 'OU'
+        ContactName          = 'name'
+        ContactEmail         = 'emailAddress'
+        ContactPhone         = 'telephoneNumber'
         Domain               = 'CN'
     }
 
@@ -727,6 +756,10 @@ function Get-EvProfile {
 
     Set-EvDnDefault -Fields $fields -Canonical 'OU'               -Value $script:EvDefaults.OrganizationalUnit  -Applied $applied
 
+    Set-EvDnDefault -Fields $fields -Canonical 'name'             -Value $script:LeafContactName  -Applied $applied
+    Set-EvDnDefault -Fields $fields -Canonical 'emailAddress'     -Value $script:LeafContactEmail -Applied $applied
+    Set-EvDnDefault -Fields $fields -Canonical 'telephoneNumber'  -Value $script:LeafContactPhone -Applied $applied
+
     $fields = Sort-EvDnFields -Fields $fields
 
     # --------------------------------------------------------
@@ -767,6 +800,18 @@ function Get-EvProfile {
 
     if (-not [string]::IsNullOrWhiteSpace($serial) -and ($serial.Length -gt 64 -or $serial -notmatch $script:PrintableStringPattern)) {
         [void]$problems.Add("serialNumber '$serial' must be 1-64 PrintableString characters.")
+    }
+
+    $leafPhone = Get-EvDnValue -Fields $fields -Canonical 'telephoneNumber'
+    if (-not [string]::IsNullOrWhiteSpace($leafPhone)) {
+        if ($leafPhone -notmatch '^[0-9 ()+\-./]{5,32}$' -or ($leafPhone -replace '\D', '').Length -lt 5) {
+            [void]$problems.Add("Contact phone '$leafPhone' is not a valid phone number.")
+        }
+    }
+
+    $leafMail = Get-EvDnValue -Fields $fields -Canonical 'emailAddress'
+    if (-not [string]::IsNullOrWhiteSpace($leafMail) -and $leafMail -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
+        [void]$problems.Add("Contact e-mail '$leafMail' is not a valid e-mail address.")
     }
 
     if ($policyOid -ne $script:EvPolicyOid) {
@@ -870,7 +915,12 @@ function Get-EvProfile {
 
     foreach ($dnsName in $dnsNames) {
         if ($dnsName.Contains('*')) {
-            [void]$problems.Add("DNS name '$dnsName' is a wildcard. EV certificates may not contain wildcard names. Remove it from [ $sanSection ].")
+            if ($dnsName -notmatch '^\*\.[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$') {
+                [void]$problems.Add("DNS name '$dnsName' is not a valid wildcard. Use the form *.example.com.")
+            }
+            else {
+                [void]$warnings.Add("SAN DNS:$dnsName is a wildcard. Public EV certificates may not contain wildcard names; allowed here because this is a private / lab PKI.")
+            }
         }
     }
 
@@ -907,6 +957,53 @@ function Get-EvProfile {
     }
 
     # --------------------------------------------------------
+    # CRL distribution points and authority information access
+    # ([ v3_leaf ] crlDistributionPoints = @section,
+    #  authorityInfoAccess = @section). Falls back to the defaults.
+    # --------------------------------------------------------
+
+    $crlUris      = [System.Collections.Generic.List[string]]::new()
+    $ocspUris     = [System.Collections.Generic.List[string]]::new()
+    $caIssuerUris = [System.Collections.Generic.List[string]]::new()
+
+    $crlEntry = Find-OpenSslIniEntry -Ini $ini -Section 'v3_leaf' -Key 'crlDistributionPoints'
+    $aiaEntry = Find-OpenSslIniEntry -Ini $ini -Section 'v3_leaf' -Key 'authorityInfoAccess'
+
+    if ($null -ne $crlEntry -and $crlEntry.Raw -match '@\s*([A-Za-z0-9_\.\-]+)' -and $ini.Sections.ContainsKey($Matches[1])) {
+        foreach ($e in $ini.Sections[$Matches[1]]) {
+            if ($e.Key -match '^URI\.\d+$') { [void]$crlUris.Add((ConvertFrom-OpenSslConfValue -Raw $e.Raw)) }
+        }
+    }
+
+    if ($null -ne $aiaEntry -and $aiaEntry.Raw -match '@\s*([A-Za-z0-9_\.\-]+)' -and $ini.Sections.ContainsKey($Matches[1])) {
+        foreach ($e in $ini.Sections[$Matches[1]]) {
+            if ($e.Key -match '^OCSP;URI\.\d+$')      { [void]$ocspUris.Add((ConvertFrom-OpenSslConfValue -Raw $e.Raw)) }
+            if ($e.Key -match '^caIssuers;URI\.\d+$') { [void]$caIssuerUris.Add((ConvertFrom-OpenSslConfValue -Raw $e.Raw)) }
+        }
+    }
+
+    $revocationInConfig = ($null -ne $crlEntry -and $null -ne $aiaEntry)
+
+    if (-not $revocationInConfig) {
+        [void]$warnings.Add('[ v3_leaf ] has no crlDistributionPoints / authorityInfoAccess entry. Add: crlDistributionPoints = @leaf_crl and authorityInfoAccess = @leaf_aia (see ev_pki.cnf). Built-in defaults are used by GenerateLeafCertificate.ps1 only.')
+    }
+
+    if ($crlUris.Count -eq 0)      { foreach ($u in $script:DefaultCrlUris)      { [void]$crlUris.Add($u) } }
+    if ($ocspUris.Count -eq 0)     { foreach ($u in $script:DefaultOcspUris)     { [void]$ocspUris.Add($u) } }
+    if ($caIssuerUris.Count -eq 0) { foreach ($u in $script:DefaultCaIssuerUris) { [void]$caIssuerUris.Add($u) } }
+
+    $uriFileName = {
+        param([string]$Uri)
+        try { return [System.IO.Path]::GetFileName(([System.Uri]$Uri).AbsolutePath) } catch { return '' }
+    }
+
+    $crlFileName = & $uriFileName $crlUris[0]
+    if ([string]::IsNullOrWhiteSpace($crlFileName)) { $crlFileName = 'agantra-rsa-ev-ca-g1.crl' }
+
+    $caIssuerFileName = & $uriFileName $caIssuerUris[0]
+    if ([string]::IsNullOrWhiteSpace($caIssuerFileName)) { $caIssuerFileName = 'agantra-rsa-ev-ca-g1.crt' }
+
+    # --------------------------------------------------------
     # Root / Intermediate CA subjects
     # --------------------------------------------------------
 
@@ -940,6 +1037,11 @@ function Get-EvProfile {
         DnsNames      = $dnsNames
         RootDnFields         = $rootDnFields
         IntermediateDnFields = $intermediateDnFields
+        CrlUris              = @($crlUris)
+        OcspUris             = @($ocspUris)
+        CaIssuerUris         = @($caIssuerUris)
+        CrlFileName          = $crlFileName
+        CaIssuerFileName     = $caIssuerFileName
         AppliedDefaults      = @($applied)
         Warnings             = @($warnings)
     }
@@ -962,6 +1064,7 @@ function Initialize-CaDatabase {
     Write-Utf8NoBom -Path $script:Pki.IndexAttrFile -Content "unique_subject = no`r`n"
     Write-Utf8NoBom -Path $script:Pki.SerialFile -Content "1000`r`n"
     Write-Utf8NoBom -Path $script:Pki.RootSerialFile -Content "2000`r`n"
+    Write-Utf8NoBom -Path $script:Pki.CrlNumberFile -Content "01`r`n"
 }
 
 # ============================================================
@@ -1049,7 +1152,9 @@ function New-RuntimeOpenSSLConfig {
         (New-ConfEntry 'policy'          'policy_ev')
         (New-ConfEntry 'unique_subject'  'no')
         (New-ConfEntry 'copy_extensions' 'none')
-        (New-ConfEntry 'email_in_dn'     'no')
+        (New-ConfEntry 'email_in_dn'     'yes')
+        (New-ConfEntry 'crlnumber'       '$dir/crlnumber')
+        (New-ConfEntry 'default_crl_days' '365')
         (New-ConfEntry 'string_mask'     'utf8only')
         (New-ConfEntry 'utf8'            'yes')
     )

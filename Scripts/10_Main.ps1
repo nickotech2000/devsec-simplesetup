@@ -19,6 +19,7 @@ function Invoke-PkiGeneration {
     Invoke-PkiStep -Name 'Generate Root CA' -Action { New-RootCA }
     Invoke-PkiStep -Name 'Generate Intermediate CA' -Action { New-IntermediateCA }
     Invoke-PkiStep -Name 'Generate leaf certificates' -Action { New-AllLeafCertificates }
+    Invoke-PkiStep -Name 'Publish CRL and CA issuer files' -Action { Publish-PkiCaFiles }
     Invoke-PkiStep -Name 'Validate keys, certificates, PFX and chains' -Action { Validate-AllPkiArtifacts }
     if ($script:Pki.InstallTrust) {
         Invoke-PkiStep -Name 'Install PKI trust into LocalMachine stores' -Action { Install-PkiTrust }

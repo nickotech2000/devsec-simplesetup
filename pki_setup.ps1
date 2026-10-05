@@ -15,7 +15,10 @@
 
     Every leaf certificate is an EV TLS certificate (CA/Browser Forum EV
     policy OID 2.23.140.1.1, EKU = serverAuth + clientAuth, EV subject
-    fields, at most 398 days). All EV values are read from ev_pki.cnf. A
+    fields, contact name / e-mail / phone, CRL + OCSP + CA Issuers
+    locations, at most 398 days). Wildcard names in the SAN are allowed
+    (private / lab PKI) and only produce a warning. All EV values are read
+    from ev_pki.cnf. A
     command-line parameter overrides the file only when it is passed
     explicitly. Values that are not defined anywhere default to
     OU = BizDevSecOps, Locality = Tallinn, Country = EE, Jurisdiction = EE.
@@ -25,7 +28,10 @@
     ([ dn_root_ev ] and [ dn_intermediate_ev ] in ev_pki.cnf).
 
     Other EKUs (codeSigning, emailProtection, ...) are issued as separate
-    certificates by GenerateLeafCertificate.ps1.
+    certificates by GenerateLeafCertificate.ps1. An existing PKI folder is
+    reused with pki_reuse.ps1 instead of generating a new one.
+
+    Run  .\pki_setup.ps1 -Help  for the full parameter list and examples.
 .AUTHOR
     Nicko Satria Utama
     Company: Agantra Inovatif OÜ
@@ -52,6 +58,9 @@ param(
     [string]$Street,
     [string]$PostalCode,
     [string]$CpsUrl,
+    [string]$ContactName,
+    [string]$ContactEmail,
+    [string]$ContactPhone,
 
     # ---- Generation settings ----
     [int[]]$LeafSizes = @(2048, 3072, 4096),
@@ -74,66 +83,110 @@ $script:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Show-PkiHelp {
     @'
-Local Windows PKI Generator (EV leaf certificates)
-Author : Nicko Satria Utama
-Company: Agantra Inovatif OÜ (NextMantra)
-Email  : nicko@nextmantra.com
+============================================================
+ pki_setup.ps1 - Local Windows PKI generator (EV leaf certificates)
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+
+WHAT IT DOES
+  Creates a new private PKI in .\pki :
+    Root CA (RSA 8192) -> Intermediate CA (RSA 8192) -> EV leaf certificates
+  plus PFX files, certificate chains, the CRL and CA-issuer files to publish,
+  a validation report, and (optional) trust in the Windows certificate stores.
+
+  Every leaf certificate is an EV TLS certificate:
+    EKU = serverAuth + clientAuth, policy 2.23.140.1.1, full EV subject,
+    contact name / e-mail / phone, CRL + OCSP + CA Issuers locations,
+    at most 398 days. Wildcard SAN names are allowed (private / lab PKI).
+  Other EKUs (codeSigning, emailProtection, ...) are made by
+  GenerateLeafCertificate.ps1, one certificate and one file set per EKU.
 
 USAGE
-  .\pki_setup.ps1
-  .\pki_setup.ps1 -InstallTrust
-  .\pki_setup.ps1 -Clean -InstallTrust
-  .\pki_setup.ps1 -Serial 16543210 -Locality Tallinn
-  .\pki_setup.ps1 -RemoveTrust
-  .\pki_setup.ps1 -RemoveAllTrust
-  .\pki_setup.ps1 -Verbose
+  .\pki_setup.ps1                              generate (RSA 2048, 3072, 4096 leaves)
+  .\pki_setup.ps1 -LeafSizes 2048              one leaf size only
+  .\pki_setup.ps1 -InstallTrust                generate, then trust in Windows (admin)
+  .\pki_setup.ps1 -Clean -InstallTrust         remove the old PKI first, then regenerate
+  .\pki_setup.ps1 -Domain app.example.com -Serial 16543210
+  .\pki_setup.ps1 -RemoveTrust                 remove the current PKI from Windows
+  .\pki_setup.ps1 -RemoveAllTrust              remove every matching PKI from Windows
+  .\pki_setup.ps1 -Verbose                     show OpenSSL commands and details
+  .\pki_setup.ps1 -Help                        this help
 
-EV SUBJECT OPTIONS
-  Every value defaults to [ dn_leaf_ev ] in ev_pki.cnf. A parameter
-  overrides the file only when it is passed explicitly.
+SUBJECT / EV OPTIONS
+  Each value defaults to ev_pki.cnf. A parameter overrides the file only when
+  it is passed on the command line.
 
-  -Domain <string>              Leaf CN and DNS SAN (also adds www.<domain>).
-  -Organization <string>        Subject O.
-  -OrganizationalUnit <string>  Subject OU. Default: BizDevSecOps
-  -Country <string>             Subject C (ISO 3166 alpha-2). Default: EE
-  -Serial <string>              Subject serialNumber (registration number).
-  -BusinessCategory <string>    Private Organization | Government Entity |
-                                Business Entity | Non-Commercial Entity
-  -JurisdictionCountry <string> jurisdictionC (ISO 3166 alpha-2). Default: EE
-  -JurisdictionState <string>   jurisdictionST.
-  -JurisdictionLocality <string> jurisdictionL.
-  -State <string>               Subject ST.
-  -Locality <string>            Subject L. Default: Tallinn
-  -Street <string>              Subject street address.
-  -PostalCode <string>          Subject postal code.
-  -CpsUrl <string>              CPS URI in the certificate policy.
+  -Domain <name>               Leaf CN and DNS SAN (also adds www.<name>).
+  -Organization <text>         O.
+  -OrganizationalUnit <text>   OU.                       Default: BizDevSecOps
+  -Country <cc>                C (ISO 3166 alpha-2).      Default: EE
+  -Locality <text>             L.                         Default: Tallinn
+  -State <text>                ST.
+  -Street <text>               Street address.
+  -PostalCode <text>           Postal code.
+  -JurisdictionCountry <cc>    jurisdictionC.             Default: EE
+  -JurisdictionState <text>    jurisdictionST.
+  -JurisdictionLocality <text> jurisdictionL.
+  -Serial <text>               serialNumber (registration number).
+  -BusinessCategory <text>     Private Organization | Government Entity |
+                               Business Entity | Non-Commercial Entity
+  -CpsUrl <url>                CPS URI in the certificate policy.
+  -ContactName <text>          Leaf contact name.         Default: Application Administrator
+  -ContactEmail <text>         Leaf contact e-mail.       Default: info@nextmantra.com
+  -ContactPhone <text>         Leaf contact phone.        Default: (+372)53194019
+
+  Root and Intermediate CA subjects ([ dn_root_ev ] / [ dn_intermediate_ev ] in
+  ev_pki.cnf) carry Locality Tallinn, Jurisdiction EE, Serial Number
+  EEARIREG.17344131 and the CA contact name / e-mail / phone.
 
 GENERATION OPTIONS
-  -LeafSizes <int[]>            RSA sizes. Default: 2048,3072,4096
-  -RootDays <int>               Root validity. Default: 3650
-  -IntDays <int>                Intermediate validity. Default: 3650
-  -LeafDays <int>               Leaf validity. Default: 397, EV maximum: 398
-  -Password <string>            PFX password. Default: Abc12345!
-  -LegacyPfx                    Use OpenSSL legacy PFX algorithms.
-  -InstallTrust                 Import Root/Intermediate/leaf certificates.
-  -Clean                        Remove current trust/output before generation.
-  -RemoveTrust                  Remove only the current generated PKI trust.
-  -RemoveAllTrust               Remove matching PKI certificates from stores.
-  -Verbose                      Show detailed execution information.
-  -Help                         Show this help.
-  -?                            PowerShell parameter help.
+  -LeafSizes <int[]>   RSA leaf sizes.                    Default: 2048,3072,4096
+  -RootDays <int>      Default 3650. Only used to check that -IntDays / -LeafDays fit;
+  -IntDays <int>       Default 3650. the CA certificates themselves are valid 500 years
+                       (Root) and 250 years (Intermediate), set in
+                       scripts\04_CertificateAuthority.ps1.
+  -LeafDays <int>      Leaf validity in days.             Default: 397 (EV maximum 398)
+  -Password <text>     PFX password.                      Default: Abc12345!
+  -LegacyPfx           Legacy PFX encryption (3DES/RC2/SHA1) for very old software.
 
-EV LEAF PROFILE
-  EKU is exactly serverAuth + clientAuth, policy 2.23.140.1.1, no
-  wildcard names, at most 398 days. Root/Intermediate subjects are read
-  from [ dn_root_ev ] / [ dn_intermediate_ev ] (Locality, Jurisdiction,
-  Serial Number, contact name / e-mail / phone).
+TRUST / CLEANUP (need an elevated PowerShell)
+  -InstallTrust        Root -> LocalMachine\Root, Intermediate -> LocalMachine\CA,
+                       leaf PFX -> LocalMachine\My.
+  -Clean               Remove the current PKI trust and output before generating.
+  -RemoveTrust         Remove only the current PKI from the Windows stores.
+  -RemoveAllTrust      Remove every certificate that matches this PKI's identity.
+
+OTHER
+  -Verbose             Detailed execution information.
+  -Help                This help.      -?   PowerShell parameter help.
+
+OUTPUT (.\pki)
+  root\root.crt/.key/.pfx                 Root CA
+  intermediate\intermediate.crt/.key/.pfx Intermediate CA
+  leaf\<domain>-<size>.crt/.key/.pfx/...  EV leaf certificates
+  publish\                                CRL (.crl), CA issuer (.crt), root.crt, README.txt
+  openssl.runtime.cnf, *.req.cnf          generated OpenSSL configuration
+  pki-manifest.json, telemetry.json       what was generated
+
+RELATED SCRIPTS
+  GenerateLeafCertificate.ps1 -Help   issue more leaf certificates (RSA/ECC, SHA-2,
+                                      codeSigning ..., development SAN set)
+  pki_reuse.ps1 -Help                 reuse an EXISTING PKI folder (check, adopt, trust)
+  COMPATIBILITY.md                    browsers, devices, web servers
 
 IMPORTANT
-  ev_pki.cnf must sit next to this script (UTF-8, no BOM) and contain
-  [ dn_leaf_ev ], [ v3_leaf ], [ ev_policy ] and [ leaf_san ].
-  Certificate-store operations require an elevated PowerShell session.
-  The script never prints the PFX password.
+  * ev_pki.cnf must sit next to this script (UTF-8, no BOM). It holds [ dn_leaf_ev ],
+    [ v3_leaf ], [ ev_policy ], [ leaf_san ], [ leaf_crl ] and [ leaf_aia ].
+  * The CRL / OCSP / CA Issuers URLs in the certificates are only useful when the
+    files in .\pki\publish are served there. Windows reports "revocation server
+    offline" for client certificates until at least one is reachable.
+  * This is a PRIVATE PKI. Browsers show the company name only under "Show
+    certificate"; the "Issued to: <company>" line is reserved for EV certificates
+    that chain to a root in the browser's built-in EV list.
+  * Certificate-store operations require Administrator. The PFX password is never
+    printed.
 '@ | Write-Host
 }
 
@@ -147,7 +200,8 @@ $evOverrides = @{}
 foreach ($name in @(
     'Domain', 'Organization', 'OrganizationalUnit', 'Country', 'Serial', 'BusinessCategory',
     'JurisdictionCountry', 'JurisdictionState', 'JurisdictionLocality',
-    'State', 'Locality', 'Street', 'PostalCode', 'CpsUrl'
+    'State', 'Locality', 'Street', 'PostalCode', 'CpsUrl',
+    'ContactName', 'ContactEmail', 'ContactPhone'
 )) {
     if ($PSBoundParameters.ContainsKey($name)) {
         $evOverrides[$name] = [string]$PSBoundParameters[$name]
