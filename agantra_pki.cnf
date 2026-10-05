@@ -1,0 +1,269 @@
+# ============================================================
+# Agantra Inovatif PKI configuration  (agantra_pki.cnf)
+#
+# Project : Agantra Inovatif DevSecOps Small Project
+# Company : Agantra Inovatif OU (NextMantra)
+# Author  : Nicko Satria Utama
+# Email   : nicko@nextmantra.com
+#
+# Replaces ev_pki.cnf. pki_setup.ps1 reads this file by default;
+# pass -ConfigFile <path> to use another one.
+#
+# HOW IT IS USED
+#   The PowerShell scripts read the sections below and WRITE a
+#   separate OpenSSL configuration for every CA and every leaf. This
+#   file is therefore never passed to OpenSSL directly, but it keeps
+#   OpenSSL syntax so it stays editable and diff-friendly.
+#
+# PRECEDENCE   command-line parameter > this file > built-in default
+#
+# OpenSSL 4.x ONLY
+#   * The ENGINE API is gone. Nothing here, and nothing the scripts
+#     generate, uses "openssl engine" or OPENSSL_NO_ENGINE.
+#   * All algorithms come from native providers (default, fips, base).
+#     Third-party providers (oqsprovider) are not used.
+#
+# PRIVATE PKI
+#   Trusted only on machines where the Enterprise Root CA is
+#   installed. No browser shows the EV company line for a private root.
+# ============================================================
+
+
+# ============================================================
+# GENERAL SETTINGS  (all optional; defaults shown)
+# ============================================================
+#
+# Hierarchy and validity (years, from the moment of generation):
+#   Enterprise Root 1000 -> Track Root 500 -> Quadrant Root 400
+#   -> Intermediate 250 -> Leaf (days)
+# Each level must be shorter than the level above it.
+#
+# Algorithms:
+#   ROOT KEYS ARE FIXED BY POLICY and cannot be changed here:
+#       Enterprise Root, Track Roots, Quadrant Roots
+#         RSA      8192 bit    SHA-512     Enterprise Root, Classic Track Root, Q1
+#         ECDSA    P-521       SHA-512     Q2  (Classic FIPS)
+#         ML-DSA   ML-DSA-87   no digest   Quantum Track Root, Q3 (non-FIPS), Q4 (FIPS)
+#   Below the roots (changeable):
+#       IntermediateRsaBits   RSA size of the Q1 intermediates (4096 | 8192).
+#       IntermediateCurve     EC curve of the Q2 intermediates (P-256 | P-384 | P-521).
+#       PqcAlgorithm          ML-DSA parameter set of the Q3 / Q4 intermediates (mldsa44 | 65 | 87).
+#       PqcLeafAlgorithm      ML-DSA parameter set of the Q3 / Q4 leaves (default mldsa65).
+#       FallbackRsaBits       only used with -PqcFallback (see below): 4096 | 8192.
+#
+#   The whole Quantum track uses ML-DSA. If this OpenSSL cannot create an ML-DSA key the script
+#   STOPS. Only the -PqcFallback switch lets it create an RSA key instead (not quantum-safe).
+#   ML-DSA certificates: stored and validated by Windows 11 24H2+ / Server 2025 and OpenSSL 3.5+;
+#   Windows TLS (Schannel) and the browsers do not accept them for HTTPS yet.
+#
+# Digests (signature on the CA certificates):
+#   Every root-level CA     SHA-512 (RSA / ECDSA); ML-DSA signs without a digest
+#   Intermediates + leaves  SHA-256 (RSA), SHA-384 (EC), none (ML-DSA)
+# ============================================================
+
+[ pki_settings ]
+
+IntermediateRsaBits = 4096
+IntermediateCurve   = P-384
+PqcAlgorithm        = mldsa87
+PqcLeafAlgorithm    = mldsa65
+FallbackRsaBits     = 8192
+
+RootYears        = 1000
+TrackYears       = 500
+QuadrantYears    = 400
+IntYears         = 250
+
+# Leaf (end-entity) validity, used when no parameter is given:
+#   EV  397 days  (-LeafDays, maximum 398)     OV  3 years     DV  5 years
+LeafDays         = 397
+OvLeafYears      = 3
+DvLeafYears      = 5
+
+
+# Organizational Unit per CA layer (names of the CAs themselves: section [ ca_names ] below)
+OU_Root          = Root-Certs
+OU_Track         = Track-Roots
+OU_Quadrant      = Quadrant-Roots
+OU_Intermediate  = Intermediate-CA
+
+# Subject of the CA certificates (Root, Track, Quadrant, Intermediate)
+Organization     = Agantra Inovatif OU
+Country          = EE
+State            = Tallinn
+Locality         = Tallinn
+CaSerialNumber   = EEARIREG.17344131
+JurisdictionCountry = EE
+CaContactName    = Nicko Satria Utama
+CaContactEmail   = nicko@nextmantra.com
+CaContactPhone   = (+372)53194019
+
+# Certificate policy statement (CPS) put on the first policy
+CpsUrl           = https://cps.nextmantra.com/ev_cps.pdf
+
+
+# ============================================================
+# CA NAMES  (common names and file-name stems of all roots and intermediates)
+#
+# The defaults live in scripts\01b_CaNaming.ps1. Everything below is OPTIONAL: remove the "#"
+# of a line to change it. Tokens in a template:
+#   {Prefix} {QuantumLabel} {Gen} {N} {Level} {Algorithm} {Track} {Id}
+# A common name may not be longer than 64 characters and every CA needs a different one.
+# Preview without generating:   .\pki_setup.ps1 -ShowNames
+# ============================================================
+
+[ ca_names ]
+
+# Prefix         = Agantra Inovatif
+# QuantumLabel   = PQC-PostQuantum
+# SlugPrefix     = agantra
+# GenEnterprise  = G1
+# GenClassic     = G1
+# GenQuantum     = G2
+
+# EnterpriseRoot      = {Prefix} Enterprise Root CA {Gen}
+# ClassicTrackRoot    = {Prefix} Enterprise Classic Root CA {Gen}
+# QuantumTrackRoot    = {Prefix} Enterprise {QuantumLabel} Root CA {Gen}
+# ClassicQuadrantRoot = {Prefix} Enterprise Classic Q{N} Root CA {Gen}
+# QuantumQuadrantRoot = {Prefix} Enterprise {QuantumLabel} Q{N} Root CA {Gen}
+# Intermediate        = {Prefix} {Level} {Algorithm} {Gen} CA
+
+
+# ============================================================
+# POLICY OIDs  (the EV policy is REQUIRED)
+#
+# Every certificate of the PKI carries the policy of its level, so a client or an
+# application can tell what kind of certificate it has:
+#   Roots and Track / Quadrant Roots   EV + OV + DV
+#   Intermediate                       its own level
+#   EV leaf                            EV
+# Defaults are the CA/Browser Forum OIDs. Keep them unless your own applications look for
+# a different value. EV, OV and DV must be different and valid OIDs.
+# ============================================================
+
+[ policy_oids ]
+
+EV = 2.23.140.1.1
+OV = 2.23.140.1.2.2
+DV = 2.23.140.1.2.1
+
+
+# ============================================================
+# IANA PRIVATE ENTERPRISE NUMBER (PEN)  -  leave PEN blank until you have it
+#
+# Register at https://www.iana.org/assignments/enterprise-numbers
+# When PEN is filled in (or -IanaPen is used), these policies are added to the certificates:
+#     1.3.6.1.4.1.<PEN>.<PenPolicyArc>        company policy   (every certificate)
+#     1.3.6.1.4.1.<PEN>.<PenPolicyArc>.1      EV level         (roots, EV intermediates, EV leaves)
+#     1.3.6.1.4.1.<PEN>.<PenPolicyArc>.2      OV level         (roots, OV intermediates, OV leaves)
+#     1.3.6.1.4.1.<PEN>.<PenPolicyArc>.3      DV level         (roots, DV intermediates, DV leaves)
+# so your own applications can recognise a company EV certificate by its OID.
+# ============================================================
+
+[ iana_pen ]
+
+PEN           =
+PenPolicyArc  = 1
+
+
+# ============================================================
+# CUSTOM CERTIFICATE POLICIES  (optional)
+#
+# Every policy listed here is written into EVERY certificate of the
+# PKI: Enterprise Root, Track Roots, Quadrant Roots, Intermediates and
+# all leaves (GenerateLeafCertificate.ps1 can add more per leaf).
+#
+# Format:   <label> = <policy OID> [ | <CPS URL> ]
+#
+# For extra policies of your own (the [ iana_pen ] section above already adds the standard
+# company policies once PEN is set):
+#   1.3.6.1.4.1.<PEN>.<your numbers>
+#
+# Remove the leading "#" to enable. 99999 is a placeholder, NOT a real PEN.
+# ============================================================
+
+[ custom_policies ]
+
+# CompanyPEN  = 1.3.6.1.4.1.99999.1 | https://cps.nextmantra.com/company-policy.pdf
+# PersonalPEN = 1.3.6.1.4.1.99999.2
+
+
+# ============================================================
+# REVOCATION AND ISSUER LOCATIONS
+#
+# "{ca}" is replaced by the file name stem of the ISSUING CA, for
+# example agantra-q1-ev-g1. pki_setup.ps1 writes the matching CRL and
+# CA-issuer files to pki\publish\ - copy them to these hosts.
+#
+# Windows reports "revocation server offline" for client certificates
+# until at least one URL answers (IIS / Kestrel mutual TLS).
+# ============================================================
+
+[ crl_urls ]
+
+URI.1 = http://crl-01.nextmantra.com/{ca}.crl
+URI.2 = http://crl-02.nextmantra.com/{ca}.crl
+URI.3 = http://crl-dev.nextmantra.internal/{ca}.crl
+
+[ ocsp_urls ]
+
+URI.1 = http://ocsp.nextmantra.internal
+URI.2 = http://ocsp.nextmantra.com
+
+[ ca_issuer_urls ]
+
+URI.1 = http://crt-01.nextmantra.com/{ca}.crt
+URI.2 = http://crt-02.nextmantra.com/{ca}.crt
+URI.3 = http://crt-dev.nextmantra.internal/{ca}.crt
+
+
+# ============================================================
+# LEAF SUBJECT ALTERNATIVE NAMES (default SAN set)
+# Wildcards, localhost, IP addresses and e-mail addresses are allowed
+# in this private PKI; the generators print a warning for wildcards.
+# ============================================================
+
+[ leaf_san ]
+
+DNS.1 = nextmantra.com
+DNS.2 = www.nextmantra.com
+DNS.3 = localhost
+
+IP.1 = 127.0.0.1
+
+email.1 = nicko@nextmantra.com
+
+
+# ============================================================
+# LEAF SUBJECT FIELDS
+#
+# [ subject_ov ] is the base. [ subject_ev ] adds the EV fields on top.
+# Anything missing falls back to the value shown here.
+# CN empty = first DNS name of the SAN (or the Organization when the
+# certificate has no DNS name).
+# ============================================================
+
+[ subject_ov ]
+
+CN           =
+O            = Agantra Inovatif OU
+L            = Tallinn
+ST           = Tallinn
+C            = EE
+postalCode   = 15199
+ContactPhone = (+372)53194019
+ContactName  = BizDevSecOps Administrator
+ContactEmail = info@nextmantra.com
+
+[ subject_ev ]
+
+serialNumber                    = 17344131
+businessCategory                = Private Organization
+jurisdictionCountryName         = EE
+jurisdictionStateOrProvinceName = Tallinn
+DUNS                            =
+
+
+# ============================================================
+# END OF CONFIGURATION
+# ============================================================

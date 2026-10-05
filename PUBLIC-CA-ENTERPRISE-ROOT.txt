@@ -1,0 +1,288 @@
+====================================================================================================
+ ENTERPRISE ROOT SIGNED BY A PUBLIC CA  (DigiCert, GlobalSign, Sectigo, ...)
+====================================================================================================
+ Version 4.5.2-phaseA      2026-10-05      pki_setup.ps1 + scripts\13_ExternalRoot.ps1
+ Owner  : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Related: pki_setup-MANUAL.txt, PKI-Design-with-FIPS-and-PQC.txt, .\pki_setup.ps1 -Help
+
+ CONTENTS
+    1  Summary                                     7  Step by step, model B (cross-sign)
+    2  What changes for your clients               8  What the script checks and refuses
+    3  Read this first (cautions)                  9  Effect on validity, trust stores, files
+    4  The two models                             10  Test it without a public CA (rehearsal)
+    5  Which level to sign                        11  Renewal, limits, what is NOT automated
+    6  Step by step, model A (subordinate CA)     12  Troubleshooting
+
+
+====================================================================================================
+ 1  SUMMARY
+====================================================================================================
+ By default the Enterprise Root is SELF-SIGNED: every client must install it. You can instead let a
+ public CA sign it, so clients that already trust that public CA accept your whole PKI without
+ installing anything.
+
+ The script prepares the process; the public CA does the signing:
+
+   Model A  .\pki_setup.ps1 -EnterpriseRootCsr  ...      makes the key and the request (root.csr)
+            (send root.csr)       (the CA signs it)
+            .\pki_setup.ps1 -ImportEnterpriseRoot <signed.pem> -ExternalChain <chain.pem>
+                                                          checks it, then builds all CAs under it
+
+   Model B  .\pki_setup.ps1 -CrossSignCsr                request for the SAME key as your existing root
+            (send root-cross.csr) (the CA signs it)
+            .\pki_setup.ps1 -ImportCrossCert <cross.pem> -ExternalChain <chain.pem>
+                                                          stores it, writes <leaf>-fullchain-cross.crt
+
+ Tested here against a local stand-in for a public CA (section 10). NOT tested against DigiCert,
+ GlobalSign or Sectigo: I did not verify which products they offer for this purpose, their prices,
+ or their key-size / path-length rules. Section 3 lists what to ask them.
+
+
+====================================================================================================
+ 2  WHAT CHANGES FOR YOUR CLIENTS
+====================================================================================================
+ Self-signed (default)                      Signed by a public CA
+ -----------------------------------------  -----------------------------------------------------
+ Install the Enterprise Root on every       Clients that trust the public root need NOTHING.
+ client (Windows store, Firefox, Java ...)  Servers must send the chain, which now includes the
+                                            Enterprise Root and the public CA's intermediate(s).
+ Enterprise Root is in  LocalMachine\Root   Enterprise Root is an INTERMEDIATE: LocalMachine\CA
+ Valid up to 1000 years                     Valid only as long as the public CA grants it
+ You decide every policy                    The public CA decides pathlen, EKU, name constraints,
+                                            validity, and what it audits
+
+ Browsers, Windows, macOS and Java trust the big public roots already, so this is the way to have a
+ private hierarchy work on devices you do not control (customers, partners). It does not make your
+ EV certificates show an EV badge: that depends on the public CA's own EV program.
+
+
+====================================================================================================
+ 3  READ THIS FIRST  (cautions)
+====================================================================================================
+ 1. A CA signed by a PUBLIC root is part of the public web PKI. Unless it is technically constrained,
+    a certificate it issues is trusted by EVERY browser, for ANY name. Public CAs therefore impose the
+    CA/B Forum Baseline Requirements, often an audit (WebTrust / ETSI), and usually a TECHNICALLY
+    CONSTRAINED profile: name constraints limiting the DNS names to your domains, and an EKU.
+    Expect that, and expect to be asked how the key is protected (many CAs want it in an HSM).
+ 2. Public TLS rules then apply to every leaf under it: validity at most 398 days (not DV 5 years / OV
+    3 years), no wildcard or internal names the CA does not allow, no SHA-1, CRL / OCSP that works.
+ 3. Settings of this PKI that do not fit a public hierarchy:
+        1000 / 500 / 400 / 250 years        every CA is shortened to the public certificate's end date
+        ML-DSA Quantum quadrants            no browser accepts ML-DSA chains: build with -ClassicPKI
+        DV 5 y / OV 3 y leaves              not allowed for public TLS
+        EV / OV / DV policies               the public CA decides which policies it recognises
+    RECOMMENDED COMBINATION:  -ClassicPKI  (Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV
+    intermediates, RSA only) with -EnterpriseRootKeyBits 4096.
+ 4. RSA 8192 and ECDSA P-521 keys are often not accepted by public CAs (4096 / P-384 is typical).
+    The script lets the Enterprise Root key be RSA 4096 in this mode (-EnterpriseRootKeyBits 4096).
+    Everything below it keeps the normal key policy.
+ 5. Ask the CA (the request sheet repeats this list):
+        - Do you sign a customer's subordinate CA / cross-certificate at all, and under which product,
+          contract and price? (Names differ: private / dedicated SubCA, managed PKI, cross-certificate.)
+        - Is a software key accepted, or must it be generated in an HSM / key ceremony?
+        - Which key sizes? Which pathlen? (This PKI needs pathlen >= 3 at the Enterprise Root, section 5.)
+        - Which EKU and name constraints will the certificate carry?
+        - Maximum validity? Maximum leaf validity? Audit obligations? Revocation (CRL / OCSP) duties?
+        - PEM or DER, and which chain file (intermediates + root) do you deliver?
+
+
+====================================================================================================
+ 4  THE TWO MODELS
+====================================================================================================
+ MODEL A - SUBORDINATE  (-EnterpriseRootCsr / -ImportEnterpriseRoot)
+   The Enterprise Root is created WITHOUT a self-signed certificate: only a key and a request. The public
+   CA issues the certificate. From then on the Enterprise Root is a normal intermediate and the rest of
+   the PKI is built under it. Use when the public chain should be THE chain of this PKI.
+
+ MODEL B - CROSS-SIGN  (-CrossSignCsr / -ImportCrossCert)
+   Your self-signed Enterprise Root stays as it is. The public CA issues a SECOND certificate for the
+   SAME key and subject. Two worlds then work at once:
+        clients that installed your Enterprise Root       use the normal  -fullchain.crt
+        clients that only trust the public root           use the new     -fullchain-cross.crt
+   Use when you already have a PKI in service and want to open it to clients you do not control, without
+   changing a single existing certificate. Nothing below the root has to be re-issued.
+
+
+====================================================================================================
+ 5  WHICH LEVEL TO SIGN
+====================================================================================================
+   Enterprise Root (level 0)  ->  Track Root (1)  ->  Quadrant Root (2)  ->  Intermediate (3)  ->  leaf
+
+ The script signs at level 0. A CA certificate may only be followed by as many CAs as its pathlen
+ allows, so the public certificate needs  pathlen >= 3  (Track, Quadrant, Intermediate below it).
+ The script refuses anything lower, with the reason.
+
+ Public CAs often issue subordinate CAs with pathlen 0 (they can only issue leaves) or 1. If that is
+ all you can get, level 0 is not usable. The alternatives (NOT automated by this script, they need a
+ CSR from the lower CA and a decision about your hierarchy):
+        sign the Q1 ROOT          pathlen >= 1   (Q1 Root -> Intermediates -> leaf)
+        sign the EV / OV / DV INTERMEDIATE   pathlen 0   (the CA only issues leaves)
+ Tell me if you need one of these; it changes where the public chain starts, not how the leaves look.
+
+
+====================================================================================================
+ 6  STEP BY STEP, MODEL A  (subordinate CA)
+====================================================================================================
+ Recommended form (Classic PKI, key 4096, label the CA you talk to):
+
+   1. Create the key and the request
+        .\pki_setup.ps1 -ClassicPKI -EnterpriseRootCsr -ExternalCa DigiCert -EnterpriseRootKeyBits 4096
+      (-ExternalCa takes DigiCert, GlobalSign, Sectigo or Other; it only names the CA in the sheet.)
+      Result in pki\root\:
+        root.key                 the PRIVATE KEY. Never send it. Back it up offline, encrypted.
+        root.csr                 the request to send
+        external-request.txt     the sheet: subject, key, what to ask, next command
+        external-state.json      remembers the choices (-ClassicPKI, key size, CA)
+        root.cnf                 OpenSSL configuration
+
+   2. Send root.csr to the public CA. Receive the signed certificate and the chain (intermediates + root).
+      Save them anywhere, for example  C:\pki-in\signed.pem  and  C:\pki-in\chain.pem.
+
+   3. Import and build  (the Classic PKI choice is taken from the request; you may repeat -ClassicPKI)
+        .\pki_setup.ps1 -ImportEnterpriseRoot C:\pki-in\signed.pem -ExternalChain C:\pki-in\chain.pem -InstallTrust
+      The script checks the certificate (section 8), copies it to pki\root\root.crt, the chain to
+      pki\root\external-chain.pem, builds Track Root, Q1 Root, DV / OV / EV intermediates and the default
+      EV leaf, validates everything and installs it in the Windows stores.
+
+   4. Check
+        .\pki_setup.ps1 -Verify
+      and see section 10 for the independent test: a client that trusts ONLY the public root.
+
+ Do NOT use -Clean together with -ImportEnterpriseRoot: it would delete root.key.
+ With -Clean -EnterpriseRootCsr you throw the old request away and start over.
+
+
+====================================================================================================
+ 7  STEP BY STEP, MODEL B  (cross-sign)
+====================================================================================================
+   0. A working PKI exists (self-signed Enterprise Root), for example from  .\pki_setup.ps1 -ClassicPKI
+   1. .\pki_setup.ps1 -CrossSignCsr -ExternalCa Sectigo
+        writes pki\root\cross-sign\root-cross.csr and cross-sign-request.txt
+        (same key, same subject as the self-signed Enterprise Root; a warning appears if the subject
+         the names produce today differs from the one in the certificate)
+   2. Send root-cross.csr; receive the cross-certificate and the chain.
+   3. .\pki_setup.ps1 -ImportCrossCert C:\pki-in\cross.pem -ExternalChain C:\pki-in\chain.pem
+        - checks: CA certificate, pathlen >= 3, SAME public key and SAME subject as your root, chain
+        - stores  pki\root\cross-sign\root-cross-1.crt (+ chain), publishes it in pki\publish\
+        - writes, for every leaf,  <leaf>-fullchain-cross.crt  =  fullchain + cross-certificate +
+          the public CA intermediates
+        - records the cross-certificate in pki-manifest.json
+   4. Servers that must serve BOTH client groups: send fullchain-cross.crt. Clients that installed your
+      Enterprise Root still validate it (the extra certificates are ignored); clients that only know the
+      public root now build  leaf -> ... -> Enterprise Root (cross) -> public CA -> public root.
+   A second cross-certificate (another public CA) can be imported later: it becomes root-cross-2.
+
+
+====================================================================================================
+ 8  WHAT THE SCRIPT CHECKS AND REFUSES  (-ImportEnterpriseRoot / -ImportCrossCert)
+====================================================================================================
+   Check                                          If it fails
+   ---------------------------------------------  -----------------------------------------------
+   CA:TRUE                                        refused: "not a CA certificate"
+   pathlen >= 3 (or no limit)                     refused, with the explanation of section 5
+   keyUsage keyCertSign                           refused
+   public key = pki\root\root.key                 refused: "the CA signed a different request"
+   not expired                                    refused
+   EKU, when present, has serverAuth + clientAuth refused: leaves would not validate in Windows
+   name constraints present                       accepted, WARNING with the permitted names
+   chain verifies to the -ExternalChain file      refused; a bundle without the public root is
+                                                  accepted as a "partial chain" with a note
+   same subject as the root (model B only)        refused: chains could not be built
+   No -ExternalChain                              accepted, WARNING (servers cannot send the public
+                                                  intermediates, the chain cannot be verified here)
+ Nothing is changed when a check fails: root.crt is not created, the request stays valid.
+ -Verify afterwards: no -x509_strict for the public part of the chain (public CAs may not satisfy it),
+ no SHA-512 / policy / 8192 rules for the Enterprise Root (the CA decides those); RSA at least 4096.
+
+
+====================================================================================================
+ 9  EFFECT ON VALIDITY, TRUST STORES, FILES
+====================================================================================================
+ VALIDITY. A certificate may not outlive its issuer. If the public certificate ends in 10 years, the
+ Track Root, Quadrant Root, intermediates and the leaf are shortened to end before it; the run prints
+ a warning for each ("validity limited by its issuer") and the summary table shows the real years.
+ The default EV leaf is still 397 days unless the issuer ends sooner.
+
+ WINDOWS STORES (-InstallTrust)
+   Enterprise Root signed by a public CA   -> LocalMachine\CA   (not Root: it is no longer self-signed)
+   Public CA intermediates from the chain  -> LocalMachine\CA   (the public root is NOT touched)
+   Track / Quadrant roots                  -> LocalMachine\Root  (all roots go to Trusted Root, version 4.5.0)
+   DV / OV / EV intermediates              -> LocalMachine\CA
+   -RemoveTrust / -RemoveAllTrust / -Clean never remove the public CA's certificates.
+
+ FILES
+   pki\root\root.crt             the signed Enterprise Root       pki\root\root.key  its private key
+   pki\root\external-chain.pem   the public chain (intermediates + root)
+   pki\root\external-state.json  request / import state          pki\root\external-request.txt  the sheet
+   pki\root\cross-sign\          model B: request, sheet, root-cross-N.crt, chains, cross-state.json
+   pki\publish\external-chain.pem, <slug>-cross-N.pem
+   <leaf>-fullchain.crt          (model A) leaf + your CAs + Enterprise Root + public intermediates
+   <leaf>-fullchain-cross.crt    (model B) fullchain + cross-certificate + public intermediates
+   pki-manifest.json             enterpriseRoot: externallySigned, externalCa, issuer, notAfter,
+                                 crossCertificates;  every CA entry has "store" (Root or CA)
+
+
+====================================================================================================
+ 10  TEST IT WITHOUT A PUBLIC CA  (rehearsal)
+====================================================================================================
+ Rehearse the whole process with a stand-in CA you create yourself, before you pay a public CA.
+ OpenSSL commands (PowerShell, in a scratch folder):
+
+   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out fake-root.key
+   openssl req -x509 -new -key fake-root.key -subj "/CN=Fake Public Root CA" -days 7300 -sha256 `
+       -addext "basicConstraints=critical,CA:true" -addext "keyUsage=critical,keyCertSign,cRLSign" -out fake-root.crt
+   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out fake-int.key
+   openssl req -new -key fake-int.key -subj "/CN=Fake Public Issuing CA" -out fake-int.csr
+   "basicConstraints=critical,CA:true,pathlen:4`nkeyUsage=critical,keyCertSign,cRLSign`nsubjectKeyIdentifier=hash`nauthorityKeyIdentifier=keyid" | Set-Content int.ext
+   openssl x509 -req -in fake-int.csr -CA fake-root.crt -CAkey fake-root.key -days 5475 -sha256 -extfile int.ext -CAcreateserial -out fake-int.crt
+   Get-Content fake-int.crt, fake-root.crt | Set-Content fake-chain.pem
+
+   # the "CA" signs the request made by -EnterpriseRootCsr  (pathlen 3, 10 years)
+   "basicConstraints=critical,CA:true,pathlen:3`nkeyUsage=critical,keyCertSign,cRLSign`nsubjectKeyIdentifier=hash`nauthorityKeyIdentifier=keyid" | Set-Content sign.ext
+   openssl x509 -req -in .\pki\root\root.csr -CA fake-int.crt -CAkey fake-int.key -days 3650 -sha256 -extfile sign.ext -CAcreateserial -out signed.pem
+
+   .\pki_setup.ps1 -ImportEnterpriseRoot .\signed.pem -ExternalChain .\fake-chain.pem
+
+ Then the test that matters, a client that trusts ONLY the (fake) public root:
+   openssl verify -purpose sslserver -CAfile fake-root.crt -untrusted .\pki\leaf\<leaf>-fullchain.crt .\pki\leaf\<leaf>.crt
+ It must print OK. Also try the refusals: sign with pathlen:1, or sign a request from another key.
+ (I ran exactly this on OpenSSL 4.0.3: pathlen 1, wrong key, EKU without clientAuth and a bad chain were
+  all refused; the valid certificate was accepted, the CAs below were shortened to 10 years, the leaf
+  verified against the public root only; model B: wrong cross-certificate refused, valid one accepted,
+  both client groups verified.)
+
+
+====================================================================================================
+ 11  RENEWAL, LIMITS, WHAT IS NOT AUTOMATED
+====================================================================================================
+ * When the public certificate nears its end, every CA below ends with it. Plan the renewal early:
+   ask the CA to re-sign the SAME key (same request), replace pki\root\root.crt and the chain, and
+   re-issue the CAs below with their new, longer dates. The script does not renew in place yet.
+ * Signing is NOT automated: no ordering through a CA portal or API (ACME / REST). You exchange files.
+ * Only level 0 (Enterprise Root) is signed by the public CA (section 5).
+ * A key that must live in an HSM cannot be imported from a software file by this script.
+ * The public CA's CRL / OCSP and policies are theirs; your CRL / AIA URLs of the CAs below remain yours.
+ * Quantum (ML-DSA) quadrants under a public root work for OpenSSL 3.5+ tools only, not for browsers.
+ * A public-trust hierarchy brings audit and compliance duties outside this script.
+ * pki_reuse.ps1 and the transport script (Phases B / C) will learn to carry this state.
+
+
+====================================================================================================
+ 12  TROUBLESHOOTING
+====================================================================================================
+   Message                                        Cause and fix
+   ---------------------------------------------  -----------------------------------------------
+   "No Enterprise Root request found"             Run -EnterpriseRootCsr first, in the same -PkiRoot
+   "An Enterprise Root request already exists"    Import the answer, or -Clean -EnterpriseRootCsr
+   "path length is N, but this PKI needs at       Ask for pathlen >= 3, or sign a lower level (5)
+    least 3"
+   "not the key of pki\root\root.key"             The CA signed another request: send root.csr again
+   "lacks serverAuth and/or clientAuth"           Ask the CA to add both EKUs (or none)
+   "does not chain to the file given with         Wrong or incomplete -ExternalChain: use the CA's
+    -ExternalChain"                               chain download (intermediates + root)
+   "-EnterpriseRootKeyBits 4096 is only allowed"  Use it only with -EnterpriseRootCsr
+   "-Clean would delete the Enterprise Root key"  Do not combine -Clean with -ImportEnterpriseRoot
+   Warnings "validity limited by its issuer"      Normal: the public certificate is shorter
+   Windows: chain not trusted after the import    Install with -InstallTrust (public intermediates go
+                                                  to the CA store); the public root must be trusted
+====================================================================================================

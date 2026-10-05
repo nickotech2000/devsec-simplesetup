@@ -1,960 +1,253 @@
 # ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OÜ (NextMantra)
+# Email  : nicko@nextmantra.com
+# ============================================================
 # 05_LeafCertificates.ps1
 #
-# Private PKI Leaf Certificate Generator
+# Default EV leaf certificates made by pki_setup.ps1: one per selected
+# quadrant, issued by that quadrant's EV intermediate (qN-ev).
 #
-# Author  : Nicko Satria Utama
-# Company : Agantra Inovatif OÜ (NextMantra)
-# Email   : nicko@nextmantra.com
+#   Q1  RSA (default 2048)   Non-FIPS Classic      Q2  ECDSA P-256   FIPS Classic
+#   Q3  ML-DSA-65            Non-FIPS Quantum      Q4  ML-DSA-65     FIPS Quantum
 #
-# Purpose:
-#   - Generate leaf private keys
-#   - Generate leaf public keys
-#   - Generate EV-style leaf CSRs
-#   - Sign leaf certificates using Intermediate CA
-#   - Apply v3_leaf certificate extensions
-#   - Generate leaf PFX files
-#   - Generate Leaf + Intermediate + Root full-chain PEM
-#   - Validate generated leaf certificates
-#   - Validate certificate chain
+# Every leaf is EV: EKU serverAuth + clientAuth, policy 2.23.140.1.1 plus
+# the custom policies of agantra_pki.cnf, EV subject fields, CRL / OCSP /
+# CA Issuers locations, at most 398 days.
 #
-# IMPORTANT:
-#   This is a PRIVATE / DEVELOPMENT PKI.
-#
-#   Every leaf is an EV TLS certificate:
-#       - EKU = serverAuth + clientAuth (nothing else)
-#       - certificatePolicies = 2.23.140.1.1
-#       - EV subject (businessCategory, jurisdictionC, serialNumber,
-#         C, L, O, OU, CN) from ev_pki.cnf
-#       - at most 398 days
-#
-#   It does NOT make the certificate publicly trusted EV.
-#
-# Certificate Validity:
-#   Leaf certificates = -LeafDays (default 397, EV maximum 398)
-#
-# Key Sizes:
-#   Supported RSA sizes:
-#       2048
-#       3072
-#       4096
-#       8192
-#
-# Certificate hierarchy:
-#
-#       Root CA
-#          |
-#          v
-#       Intermediate CA
-#          |
-#          v
-#       Leaf Certificate
-#
-# Full-chain PEM order:
-#
-#       Leaf
-#       Intermediate
-#       Root
-#
+# GenerateLeafCertificate.ps1 (Phase B) issues every other kind of leaf
+# (DV, OV, other EKUs, formats, extra policies).
 # ============================================================
-
-
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-
-# ============================================================
-# Leaf Certificate Configuration
-# ============================================================
-
-# Fallback only. New-LeafCertificate replaces this with the
-# configured -LeafDays (default 397, EV maximum 398).
-#
-# The value is passed directly to:
-#
-#     openssl ca -days <LeafDays>
-#
-# Therefore it takes precedence over default_days in the
-# OpenSSL configuration.
-
-$script:LeafValidityDays = 397
-
-
-# ============================================================
-# Expected EV Policy
-# ============================================================
-
-$script:ExpectedEvPolicyOid = '2.23.140.1.1'
-
-
-# ============================================================
-# Expected Leaf EKUs
-# ============================================================
-#
-# The EV TLS leaf carries exactly these two EKUs (see [v3_leaf]
-# in ev_pki.cnf). Other EKUs (codeSigning, emailProtection, ...)
-# are issued as separate certificates by GenerateLeafCertificate.ps1.
-#
-# ============================================================
-
-$script:ExpectedLeafEkuOids = @(
-    '1.3.6.1.5.5.7.3.1',       # serverAuth
-    '1.3.6.1.5.5.7.3.2'        # clientAuth
-)
-
-
-# ============================================================
-# Helper: Get Human-readable EV Subject
-# ============================================================
-
-function Get-LeafEvSubjectText {
-
-    [CmdletBinding()]
-    param()
-
-    if ($null -eq $script:Pki) {
-        throw 'PKI runtime context is not initialized.'
-    }
-
-    if ($null -eq $script:Pki.Ev) {
-        throw 'EV PKI configuration is not initialized.'
-    }
-
-    if ($null -eq $script:Pki.Ev.DnFields) {
-        throw 'EV DN fields are not available.'
-    }
-
-    $parts = foreach ($field in $script:Pki.Ev.DnFields) {
-
-        '{0}={1}' -f `
-            $field.Key,
-            (ConvertFrom-OpenSslConfValue -Raw $field.Raw)
-    }
-
-    return ($parts -join ', ')
+function Get-PkiSafeFileStem {
+    param([Parameter(Mandatory)][string]$Text)
+    return (($Text -replace '[^A-Za-z0-9._-]', '_').Trim('_'))
 }
 
-
-# ============================================================
-# Helper: Test File
-# ============================================================
-
-function Assert-LeafFileExists {
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Path,
-
-        [Parameter(Mandatory)]
-        [string]$Description
-    )
-
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-
-        throw (
-            "$Description does not exist: $Path"
-        )
-    }
+function Test-PkiDnsName {
+    param([string]$Name)
+    $n = $Name
+    if ($n.StartsWith('*.')) { $n = $n.Substring(2) }
+    return ($n -match '^(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$')
 }
 
-
-# ============================================================
-# Helper: Read Certificate Information
-# ============================================================
-
-function Get-LeafCertificateText {
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Certificate
-    )
-
-    Assert-LeafFileExists `
-        -Path $Certificate `
-        -Description 'Leaf certificate'
-
-    $output = Invoke-OpenSSL -Arguments @(
-        'x509',
-        '-in',
-        $Certificate,
-        '-text',
-        '-noout'
-    )
-
-    if ($null -eq $output) {
-        throw (
-            "OpenSSL returned no certificate information: $Certificate"
-        )
+function Get-PkiLeafSan {
+    # DNS / IP / e-mail entries from [ leaf_san ]; -Domain replaces the first DNS name.
+    $ini = $script:Pki.Ini
+    $dns = [System.Collections.Generic.List[string]]::new()
+    $ip = [System.Collections.Generic.List[string]]::new()
+    $mail = [System.Collections.Generic.List[string]]::new()
+    foreach ($e in (Get-PkiIniEntries -Ini $ini -Section 'leaf_san')) {
+        if ($e.Value -eq '') { continue }
+        if ($e.Key -match '^(?i)DNS(\.\d+)?$') { [void]$dns.Add($e.Value) }
+        elseif ($e.Key -match '^(?i)IP(\.\d+)?$') { [void]$ip.Add($e.Value) }
+        elseif ($e.Key -match '^(?i)email(\.\d+)?$') { [void]$mail.Add($e.Value) }
     }
-
-    return ($output -join [Environment]::NewLine)
+    $domain = $script:Pki.Domain
+    if (-not [string]::IsNullOrWhiteSpace($domain)) {
+        $old = @($dns)
+        $dns.Clear()
+        [void]$dns.Add($domain)
+        if (-not $domain.StartsWith('*.') -and -not $domain.StartsWith('www.')) { [void]$dns.Add("www.$domain") }
+        foreach ($d in $old) { if ($dns -notcontains $d -and $d -in @('localhost')) { [void]$dns.Add($d) } }
+    }
+    foreach ($d in $dns) {
+        if (-not (Test-PkiDnsName -Name $d)) { throw "Invalid DNS name in the SAN: '$d'" }
+        if ($d.StartsWith('*.')) { Write-PkiLog "Wildcard SAN '$d' is allowed in this private PKI (a public EV certificate may not contain it)." 'WARN' }
+    }
+    foreach ($a in $ip) {
+        $tmp = $null
+        if (-not [System.Net.IPAddress]::TryParse($a, [ref]$tmp)) { throw "Invalid IP address in the SAN: '$a'" }
+    }
+    return [ordered]@{ Dns = @($dns); Ip = @($ip); Email = @($mail) }
 }
 
-
-# ============================================================
-# Validate Leaf Certificate
-# ============================================================
-#
-# Validation includes:
-#
-#   - X.509 v3
-#   - CA:FALSE
-#   - Certificate Policy OID
-#   - serverAuth
-#   - SAN
-#   - RSA key size
-#   - expected issuer
-#
-# ============================================================
-
-function Test-LeafCertificate {
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Certificate
-    )
-
-    Write-PkiVerbose `
-        "Validating leaf certificate: $Certificate"
-
-    $text = Get-LeafCertificateText `
-        -Certificate $Certificate
-
-
-    # --------------------------------------------------------
-    # X.509 Version
-    # --------------------------------------------------------
-
-    if ($text -notmatch 'Version:\s+3\s+\(0x2\)') {
-
-        throw (
-            "Leaf certificate is not X.509 version 3: " +
-            "$Certificate"
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # Basic Constraints
-    # --------------------------------------------------------
-
-    if ($text -notmatch 'X509v3 Basic Constraints: critical') {
-
-        throw (
-            "Leaf certificate is missing critical Basic Constraints: " +
-            "$Certificate"
-        )
-    }
-
-    if ($text -notmatch 'CA:FALSE') {
-
-        throw (
-            "Leaf certificate is not marked CA:FALSE: " +
-            "$Certificate"
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # Key Usage
-    # --------------------------------------------------------
-
-    if ($text -notmatch 'X509v3 Key Usage: critical') {
-
-        throw (
-            "Leaf certificate is missing critical Key Usage: " +
-            "$Certificate"
-        )
-    }
-
-    if ($text -notmatch 'Digital Signature') {
-
-        throw (
-            "Leaf certificate does not contain Digital Signature: " +
-            "$Certificate"
-        )
-    }
-
-    if ($text -notmatch 'Key Encipherment') {
-
-        throw (
-            "Leaf certificate does not contain Key Encipherment: " +
-            "$Certificate"
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # Extended Key Usage
-    # --------------------------------------------------------
-
-    if ($text -notmatch 'X509v3 Extended Key Usage:') {
-
-        throw (
-            "Leaf certificate is missing Extended Key Usage: " +
-            "$Certificate"
-        )
-    }
-
-    if ($text -notmatch 'TLS Web Client Authentication') {
-
-        throw (
-            "Leaf certificate is missing the clientAuth EKU: " +
-            "$Certificate"
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # EV Certificate Policy
-    # --------------------------------------------------------
-
-    if (
-        $text -notmatch `
-            [regex]::Escape($script:ExpectedEvPolicyOid)
-    ) {
-
-        throw (
-            "Leaf certificate is missing expected EV policy OID " +
-            "$($script:ExpectedEvPolicyOid): $Certificate"
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # Subject Alternative Name
-    # --------------------------------------------------------
-
-    if ($text -notmatch 'X509v3 Subject Alternative Name:') {
-
-        throw (
-            "Leaf certificate is missing Subject Alternative Name: " +
-            "$Certificate"
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # RSA Key Size
-    # --------------------------------------------------------
-
-    if ($text -notmatch 'Public-Key:\s+\((2048|3072|4096|8192) bit\)') {
-
-        throw (
-            "Leaf certificate does not contain a supported RSA key size: " +
-            "$Certificate"
-        )
-    }
-
-
-    Write-PkiVerbose `
-        "Leaf certificate profile validation: PASSED"
+function Get-PkiLeafSubjectValue {
+    # command line (only when passed) > [ subject_ev ] > [ subject_ov ] > default
+    param([string]$ParamName, [string]$IniKey, [string]$Default = '')
+    $c = $script:Pki
+    if (-not [string]::IsNullOrWhiteSpace($ParamName) -and $c.Bound.Contains($ParamName)) { return [string]$c.Bound[$ParamName] }
+    $v = Get-PkiIniValue -Ini $c.Ini -Section 'subject_ev' -Key $IniKey -Default ''
+    if ($v -eq '') { $v = Get-PkiIniValue -Ini $c.Ini -Section 'subject_ov' -Key $IniKey -Default '' }
+    if ($v -eq '') { return $Default }
+    return $v
 }
 
+function Get-PkiEvLeafDn {
+    param($San)
+    $c = $script:Pki
+    $org = ConvertTo-PkiAscii (Get-PkiLeafSubjectValue 'Organization' 'O' 'Agantra Inovatif OU')
+    $cn = if ($San.Dns.Count -gt 0) { $San.Dns[0] } else { $org }
 
-# ============================================================
-# Validate Certificate Chain
-# ============================================================
-
-function Test-LeafCertificateChain {
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$LeafCertificate,
-
-        [Parameter(Mandatory)]
-        [string]$IntermediateCertificate,
-
-        [Parameter(Mandatory)]
-        [string]$RootCertificate
-    )
-
-    Assert-LeafFileExists `
-        -Path $LeafCertificate `
-        -Description 'Leaf certificate'
-
-    Assert-LeafFileExists `
-        -Path $IntermediateCertificate `
-        -Description 'Intermediate CA certificate'
-
-    Assert-LeafFileExists `
-        -Path $RootCertificate `
-        -Description 'Root CA certificate'
-
-
-    Write-PkiVerbose `
-        'Validating certificate chain: Leaf -> Intermediate -> Root'
-
-
-    $result = Invoke-OpenSSL -Arguments @(
-        'verify',
-        '-CAfile',
-        $RootCertificate,
-        '-untrusted',
-        $IntermediateCertificate,
-        $LeafCertificate
-    )
-
-
-    $verificationText = (
-        $result -join [Environment]::NewLine
-    )
-
-
-    if (
-        $verificationText -notmatch `
-            [regex]::Escape($LeafCertificate) +
-            ':\s*OK'
-    ) {
-
-        throw (
-            "Certificate chain validation failed.`r`n" +
-            $verificationText
-        )
-    }
-
-
-    Write-PkiVerbose `
-        'Certificate chain validation: PASSED'
+    $pairs = [System.Collections.Generic.List[object]]::new()
+    $add = { param($k, $v) if (-not [string]::IsNullOrWhiteSpace($v)) { [void]$pairs.Add(@($k, (ConvertTo-PkiAscii $v))) } }
+    & $add 'businessCategory' (Get-PkiLeafSubjectValue 'BusinessCategory' 'businessCategory' 'Private Organization')
+    & $add 'jurisdictionCountryName' (Get-PkiLeafSubjectValue 'JurisdictionCountry' 'jurisdictionCountryName' 'EE')
+    & $add 'jurisdictionStateOrProvinceName' (Get-PkiLeafSubjectValue 'JurisdictionState' 'jurisdictionStateOrProvinceName' 'Tallinn')
+    & $add 'jurisdictionLocalityName' (Get-PkiLeafSubjectValue 'JurisdictionLocality' '' '')
+    & $add 'serialNumber' (Get-PkiLeafSubjectValue 'Serial' 'serialNumber' '17344131')
+    & $add 'C' (Get-PkiLeafSubjectValue 'Country' 'C' 'EE')
+    & $add 'ST' (Get-PkiLeafSubjectValue 'State' 'ST' 'Tallinn')
+    & $add 'L' (Get-PkiLeafSubjectValue 'Locality' 'L' 'Tallinn')
+    & $add 'street' (Get-PkiLeafSubjectValue 'Street' '' '')
+    & $add 'postalCode' (Get-PkiLeafSubjectValue 'PostalCode' 'postalCode' '15199')
+    & $add 'O' $org
+    & $add 'OU' (Get-PkiLeafSubjectValue 'OrganizationalUnit' 'OU' '')
+    $cnIni = Get-PkiIniValue -Ini $c.Ini -Section 'subject_ov' -Key 'CN' -Default ''
+    & $add 'CN' $(if ($c.Bound.Contains('Domain')) { $cn } elseif ($cnIni -ne '') { $cnIni } else { $cn })
+    # contact fields: the leaf has its own defaults, not the CA's contact
+    $cName = if ($c.Bound.Contains('ContactName')) { [string]$c.Bound['ContactName'] } else { Get-PkiIniValue -Ini $c.Ini -Section 'subject_ov' -Key 'ContactName' -Default 'BizDevSecOps Administrator' }
+    $cMail = if ($c.Bound.Contains('ContactEmail')) { [string]$c.Bound['ContactEmail'] } else { Get-PkiIniValue -Ini $c.Ini -Section 'subject_ov' -Key 'ContactEmail' -Default 'info@nextmantra.com' }
+    $cTel  = if ($c.Bound.Contains('ContactPhone')) { [string]$c.Bound['ContactPhone'] } else { Get-PkiIniValue -Ini $c.Ini -Section 'subject_ov' -Key 'ContactPhone' -Default '(+372)53194019' }
+    & $add 'name' $cName
+    & $add 'emailAddress' $cMail
+    & $add 'telephoneNumber' $cTel
+    return $pairs
 }
 
-
-# ============================================================
-# Generate One Leaf Certificate
-# ============================================================
-
-function New-LeafCertificate {
-
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [ValidateSet(2048, 3072, 4096, 8192)]
-        [int]$Bits
-    )
-
-
-    # --------------------------------------------------------
-    # PKI Context
-    # --------------------------------------------------------
-
-    $p = $script:Pki
-
-
-    if ($null -eq $p) {
-        throw 'PKI runtime context is not initialized.'
-    }
-
-
-    # --------------------------------------------------------
-    # Validate Leaf Configuration
-    # --------------------------------------------------------
-
-    $script:LeafValidityDays = [int]$p.LeafDays
-
-
-    if ($script:LeafValidityDays -lt 1) {
-
-        throw (
-            "Leaf certificate validity must be at least 1 day. " +
-            "Current value: $script:LeafValidityDays"
-        )
-    }
-
-
-    if ($script:LeafValidityDays -gt $script:EvMaxLeafDays) {
-
-        throw (
-            "EV leaf certificates may be valid for at most " +
-            "$($script:EvMaxLeafDays) days. " +
-            "Current value: $script:LeafValidityDays"
-        )
-    }
-
-
-    Write-PkiVerbose (
-        "Leaf certificate validity: " +
-        "$script:LeafValidityDays days"
-    )
-
-
-    # --------------------------------------------------------
-    # Build Output Prefix
-    # --------------------------------------------------------
-
-    $prefix =
-        Join-Path `
-            $p.LeafDir `
-            ("{0}-{1}" -f $p.Domain, $Bits)
-
-
-    # --------------------------------------------------------
-    # Define Output Files
-    # --------------------------------------------------------
-
-    $item = [ordered]@{
-
-        Bits      = $Bits
-
-        Key       = "$prefix.key"
-
-        Pub       = "$prefix.pub"
-
-        Csr       = "$prefix.csr"
-
-        Crt       = "$prefix.crt"
-
-        Pfx       = "$prefix.pfx"
-
-        FullChain = "$prefix-fullchain.pem"
-    }
-
-
-    # --------------------------------------------------------
-    # Validate PKI Paths
-    # --------------------------------------------------------
-
-    if ([string]::IsNullOrWhiteSpace($p.Country)) {
-
-        throw (
-            'PKI Country is empty. Cannot generate leaf certificate.'
-        )
-    }
-
-
-    if ([string]::IsNullOrWhiteSpace($p.Organization)) {
-
-        throw (
-            'PKI Organization is empty. Cannot generate leaf certificate.'
-        )
-    }
-
-
-    if ([string]::IsNullOrWhiteSpace($p.Domain)) {
-
-        throw (
-            'PKI Domain is empty. Cannot generate leaf certificate.'
-        )
-    }
-
-
-    if ([string]::IsNullOrWhiteSpace($p.RuntimeConfig)) {
-
-        throw (
-            'PKI RuntimeConfig is empty. Cannot generate leaf certificate.'
-        )
-    }
-
-
-    Assert-LeafFileExists `
-        -Path $p.RuntimeConfig `
-        -Description 'OpenSSL runtime configuration'
-
-
-    if ([string]::IsNullOrWhiteSpace($p.IntermediateCrt)) {
-
-        throw (
-            'PKI IntermediateCrt is empty.'
-        )
-    }
-
-
-    Assert-LeafFileExists `
-        -Path $p.IntermediateCrt `
-        -Description 'Intermediate CA certificate'
-
-
-    if ([string]::IsNullOrWhiteSpace($p.IntermediateKey)) {
-
-        throw (
-            'PKI IntermediateKey is empty.'
-        )
-    }
-
-
-    Assert-LeafFileExists `
-        -Path $p.IntermediateKey `
-        -Description 'Intermediate CA private key'
-
-
-    if ([string]::IsNullOrWhiteSpace($p.RootCrt)) {
-
-        throw (
-            'PKI RootCrt is empty.'
-        )
-    }
-
-
-    Assert-LeafFileExists `
-        -Path $p.RootCrt `
-        -Description 'Root CA certificate'
-
-
-    if ([string]::IsNullOrWhiteSpace($p.LeafReqConfig)) {
-
-        throw (
-            'PKI LeafReqConfig is empty.'
-        )
-    }
-
-
-    Assert-LeafFileExists `
-        -Path $p.LeafReqConfig `
-        -Description 'EV leaf request configuration'
-
-
-    # --------------------------------------------------------
-    # Generate Leaf Private Key
-    # --------------------------------------------------------
-
-    Write-PkiVerbose `
-        "Generating leaf private key: $($item.Key)"
-
-
-    New-RsaPrivateKey `
-        -Bits $Bits `
-        -Path $item.Key
-
-
-    Assert-LeafFileExists `
-        -Path $item.Key `
-        -Description 'Leaf private key'
-
-
-    # --------------------------------------------------------
-    # Generate Leaf Public Key
-    # --------------------------------------------------------
-
-    Write-PkiVerbose `
-        "Generating leaf public key: $($item.Pub)"
-
-
-    Export-PublicKey `
-        -Key $item.Key `
-        -Path $item.Pub
-
-
-    Assert-LeafFileExists `
-        -Path $item.Pub `
-        -Description 'Leaf public key'
-
-
-    # --------------------------------------------------------
-    # EV Leaf Subject
-    # --------------------------------------------------------
-    #
-    # The subject is taken from [dn_leaf_ev] generated by
-    # 03_RuntimeConfig.ps1.
-    #
-    # Explicit command-line overrides have already been applied
-    # before this script reaches the CSR generation stage.
-    #
-    # --------------------------------------------------------
-
-    Write-PkiVerbose (
-        "EV-style leaf subject: " +
-        (Get-LeafEvSubjectText)
-    )
-
-
-    # --------------------------------------------------------
-    # Generate Leaf CSR
-    # --------------------------------------------------------
-
-    Write-PkiVerbose `
-        "Generating leaf CSR: $($item.Csr)"
-
-
-    Invoke-OpenSSL -Arguments @(
-        'req',
-        '-new',
-        '-sha256',
-        '-key',
-        $item.Key,
-        '-out',
-        $item.Csr,
-        '-config',
-        $p.LeafReqConfig
-    ) |
-        Out-Null
-
-
-    Assert-LeafFileExists `
-        -Path $item.Csr `
-        -Description 'Leaf CSR'
-
-
-    # --------------------------------------------------------
-    # Sign Leaf Certificate
-    # --------------------------------------------------------
-    #
-    # Certificate profile:
-    #
-    #   v3_leaf
-    #
-    # Certificate validity:
-    #
-    #   -LeafDays (default 397, EV maximum 398)
-    #
-    # The explicit -days parameter intentionally overrides any
-    # default_days setting in the OpenSSL configuration.
-    #
-    # --------------------------------------------------------
-
-    Write-PkiVerbose `
-        "Signing leaf certificate: $($item.Crt)"
-
-
-    Invoke-OpenSSL -Arguments @(
-        'ca',
-        '-batch',
-        '-preserveDN',
-        '-config',
-        $p.RuntimeConfig,
-        '-extensions',
-        'v3_leaf',
-        '-days',
-        $script:LeafValidityDays,
-        '-in',
-        $item.Csr,
-        '-out',
-        $item.Crt
-    ) |
-        Out-Null
-
-
-    Assert-LeafFileExists `
-        -Path $item.Crt `
-        -Description 'Leaf certificate'
-
-
-    # --------------------------------------------------------
-    # Validate Generated Leaf Certificate
-    # --------------------------------------------------------
-
-    Test-LeafCertificate `
-        -Certificate $item.Crt
-
-
-    # --------------------------------------------------------
-    # Validate Leaf Certificate Chain
-    # --------------------------------------------------------
-
-    Test-LeafCertificateChain `
-        -LeafCertificate $item.Crt `
-        -IntermediateCertificate $p.IntermediateCrt `
-        -RootCertificate $p.RootCrt
-
-
-    # --------------------------------------------------------
-    # Generate PFX
-    # --------------------------------------------------------
-
-    Write-PkiVerbose `
-        "Generating leaf PFX: $($item.Pfx)"
-
-
-    New-PfxFile `
-        -Certificate $item.Crt `
-        -Key $item.Key `
-        -Path $item.Pfx
-
-
-    Assert-LeafFileExists `
-        -Path $item.Pfx `
-        -Description 'Leaf PFX'
-
-
-    # --------------------------------------------------------
-    # Build Full Certificate Chain
-    # --------------------------------------------------------
-    #
-    # Correct PEM order:
-    #
-    #   1. Leaf
-    #   2. Intermediate
-    #   3. Root
-    #
-    # --------------------------------------------------------
-
-    Write-PkiVerbose `
-        "Generating full chain: $($item.FullChain)"
-
-
-    $leafPem =
-        Get-Content `
-            -LiteralPath $item.Crt `
-            -Raw
-
-
-    $intPem =
-        Get-Content `
-            -LiteralPath $p.IntermediateCrt `
-            -Raw
-
-
-    $rootPem =
-        Get-Content `
-            -LiteralPath $p.RootCrt `
-            -Raw
-
-
-    if ([string]::IsNullOrWhiteSpace($leafPem)) {
-
-        throw (
-            "Leaf certificate PEM is empty: $($item.Crt)"
-        )
-    }
-
-
-    if ([string]::IsNullOrWhiteSpace($intPem)) {
-
-        throw (
-            "Intermediate certificate PEM is empty: " +
-            "$($p.IntermediateCrt)"
-        )
-    }
-
-
-    if ([string]::IsNullOrWhiteSpace($rootPem)) {
-
-        throw (
-            "Root certificate PEM is empty: " +
-            "$($p.RootCrt)"
-        )
-    }
-
-
-    $fullChain = (
-        $leafPem.TrimEnd() +
-        "`r`n" +
-        $intPem.TrimEnd() +
-        "`r`n" +
-        $rootPem.TrimEnd() +
-        "`r`n"
-    )
-
-
-    Write-Utf8NoBom `
-        -Path $item.FullChain `
-        -Content $fullChain
-
-
-    Assert-LeafFileExists `
-        -Path $item.FullChain `
-        -Description 'Full certificate chain'
-
-
-    # --------------------------------------------------------
-    # Register Generated Leaf
-    # --------------------------------------------------------
-
-    [void]$p.LeafFiles.Add(
-        [pscustomobject]$item
-    )
-
-
-    # --------------------------------------------------------
-    # Final Success Log
-    # --------------------------------------------------------
-
-    Write-PkiVerbose (
-        "Leaf certificate generated successfully: " +
-        "$($item.Crt)"
-    )
-
-
-    Write-PkiVerbose (
-        "Leaf certificate validity: " +
-        "$script:LeafValidityDays days"
-    )
-
-
-    Write-PkiVerbose (
-        "Leaf certificate chain: PASSED"
-    )
-
-
-    Write-PkiVerbose (
-        "Leaf certificate profile: EV TLS (serverAuth + clientAuth) / private PKI"
-    )
-}
-
-
-# ============================================================
-# Generate All Configured Leaf Certificates
-# ============================================================
-
-function New-AllLeafCertificates {
-
-    [CmdletBinding()]
-    param()
-
-
-    # --------------------------------------------------------
-    # Validate Leaf Sizes
-    # --------------------------------------------------------
-
-    if ($null -eq $script:Pki.LeafSizes) {
-
-        throw (
-            'PKI LeafSizes configuration is missing.'
-        )
-    }
-
-
-    if ($script:Pki.LeafSizes.Count -eq 0) {
-
-        throw (
-            'PKI LeafSizes is empty. ' +
-            'At least one leaf RSA key size is required.'
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # Validate Leaf Sizes
-    # --------------------------------------------------------
-
-    foreach ($bits in $script:Pki.LeafSizes) {
-
-        if (
-            [int]$bits -notin @(
-                2048,
-                3072,
-                4096,
-                8192
-            )
-        ) {
-
-            throw (
-                "Unsupported leaf RSA key size: $bits"
-            )
+function Get-PkiLeafSpecs {
+    # One spec per default leaf certificate.
+    $c = $script:Pki
+    $specs = [System.Collections.Generic.List[hashtable]]::new()
+    foreach ($q in $c.Quadrants) {
+        $ca = Get-PkiCa -Id "q$q-ev"
+        switch ($q) {
+            1 { foreach ($bits in $c.LeafSizes) { [void]$specs.Add(@{ Quadrant = 1; Ca = $ca; Family = 'rsa'; Bits = $bits; Curve = $null; PqcAlg = $null; Tag = "q1-rsa$bits" }) } }
+            2 { [void]$specs.Add(@{ Quadrant = 2; Ca = $ca; Family = 'ecdsa'; Bits = 0; Curve = 'P-256'; PqcAlg = $null; Tag = 'q2-ecdsa-p256' }) }
+            default {
+                $alg = $c.PqcLeafAlgorithm
+                [void]$specs.Add(@{ Quadrant = $q; Ca = $ca; Family = 'pqc'; Bits = 0; Curve = $null; PqcAlg = $alg; Tag = "q$q-$($alg.ToLowerInvariant() -replace '[^a-z0-9]','')" })
+            }
         }
     }
-
-
-    # --------------------------------------------------------
-    # Generate Leaves
-    # --------------------------------------------------------
-
-    foreach ($bits in $script:Pki.LeafSizes) {
-
-        Write-PkiVerbose (
-            "Generating leaf certificate with RSA " +
-            "key size: $bits"
-        )
-
-
-        New-LeafCertificate `
-            -Bits ([int]$bits)
-    }
+    return $specs
 }
 
+function New-PkiEvLeaf {
+    param([Parameter(Mandatory)][hashtable]$Spec)
 
-# ============================================================
-# END OF 05_LeafCertificates.ps1
-# ============================================================
+    $c = $script:Pki
+    $ca = $Spec.Ca
+    $cp = Get-PkiCaPaths -Ca $ca
+    $fips = [bool]$ca.Fips
+    if ($c.LeafDays -gt 398) { throw 'An EV leaf certificate may not be valid longer than 398 days.' }
+
+    $san = Get-PkiLeafSan
+    $primary = if ($san.Dns.Count -gt 0) { $san.Dns[0] } else { 'agantra' }
+    $stem = "$(Get-PkiSafeFileStem $primary)-$($Spec.Tag)"
+    Ensure-PkiDirectory -Path $c.LeafDir
+    $key = Join-Path $c.LeafDir "$stem.key"
+    $csr = Join-Path $c.LeafDir "$stem.csr"
+    $crt = Join-Path $c.LeafDir "$stem.crt"
+    $cnf = Join-Path $c.LeafDir "$stem.cnf"
+    $full = Join-Path $c.LeafDir "$stem-fullchain.crt"
+    $pfx = Join-Path $c.LeafDir "$stem.pfx"
+    $pfxFips = Join-Path $c.LeafDir "$stem-fips.pfx"
+
+    Write-PkiLog "Leaf $stem (issuer $($ca.Id))"
+    $actual = New-PkiPrivateKey -KeyPath $key -Family $Spec.Family -Bits $Spec.Bits -Curve $Spec.Curve -Fips $fips -Label $stem -PqcAlgorithm $Spec.PqcAlg -FallbackBits $c.FallbackRsaBits
+    Write-PkiLog "  Key        : $($actual.Algorithm)$(if ($actual.Fallback) { '  (FALLBACK, not quantum-safe)' })"
+
+    # ---- configuration: [ req ] [ dn ] [ ext ] ----
+    $L = [System.Collections.Generic.List[string]]::new()
+    foreach ($h in (Get-PkiProviderConfigHeader -Fips $fips)) { [void]$L.Add($h) }
+    [void]$L.Add('[ req ]'); [void]$L.Add('prompt = no'); [void]$L.Add('utf8 = yes')
+    [void]$L.Add('string_mask = utf8only'); [void]$L.Add('distinguished_name = dn'); [void]$L.Add('')
+    [void]$L.Add('[ dn ]')
+    foreach ($pair in (Get-PkiEvLeafDn -San $san)) { [void]$L.Add("$($pair[0]) = $(ConvertTo-PkiConfValue $pair[1])") }
+    [void]$L.Add('')
+
+    $policies = [System.Collections.Generic.List[object]]::new()
+    [void]$policies.Add([ordered]@{ Label = 'EV'; Oid = $script:PkiPolicyOid.EV; Cps = $c.CpsUrl })
+    foreach ($p in (Get-PkiExtraPolicies -Level 'EV')) { [void]$policies.Add($p) }
+    $policyRefs = Add-PkiPolicySections -Lines $L -Policies $policies -Prefix 'lp'
+    $loc = Add-PkiLocationSections -Lines $L -IssuerSlug $ca.Slug -Prefix 'll'
+
+    [void]$L.Add('[ san ]')
+    $i = 0; foreach ($d in $san.Dns)   { $i++; [void]$L.Add("DNS.$i = $(ConvertTo-PkiConfValue $d)") }
+    $i = 0; foreach ($a in $san.Ip)    { $i++; [void]$L.Add("IP.$i = $a") }
+    $i = 0; foreach ($m in $san.Email) { $i++; [void]$L.Add("email.$i = $(ConvertTo-PkiConfValue $m)") }
+    [void]$L.Add('')
+
+    $ku = if ($actual.Family -eq 'rsa') { 'critical,digitalSignature,keyEncipherment' } else { 'critical,digitalSignature' }
+    [void]$L.Add('[ ext ]')
+    [void]$L.Add('basicConstraints = critical,CA:false')
+    [void]$L.Add("keyUsage = $ku")
+    [void]$L.Add('extendedKeyUsage = serverAuth,clientAuth')
+    [void]$L.Add('subjectKeyIdentifier = hash')
+    [void]$L.Add('authorityKeyIdentifier = keyid,issuer')
+    if ($san.Dns.Count + $san.Ip.Count + $san.Email.Count -gt 0) { [void]$L.Add('subjectAltName = @san') }
+    [void]$L.Add("certificatePolicies = $policyRefs")
+    if ($loc.Crl) { [void]$L.Add('crlDistributionPoints = @ll_crl') }
+    if ($loc.Aia) { [void]$L.Add('authorityInfoAccess = @ll_aia') }
+    Write-Utf8NoBom -Path $cnf -Content (($L -join "`n") + "`n")
+
+    # ---- CSR (own key / own provider) ----
+    $csrMd = switch ($actual.Family) { 'rsa' { 'sha256' } 'ecdsa' { 'sha384' } default { 'default' } }
+    $csrArgs = @('req', '-new', '-key', $key, '-config', $cnf, '-out', $csr)
+    $csrArgs += (Get-PkiMdArgs -Md $csrMd)
+    $csrArgs += (Get-PkiProviderArgs -Fips $fips)
+    [void](Invoke-OpenSSL -Arguments $csrArgs -ConfigPath $cnf)
+
+    # ---- issue (issuer's key / provider / digest) ----
+    $md = Get-PkiIssueMd -Kind 'intermediate' -Family $ca.Actual.Family
+    $leafDays = [int]$c.LeafDays
+    $room = Get-PkiIssuerRemainingDays -IssuerId $ca.Id
+    if ($null -ne $room -and $leafDays -gt $room) { Write-PkiLog "  leaf validity limited by its issuer: $leafDays -> $room days" 'WARN'; $leafDays = $room }
+    $caArgs = @('ca', '-batch', '-notext', '-utf8', '-preserveDN', '-config', $cp.Cnf, '-in', $csr, '-out', $crt,
+                '-extfile', $cnf, '-extensions', 'ext', '-days', [string]$leafDays, '-md', $md)
+    $caArgs += (Get-PkiSigOpts -Family $ca.Actual.Family -Md $md)
+    $caArgs += (Get-PkiProviderArgs -Fips $fips)
+    [void](Invoke-OpenSSL -Arguments $caArgs -ConfigPath $cp.Cnf)
+    Assert-PkiFile -Path $crt
+
+    # ---- full chain: leaf + intermediate + quadrant root + track root ----
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.Append(([System.IO.File]::ReadAllText($crt)).TrimEnd() + "`n")
+    $chainOnly = [System.Text.StringBuilder]::new()
+    foreach ($anc in @($ca) + @(Get-PkiCaAncestors -Ca $ca)) {
+        if ($anc.Kind -eq 'root' -and $null -eq $script:Pki.ExternalRoot) { continue }
+        $t = ([System.IO.File]::ReadAllText((Get-PkiCaPaths -Ca $anc).Crt)).TrimEnd() + "`n"
+        [void]$sb.Append($t); [void]$chainOnly.Append($t)
+    }
+    if ($null -ne $script:Pki.ExternalRoot) {
+        foreach ($pem in (Get-PkiExternalChainIntermediates)) { [void]$sb.Append($pem.TrimEnd() + "`n"); [void]$chainOnly.Append($pem.TrimEnd() + "`n") }
+    }
+    Write-Utf8NoBom -Path $full -Content $sb.ToString()
+    $chainTmp = Join-Path $c.LeafDir "$stem.chain.tmp"
+    Write-Utf8NoBom -Path $chainTmp -Content $chainOnly.ToString()
+
+    $pfxOk = $false
+    try {
+        New-PkiPfxFile -KeyPath $key -CertPath $crt -PfxPath $pfx -ChainPath $chainTmp -Name $primary -Legacy:$c.LegacyPfx
+        $pfxOk = $true
+    }
+    catch { Write-PkiLog "PFX for $stem was not created: $($_.Exception.Message.Split("`n")[0])" 'WARN' }
+    $pfxFipsOk = $false
+    if ($fips) {
+        try {
+            New-PkiPfxFile -KeyPath $key -CertPath $crt -PfxPath $pfxFips -ChainPath $chainTmp -Name $primary -FipsContainer
+            $pfxFipsOk = $true
+        }
+        catch { Write-PkiLog "FIPS-conformant PFX for $stem was not created: $($_.Exception.Message.Split("`n")[0])" 'WARN' }
+    }
+    Remove-Item -LiteralPath $chainTmp -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $csr -Force -ErrorAction SilentlyContinue
+
+    $fp = Get-PkiCertificateFingerprint -Path $crt
+    [void]$c.Leaves.Add([ordered]@{
+        name = $stem; quadrant = $Spec.Quadrant; issuer = $ca.Id; fips = $fips
+        requestedFamily = $Spec.Family; keyAlgorithm = $actual.Algorithm; pqcFallback = [bool]$actual.Fallback
+        validation = 'EV'; days = $leafDays; signatureDigest = $md
+        certificate = $crt; key = $key; fullchain = $full; pfx = $(if ($pfxOk) { $pfx } else { $null }); pfxFips = $(if ($pfxFipsOk) { $pfxFips } else { $null })
+        sha1 = $fp.Sha1; sha256 = $fp.Sha256
+    })
+    Write-PkiLog "  Thumbprint : $($fp.Sha1)" 'OK'
+}
+
+function New-AllLeafCertificates {
+    foreach ($spec in (Get-PkiLeafSpecs)) { New-PkiEvLeaf -Spec $spec }
+}

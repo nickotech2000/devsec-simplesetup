@@ -1,0 +1,803 @@
+====================================================================================================
+ AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
+====================================================================================================
+ Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Version : 4.5.2-phaseA                      Updated: 2026-10-05
+ Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
+           GenerateLeafCertificate.ps1, pki_reuse.ps1, transport script  (Phases B and C, not started)
+ Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help
+ Also    : PUBLIC-CA-ENTERPRISE-ROOT.txt (Enterprise Root signed by a public CA)   scripts\README.txt (modules)
+
+ This file is rewritten with every delivery. Section 12 is the change log, section 10 the decisions
+ and open questions, section 9 the limitations, section 14 the Phase A acceptance checklist.
+
+ CONTENTS
+    1  Goals and targets                        7  Where ML-DSA works / servers and clients
+    2  Diagram 1 - hierarchy                    8  Folder layout, scripts, parameters
+    3  Rules by level (keys, hashes, validity)  9  LIMITATIONS
+    4  Names                                   10  Decisions and open questions
+    5  Policies, extensions, revocation        11  Requirement tracker
+    6  Diagrams 2-5 - trust, handshake, files, 12  Change log          13  Quick commands
+       public CA
+                                               14  PHASE A ACCEPTANCE CHECKLIST
+
+
+====================================================================================================
+ 1  GOALS AND TARGETS
+====================================================================================================
+ * One private PKI with two tracks, CLASSIC and QUANTUM, and four quadrants:
+        Q1 Classic Non-FIPS    Q2 Classic FIPS    Q3 Quantum Non-FIPS    Q4 Quantum FIPS
+   Each quadrant has three policy-isolated intermediates: DV, OV, EV.
+ * CLASSIC  quadrants use RSA (Q1) and ECDSA (Q2).
+   QUANTUM  quadrants use the post-quantum signature ML-DSA at EVERY level: Track Root, Q3 / Q4 roots,
+   intermediates and leaves, FIPS and non-FIPS. Only the Enterprise Root, which anchors both tracks,
+   is RSA. Servers that support it also negotiate the hybrid key exchange X25519MLKEM768 (ML-KEM).
+ * Generation: PowerShell 7+ and OpenSSL 4.x. Older OpenSSL stops the script. ENGINE API gone;
+   native providers only:  non-FIPS = -provider default   FIPS = -provider fips -provider base.
+   ML-DSA is native in OpenSSL 3.5 / 4.x (genpkey -algorithm mldsa87).
+ * Windows: Windows 11 Home / Pro (24H2 or newer, updated) and Windows Server 2025 store and validate
+   ML-DSA certificates. Windows 10 and Server 2022 cannot: the Quantum quadrants are skipped there.
+ * Other targets: Ubuntu 26, CentOS Stream 10, Rocky 10, RHEL 9, Oracle Linux 10, SUSE 16, FreeBSD (VM),
+   macOS on Mac mini M2 and M4. Browsers: Chrome, Edge, Brave, Firefox, UC Browser, QQ Browser.
+   Runtimes: Kestrel on .NET 10 LTS / 11, nginx, Apache httpd, Node.js 26, Python 3.14, Go, PHP 8,
+   Java 25, Rust, IIS (legacy).
+ * Reference machines (your screenshots, section 7.3): an Ubuntu 26.04.1 LTS development server and a
+   Windows 11 26H2 Pro development VM with Visual Studio 2026 and Visual Studio Code.
+ * Private PKI: every client installs the Enterprise Root. No browser shows the EV company line.
+ * Variants of the PKI: the full PKI (four quadrants), -ClassicPKI (Enterprise Root, Classic Track Root, Q1
+   Root, DV / OV / EV intermediates only), and an Enterprise Root signed by a public CA (DigiCert, GlobalSign,
+   Sectigo) instead of self-signed (section 6, diagram 5; PUBLIC-CA-ENTERPRISE-ROOT.txt).
+ * Names of all roots and intermediates are configurable (section 4).
+ * IMPORTANT: ML-DSA certificates are not accepted for HTTPS by Windows Schannel (Kestrel / IIS on
+   Windows), Java 25 or the browsers today (section 7). Quantum leaves are for OpenSSL-based services
+   and mutual TLS; browser-facing sites use the Classic leaves.
+
+
+====================================================================================================
+ 2  DIAGRAM 1  -  HIERARCHY
+====================================================================================================
+
+                    +----------------------------------------------------------+
+                    |  ENTERPRISE ROOT CA            (self-signed)             |
+                    |  Agantra Inovatif Enterprise Root CA G1                  |
+                    |  RSA 8192 / SHA-512     1000 years     pathlen 3         |
+                    +----------------------------+-----------------------------+
+                                                 |
+               +---------------------------------+--------------------------------+
+               |                                                                  |
+   +-----------v-------------------------+                      +-----------------v-----------------+
+   | TRACK ROOT - CLASSIC                |                      | TRACK ROOT - QUANTUM              |
+   | ...Enterprise Classic Root CA G1    |                      | ...Enterprise PQC-PostQuantum     |
+   | RSA 8192 / SHA-512  500 y  pathlen 2|                      |    Root CA G2                     |
+   | folder: pki\classical\root          |                      | ML-DSA-87           500 y  pl 2   |
+   +-----------+-------------------------+                      | folder: pki\quantum\root          |
+               |                                                +-----------------+-----------------+
+       +-------+---------------+                                          +-------+-------------+
+       |                       |                                          |                     |
+ +-----v-----------+   +-------v---------+                       +--------v--------+   +--------v--------+
+ | Q1 ROOT         |   | Q2 ROOT         |                       | Q3 ROOT         |   | Q4 ROOT         |
+ | Classic         |   | Classic         |                       | Quantum         |   | Quantum         |
+ | NON-FIPS        |   | FIPS            |                       | NON-FIPS        |   | FIPS            |
+ | RSA 8192/SHA512 |   | ECDSA P-521     |                       | ML-DSA-87       |   | ML-DSA-87       |
+ | 400 y  pl 1     |   | /SHA-512        |                       | 400 y  pl 1     |   | 400 y  pl 1     |
+ | prov: default   |   | 400 y  pl 1     |                       | prov: default   |   | prov: fips+base |
+ |                 |   | prov: fips+base |                       |                 |   |                 |
+ +--+-----+-----+--+   +--+-----+-----+--+                       +--+-----+-----+--+   +--+-----+-----+--+
+    |     |     |         |     |     |                            |     |     |         |     |     |
+   DV    OV    EV        DV    OV    EV      <-- INTERMEDIATES -->  DV    OV    EV       DV    OV    EV
+ RSA 4096 / SHA-256     ECDSA P-384 / SHA-384   250 years, pathlen 0  ML-DSA-87           ML-DSA-87
+ (G1)                   (G1)                    policy-isolated       (G2)                (G2)
+    |     |     |         |     |     |                            |     |     |         |     |     |
+   EE    EE    EE        EE    EE    EE      <-- LEAF (end entity) -->  EE    EE    EE       EE    EE    EE
+ RSA 2048 / SHA-256     ECDSA P-256 / SHA-384   397 days (EV)        ML-DSA-65            ML-DSA-65
+
+   Only the quadrants selected with -Quadrant are built. The Enterprise Root and the Track Roots
+   those quadrants need are always built.   pl = pathlen   y = years.
+   Signing across tracks: the RSA Enterprise Root signs the ML-DSA Quantum Track Root; below that,
+   every Quantum certificate is signed with ML-DSA by its ML-DSA issuer.
+
+
+====================================================================================================
+ 3  RULES BY LEVEL
+====================================================================================================
+
+ 3.1  ROOT KEY POLICY  (enforced in code, not configurable)
+      Every root-level CA (Enterprise Root, both Track Roots, all four Quadrant Roots) is RSA 8192
+      with SHA-512. Where the algorithm is not RSA, the strongest key and the largest digest it
+      offers are used:
+
+        Algorithm   Root key                  Digest    Used for
+        ----------  ------------------------  --------  ------------------------------------------
+        RSA         8192 bit                  SHA-512   Enterprise Root, Classic Track Root, Q1 root
+        ECDSA       P-521 (secp521r1)         SHA-512   Q2 root (Classic FIPS)
+        ML-DSA      ML-DSA-87 (NIST level 5)  none      Quantum Track Root, Q3 root, Q4 root
+
+      * Why 8192: it is also the largest RSA size Chrome (BoringSSL) accepts. 16384 would fail.
+      * Why P-521: largest NIST curve; roots only sign CA certificates and never take part in a TLS
+        handshake, so TLS limits of some stacks on P-521 do not apply (L12).
+      * ML-DSA is a pure signature scheme: it hashes internally (SHAKE256) and takes no SHA-512, so
+        the digest column reads "none". ML-DSA-87 is the highest parameter set. "ML-DSA-874" in the
+        first draft does not exist; ML-DSA has the sets 44, 65 and 87.
+      * The validator rejects a root-level CA that breaks this table, and checks that every
+        certificate below an ML-DSA CA is ML-DSA signed (and no classical CA signs one by mistake).
+      * Not used: Ed448 (poor Windows chain support), RSA above 8192 (Chrome rejects it), SLH-DSA
+        (30 KB signatures, little client support).
+
+ 3.2  BELOW THE ROOTS  (configurable)
+        Level                  Key                        Digest       Parameter
+        ---------------------  -------------------------  -----------  ---------------------------
+        Q1 intermediates       RSA 4096 (or 8192)         SHA-256      -IntermediateRsaBits
+        Q2 intermediates       ECDSA P-384 (or P-256/521) SHA-384      -IntermediateCurve
+        Q3, Q4 intermediates   ML-DSA-87 (or 65 / 44)     none         -PqcAlgorithm
+        Leaf Q1                RSA 2048                   SHA-256      -LeafSizes
+        Leaf Q2                ECDSA P-256                SHA-384      -
+        Leaf Q3, Q4            ML-DSA-65 (or 44 / 87)     none         -PqcLeafAlgorithm
+      Leaf floors (Phase B): RSA below 2048, ECC below P-256 and hash below SHA-256 rejected.
+      Code signing: key 4096 or larger and SHA-256 or larger, enforced even if the parameters say less.
+      No silent downgrade: if OpenSSL cannot create an ML-DSA key the script STOPS. Only -PqcFallback
+      (RSA, size -FallbackRsaBits, default 8192, via genrsa) lets a build continue; each such key is
+      warned about, marked * in the summary and listed in pki-manifest.json. Not quantum-safe.
+
+ 3.3  VALIDITY  (from the moment of generation; each level shorter than the one above)
+        Enterprise Root     1000 years     -RootYears        (expires 3026)
+        Track Root           500 years     -TrackYears
+        Quadrant Root        400 years     -QuadrantYears
+        Intermediates        250 years     -IntYears
+        Leaf EV              397 days      -LeafDays         (EV maximum 398)
+        Leaf OV                3 years     -OvLeafYears      (default when not given)
+        Leaf DV                5 years     -DvLeafYears      (default when not given)
+      pki_setup.ps1 issues EV leaves (397 days). The OV and DV defaults are stored in agantra_pki.cnf
+      and used by the leaf generator (Phase B). The run prints every CA with its validity and expiry
+      date.
+
+ 3.4  DIGEST BY ISSUER
+        Enterprise Root and Classic Track Root sign with SHA-512.
+        Quadrant Roots sign intermediates with SHA-256 (RSA), SHA-384 (ECDSA) or no digest (ML-DSA).
+        Intermediates sign leaves the same way.   The Enterprise Root signs the Quantum Track Root
+        with SHA-512 (it is an RSA key); everything below the Quantum Track Root is signed by ML-DSA.
+
+ 3.5  LENGTH-EXTENSION SHIELD AND OTHER PROTECTION
+      A length-extension attack targets H(secret || message) constructions (MACs). An X.509
+      signature covers the whole DER TBSCertificate, so the attack does not apply. What the script
+      enforces instead:
+        * digest allow-list: SHA-1 and MD5 rejected; SHA-512 required for classical root-level CAs
+        * critical basicConstraints with a fixed pathlen at every level (3, 2, 1, 0)
+        * keyCertSign + cRLSign only on CAs
+        * 128-bit random positive serial numbers; separate serial database per CA
+        * private key files restricted to the owner, SYSTEM and Administrators (icacls)
+        * optional -RsaPss (RSASSA-PSS, randomized padding, MGF1 over the same digest) for RSA CAs.
+          Off by default because some older chain engines reject PSS.
+        * post-generation validation of every CA and leaf (keys, digests, pathlen, policies, chains)
+
+
+====================================================================================================
+ 4  NAMES  (configurable)
+====================================================================================================
+ Defaults:
+ Enterprise Root     Agantra Inovatif Enterprise Root CA G1
+ Track Root          Agantra Inovatif Enterprise Classic Root CA G1
+                     Agantra Inovatif Enterprise PQC-PostQuantum Root CA G2
+ Quadrant Root       Agantra Inovatif Enterprise Classic Q1 Root CA G1          (Q2 likewise)
+                     Agantra Inovatif Enterprise PQC-PostQuantum Q3 Root CA G2  (Q4 likewise)
+ Intermediate        Agantra Inovatif <EV|OV|DV> <algorithm> <G1|G2> CA
+                       Agantra Inovatif EV RSA-4096 G1 CA
+                       Agantra Inovatif OV ECDSA-P384 FIPS G1 CA
+                       Agantra Inovatif DV ML-DSA-87 G2 CA
+                       Agantra Inovatif EV ML-DSA-87 FIPS G2 CA
+ G1 = Classic track, G2 = everything in the Quantum track. The algorithm in an intermediate name is
+ the key that really exists (after a -PqcFallback it reads RSA-8192, never ML-DSA). No year range.
+ "PQC-PostQuantum" is literally true for the Quantum track (ML-DSA).
+
+ WHERE THE NAMES ARE DECIDED  (one module: scripts\01b_CaNaming.ps1)
+   Defaults   scripts\01b_CaNaming.ps1            ($script:PkiNamingDefaults, documented in the file)
+   Overrides  agantra_pki.cnf  [ ca_names ]        (Prefix, QuantumLabel, SlugPrefix, GenEnterprise, GenClassic,
+                                                    GenQuantum and one template per kind of CA)
+   Templates  EnterpriseRoot  ClassicTrackRoot  QuantumTrackRoot  ClassicQuadrantRoot  QuantumQuadrantRoot
+              Intermediate        tokens: {Prefix} {QuantumLabel} {Gen} {N} {Level} {Algorithm} {Track} {Id}
+   Rules      at most 64 characters (X.520), every CA a different name, only the tokens above, file-name
+              stem only a-z 0-9 '-'. The script stops with the reason; -ShowNames previews everything.
+   File stem  agantra-q1-ev-g1 style, used in the CRL / CA-issuer URLs ({ca}) and in pki\publish.
+ Every CA subject also carries jurisdictionC, serialNumber, C, L, O, OU, name, emailAddress,
+ telephoneNumber. O is written without the umlaut: Agantra Inovatif OU. OU per layer: OU_Root, OU_Track,
+ OU_Quadrant, OU_Intermediate in [ pki_settings ].
+
+
+====================================================================================================
+ 5  POLICIES, EXTENSIONS, REVOCATION
+====================================================================================================
+ Policy OIDs                  EV 2.23.140.1.1     OV 2.23.140.1.2.2     DV 2.23.140.1.2.1  (CA/B Forum defaults)
+   The EV policy is REQUIRED: it is always written (a blank value falls back to the default), so a
+   client or application can tell that it holds an EV certificate. Change the values in
+   agantra_pki.cnf [ policy_oids ] or with -EvPolicyOid. EV, OV and DV must be valid and different.
+   All roots carry EV, OV and DV. An intermediate carries only its own level (policy isolation).
+   The EV leaf carries EV.
+ IANA Private Enterprise Number (PEN)   blank until you have it: IanaPen in agantra_pki.cnf [ iana_pen ]
+   or -IanaPen <number>. When set, these OIDs are added (PenPolicyArc defaults to 1):
+        1.3.6.1.4.1.<PEN>.1      company policy        every certificate
+        1.3.6.1.4.1.<PEN>.1.1    company EV level      roots, EV intermediates, EV leaves
+        1.3.6.1.4.1.<PEN>.1.2    company OV level      roots, OV intermediates, OV leaves
+        1.3.6.1.4.1.<PEN>.1.3    company DV level      roots, DV intermediates, DV leaves
+   Your applications can therefore recognise a company EV certificate by its own OID.
+ Extra policies   agantra_pki.cnf [ custom_policies ]:   label = OID | CPS-URL
+   Written into EVERY certificate: root, track, quadrant, intermediate, leaf. Phase B adds a leaf
+   parameter for more. A policy missing from the CA certificates is not asserted by the CA chain.
+ CA extensions   basicConstraints critical CA:true pathlen:N | keyUsage critical keyCertSign,cRLSign
+   subjectKeyIdentifier | authorityKeyIdentifier keyid:always | certificatePolicies |
+   crlDistributionPoints + authorityInfoAccess (CA Issuers, OCSP) pointing to the issuer.
+ EV leaf         CA:false | digitalSignature (+ keyEncipherment for RSA) | EKU serverAuth + clientAuth |
+   SAN (DNS, IP, e-mail; a wildcard prints a warning) | policies | CRL | AIA | at most 398 days.
+ Locations       [ crl_urls ] [ ocsp_urls ] [ ca_issuer_urls ]; "{ca}" = the issuing CA's slug.
+   Files go to pki\publish\; you copy them to the hosts. Windows reports "revocation server offline"
+   for client certificates until one URL answers. CRL lifetime 365 days.
+   ML-DSA CRLs are signed with ML-DSA; a client that cannot validate ML-DSA cannot check them either.
+
+
+====================================================================================================
+ 6  DIAGRAMS 2-5  -  TRUST, HANDSHAKE, FILES, PUBLIC CA
+====================================================================================================
+
+ DIAGRAM 2 - WHAT YOU INSTALL WHERE  (only the Enterprise Root goes on clients)
+ ---------------------------------------------------------------------------------------------------
+
+   pki\root\root.crt  (PEM, RSA 8192)
+        |
+        +--> Windows 11 / Server 2025   LocalMachine\Root   (pki_setup -InstallTrust)  -> Edge, Chrome,
+        |                                                                      Brave, .NET, IIS, Schannel apps
+        +--> Windows 10                 LocalMachine\Root   (Classic chains only)
+        +--> Firefox         own store, or security.enterprise_roots.enabled = true
+        +--> Chrome/Brave/Edge on Linux   NSS database  ($HOME/.pki/nssdb)
+        +--> Ubuntu          /usr/local/share/ca-certificates + update-ca-certificates
+        +--> RHEL/Rocky/CentOS/Oracle   /etc/pki/ca-trust/source/anchors + update-ca-trust
+        +--> SUSE 16         /etc/pki/trust/anchors + update-ca-certificates
+        +--> FreeBSD         /usr/local/share/certs + certctl rehash
+        +--> macOS           System keychain (security add-trusted-cert)
+        +--> Android         Install a CA certificate (UC / QQ Browser: not verified)
+        +--> Java 25 cacerts, Node (NODE_EXTRA_CA_CERTS), Python / PHP (cafile), Go (OS pool)
+
+   On Windows pki_setup installs EVERY root in the Trusted Root store and every intermediate in the
+   Intermediate store (not only the Enterprise Root):
+        LocalMachine\Root   Enterprise Root, Classic / Quantum Track Roots, Q1..Q4 Quadrant Roots   (7)
+        LocalMachine\CA     all DV / OV / EV intermediates                                          (12)
+        LocalMachine\My     default leaf PFX files (all quadrants)
+   including every ML-DSA certificate on Windows 11 24H2+ / Server 2025 (checked by thumbprint).
+
+
+ DIAGRAM 3 - TLS 1.3 HANDSHAKES  (classic and quantum quadrants)
+ ---------------------------------------------------------------------------------------------------
+
+  A. CLASSIC leaf (Q1 / Q2): works with every client
+        CLIENT (browser, Windows 11, Go, Node, curl ...)               SERVER (any)
+          |  ClientHello: groups = X25519MLKEM768, X25519 ...            |
+          |------------------------------------------------------------->|
+          |  server picks X25519MLKEM768 if it can, else X25519          |
+          |<-------------------------------------------------------------|
+          |  Certificate: RSA / ECDSA chain from this PKI                |
+          key exchange: hybrid (quantum-safe)   authentication: RSA / ECDSA (classical)
+
+  B. QUANTUM leaf (Q3 / Q4): both ends must support ML-DSA certificates
+        CLIENT with OpenSSL 3.5+ (curl, Python, Node, nginx proxy ...)  SERVER with OpenSSL 3.5+
+          |  ClientHello: groups = X25519MLKEM768 ... ; signature_algorithms include mldsa44/65/87
+          |------------------------------------------------------------->|
+          |  Certificate: ML-DSA leaf + ML-DSA chain from this PKI       |
+          |<-------------------------------------------------------------|
+          key exchange: hybrid ML-KEM        authentication: ML-DSA   =  fully post-quantum handshake
+
+  C. Where B is not possible: Windows Schannel servers, Java 25, browsers and Windows 10 clients do not
+     offer or accept ML-DSA certificates: the handshake fails. For such clients the site needs a Classic
+     leaf (A). An OpenSSL server can hold both an RSA and an ML-DSA certificate and present the one the
+     client supports (dual-certificate setup; possible with OpenSSL-based servers, test it first).
+
+
+ DIAGRAM 4 - FILES OF ONE LEAF, AND WHAT EACH SERVER READS
+ ---------------------------------------------------------------------------------------------------
+
+   pki\leaf\nextmantra.com-q3-mldsa65.crt             leaf only
+                                       .key           private key (PKCS#8 PEM, no password)
+                                       -fullchain.crt leaf + EV intermediate + Q3 root + Quantum root
+                                       .pfx           certificate + key + chain  (password -Password)
+   (Classic leaf names: nextmantra.com-q1-rsa2048.*   nextmantra.com-q2-ecdsa-p256.*)
+
+   (FIPS quadrants also get  <name>-fips.pfx : a FIPS-conformant container, PBMAC1 / PBKDF2, written by
+    the FIPS provider. Windows may not import it; the normal .pfx is packaged with the default provider
+    because the FIPS provider has no PKCS#12 KDF. The KEY is still FIPS-generated.)
+
+   nginx, Apache, Node, Python, Go, PHP  ->  -fullchain.crt + .key
+   Kestrel, IIS, Java 25                 ->  .pfx           (Classic leaves; Quantum: Kestrel on Linux)
+   Clients of all of them                ->  trust pki\root\root.crt  (Diagram 2)
+
+ DIAGRAM 5 - ENTERPRISE ROOT SIGNED BY A PUBLIC CA  (PUBLIC-CA-ENTERPRISE-ROOT.txt)
+ ---------------------------------------------------------------------------------------------------
+
+  MODEL A  subordinate                              MODEL B  cross-sign (your root stays self-signed)
+
+   Public root (already in every client)             Public root (in clients)         Your Enterprise Root
+        |                                                  |                           (self-signed, installed
+   Public CA intermediate                           Public CA intermediate              on clients that use it)
+        |   signs root.csr  (pathlen >= 3)                |   signs root-cross.csr          |
+   ENTERPRISE ROOT  (now an intermediate)           ENTERPRISE ROOT - cross-certificate    |
+        |   same key, same subject  ----------------------+---------------------------------+
+   Track Root -> Quadrant Root -> Intermediate -> leaf      (everything below is unchanged: same CAs, same leaves)
+
+   Server sends (A):  leaf, intermediate, Q root, Track root, Enterprise Root, public intermediate
+   Server sends (B):  <leaf>-fullchain-cross.crt = fullchain + cross-certificate + public intermediate
+   Clients with only the public root:  A and B both validate.   Clients with your root:  B / normal chain.
+   Every CA below ends before the public certificate does (validity is shortened automatically).
+   Windows: Enterprise Root of model A goes to LocalMachine\CA, not Root.   Use with -ClassicPKI.
+
+
+====================================================================================================
+ 7  WHERE ML-DSA WORKS  /  SERVERS AND CLIENTS  (status of mid-2026; verify on your builds)
+====================================================================================================
+ 7.1  ML-DSA CERTIFICATES (Quantum quadrants): store, chain validation, TLS
+
+   Platform / product                       Certificate store +      TLS server certificate
+                                            chain validation         (HTTPS)
+   ---------------------------------------  -----------------------  -------------------------------
+   Windows 11 24H2+ / Server 2025 (updated) YES (CryptoAPI)          NO  (Schannel: Kestrel, IIS)
+   Windows 11 before 24H2, Windows 10,      NO                       NO
+   Server 2022
+   OpenSSL 3.5 / 4.x                        YES                      YES
+   nginx (OpenSSL 3.5+), Apache (3.5+)      -                        YES
+   Node.js 26 (bundled OpenSSL 3.5+)        YES                      YES
+   Python 3.14 (OpenSSL 3.5+)               YES                      YES
+   Kestrel on Linux (OpenSSL 3.5+)          YES                      YES  (shown by public tests)
+   Go                                       not verified             not verified
+   Java 25                                  no (in TLS)              NO
+   macOS, Safari                            not supported            NO
+   Chrome, Edge, Brave, Firefox             NO                       NO  (Chrome plans Merkle Tree
+   UC Browser, QQ Browser                   NO                       certificates instead; others: no)
+   Microsoft: PQC APIs (CNG ML-KEM, ML-DSA) in Windows 11 24H2 / Server 2025 since late 2025
+   (client enablement KB5067036), AD CS issues ML-DSA since May 2026 (KB5087539). Schannel authenticates
+   servers with classical certificates only (July 2026 statement).
+
+   Consequence for -InstallTrust: on Windows 11 24H2+ and Server 2025 every Quantum root, intermediate
+   and leaf is installed in the LocalMachine stores and the chain can be validated; the Quantum leaf
+   cannot be bound to an IIS or Kestrel-on-Windows HTTPS endpoint.
+
+ 7.2  Hybrid key exchange (X25519MLKEM768), independent of the certificate
+
+   Product                          Hybrid key exchange                       Condition
+   -------------------------------  ----------------------------------------  ------------------------
+   Windows 11 / Server 2025         yes, in Schannel since the 14 July 2026   TLS 1.3, that update or
+   (Kestrel on Windows, IIS)        updates (Windows 11 KB5101650 ...)        newer
+   Windows 10                       no                                        -
+   Kestrel on Linux                 yes, through OpenSSL                      system OpenSSL 3.5+
+   nginx 1.30.x / 1.31.x            yes                                       linked with OpenSSL 3.5+
+   Apache httpd 2.4 (latest)        yes                                       mod_ssl with OpenSSL 3.5+
+   Node.js 26                       yes                                       bundled OpenSSL 3.5+
+   Python 3.14, PHP 8               depends on the OpenSSL they use           OpenSSL 3.5+
+   Go (1.24 and newer)              yes, by default                           do not restrict curves
+   Rust                             depends on the TLS library                check your crate
+   Java 25                          NO                                        arrives with JDK 27
+   Chrome, Edge, Brave              yes, by default (Chrome 131+)             server must offer it
+   Firefox                          yes, default since Firefox 132            server must offer it
+   UC Browser, QQ Browser           unknown                                   not verified
+
+ HTTP/2 and HTTP/3: nginx, Apache, Kestrel and IIS serve HTTP/2 with the same certificate. HTTP/3
+ (QUIC) needs a QUIC-enabled build or setting (nginx quic, Kestrel Http3). TLS 1.3 throughout.
+ Details for each product: pki_setup-MANUAL.txt, section 8.
+
+ 7.3  YOUR REFERENCE MACHINES  (read from your screenshots, 2026-10-05)
+
+   A. Ubuntu 26.04.1 LTS server  (kernel 7.0.0, x86_64, Alibaba Cloud ECS, terminal-node-01)
+      Component              Version in the screenshot         Classic leaf / Quantum (ML-DSA) leaf
+      ---------------------  --------------------------------  -------------------------------------
+      nginx                  1.31.4, built with OpenSSL 3.5.5  both; hybrid KEX yes; HTTP/3 module
+      .NET SDK               10.0.112                          Kestrel on Linux: both (system OpenSSL)
+      Node.js                v26.10.0                          both if bundled OpenSSL >= 3.5
+      Go                     1.26.0                            Classic yes; ML-DSA: not verified
+      Java                   OpenJDK 25.0.4.1 (Ubuntu build)   Classic only; no hybrid KEX
+      Python                 3.14.4                            both if system OpenSSL >= 3.5
+      Trust the root with:  /usr/local/share/ca-certificates + update-ca-certificates (feeds Python, Go,
+      .NET, curl; Java through ca-certificates-java; Node needs NODE_EXTRA_CA_CERTS).
+      This is the best place for the Quantum (ML-DSA) leaves: nginx / Kestrel / Python / Node here.
+
+   B. Windows 11 26H2 Pro development VM  (Visual Studio 2026, Visual Studio Code)
+      Component              Version in the screenshot         Classic leaf / Quantum (ML-DSA) leaf
+      ---------------------  --------------------------------  -------------------------------------
+      PowerShell             7.6.6                             meets the PowerShell 7 requirement
+      OpenSSL                4.0.3 (29 Sep 2026)               meets the OpenSSL 4.x requirement; ML-DSA
+      Windows store          Root / CA / My                    both: Quantum certs installed by -InstallTrust
+      .NET SDKs              8.0.425, 9.0.318, 10.0.401        Kestrel on Windows: Classic leaf only
+      Node.js                v26.8.1                           both if bundled OpenSSL >= 3.5
+      Go                     1.27.1                            Classic yes; ML-DSA not verified
+      PHP                    8.4.13 NTS                        probably older bundled OpenSSL: Classic
+      Java                   Temurin 25.0.4.1 LTS              Classic only; no hybrid KEX
+      Python                 3.14.8                            check ssl.OPENSSL_VERSION
+      Rust                   rustc 1.90.0                      depends on rustls / native-tls
+      Trust the root with:   .\pki_setup.ps1 -InstallTrust. Node: NODE_EXTRA_CA_CERTS. Java Temurin:
+      keytool -cacerts. PHP: cafile. Firefox: own store.
+      The VM's Windows must be Windows 11 24H2+ with the 2025-2026 updates to store ML-DSA certificates
+      (26H2 qualifies). -Check and -Verify say so.
+
+
+====================================================================================================
+ 8  FOLDER LAYOUT, SCRIPTS, PARAMETERS
+====================================================================================================
+ 8.1  Project folder
+        pki_setup.ps1                  entry point; -Help lists every parameter
+        agantra_pki.cnf                configuration (replaces ev_pki.cnf)
+        pki_setup-MANUAL.txt           user manual
+        PKI-Design-with-FIPS-and-PQC.txt   this file
+        PUBLIC-CA-ENTERPRISE-ROOT.txt  Enterprise Root signed by a public CA (own document)
+        scripts\README.txt             module reference for later scripts (Phases B and C)
+        scripts\PkiModules.ps1         the ONE loader of all modules (sets All / Library / Trust)
+        scripts\00_Common   01_Configuration   02_OpenSSL   03_RuntimeConfig   04_CertificateAuthority
+                05_LeafCertificates   06_Validation   07_TrustStore   08_Cleanup
+                09_Administrator   10_Main   11_Preflight   12_ExistingPki   13_ExternalRoot
+                01b_CaNaming (all CA names)
+ 8.2  Output (pki\)
+        root\                          Enterprise Root: root.crt  root.key  root.pfx  root.cnf ...
+                                       public CA: external-request.txt  external-state.json  external-chain.pem
+                                       cross-sign\  (root-cross.csr, root-cross-N.crt)
+        classical\root\                Classic Track Root
+        classical\q1\{root,dv,ov,ev}\  classical\q2\{root,dv,ov,ev}\
+        quantum\root\                  Quantum Track Root (ML-DSA-87)
+        quantum\q3\{root,dv,ov,ev}\    quantum\q4\{root,dv,ov,ev}\
+          each CA folder: <id>.crt .key .pfx .cnf <id>-chain.crt  index.txt  serial  crlnumber  issued\
+        leaf\                          default EV leaf files
+        publish\                       root.crt  ca-bundle.crt  <slug>.crt/.crl/.pem  README.txt
+        provider-default.cnf  provider-fips.cnf      native provider configuration
+        pki-manifest.json  telemetry.json  .agantra-pki (marker used by -Clean)
+ 8.3  Windows certificate stores (-InstallTrust)
+        Enterprise Root, Track Roots, Quadrant Roots     -> LocalMachine\Root   (Trusted Root Certification Authorities)
+        All DV / OV / EV intermediates                   -> LocalMachine\CA     (Intermediate Certification Authorities)
+        Default leaf PFX files                           -> LocalMachine\My
+      Track and Quadrant Roots are issued by the Enterprise Root, so they are not self-signed. Windows treats a
+      certificate in the Trusted Root store as a trust anchor either way. A certificate found in the other store
+      (versions before 4.5.0 put Track / Quadrant Roots in CA) is moved. An Enterprise Root signed by a public CA
+      is an intermediate of that chain and goes to CA. -ReinstallTrust re-applies all this to an existing PKI.
+      Every certificate is installed with .NET, then with certutil.exe if needed, and checked by
+      thumbprint. A CA certificate that cannot be installed ends the run with an error (the others are
+      still installed); a leaf PFX that Windows cannot import is a warning.
+ 8.4  pki_setup.ps1 parameters  (full text: .\pki_setup.ps1 -Help)
+        Configuration   -ConfigFile -PkiRoot -OpenSslPath -FipsModuleConfig
+        Selection       -Quadrant 1,2,3,4        (older than Windows 11 / Server 2025: default 1,2)
+                        -ClassicPKI              (Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV)
+        Algorithms      -IntermediateRsaBits -IntermediateCurve -PqcAlgorithm -PqcLeafAlgorithm
+                        -PqcFallback -FallbackRsaBits -RsaPss          (root keys fixed, 3.1)
+        Validity        -RootYears -TrackYears -QuadrantYears -IntYears -LeafDays -OvLeafYears -DvLeafYears
+        Policies        -IanaPen -EvPolicyOid
+        Subject         -Domain -Organization -OrganizationalUnit -Country -State -Locality -Street
+                        -PostalCode -Serial -BusinessCategory -JurisdictionCountry -JurisdictionState
+                        -JurisdictionLocality -CpsUrl -ContactName -ContactEmail -ContactPhone
+        Output          -LeafSizes -Password -LegacyPfx -SkipLeaf
+        Trust / cleanup -InstallTrust -Clean -RemoveTrust -RemoveAllTrust -Unblock
+        Read-only       -Check (preflight)   -Verify (re-validate an existing PKI)   -ShowNames (CA names)
+        Public CA root  -EnterpriseRootCsr -ExternalCa -EnterpriseRootKeyBits -ImportEnterpriseRoot
+                        -ExternalChain -CrossSignCsr -ImportCrossCert
+        Removed         -RootKeyBits -QuadrantRsaBits -QuadrantCurve   (CaYearRange: removed from the cnf)
+ 8.5  Cleanup behaviour
+        -RemoveTrust      removes this PKI's certificates (by thumbprint) from Root, CA, My. Files stay.
+        -RemoveAllTrust   removes every certificate whose subject or issuer contains "Agantra Inovatif"
+                          or "NextMantra", then DELETES the pki folder with all contents.
+        -Clean            removes this PKI's trust and the pki folder, then regenerates.
+        A certificate already gone from a store is ignored; the run continues.
+        A locked folder is retried, then reported with the program that holds it (Restart Manager).
+        -Unblock          removes the "downloaded from the Internet" mark from all scripts and PKI files
+                          and lists the processes that lock the pki folder. Nothing is killed.
+        First start of a blocked script, once:  Get-ChildItem -Path . -Recurse -File | Unblock-File
+
+
+====================================================================================================
+ 9  LIMITATIONS
+====================================================================================================
+ L1   ML-DSA certificates are not usable for HTTPS on Windows Schannel (Kestrel / IIS on Windows), Java 25
+      or any listed browser (7.1). A Quantum leaf cannot be shown in Edge / Chrome / Brave / Firefox /
+      UC / QQ. Browser-facing sites use Classic leaves; the Quantum quadrants serve OpenSSL-based
+      services and mutual TLS between your own systems.
+ L2   Mixed deployments need two certificates for one site (Classic + Quantum) or two sites. Phase B
+      will not change that: it is how the client ecosystem works today.
+ L3   ML-DSA signatures are big: about 3.3 KB (ML-DSA-65) and 4.6 KB (ML-DSA-87) each. A Quantum chain of
+      leaf + intermediate + quadrant root + track root carries four of them: tens of KB. Servers, proxies
+      and load balancers with small header or handshake limits can fail.
+ L4   The FIPS quadrant Q4 needs a FIPS provider that contains ML-DSA (OpenSSL 3.5+ / 4). The
+      FIPS provider is not by itself a compliance claim (L13).
+ L5   Private PKI. Every client installs the Enterprise Root. Firefox, Chrome on Linux, Java, Node,
+      Python, PHP and Android apps have their own stores or settings (manual, section 7).
+ L6   UC Browser and QQ Browser are not verified and may ignore user-installed roots. Test first.
+ L7   Validity beyond the year 2038 can fail on 32-bit time stacks (old 32-bit Android, embedded).
+ L8   OpenSSL. This script needs 4.x, which no listed OS packages, and 4.0 is a short-support release
+      (about May 2027; OpenSSL 3.5 LTS runs to April 2030). Servers can use 3.5. macOS /usr/bin/openssl
+      is LibreSSL: use a Homebrew OpenSSL 4 with -OpenSslPath.
+ L9   PowerShell 7 is required. FreeBSD is not an officially supported PowerShell platform: build
+      the PKI elsewhere and install root.crt by hand. Certificate-store functions are Windows only;
+      other systems use the commands in the manual. macOS and Linux have no ML-DSA-aware system store
+      or browser; use the root in OpenSSL-based tools.
+ L10  Windows 10, Windows 11 before 24H2 and Server 2022 cannot hold ML-DSA certificates. On them the
+      Quantum quadrants are skipped by default and -InstallTrust fails for them if forced.
+ L11  ML-DSA private keys in a PFX: Windows 11 24H2+ / Server 2025 should import them (CNG ML-DSA), but
+      this is not documented well and untested by me. If Import-PfxCertificate and certutil both fail,
+      the PFX stays on disk and a warning is printed.
+ L12  P-521 is used for the Q2 CA signature. Windows, macOS, NSS and BoringSSL verify it, but some TLS
+      stacks restrict P-521 in handshakes. Leaves are P-256 for that reason.
+ L13  FIPS. The quadrants use the OpenSSL FIPS provider for key generation and signing. That is not a
+      compliance statement: it holds only for a FIPS-validated module of the exact version and only for
+      algorithms the module covers. The module must match the OpenSSL version.
+ L14  Keys are plain PKCS#8 PEM files protected by file permissions. For production keep the roots
+      offline or in an HSM. The PFX password defaults to Abc12345!: change it with -Password.
+ L15  Revocation. CRL / OCSP / CA Issuers URLs help only after you publish pki\publish at those hosts.
+      No OCSP responder is provided. An ML-DSA CRL can only be checked by a client that supports ML-DSA.
+ L16  Leaf lifetime. EV 397 days, OV 3 years, DV 5 years by default. Chrome and Apple apply the 398-day
+      limit to publicly trusted roots only (private roots are exempt), Windows and Firefox do not
+      enforce it, but your own security policy or a customer's scanner may. Phase A issues EV leaves.
+ L17  Phase A has only the default EV leaves. DV / OV leaves, formats (DER, P7B, ...), custom leaf
+      policies, TLS / cipher guidance output, the transport zip and a new pki_reuse.ps1 are Phases B, C.
+      pki_reuse.ps1 and GenerateLeafCertificate.ps1 still expect the old single-root layout.
+ L18  Testing. Tested on Linux with PowerShell 7.4 and a real OpenSSL 4.0.3 (built from source with the FIPS
+      provider): the full four-quadrant PKI with real ML-DSA, default and FIPS providers; -Check, -Verify,
+      tamper detection, strict failure and -PqcFallback; a live TLS 1.3 handshake with the ML-DSA leaf
+      (Peer signature type mldsa65, group X25519MLKEM768, Verification OK); -ClassicPKI; naming overrides and
+      refusals; the public-CA flows (subordinate and cross-sign) against a stand-in CA; the three module sets.
+      NOT tested by me: the Windows
+      certificate store functions, any Windows machine, any browser, UC / QQ, macOS, FreeBSD, nginx /
+      Apache / Kestrel / Node / Python as servers. Section 14 closes that gap on your machines.
+ L18a PFX and FIPS. The FIPS provider has no PKCS#12 KDF, so the normal .pfx of a FIPS quadrant is
+      packaged with the default provider (the key stays FIPS-generated); a FIPS-conformant -fips.pfx
+      (PBMAC1) is written next to it for the FIPS leaves. Windows import of the -fips.pfx is untested.
+ L19  Information in section 7 reflects public documentation of mid-2026 and your screenshots.
+      Versions change: check nginx -V, process.versions.openssl, ssl.OPENSSL_VERSION, your Windows build.
+ L20  PHP 8.4.13 and Python builds on Windows may bundle an OpenSSL older than 3.5: no ML-DSA and no
+      hybrid key exchange there. Java 25 never offers the hybrid group.
+ L21  The IANA PEN is blank until you supply it; no company OIDs exist before that.
+ L22  Policy OIDs alone do not make a browser show an EV badge: that needs a public root in the browser's
+      EV list. They let YOUR applications recognise the certificate type.
+
+ L23  Public CA (PUBLIC-CA-ENTERPRISE-ROOT.txt). Tested with a stand-in CA, NOT with DigiCert, GlobalSign or
+      Sectigo: I did not verify their products, prices or rules. A public CA may refuse RSA 8192 / P-521,
+      allow pathlen below 3 only (then level 0 cannot be signed), require an HSM, impose name constraints
+      and cap validity. Signing is manual (files); no portal / ACME / REST.
+ L24  Under a public root, public TLS rules apply to every leaf (398 days, no private names the CA does not
+      allow); the 1000 / 500 / 400 / 250 year CAs are shortened to the public certificate's end date; the
+      ML-DSA quadrants are useless for browsers. Use -ClassicPKI with it.
+ L25  Renewal of a public-CA-signed Enterprise Root is manual: everything below ends with it, so plan the
+      re-signing of the same key and the re-issue of the CAs below early.
+ L26  Only level 0 (Enterprise Root) is signed by the public CA. Signing a lower level (Q1 Root or an
+      intermediate) is possible in principle but not automated (document, section 5).
+ L27  CA names are fixed when a CA is issued: changing a template later needs -Clean (a new PKI).
+ L28  Track and Quadrant Roots in the Trusted Root store are trust anchors although they are not self-signed
+      (owner decision, 10.17). Consequences: trust in a Quadrant Root does not depend on the Enterprise Root
+      staying installed; removing the Enterprise Root alone does not remove trust in the branches (use
+      -RemoveTrust / -RemoveAllTrust); a branch can be trusted on its own. Whether Windows accepts the chains
+      is shown by -Verify ("Windows chain"); that result on your machine is the proof.
+ L29  Machine-wide OPENSSL_CONF. Install-DevEnvironment.ps1 writes a master OpenSSL configuration (default,
+      fips AND the third-party oqsprovider) and sets OPENSSL_CONF for the machine. pki_setup.ps1 ignores it:
+      every OpenSSL command gets its own configuration. Plain "openssl" commands in your shell still use the
+      master file; an oqsprovider built for OpenSSL 3 may print errors under 4.x, which does not affect the PKI.
+      Two ML-DSA implementations (native and oqsprovider) in one shell can confuse other tools.
+ L30  Install-DevEnvironment.ps1 installs FireDaemon.OpenSSL (latest). It is not guaranteed to be 4.x; the
+      scripts check and say so (section 2.3 of the manual).
+
+====================================================================================================
+ 10  DECISIONS AND OPEN QUESTIONS
+====================================================================================================
+ 10.1  DECIDED   Quantum track = ML-DSA at every level (owner, 2026-10-05). This replaces version 4.1.0 to
+                 4.2.0, which used RSA / ECDSA in the Quantum track and relied on the hybrid key exchange
+                 only. Those versions had no post-quantum certificate at all, roots included; there was
+                 never a quantum root with classical intermediates.
+ 10.2  DECIDED   ML-DSA-87 for the Quantum roots and intermediates, ML-DSA-65 for leaves (your original
+                 legend). "ML-DSA-874" never existed.
+ 10.3  DECIDED   No silent downgrade: a failed ML-DSA key stops the script; -PqcFallback is the only way
+                 to get RSA instead, loudly.
+ 10.4  DECIDED   Everything in the Quantum track is G2 (names, slugs).
+ 10.5  DECIDED   Windows older than Windows 11 / Server 2025: quadrants 3 and 4 are not built by default.
+ 10.6  DECIDED   The custom subject field "Validation = OV/EV" is removed. The Dual leaf is dropped.
+ 10.7  DECIDED   Leaf lifetime defaults: EV 397 days, OV 3 years, DV 5 years (overridable).
+ 10.8  DECIDED   IANA PEN: parameter and cnf entry exist and are blank. The EV policy is required.
+ 10.9  DECIDED   The year range "2026-2050" is removed from the intermediate names (CaYearRange gone).
+ 10.10 OPEN      Your IANA PEN number. Supply it later in agantra_pki.cnf or with -IanaPen.
+ 10.11 DECIDED   Browser-facing sites and Windows servers use the Classic leaves (Q1 / Q2); the Quantum leaves
+                 (Q3 / Q4) are for OpenSSL-based services and mutual TLS. (owner, 2026-10-05)
+ 10.12 OPEN      Phase B starts only after you accept Phase A (section 14).
+ 10.13 DECIDED   Naming is one module with documented defaults and [ ca_names ] overrides (section 4).
+ 10.14 DECIDED   -ClassicPKI = Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV intermediates.
+ 10.15 DECIDED   Enterprise Root by a public CA: two models (subordinate, cross-sign), prepared and tested
+                 against a stand-in CA; own document. The script folder is a reusable library (loader with
+                 the sets All / Library / Trust, scripts\README.txt).
+ 10.17 DECIDED   All roots (Enterprise, Track, Quadrant) go to the Trusted Root store; all intermediates to the
+                 Intermediate store (owner, 2026-10-05; before: Track / Quadrant Roots were in CA).
+ 10.18 DECIDED   OpenSSL 4.x only, newest 4.x chosen automatically, 3.x refused with the install steps
+                 (Install-DevEnvironment.ps1); the capability gate runs before any key is made.
+ 10.16 OPEN      Which public CA, product and level you will really use. Ask for pathlen >= 3 at level 0; if
+                 only pathlen 0 / 1 is offered tell me: the signed level has to move (document, section 5).
+
+
+====================================================================================================
+ 11  REQUIREMENT TRACKER
+====================================================================================================
+ Status: DONE = delivered   A / B / C = phase   (untested) = needs your run
+
+  #   Request                                                       Status
+ ---  ------------------------------------------------------------  ----------------------------
+  1   Regenerate / reuse scripts for the new design                 A done; pki_reuse in C
+  2   Roots and intermediates: key size and hash as designed        DONE (3.1, 3.2)
+  3   pki_setup: install / remove all roots + intermediates         DONE (Windows untested)
+  4   Default leaf from pki_setup uses the EV generator             basic EV leaf in A; shared in B
+  5   TLS 1.2 / 1.3, HTTP/2, HTTP/3, FIPS / PQC / classic ciphers   guidance in manual + section 7;
+                                                                    cipher output in B
+  6   Transport zip to another Windows machine, install, remove     C
+  7   Several custom policies (IANA PEN), cnf applies to all        CAs + default leaf DONE; leaf
+                                                                    parameter in B
+  8   Leaf formats DER, PEM, P7B, CER, CERT, RFC 7468               B
+  9   ev_pki.cnf renamed agantra_pki.cnf, default for pki_setup     DONE
+ 10   DV / OV / EV subject fields, -DV -OV -EV -FIPS -Quantum       OpenSSL 4 check DONE; rest B
+      -Classic, intermediate selection, OpenSSL 4 check
+ 11   Leaf floors (RSA 2048, SHA-256), code signing 4096            rule in 3.2; code in B
+ 12   Exact OpenSSL conversion syntax as clean PowerShell           B
+ 13   OpenSSL 4 only, no ENGINE API, native providers               DONE
+ 14   PQC keys with mldsa87 (+ RSA 8192 fallback)                   DONE (3.2): strict, fallback opt-in
+ 20   -Help text for every new or changed function                  DONE for pki_setup.ps1
+ L1   Unblock scripts and the pki folder                            DONE
+ L2   Ignore certificates already removed                           DONE
+ L3   -RemoveAllTrust deletes the pki folder                        DONE
+ L4   Roots RSA 8192 / SHA-512 or strongest equivalent              DONE (3.1)
+ L5   Validity 1000 / 500 / 400 / 250 years                         DONE (3.3)
+ L6   Names for Root, Track, Quadrant; G2 for all Quantum           DONE (4)
+ L7   Quantum + FIPS use quantum algorithms at every level          DONE (3.1, 3.2, diagram 1)
+ L8   Windows 11 focus, older Windows skips the Quantum quadrants   DONE (10.5)
+ L9   Server stack matrix (Kestrel, nginx, Apache, Node, Python,     DONE (section 7)
+      Go, PHP, Java, IIS)
+ L10  Design file with diagrams and limitations                     DONE
+ L11  Manual text file for pki_setup.ps1                            DONE (pki_setup-MANUAL.txt)
+ L12  Keep design file and manual current                           DONE with every delivery
+ L13  Remove the Validation OV/EV subject field; drop Dual          DONE
+ L14  IANA PEN parameter + cnf entry, blank; EV policy required    DONE (section 5)
+ L15  Leaf lifetimes EV 397 days, OV 3 years, DV 5 years            DONE in config; OV/DV leaves in B
+ L16  Reference machines (Ubuntu 26.04, Windows 11 26H2 Pro)        DONE (7.3)
+ L17  Phase A ready before Phase B                                  -Check, -Verify, section 14
+ L18  Remove 2026-2050 from intermediate names                      DONE
+ L19  -InstallTrust installs ALL roots, intermediates and leaves,   DONE in code (Windows untested):
+      Quantum ones too, on Windows 11 Pro / Server 2025              .NET, then certutil, verified
+ L20  Naming script for all roots and intermediates, configurable   DONE (01b_CaNaming.ps1, [ ca_names ])
+ L21  Browser / Windows servers = Q1 / Q2, Quantum = OpenSSL + mTLS  DONE (10.11)
+ L22  -ClassicPKI parameter                                         DONE
+ L23  Enterprise Root signed by DigiCert / GlobalSign / Sectigo:     DONE (prepared, tested with a stand-in
+      process, parameters, separate document                          CA; own document)
+ L24  Script folder reusable for Phases B and C                     DONE (loader, sets, README)
+ L25  Update all documentation                                      DONE
+ L26  All roots in Trusted Root, intermediates in Intermediate     DONE (07_TrustStore, -ReinstallTrust)
+ L27  OpenSSL 4.x only + suggestion Install-DevEnvironment.ps1      DONE (best 4.x chosen, advice printed)
+ L28  FIPS and Quantum generation proven before building           DONE (capability gate, -Check)
+ L29  A4 findings fixed (byte[] bug, store placement)               DONE
+
+
+====================================================================================================
+ 12  CHANGE LOG
+====================================================================================================
+ 4.5.2-phaseA  2026-10-05
+   + Found by the 4.5.1 read-back on your machine: 6 roots "in BOTH stores". Cause: each leaf PFX contains the
+     leaf plus intermediate, Quadrant Root and Track Root (4 certificates); Windows files every non-leaf
+     certificate of an imported PFX under Intermediate, so the PFX import put the roots back there AFTER the
+     per-certificate placement. Fix: the PFX is loaded in .NET and only the leaf (the certificate with the
+     private key) goes to My; and the "remove the copy in the wrong store" pass now runs AFTER the PFX import.
+     If the leaf-only route fails (an ML-DSA key an older .NET cannot read) the Windows import is used and the
+     final pass cleans up. Tested: leaf extraction from the real PFX files (RSA, ECDSA).
+ 4.5.1-phaseA  2026-10-05
+   + The stores are READ BACK after every install and in -Verify (Get-PkiStorePlacement, pure and tested):
+     roots must be in Trusted Root, intermediates in Intermediate, none in both. A wrong placement is an
+     ERROR (install) / FAIL (-Verify) with the certificate named; "older generation" certificates with this
+     PKI's name that are not in the current PKI are listed and left alone.
+     Tested with your screenshot state: 6 roots under Intermediate = 6 x WRONG STORE, fixed by -ReinstallTrust.
+ 4.5.0-phaseA  2026-10-05
+   + Found in your A4 run and fixed: ConvertFrom-PkiPemToDer returned object[] (PowerShell unrolled the bytes),
+     so X509Certificate2 read it as a path ("cannot find the path"); installs had worked only through the
+     certutil fallback, and -Verify could not read the leaves. Now byte[] everywhere.
+   + Stores: every root (Enterprise, Track, Quadrant) -> Trusted Root, every intermediate -> Intermediate;
+     certificates in the wrong store are moved. The decision comes from the kind of CA, not from the manifest.
+   + -ReinstallTrust: install the existing PKI again, no rebuild, no OpenSSL.
+   + OpenSSL: every candidate is asked, the newest 4.x wins (a 3.x earlier in PATH is skipped and named);
+     3.x is refused with HOW TO FIX steps naming Install-DevEnvironment.ps1; discovery covers the FireDaemon
+     folders. Commands without a PKI configuration use a neutral config, so a machine-wide OPENSSL_CONF
+     (master file with oqsprovider) cannot interfere.
+   + Capability gate before generation: ML-DSA (Q3 non-FIPS, Q4 FIPS) and the FIPS provider are proven first.
+ 4.4.0-phaseA  2026-10-05
+   + scripts\01b_CaNaming.ps1: all CA names, prefix, labels, generations and file-name stems in one
+     configurable module ([ ca_names ] overrides); checks (64 characters, unique, tokens); -ShowNames.
+   + -ClassicPKI: Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV intermediates only.
+   + Enterprise Root signed by a public CA: -EnterpriseRootCsr, -ImportEnterpriseRoot, -ExternalChain,
+     -ExternalCa, -EnterpriseRootKeyBits; cross-signing -CrossSignCsr / -ImportCrossCert; own document.
+     A CA never outlives its issuer (validity shortened automatically). Tested on OpenSSL 4.0.3 against a
+     stand-in CA: refusals (pathlen, wrong key, EKU, chain) and acceptance, public-root-only clients verify.
+   + Reusable library: scripts\PkiModules.ps1 (sets All / Library / Trust), scripts\README.txt,
+     12_ExistingPki.ps1 (Import-PkiExisting), shared helpers moved to 00_Common.
+   + Manifest: mode, enterpriseRoot (public CA, cross-certificates), per-CA store (Root / CA), naming.
+ 4.3.0-phaseA  2026-10-05
+   + Quantum track = ML-DSA at every level (Track Root, Q3 / Q4 roots, intermediates, leaves), FIPS and
+     non-FIPS. Enterprise Root stays RSA 8192. Strict: no silent RSA downgrade; -PqcFallback opt-in.
+   + New parameters -PqcAlgorithm, -PqcLeafAlgorithm, -PqcFallback, -FallbackRsaBits.
+   + "2026-2050" removed from the intermediate names.
+   + -InstallTrust: each certificate (ML-DSA included) is installed with .NET, then certutil, and
+     checked by thumbprint; results are summarised; a CA that fails ends the run with an error.
+   + -Check tests ML-DSA (CA + leaf, sign, verify) and the Windows build; -Verify asks Windows whether it
+     accepts each leaf chain.
+   + Validation: ML-DSA signature expected below an ML-DSA CA, classical below a classical CA.
+   + Tested on a real OpenSSL 4.0.3 with the FIPS provider (see L18). Found and fixed on the way: PFX
+     export failed under the FIPS provider (no PKCS#12 KDF): normal PFX now packaged with the default
+     provider, plus a FIPS-conformant -fips.pfx for FIPS leaves.
+   + Design file and manual updated (platform table for ML-DSA, limitations L1-L4, L10, L11).
+ 4.2.0-phaseA  Policy OIDs, IANA PEN, leaf lifetimes, -Check, -Verify, reference machines, checklist.
+ 4.1.1-phaseA  Windows 10 detection; server matrix; manual.
+ 4.1.0-phaseA  ML-DSA removed (Quantum track classical + hybrid key exchange). Reverted in 4.3.0.
+ 4.0.2-phaseA  Validity 1000 / 500 / 400 / 250 years; names; run summary table.
+ 4.0.1-phaseA  Root key policy; -Unblock; lock holders; tolerant trust removal; cleanup.
+ 4.0.0-phaseA  New hierarchy, OpenSSL 4 gate, native providers, agantra_pki.cnf, validation, trust.
+
+
+====================================================================================================
+ 13  QUICK COMMANDS  (elevated PowerShell 7 for the trust options)
+====================================================================================================
+   Get-ChildItem -Path . -Recurse -File | Unblock-File        first start only
+   .\pki_setup.ps1 -Help
+   .\pki_setup.ps1 -Check                                      is this machine ready?
+   .\pki_setup.ps1 -ShowNames                                  names of all CAs, nothing generated
+   .\pki_setup.ps1 -ClassicPKI -InstallTrust                   Classic PKI only
+   .\pki_setup.ps1 -Verify                                     re-validate the PKI in .\pki
+   .\pki_setup.ps1 -InstallTrust                               Windows 11: all quadrants
+   .\pki_setup.ps1 -Quadrant 1,3 -InstallTrust                 no FIPS module needed
+   .\pki_setup.ps1 -FipsModuleConfig C:\openssl\ssl\fipsmodule.cnf -InstallTrust
+   .\pki_setup.ps1 -Clean -InstallTrust                        wipe and rebuild
+   .\pki_setup.ps1 -IanaPen 12345 -Clean -InstallTrust         with your PEN, once you have it
+   .\pki_setup.ps1 -Unblock                                    unblock files, show who locks .\pki
+   .\pki_setup.ps1 -RemoveTrust                                remove this PKI from Windows
+   .\pki_setup.ps1 -RemoveAllTrust                             remove all Agantra certs, delete .\pki
+   openssl fipsinstall -out fipsmodule.cnf -module <path to fips.dll>      (create the FIPS config)
+   "" | openssl s_client -connect host:443 -groups X25519MLKEM768 -CAfile pki\root\root.crt
+
+
+====================================================================================================
+ 14  PHASE A ACCEPTANCE CHECKLIST  (run on your machines; Phase B starts after these pass)
+====================================================================================================
+ Windows 11 26H2 Pro VM, PowerShell 7.6.6 (elevated), in the project folder:
+
+   #    Step / command                                       Expected result
+  ---   ---------------------------------------------------  --------------------------------------
+  A1    Get-ChildItem -Recurse -File | Unblock-File          no error
+  A2    .\pki_setup.ps1 -Check                               every line PASS or INFO; "READY".
+                                                             "ML-DSA (Quantum quadrants)" PASS with
+                                                             OpenSSL 4.0.3. Add -FipsModuleConfig to
+                                                             include Q2 / Q4.
+  A3    .\pki_setup.ps1 -Clean -InstallTrust                 "ML-DSA works in this OpenSSL" for Q3 and Q4,
+                                                             then the table of 19 CAs and 4 leaves: Quantum
+                                                             rows ML-DSA-87 / ML-DSA-65, no "*";
+                                                             "Trust store: 19 of 19 CA certificate(s)
+                                                             in place"; 4 leaf PFX in My (or a warning
+                                                             for ML-DSA PFX files, see L11)
+  A4    .\pki_setup.ps1 -Verify                              "PKI is valid"; Windows stores PASS;
+                                                             "Windows chain: ..." PASS for the Classic
+                                                             leaves AND the ML-DSA leaves
+  A5    certlm.msc                                           Trusted Root Certification Authorities: 7
+                                                             (Enterprise, 2 Track, 4 Quadrant roots);
+                                                             Intermediate Certification Authorities: 12
+                                                             (DV / OV / EV, also the ML-DSA ones).
+                                                             Nothing of ours in the wrong store.
+  A5b   .\pki_setup.ps1 -ReinstallTrust  (if A5 shows Track /   "moved to the right store", then "7 of 7 roots in
+                                                             place / 12 of 12 intermediates", then
+        Quadrant roots under Intermediate, e.g. after 4.4)   A5 is right; -Verify "Windows chain" lines PASS
+  A6    Kestrel (Visual Studio 2026, .NET 10) with the       page loads over https in Edge, no warning
+        CLASSIC .pfx (q1-rsa2048)
+  A7    Node, Go, Python, PHP, Java client with the root     each connects to a Classic-leaf server
+  A8    .\pki_setup.ps1 -IanaPen 99999 -Clean ... then       leaf shows 1.3.6.1.4.1.99999.1 and .1.1
+        certutil -dump on a leaf
+  A9    .\pki_setup.ps1 -RemoveAllTrust                      Agantra certificates gone, pki folder gone
+
+ Ubuntu 26.04 server (copy pki\root\root.crt and the leaf sets with scp):
+
+  U1    sudo cp root.crt /usr/local/share/ca-certificates/agantra-root.crt ; sudo update-ca-certificates
+                                                             "1 added"
+  U2    nginx with the CLASSIC fullchain + key (manual 8.3); sudo nginx -t && sudo systemctl reload nginx
+  U3    curl --cacert root.crt https://<host>                page loads, no certificate error
+  U4    openssl s_client -connect <host>:443 -groups X25519MLKEM768 </dev/null     (system OpenSSL 3.5+)
+                                                             "Negotiated TLS1.3 group: X25519MLKEM768"
+                                                             and "Verification: OK"
+  U5    nginx with the QUANTUM (q3-mldsa65) fullchain + key  curl --cacert root.crt https://<host> works;
+        on a test host name                                  s_client shows "Peer signature type: ML-DSA-65"
+                                                             (a browser is expected to refuse it: L1)
+
+  A10   .\pki_setup.ps1 -ShowNames, then change Prefix in      names change; -ShowNames shows them; a too long
+        [ ca_names ] and run it again                         or duplicate name is refused
+  A11   .\pki_setup.ps1 -Clean -ClassicPKI -InstallTrust      6 CAs + 1 leaf; Root / CA stores as before
+  A12   rehearsal of the public-CA flow with a stand-in CA     document PUBLIC-CA-ENTERPRISE-ROOT.txt,
+        (document, section 10)                                section 10: refusals and acceptance as listed
+
+ Report back: the output of A2, the summary table of A3, A4, and anything that fails.
+====================================================================================================

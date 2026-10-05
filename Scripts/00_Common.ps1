@@ -222,3 +222,166 @@ function Write-PkiFatalError {
         Write-PkiLog "Telemetry: $($script:PkiTelemetryPath)" 'ERROR'
     }
 }
+
+
+# ============================================================
+# Unblock files (remove the Windows "downloaded from the Internet" mark)
+# and find out which processes lock files (Windows Restart Manager).
+# ============================================================
+function Unblock-PkiTree {
+    <#
+    .SYNOPSIS
+        Unblock-File on every file below the given folders (scripts, certificates, keys ...).
+        Same effect as:  Get-ChildItem -Recurse -File | Unblock-File
+    .OUTPUTS
+        Number of files that were blocked and are now unblocked.
+    #>
+    param([Parameter(Mandatory)][string[]]$Path)
+    if (-not $IsWindows) { return 0 }
+    $count = 0
+    foreach ($root in $Path) {
+        if ([string]::IsNullOrWhiteSpace($root) -or -not (Test-Path -LiteralPath $root)) { continue }
+        foreach ($f in (Get-ChildItem -LiteralPath $root -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+            try {
+                if ($null -ne (Get-Item -LiteralPath $f.FullName -Stream 'Zone.Identifier' -ErrorAction SilentlyContinue)) {
+                    Unblock-File -LiteralPath $f.FullName -ErrorAction Stop
+                    $count++
+                }
+            }
+            catch { }
+        }
+    }
+    return $count
+}
+
+function Get-PkiLockingProcesses {
+    <#
+    .SYNOPSIS
+        Lists the processes that have files below a folder open (Windows Restart Manager).
+        Returns strings like  "explorer (PID 1234)". Never throws: returns @() when unknown.
+    #>
+    param([Parameter(Mandatory)][string]$Folder, [int]$MaxFiles = 400)
+    if (-not $IsWindows) { return @() }
+    try {
+        if (-not ('PkiRestartManager' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class PkiRestartManager
+{
+    [StructLayout(LayoutKind.Sequential)]
+    struct RM_UNIQUE_PROCESS { public int dwProcessId; public System.Runtime.InteropServices.ComTypes.FILETIME ProcessStartTime; }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    struct RM_PROCESS_INFO
+    {
+        public RM_UNIQUE_PROCESS Process;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)] public string strAppName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)] public string strServiceShortName;
+        public int ApplicationType;
+        public uint AppStatus;
+        public uint TSSessionId;
+        [MarshalAs(UnmanagedType.Bool)] public bool bRestartable;
+    }
+
+    [DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)]
+    static extern int RmStartSession(out uint handle, int flags, StringBuilder key);
+    [DllImport("rstrtmgr.dll")]
+    static extern int RmEndSession(uint handle);
+    [DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode)]
+    static extern int RmRegisterResources(uint handle, uint nFiles, string[] files, uint nApps, RM_UNIQUE_PROCESS[] apps, uint nSvcs, string[] svcs);
+    [DllImport("rstrtmgr.dll")]
+    static extern int RmGetList(uint handle, out uint needed, ref uint count, [In, Out] RM_PROCESS_INFO[] info, ref uint reasons);
+
+    public static List<string> GetLockers(string[] files)
+    {
+        var result = new List<string>();
+        uint handle;
+        var key = new StringBuilder(33);
+        if (RmStartSession(out handle, 0, key) != 0) return result;
+        try
+        {
+            if (RmRegisterResources(handle, (uint)files.Length, files, 0, null, 0, null) != 0) return result;
+            uint needed = 0, count = 0, reasons = 0;
+            int rc = RmGetList(handle, out needed, ref count, null, ref reasons);
+            if (rc == 234 && needed > 0)           // ERROR_MORE_DATA
+            {
+                var info = new RM_PROCESS_INFO[needed];
+                count = needed;
+                if (RmGetList(handle, out needed, ref count, info, ref reasons) == 0)
+                {
+                    for (int i = 0; i < count; i++)
+                        result.Add(info[i].strAppName + " (PID " + info[i].Process.dwProcessId + ")");
+                }
+            }
+        }
+        finally { RmEndSession(handle); }
+        return result;
+    }
+}
+'@
+        }
+        $items = @(Get-ChildItem -LiteralPath $Folder -Recurse -Force -ErrorAction SilentlyContinue |
+            Select-Object -First $MaxFiles | ForEach-Object { $_.FullName })
+        $items = @($Folder) + $items
+        return @([PkiRestartManager]::GetLockers([string[]]$items) | Sort-Object -Unique)
+    }
+    catch { return @() }
+}
+
+# ============================================================
+# Shared helpers (used by the generator and by later scripts such as
+# GenerateLeafCertificate.ps1 and the transport script)
+# ============================================================
+
+# Certificates whose subject or issuer contains one of these words belong to this PKI
+# (-RemoveAllTrust). Edit here if the company name changes.
+$script:PkiIdentityMarkers = @('Agantra Inovatif', 'NextMantra')
+
+function ConvertFrom-PkiPemToDer {
+    # First certificate of a PEM file -> DER bytes
+    param([Parameter(Mandatory)][string]$Path)
+    $text = [System.IO.File]::ReadAllText($Path)
+    $m = [regex]::Match($text, '-----BEGIN CERTIFICATE-----(?<b>[^-]+)-----END CERTIFICATE-----')
+    if (-not $m.Success) { throw "No PEM certificate found in $Path" }
+    $bytes = [byte[]][Convert]::FromBase64String(($m.Groups['b'].Value -replace '\s', ''))
+    return ,$bytes      # the comma keeps PowerShell from unrolling the byte[] into object[] (X509Certificate2 would read it as a path)
+}
+
+function Get-PkiCertificateFingerprint {
+    # SHA-1 (Windows thumbprint) and SHA-256 of the first certificate of a PEM file
+    param([Parameter(Mandatory)][string]$Path)
+    $der = ConvertFrom-PkiPemToDer -Path $Path
+    return [ordered]@{
+        Sha1   = [BitConverter]::ToString([System.Security.Cryptography.SHA1]::HashData($der)).Replace('-', '')
+        Sha256 = [BitConverter]::ToString([System.Security.Cryptography.SHA256]::HashData($der)).Replace('-', '')
+    }
+}
+
+function Split-PkiPemBundle {
+    # A PEM bundle -> list of single-certificate PEM strings, in file order
+    param([Parameter(Mandatory)][string]$Path)
+    $text = [System.IO.File]::ReadAllText($Path)
+    $list = [System.Collections.Generic.List[string]]::new()
+    foreach ($m in [regex]::Matches($text, '-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----')) {
+        [void]$list.Add(($m.Value -replace '\s*\r?\n\s*', "`n").Trim() + "`n")
+    }
+    return ,$list      # the comma keeps a one-element list from being unrolled to a string
+}
+
+function Initialize-PkiMinimalContext {
+    <#
+    .SYNOPSIS
+        Creates the small $script:Pki state that the shared modules need, for scripts that do not run
+        the generator (for example the transport script, which only installs / removes trust).
+    #>
+    param([string]$PkiRoot = (Join-Path (Get-Location).Path 'pki'), [string]$Password = 'Abc12345!', [switch]$VerboseOutput)
+    $script:Pki = [ordered]@{
+        PkiRoot = $PkiRoot; Password = $Password; VerboseOutput = [bool]$VerboseOutput
+        Built = [ordered]@{}; Leaves = [System.Collections.Generic.List[object]]::new(); ExternalRoot = $null
+    }
+}
+

@@ -1,2108 +1,499 @@
 # ============================================================
-# 07_TrustStore.ps1
-#
-# Windows Local PKI Trust Store Management
-#
+# PKI Script
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-#
-# Purpose:
-#   - Install Root CA
-#   - Install Intermediate CA
-#   - Install leaf certificates with private keys
-#   - Import leaf PFX certificates
-#   - Remove current PKI trust
-#   - Remove all Agantra/NextMantra certificates
-#   - Remove generated PKI folders after successful cleanup
-#
-# Windows Certificate Stores:
-#   LocalMachine\Root
-#   LocalMachine\CA
-#   LocalMachine\My
-#
-# PKI identity:
-#   - Agantra Inovatif
-#   - NextMantra
-#
-# PFX password:
-#   - Uses configured Password
-#   - Uses configured PfxPassword
-#   - Falls back to Abc12345!
-#
-# IMPORTANT:
-#   PKI modules are dot-sourced from pki_setup.ps1.
-#   Shared configuration is therefore read from $global:Pki.
-#
-# Certificate placement:
-#
-#   Root CA
-#       -> LocalMachine\Root
-#
-#   Intermediate CA
-#       -> LocalMachine\CA
-#
-#   Leaf certificate + private key
-#       -> LocalMachine\My
-#
-# Root/Intermediate PFX files are NOT imported into
-# LocalMachine\My. Their CRT files are used for trust.
-#
 # ============================================================
-
+# 07_TrustStore.ps1
+#
+# Windows LocalMachine certificate stores for the new hierarchy.
+#
+#   Enterprise Root, Track Roots, Quadrant Roots  -> LocalMachine\Root    (Trusted Root Certification Authorities)
+#   DV / OV / EV intermediates                    -> LocalMachine\CA      (Intermediate Certification Authorities)
+#   Default leaf PFX files (every quadrant)       -> LocalMachine\My
+#
+# Track and Quadrant Roots are issued by the Enterprise Root (they are not self-signed). Windows treats a
+# certificate in the Trusted Root store as a trust anchor whether or not it is self-signed, so each of
+# them is a root here, as requested. Exception: an Enterprise Root that a PUBLIC CA signed is an
+# intermediate of that public chain and goes to LocalMachine\CA.
+# A certificate found in the other store (an earlier version put Track / Quadrant Roots in CA) is moved.
+#
+# ML-DSA (Quantum quadrants): Windows 11 24H2 or newer (late-2025 updates) and Windows Server 2025
+# store ML-DSA certificates and validate ML-DSA chains in CryptoAPI. Each certificate is installed
+# with .NET first and, if that fails, with certutil.exe; the result is checked by thumbprint.
+# Windows 10 / Server 2022 cannot hold them. Windows TLS (Schannel) cannot bind an ML-DSA server
+# certificate for HTTPS yet: the store holds it, Kestrel / IIS on Windows cannot serve it.
+#
+#   Install-PkiTrust        install everything described above
+#   Remove-CurrentTrust     remove only the certificates of THIS PKI (by thumbprint)
+#   Remove-AllTrust         remove EVERY certificate whose subject or issuer
+#                           contains 'Agantra Inovatif' or 'NextMantra'
+# ============================================================
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ============================================================
-# Constants
-# ============================================================
-
-$script:PkiTrustOrganization = 'Agantra Inovatif OÜ (NextMantra)'
-
-$script:PkiIdentityMarkers = @(
-    'Agantra Inovatif'
-    'NextMantra'
-)
-
-$script:DefaultPfxPassword = 'Abc12345!'
-
-# ============================================================
-# Logging
-# ============================================================
-
-function Write-TrustStoreLog {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Message,
-
-        [ValidateSet('INFO','OK','WARN','ERROR')]
-        [string]$Level = 'INFO'
-    )
-
-    Write-Host ("[{0}] {1}" -f $Level, $Message)
+function Assert-PkiWindows {
+    if (-not $IsWindows) { throw 'Certificate store operations are only available on Windows.' }
 }
 
-# ============================================================
-# Administrator check
-# ============================================================
-
-function Test-IsAdministrator {
-    [CmdletBinding()]
-    param()
-
+function Open-PkiStore {
+    # Returns $null when the store does not exist (nothing to remove there).
+    param([Parameter(Mandatory)][ValidateSet('Root', 'CA', 'My')][string]$Name)
+    $store = [System.Security.Cryptography.X509Certificates.X509Store]::new($Name, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
     try {
-        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-
-        if ($null -eq $identity) {
-            return $false
-        }
-
-        $principal = New-Object Security.Principal.WindowsPrincipal($identity)
-
-        return $principal.IsInRole(
-            [Security.Principal.WindowsBuiltInRole]::Administrator
-        )
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::OpenExistingOnly -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::IncludeArchived)
+        return $store
     }
     catch {
-        return $false
-    }
-}
-
-# ============================================================
-# LocalMachine certificate store
-# ============================================================
-
-function Get-LocalMachineCertificateStore {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [ValidateSet('Root','CA','My')]
-        [string]$Store
-    )
-
-    $path = "Cert:\LocalMachine\$Store"
-
-    if (-not (Test-Path -LiteralPath $path)) {
-        throw "Certificate store does not exist: $path"
-    }
-
-    return @(
-        Get-ChildItem -LiteralPath $path -ErrorAction Stop
-    )
-}
-
-# ============================================================
-# Normalize thumbprint
-# ============================================================
-
-function ConvertTo-NormalizedThumbprint {
-    [CmdletBinding()]
-    param(
-        [AllowNull()]
-        [AllowEmptyString()]
-        [string]$Thumbprint
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Thumbprint)) {
+        Write-PkiLog "  LocalMachine\$Name could not be opened ($($_.Exception.Message.Split("`n")[0])); skipped." 'INFO'
         return $null
     }
-
-    $normalized = $Thumbprint -replace '[^0-9A-Fa-f]', ''
-    $normalized = $normalized.ToUpperInvariant()
-
-    if ([string]::IsNullOrWhiteSpace($normalized)) {
-        return $null
-    }
-
-    return $normalized
 }
-
-# ============================================================
-# Normalize certificate text
-# ============================================================
-
-function ConvertTo-NormalizedCertificateText {
-    [CmdletBinding()]
-    param(
-        [AllowNull()]
-        [string]$Text
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Text)) {
-        return ''
-    }
-
-    $value = $Text
-
-    try {
-        $value = $value.Normalize(
-            [System.Text.NormalizationForm]::FormKC
-        )
-    }
-    catch {
-    }
-
-    $value = $value.Replace([char]0x00A0, ' ')
-    $value = $value -replace '\s+', ' '
-
-    return $value.Trim().ToLowerInvariant()
-}
-
-# ============================================================
-# PKI certificate identity
-# ============================================================
 
 function Test-PkiCertificateIdentity {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
-    )
-
-    $subject = ConvertTo-NormalizedCertificateText `
-        -Text $Certificate.Subject
-
-    $issuer = ConvertTo-NormalizedCertificateText `
-        -Text $Certificate.Issuer
-
-    if (
-        [string]::IsNullOrWhiteSpace($subject) -and
-        [string]::IsNullOrWhiteSpace($issuer)
-    ) {
-        return $false
+    param([Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate)
+    $text = (Normalize-PkiIdentity "$($Certificate.Subject) | $($Certificate.Issuer)")
+    foreach ($m in $script:PkiIdentityMarkers) {
+        if ($text.Contains((Normalize-PkiIdentity $m))) { return $true }
     }
-
-    foreach ($marker in $script:PkiIdentityMarkers) {
-
-        $normalizedMarker = ConvertTo-NormalizedCertificateText `
-            -Text $marker
-
-        if ([string]::IsNullOrWhiteSpace($normalizedMarker)) {
-            continue
-        }
-
-        if ($subject.Contains($normalizedMarker)) {
-            return $true
-        }
-
-        if ($issuer.Contains($normalizedMarker)) {
-            return $true
-        }
-    }
-
     return $false
 }
 
-# ============================================================
-# CA certificate test
-# ============================================================
-
-function Test-CaCertificate {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
-    )
-
-    try {
-        $extension = $Certificate.Extensions |
-            Where-Object {
-                $_.Oid.Value -eq '2.5.29.19'
-            } |
-            Select-Object -First 1
-
-        if ($null -eq $extension) {
-            return $false
-        }
-
-        $basicConstraints =
-            [System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]$extension
-
-        return [bool]$basicConstraints.CertificateAuthority
-    }
-    catch {
-        return $false
-    }
+function Get-PkiThumbprintStoreName {
+    # Where a CA certificate belongs: every root-level CA -> Root, DV / OV / EV intermediates -> CA.
+    param([string]$Kind)
+    if ($Kind -in 'root', 'track', 'quadrant') { return 'Root' }
+    return 'CA'
 }
 
-# ============================================================
-# Self-signed certificate test
-# ============================================================
-
-function Test-SelfSignedCertificate {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate
-    )
-
-    $subject = ConvertTo-NormalizedCertificateText `
-        -Text $Certificate.Subject
-
-    $issuer = ConvertTo-NormalizedCertificateText `
-        -Text $Certificate.Issuer
-
-    if ([string]::IsNullOrWhiteSpace($subject)) {
-        return $false
-    }
-
-    if ([string]::IsNullOrWhiteSpace($issuer)) {
-        return $false
-    }
-
-    return ($subject -eq $issuer)
-}
-
-# ============================================================
-# Load certificate from file
-# ============================================================
-
-function Get-CertificateFromFile {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$CertificatePath
-    )
-
-    if (-not (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
-        throw "Certificate file does not exist: $CertificatePath"
-    }
-
-    return New-Object `
-        System.Security.Cryptography.X509Certificates.X509Certificate2(
-            $CertificatePath
-        )
-}
-
-# ============================================================
-# Get shared PKI configuration
-# ============================================================
-
-function Get-TrustStorePkiConfiguration {
-    [CmdletBinding()]
-    param()
-
-    # --------------------------------------------------------
-    # Preferred configuration scope.
-    # --------------------------------------------------------
-
-    if ($null -ne $global:Pki) {
-        return $global:Pki
-    }
-
-    # --------------------------------------------------------
-    # Compatibility fallback.
-    # --------------------------------------------------------
-
-    if ($null -ne $script:Pki) {
-        return $script:Pki
-    }
-
-    throw 'PKI configuration is not available.'
-}
-
-# ============================================================
-# Get PFX password
-# ============================================================
-
-function Get-PkiPfxPassword {
-    [CmdletBinding()]
-    param()
-
-    # --------------------------------------------------------
-    # Always have a safe default.
-    # --------------------------------------------------------
-
-    $password = $script:DefaultPfxPassword
-
-    # --------------------------------------------------------
-    # Try shared global configuration.
-    # --------------------------------------------------------
-
-    try {
-        if ($null -ne $global:Pki) {
-
-            if ($global:Pki -is [System.Collections.IDictionary]) {
-
-                if ($global:Pki.Contains('Password')) {
-
-                    $configuredPassword =
-                        [string]$global:Pki['Password']
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPassword
-                        )
-                    ) {
-                        return $configuredPassword
-                    }
-                }
-
-                if ($global:Pki.Contains('PfxPassword')) {
-
-                    $configuredPfxPassword =
-                        [string]$global:Pki['PfxPassword']
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPfxPassword
-                        )
-                    ) {
-                        return $configuredPfxPassword
-                    }
-                }
-            }
-            else {
-
-                $properties =
-                    @($global:Pki.PSObject.Properties.Name)
-
-                if ($properties -contains 'Password') {
-
-                    $configuredPassword =
-                        [string]$global:Pki.Password
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPassword
-                        )
-                    ) {
-                        return $configuredPassword
-                    }
-                }
-
-                if ($properties -contains 'PfxPassword') {
-
-                    $configuredPfxPassword =
-                        [string]$global:Pki.PfxPassword
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPfxPassword
-                        )
-                    ) {
-                        return $configuredPfxPassword
-                    }
-                }
-            }
-        }
-    }
-    catch {
-        # Continue to compatibility/fallback handling.
-    }
-
-    # --------------------------------------------------------
-    # Compatibility fallback to local script configuration.
-    # --------------------------------------------------------
-
-    try {
-        if ($null -ne $script:Pki) {
-
-            if ($script:Pki -is [System.Collections.IDictionary]) {
-
-                if ($script:Pki.Contains('Password')) {
-
-                    $configuredPassword =
-                        [string]$script:Pki['Password']
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPassword
-                        )
-                    ) {
-                        return $configuredPassword
-                    }
-                }
-
-                if ($script:Pki.Contains('PfxPassword')) {
-
-                    $configuredPfxPassword =
-                        [string]$script:Pki['PfxPassword']
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPfxPassword
-                        )
-                    ) {
-                        return $configuredPfxPassword
-                    }
-                }
-            }
-        }
-    }
-    catch {
-        # Use default.
-    }
-
-    return $password
-}
-
-# ============================================================
-# Install certificate into LocalMachine store
-# ============================================================
-
-function Install-CertificateToStore {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$CertificatePath,
-
-        [Parameter(Mandatory)]
-        [ValidateSet('Root','CA','My')]
-        [string]$Store
-    )
-
-    if (-not (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
-        throw "Certificate file not found: $CertificatePath"
-    }
-
-    $resolvedPath =
-        (Resolve-Path -LiteralPath $CertificatePath).Path
-
-    $certificate =
-        Get-CertificateFromFile -CertificatePath $resolvedPath
-
-    $thumbprint =
-        ConvertTo-NormalizedThumbprint `
-            -Thumbprint $certificate.Thumbprint
-
-    if ([string]::IsNullOrWhiteSpace($thumbprint)) {
-        throw "Unable to determine certificate thumbprint: $resolvedPath"
-    }
-
-    $storePath = "Cert:\LocalMachine\$Store"
-
-    $certificatePathInStore =
-        Join-Path $storePath $thumbprint
-
-    Write-TrustStoreLog `
-        "Installing certificate into LocalMachine\$Store" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "  File       : $resolvedPath" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "  Thumbprint : $thumbprint" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "  Subject    : $($certificate.Subject)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "  Issuer     : $($certificate.Issuer)" `
-        'INFO'
-
-    if (Test-Path -LiteralPath $certificatePathInStore) {
-
-        Write-TrustStoreLog `
-            "Certificate already exists in LocalMachine\$Store." `
-            'INFO'
-
-        return $thumbprint
-    }
-
-    Import-Certificate `
-        -FilePath $resolvedPath `
-        -CertStoreLocation $storePath `
-        -ErrorAction Stop |
-        Out-Null
-
-    if (-not (Test-Path -LiteralPath $certificatePathInStore)) {
-        throw "Certificate installation could not be verified: $resolvedPath"
-    }
-
-    Write-TrustStoreLog `
-        'Certificate installed successfully.' `
-        'OK'
-
-    return $thumbprint
-}
-
-# ============================================================
-# Read PFX metadata
-# ============================================================
-
-function Get-PfxMetadata {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$PfxPath,
-
-        [Parameter(Mandatory)]
-        [string]$Password
-    )
-
-    if (-not (Test-Path -LiteralPath $PfxPath -PathType Leaf)) {
-        throw "PFX file not found: $PfxPath"
-    }
-
-    $securePassword =
-        ConvertTo-SecureString `
-            -String $Password `
-            -AsPlainText `
-            -Force
-
-    $pfxData =
-        Get-PfxData `
-            -FilePath $PfxPath `
-            -Password $securePassword `
-            -ErrorAction Stop
-
-    $endEntityCertificates = @(
-        $pfxData.EndEntityCertificates
-    )
-
-    $otherCertificates = @(
-        $pfxData.OtherCertificates
-    )
-
-    $allCertificates = @(
-        $endEntityCertificates
-        $otherCertificates
-    )
-
-    return [PSCustomObject]@{
-        Path                  = $PfxPath
-        EndEntityCertificates = $endEntityCertificates
-        OtherCertificates     = $otherCertificates
-        Certificates          = $allCertificates
-    }
-}
-
-# ============================================================
-# Install leaf PFX into LocalMachine\My
-# ============================================================
-
-function Install-LeafPfxToMyStore {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$PfxPath,
-
-        [Parameter(Mandatory)]
-        [string]$Password
-    )
-
-    if (-not (Test-Path -LiteralPath $PfxPath -PathType Leaf)) {
-        throw "PFX file not found: $PfxPath"
-    }
-
-    $resolvedPath =
-        (Resolve-Path -LiteralPath $PfxPath).Path
-
-    Write-TrustStoreLog `
-        'Inspecting PFX file.' `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "  File: $resolvedPath" `
-        'INFO'
-
-    $metadata =
-        Get-PfxMetadata `
-            -PfxPath $resolvedPath `
-            -Password $Password
-
-    $endEntities =
-        @($metadata.EndEntityCertificates)
-
-    if ($endEntities.Count -eq 0) {
-
-        Write-TrustStoreLog `
-            'PFX contains no end-entity certificate. Skipping.' `
-            'WARN'
-
-        return @()
-    }
-
-    $leafCertificates = @()
-
-    foreach ($certificate in $endEntities) {
-
-        if (-not (Test-PkiCertificateIdentity -Certificate $certificate)) {
-
-            Write-TrustStoreLog `
-                'PFX certificate does not match PKI identity. Skipping.' `
-                'WARN'
-
-            Write-TrustStoreLog `
-                "  Subject: $($certificate.Subject)" `
-                'WARN'
-
-            continue
-        }
-
-        $isCa =
-            Test-CaCertificate `
-                -Certificate $certificate
-
-        if ($isCa) {
-
-            Write-TrustStoreLog `
-                'PFX contains a CA certificate. It will not be imported into LocalMachine\My.' `
-                'INFO'
-
-            Write-TrustStoreLog `
-                "  Subject: $($certificate.Subject)" `
-                'INFO'
-
-            continue
-        }
-
-        $leafCertificates += $certificate
-    }
-
-    if ($leafCertificates.Count -eq 0) {
-        return @()
-    }
-
-    Write-TrustStoreLog `
-        'Importing leaf PFX into LocalMachine\My.' `
-        'INFO'
-
-    $securePassword =
-        ConvertTo-SecureString `
-            -String $Password `
-            -AsPlainText `
-            -Force
-
-    $imported =
-        Import-PfxCertificate `
-            -FilePath $resolvedPath `
-            -CertStoreLocation 'Cert:\LocalMachine\My' `
-            -Password $securePassword `
-            -Exportable `
-            -ErrorAction Stop
-
-    $importedCertificates = @($imported)
-
-    if ($importedCertificates.Count -eq 0) {
-        throw "PFX import returned no certificates: $resolvedPath"
-    }
-
-    $verified = @()
-
-    foreach ($certificate in $importedCertificates) {
-
-        if (-not (Test-PkiCertificateIdentity -Certificate $certificate)) {
-            continue
-        }
-
-        if (Test-CaCertificate -Certificate $certificate) {
-            continue
-        }
-
-        $thumbprint =
-            ConvertTo-NormalizedThumbprint `
-                -Thumbprint $certificate.Thumbprint
-
-        Write-TrustStoreLog `
-            'Leaf PFX certificate installed successfully.' `
-            'OK'
-
-        Write-TrustStoreLog `
-            "  Thumbprint : $thumbprint" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Subject    : $($certificate.Subject)" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Issuer     : $($certificate.Issuer)" `
-            'INFO'
-
-        $verified += $certificate
-    }
-
-    return @($verified)
-}
-
-# ============================================================
-# Locate PKI directory
-# ============================================================
-
-function Get-PkiDirectory {
-    [CmdletBinding()]
-    param()
-
-    # --------------------------------------------------------
-    # Preferred: shared configuration.
-    # --------------------------------------------------------
-
-    try {
-        if ($null -ne $global:Pki) {
-
-            if ($global:Pki -is [System.Collections.IDictionary]) {
-
-                if ($global:Pki.Contains('PkiRoot')) {
-
-                    $configuredPath =
-                        [string]$global:Pki['PkiRoot']
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPath
-                        ) -and
-                        (Test-Path -LiteralPath $configuredPath -PathType Container)
-                    ) {
-                        return (
-                            Resolve-Path `
-                                -LiteralPath $configuredPath
-                        ).Path
-                    }
-                }
-            }
-            else {
-
-                $properties =
-                    @($global:Pki.PSObject.Properties.Name)
-
-                if ($properties -contains 'PkiRoot') {
-
-                    $configuredPath =
-                        [string]$global:Pki.PkiRoot
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPath
-                        ) -and
-                        (Test-Path -LiteralPath $configuredPath -PathType Container)
-                    ) {
-                        return (
-                            Resolve-Path `
-                                -LiteralPath $configuredPath
-                        ).Path
-                    }
-                }
-            }
-        }
-    }
-    catch {
-    }
-
-    # --------------------------------------------------------
-    # Compatibility fallback.
-    # --------------------------------------------------------
-
-    try {
-        if ($null -ne $script:Pki) {
-
-            if ($script:Pki -is [System.Collections.IDictionary]) {
-
-                if ($script:Pki.Contains('PkiRoot')) {
-
-                    $configuredPath =
-                        [string]$script:Pki['PkiRoot']
-
-                    if (
-                        -not [string]::IsNullOrWhiteSpace(
-                            $configuredPath
-                        ) -and
-                        (Test-Path -LiteralPath $configuredPath -PathType Container)
-                    ) {
-                        return (
-                            Resolve-Path `
-                                -LiteralPath $configuredPath
-                        ).Path
-                    }
-                }
-            }
-        }
-    }
-    catch {
-    }
-
-    # --------------------------------------------------------
-    # Default project location.
-    # --------------------------------------------------------
-
-    $projectRoot =
-        Split-Path `
-            -Path $PSScriptRoot `
-            -Parent
-
-    $defaultPkiDirectory =
-        Join-Path $projectRoot 'pki'
-
-    if (
-        Test-Path `
-            -LiteralPath $defaultPkiDirectory `
-            -PathType Container
-    ) {
-        return (
-            Resolve-Path `
-                -LiteralPath $defaultPkiDirectory
-        ).Path
-    }
-
-    throw "Unable to locate the generated PKI directory."
-}
-
-# ============================================================
-# Find certificate files
-# ============================================================
-
-function Get-PkiCertificateFiles {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$PkiDirectory
-    )
-
-    if (
-        -not (
-            Test-Path `
-                -LiteralPath $PkiDirectory `
-                -PathType Container
-        )
-    ) {
-        throw "PKI directory does not exist: $PkiDirectory"
-    }
-
-    return @(
-        Get-ChildItem `
-            -LiteralPath $PkiDirectory `
-            -Recurse `
-            -File `
-            -ErrorAction Stop |
-        Where-Object {
-            $_.Extension -in @(
-                '.crt'
-                '.cer'
-                '.pem'
-            )
-        }
-    )
-}
-
-# ============================================================
-# Find PFX files
-# ============================================================
-
-function Get-PkiPfxFiles {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$PkiDirectory
-    )
-
-    if (
-        -not (
-            Test-Path `
-                -LiteralPath $PkiDirectory `
-                -PathType Container
-        )
-    ) {
-        throw "PKI directory does not exist: $PkiDirectory"
-    }
-
-    return @(
-        Get-ChildItem `
-            -LiteralPath $PkiDirectory `
-            -Recurse `
-            -File `
-            -ErrorAction Stop |
-        Where-Object {
-            $_.Extension -in @(
-                '.pfx'
-                '.p12'
-            )
-        }
-    )
-}
-
-# ============================================================
-# Classify generated certificate files
-# ============================================================
-
-function Get-PkiGeneratedCertificateClassification {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$PkiDirectory
-    )
-
-    $certFiles =
-        @(Get-PkiCertificateFiles -PkiDirectory $PkiDirectory)
-
-    $rootCertificates = @()
-    $intermediateCertificates = @()
-    $leafCertificates = @()
-
-    Write-TrustStoreLog `
-        'Scanning generated certificate files...' `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Certificate files found: $($certFiles.Count)" `
-        'INFO'
-
-    foreach ($file in $certFiles) {
-
-        try {
-
-            $certificate =
-                Get-CertificateFromFile `
-                    -CertificatePath $file.FullName
-
-            if (
-                -not (
-                    Test-PkiCertificateIdentity `
-                        -Certificate $certificate
-                )
-            ) {
-                continue
-            }
-
-            $isCa =
-                Test-CaCertificate `
-                    -Certificate $certificate
-
-            if ($isCa) {
-
-                $selfSigned =
-                    Test-SelfSignedCertificate `
-                        -Certificate $certificate
-
-                if ($selfSigned) {
-
-                    $rootCertificates += [PSCustomObject]@{
-                        File        = $file
-                        Certificate = $certificate
-                    }
-
-                    continue
-                }
-
-                $intermediateCertificates += [PSCustomObject]@{
-                    File        = $file
-                    Certificate = $certificate
-                }
-
-                continue
-            }
-
-            $leafCertificates += [PSCustomObject]@{
-                File        = $file
-                Certificate = $certificate
-            }
-        }
-        catch {
-
-            Write-TrustStoreLog `
-                "Skipping unreadable certificate file: $($file.FullName)" `
-                'WARN'
-
-            Write-TrustStoreLog `
-                $_.Exception.Message `
-                'WARN'
-        }
-    }
-
-    Write-TrustStoreLog `
-        "Generated Root CA certificates      : $($rootCertificates.Count)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Generated Intermediate CA certificates: $($intermediateCertificates.Count)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Generated Leaf certificates         : $($leafCertificates.Count)" `
-        'INFO'
-
-    return [PSCustomObject]@{
-        Root         = @($rootCertificates)
-        Intermediate = @($intermediateCertificates)
-        Leaf         = @($leafCertificates)
-    }
-}
-
-# ============================================================
-# Install PKI trust
-# ============================================================
-
-function Install-PkiTrust {
-    [CmdletBinding()]
-    param()
-
-    if (-not (Test-IsAdministrator)) {
-        throw 'Install-PkiTrust requires an elevated Administrator PowerShell session.'
-    }
-
-    Write-TrustStoreLog `
-        'START: Install PKI trust' `
-        'INFO'
-
-    $pkiDirectory =
-        Get-PkiDirectory
-
-    Write-TrustStoreLog `
-        "PKI directory: $pkiDirectory" `
-        'INFO'
-
-    $classification =
-        Get-PkiGeneratedCertificateClassification `
-            -PkiDirectory $pkiDirectory
-
-    $rootCertificates =
-        @($classification.Root)
-
-    $intermediateCertificates =
-        @($classification.Intermediate)
-
-    $leafCertificates =
-        @($classification.Leaf)
-
-    $pfxFiles =
-        @(Get-PkiPfxFiles -PkiDirectory $pkiDirectory)
-
-    Write-TrustStoreLog `
-        "Generated PFX files: $($pfxFiles.Count)" `
-        'INFO'
-
-    # --------------------------------------------------------
-    # Root CA
-    # --------------------------------------------------------
-
-    $rootInstalled = 0
-
-    foreach ($item in $rootCertificates) {
-
-        Install-CertificateToStore `
-            -CertificatePath $item.File.FullName `
-            -Store Root |
-            Out-Null
-
-        $rootInstalled++
-    }
-
-    # --------------------------------------------------------
-    # Intermediate CA
-    # --------------------------------------------------------
-
-    $intermediateInstalled = 0
-
-    foreach ($item in $intermediateCertificates) {
-
-        Install-CertificateToStore `
-            -CertificatePath $item.File.FullName `
-            -Store CA |
-            Out-Null
-
-        $intermediateInstalled++
-    }
-
-    # --------------------------------------------------------
-    # Leaf PFX
-    # --------------------------------------------------------
-
-    $pfxPassword =
-        Get-PkiPfxPassword
-
-    Write-TrustStoreLog `
-        'PFX password configured successfully.' `
-        'OK'
-
-    $leafPfxInstalled = 0
-
-    foreach ($pfxFile in $pfxFiles) {
-
-        $installed =
-            @(Install-LeafPfxToMyStore `
-                -PfxPath $pfxFile.FullName `
-                -Password $pfxPassword)
-
-        foreach ($certificate in $installed) {
-            if ($null -ne $certificate) {
-                $leafPfxInstalled++
-            }
-        }
-    }
-
-    # --------------------------------------------------------
-    # If no leaf PFX was available, install leaf CRT files.
-    #
-    # This is a fallback only. Normally the generated PFX files
-    # should provide the private keys.
-    # --------------------------------------------------------
-
-    if ($leafPfxInstalled -eq 0) {
-
-        if ($leafCertificates.Count -gt 0) {
-
-            Write-TrustStoreLog `
-                'No leaf PFX certificates were imported.' `
-                'WARN'
-
-            Write-TrustStoreLog `
-                'Installing leaf certificate files into LocalMachine\My as fallback.' `
-                'WARN'
-
-            foreach ($item in $leafCertificates) {
-
-                Install-CertificateToStore `
-                    -CertificatePath $item.File.FullName `
-                    -Store My |
-                    Out-Null
-
-                $leafPfxInstalled++
-            }
-        }
-    }
-
-    # --------------------------------------------------------
-    # Verify LocalMachine stores.
-    # --------------------------------------------------------
-
-    Write-TrustStoreLog `
-        'Verifying installed PKI certificates...' `
-        'INFO'
-
-    $installedCandidates =
-        @(Get-PkiTrustStoreCandidates)
-
-    $installedRoots =
-        @(
-            $installedCandidates |
-            Where-Object {
-                $_.Store -eq 'Root' -and
-                $_.IsCA -eq $true -and
-                $_.IsSelfSigned -eq $true
-            }
-        )
-
-    $installedIntermediates =
-        @(
-            $installedCandidates |
-            Where-Object {
-                $_.Store -eq 'CA' -and
-                $_.IsCA -eq $true -and
-                $_.IsSelfSigned -eq $false
-            }
-        )
-
-    $installedLeaves =
-        @(
-            $installedCandidates |
-            Where-Object {
-                $_.Store -eq 'My' -and
-                $_.IsCA -eq $false
-            }
-        )
-
-    Write-TrustStoreLog `
-        "Verified Root CA certificates        : $($installedRoots.Count)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Verified Intermediate CA certificates : $($installedIntermediates.Count)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Verified Leaf certificates            : $($installedLeaves.Count)" `
-        'INFO'
-
-    # --------------------------------------------------------
-    # Required verification
-    # --------------------------------------------------------
-
-    if ($rootInstalled -eq 0) {
-        throw 'PKI installation failed: no Root CA certificate was installed.'
-    }
-
-    if ($intermediateInstalled -eq 0) {
-        throw 'PKI installation failed: no Intermediate CA certificate was installed.'
-    }
-
-    if ($leafPfxInstalled -eq 0) {
-        throw 'PKI installation failed: no Leaf certificate was installed.'
-    }
-
-    if ($installedRoots.Count -eq 0) {
-        throw 'PKI installation verification failed: Root CA is not present in LocalMachine\Root.'
-    }
-
-    if ($installedIntermediates.Count -eq 0) {
-        throw 'PKI installation verification failed: Intermediate CA is not present in LocalMachine\CA.'
-    }
-
-    if ($installedLeaves.Count -eq 0) {
-        throw 'PKI installation verification failed: Leaf certificate is not present in LocalMachine\My.'
-    }
-
-    Write-TrustStoreLog `
-        'Root CA installed successfully.' `
-        'OK'
-
-    Write-TrustStoreLog `
-        'Intermediate CA installed successfully.' `
-        'OK'
-
-    Write-TrustStoreLog `
-        "Leaf certificate(s) installed successfully: $leafPfxInstalled" `
-        'OK'
-
-    Write-TrustStoreLog `
-        'DONE: Install PKI trust' `
-        'OK'
-}
-
-# ============================================================
-# Remove certificate by thumbprint
-# ============================================================
-
-function Remove-CertificateThumbprint {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [ValidateSet('Root','CA','My')]
-        [string]$Store,
-
-        [Parameter(Mandatory)]
-        [string]$Thumbprint
-    )
-
-    $normalized =
-        ConvertTo-NormalizedThumbprint `
-            -Thumbprint $Thumbprint
-
-    if ([string]::IsNullOrWhiteSpace($normalized)) {
-
-        Write-TrustStoreLog `
-            "Invalid thumbprint for LocalMachine\$Store." `
-            'WARN'
-
-        return $false
-    }
-
-    $path =
-        "Cert:\LocalMachine\$Store\$normalized"
-
-    try {
-
-        if (-not (Test-Path -LiteralPath $path)) {
-
-            Write-TrustStoreLog `
-                "Certificate not found: LocalMachine\$Store\$normalized" `
-                'INFO'
-
-            return $false
-        }
-
-        $certificate =
-            Get-Item `
-                -LiteralPath $path `
-                -ErrorAction Stop
-
-        Write-TrustStoreLog `
-            "Removing certificate from LocalMachine\$Store" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Thumbprint : $normalized" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Subject    : $($certificate.Subject)" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Issuer     : $($certificate.Issuer)" `
-            'INFO'
-
-        Remove-Item `
-            -LiteralPath $path `
-            -Force `
-            -ErrorAction Stop
-
-        if (Test-Path -LiteralPath $path) {
-
-            Write-TrustStoreLog `
-                "Certificate still exists after removal: $path" `
-                'ERROR'
-
-            return $false
-        }
-
-        Write-TrustStoreLog `
-            'Removed successfully.' `
-            'OK'
-
-        return $true
-    }
-    catch {
-
-        Write-TrustStoreLog `
-            "Failed to remove certificate $normalized from LocalMachine\$Store." `
-            'ERROR'
-
-        Write-TrustStoreLog `
-            $_.Exception.Message `
-            'ERROR'
-
-        return $false
-    }
-}
-
-# ============================================================
-# Scan LocalMachine stores for matching PKI certificates
-# ============================================================
-
-function Get-PkiTrustStoreCandidates {
-    [CmdletBinding()]
-    param()
-
-    $result = @()
-
-    foreach ($storeName in @('My','CA','Root')) {
-
-        $storePath =
-            "Cert:\LocalMachine\$storeName"
-
-        Write-TrustStoreLog `
-            "Scanning LocalMachine\$storeName..." `
-            'INFO'
-
-        if (-not (Test-Path -LiteralPath $storePath)) {
-
-            Write-TrustStoreLog `
-                "Store does not exist: $storePath" `
-                'WARN'
-
-            continue
-        }
-
-        $certificates =
-            @(
-                Get-ChildItem `
-                    -LiteralPath $storePath `
-                    -ErrorAction Stop
-            )
-
-        Write-TrustStoreLog `
-            "Certificates scanned in LocalMachine\$storeName : $($certificates.Count)" `
-            'INFO'
-
-        foreach ($certificate in $certificates) {
-
-            if ($null -eq $certificate) {
-                continue
-            }
-
-            if (
-                -not (
-                    Test-PkiCertificateIdentity `
-                        -Certificate $certificate
-                )
-            ) {
-                continue
-            }
-
-            $thumbprint =
-                ConvertTo-NormalizedThumbprint `
-                    -Thumbprint $certificate.Thumbprint
-
-            if ([string]::IsNullOrWhiteSpace($thumbprint)) {
-                continue
-            }
-
-            $isCa =
-                Test-CaCertificate `
-                    -Certificate $certificate
-
-            $isSelfSigned =
-                Test-SelfSignedCertificate `
-                    -Certificate $certificate
-
-            $result += [PSCustomObject]@{
-                Store        = [string]$storeName
-                Thumbprint   = [string]$thumbprint
-                Subject      = [string]$certificate.Subject
-                Issuer       = [string]$certificate.Issuer
-                IsCA         = [bool]$isCa
-                IsSelfSigned = [bool]$isSelfSigned
-                HasPrivateKey = [bool]$certificate.HasPrivateKey
-                NotBefore    = $certificate.NotBefore
-                NotAfter     = $certificate.NotAfter
-                Certificate  = $certificate
-            }
-        }
-    }
-
-    return @($result)
-}
-
-# ============================================================
-# Remove current trust
-# ============================================================
-
-function Remove-CurrentTrust {
-    [CmdletBinding()]
-    param()
-
-    return Remove-AllTrust
-}
-
-# ============================================================
-# Get project root
-# ============================================================
-
-function Get-PkiProjectRoot {
-    [CmdletBinding()]
-    param()
-
-    $scriptsDirectory =
-        (Resolve-Path -LiteralPath $PSScriptRoot).Path
-
-    return (
-        Split-Path `
-            -Path $scriptsDirectory `
-            -Parent
-    )
-}
-
-# ============================================================
-# Safe cleanup directory validation
-# ============================================================
-
-function Test-SafePkiCleanupDirectory {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$DirectoryPath,
-
-        [Parameter(Mandatory)]
-        [string]$ProjectRoot
-    )
-
-    try {
-
-        $resolvedDirectory =
-            [System.IO.Path]::GetFullPath(
-                $DirectoryPath
-            ).TrimEnd('\')
-
-        $resolvedProjectRoot =
-            [System.IO.Path]::GetFullPath(
-                $ProjectRoot
-            ).TrimEnd('\')
-
-        if (
-            $resolvedDirectory.Equals(
-                $resolvedProjectRoot,
-                [System.StringComparison]::OrdinalIgnoreCase
-            )
-        ) {
-            return $false
-        }
-
-        $scriptsDirectory =
-            Join-Path `
-                $resolvedProjectRoot `
-                'scripts'
-
-        if (
-            $resolvedDirectory.Equals(
-                $scriptsDirectory,
-                [System.StringComparison]::OrdinalIgnoreCase
-            )
-        ) {
-            return $false
-        }
-
-        $prefix =
-            $resolvedProjectRoot + '\'
-
-        if (
-            -not (
-                $resolvedDirectory.StartsWith(
-                    $prefix,
-                    [System.StringComparison]::OrdinalIgnoreCase
-                )
-            )
-        ) {
-            return $false
-        }
-
-        return $true
-    }
-    catch {
-        return $false
-    }
-}
-
-# ============================================================
-# Get generated PKI cleanup directories
-# ============================================================
-
-function Get-PkiCleanupDirectories {
-    [CmdletBinding()]
-    param()
-
-    $projectRoot =
-        Get-PkiProjectRoot
-
-    $directories = @()
-
-    # --------------------------------------------------------
-    # Shared configuration.
-    # --------------------------------------------------------
-
-    try {
-
-        if ($null -ne $global:Pki) {
-
-            $propertyNames =
-                @($global:Pki.PSObject.Properties.Name)
-
-            foreach ($propertyName in $propertyNames) {
-
-                if (
-                    $propertyName -notmatch
-                    '(?i)(Dir|Directory|Folder|Path|Root)$'
-                ) {
-                    continue
-                }
-
-                try {
-
-                    $value =
-                        [string]$global:Pki.$propertyName
-
-                    if (
-                        [string]::IsNullOrWhiteSpace($value)
-                    ) {
-                        continue
-                    }
-
-                    if (
-                        Test-Path `
-                            -LiteralPath $value `
-                            -PathType Container
-                    ) {
-
-                        $fullPath =
-                            (
-                                Resolve-Path `
-                                    -LiteralPath $value
-                            ).Path
-
-                        if (
-                            Test-SafePkiCleanupDirectory `
-                                -DirectoryPath $fullPath `
-                                -ProjectRoot $projectRoot
-                        ) {
-
-                            if (
-                                -not (
-                                    $directories -contains $fullPath
-                                )
-                            ) {
-                                $directories += $fullPath
-                            }
-                        }
-                    }
-                }
-                catch {
-                }
-            }
-        }
-    }
-    catch {
-    }
-
-    # --------------------------------------------------------
-    # Always include the standard PKI directory.
-    # --------------------------------------------------------
-
-    $defaultPkiDirectory =
-        Join-Path `
-            $projectRoot `
-            'pki'
-
-    if (
-        Test-Path `
-            -LiteralPath $defaultPkiDirectory `
-            -PathType Container
-    ) {
-
-        $fullPath =
-            (
-                Resolve-Path `
-                    -LiteralPath $defaultPkiDirectory
-            ).Path
-
-        if (
-            Test-SafePkiCleanupDirectory `
-                -DirectoryPath $fullPath `
-                -ProjectRoot $projectRoot
-        ) {
-
-            if (
-                -not (
-                    $directories -contains $fullPath
-                )
-            ) {
-                $directories += $fullPath
-            }
-        }
-    }
-
-    return @($directories)
-}
-
-# ============================================================
-# Remove generated PKI folders
-# ============================================================
-
-function Remove-PkiGeneratedFolders {
-    [CmdletBinding()]
-    param()
-
-    $projectRoot =
-        Get-PkiProjectRoot
-
-    Write-TrustStoreLog `
-        'Starting generated PKI folder cleanup...' `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Project root: $projectRoot" `
-        'INFO'
-
-    $directories =
-        @(Get-PkiCleanupDirectories)
-
-    if ($directories.Count -eq 0) {
-
-        Write-TrustStoreLog `
-            'No generated PKI folders found to remove.' `
-            'INFO'
-
-        return $true
-    }
-
-    $directories =
-        @(
-            $directories |
-            Sort-Object {
-                $_.Length
-            } -Descending
-        )
-
-    $removedCount = 0
-    $failedCount = 0
-
-    foreach ($directory in $directories) {
-
-        if (
-            -not (
-                Test-SafePkiCleanupDirectory `
-                    -DirectoryPath $directory `
-                    -ProjectRoot $projectRoot
-            )
-        ) {
-
-            Write-TrustStoreLog `
-                "Skipping unsafe directory: $directory" `
-                'WARN'
-
-            $failedCount++
-
-            continue
-        }
-
-        try {
-
-            if (
-                -not (
-                    Test-Path `
-                        -LiteralPath $directory `
-                        -PathType Container
-                )
-            ) {
-                continue
-            }
-
-            Write-TrustStoreLog `
-                "Removing PKI folder: $directory" `
-                'INFO'
-
-            Remove-Item `
-                -LiteralPath $directory `
-                -Recurse `
-                -Force `
-                -ErrorAction Stop
-
-            if (
-                Test-Path `
-                    -LiteralPath $directory
-            ) {
-
-                Write-TrustStoreLog `
-                    "Folder still exists after removal: $directory" `
-                    'ERROR'
-
-                $failedCount++
-            }
-            else {
-
-                Write-TrustStoreLog `
-                    'PKI folder removed successfully.' `
-                    'OK'
-
-                $removedCount++
-            }
-        }
-        catch {
-
-            Write-TrustStoreLog `
-                "Failed to remove PKI folder: $directory" `
-                'ERROR'
-
-            Write-TrustStoreLog `
-                $_.Exception.Message `
-                'ERROR'
-
-            $failedCount++
-        }
-    }
-
-    Write-TrustStoreLog `
-        "PKI folders removed : $removedCount" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "PKI folders failed  : $failedCount" `
-        'INFO'
-
-    if ($failedCount -eq 0) {
-
-        Write-TrustStoreLog `
-            'Generated PKI folder cleanup completed successfully.' `
-            'OK'
-
-        return $true
-    }
-
-    Write-TrustStoreLog `
-        'Some PKI folders could not be removed.' `
-        'WARN'
-
-    return $false
-}
-
-# ============================================================
-# Remove all matching trust
-# ============================================================
-
-function Remove-AllTrust {
-    [CmdletBinding()]
-    param()
-
-    if (-not (Test-IsAdministrator)) {
-        throw 'Remove-AllTrust requires an elevated Administrator PowerShell session.'
-    }
-
-    Write-TrustStoreLog `
-        'START: Remove all matching PKI trust' `
-        'INFO'
-
-    Write-TrustStoreLog `
-        'PKI Identity: Agantra Inovatif / NextMantra' `
-        'INFO'
-
-    Write-TrustStoreLog `
-        'Scanning Windows Local Machine Certificate Stores...' `
-        'INFO'
-
-    $candidates =
-        @(Get-PkiTrustStoreCandidates)
-
-    Write-TrustStoreLog `
-        '------------------------------------------------------------' `
-        'INFO'
-
-    $leafCandidates =
-        @(
-            $candidates |
-            Where-Object {
-                $_.Store -eq 'My' -and
-                $_.IsCA -eq $false
-            }
-        )
-
-    $intermediateCandidates =
-        @(
-            $candidates |
-            Where-Object {
-                $_.Store -eq 'CA'
-            }
-        )
-
-    $rootCandidates =
-        @(
-            $candidates |
-            Where-Object {
-                $_.Store -eq 'Root'
-            }
-        )
-
-    Write-TrustStoreLog `
-        "Leaf certificate candidates found: $($leafCandidates.Count)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Intermediate CA candidates found: $($intermediateCandidates.Count)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Root CA candidates found: $($rootCandidates.Count)" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        '------------------------------------------------------------' `
-        'INFO'
-
-    foreach ($candidate in $candidates) {
-
-        Write-TrustStoreLog `
-            "MATCH: LocalMachine\$($candidate.Store)" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Thumbprint : $($candidate.Thumbprint)" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Subject    : $($candidate.Subject)" `
-            'INFO'
-
-        Write-TrustStoreLog `
-            "  Issuer     : $($candidate.Issuer)" `
-            'INFO'
-    }
-
-    # --------------------------------------------------------
-    # Remove leaf first.
-    # --------------------------------------------------------
-
-    $leafRemoved = 0
-
-    foreach ($candidate in $leafCandidates) {
-
-        if (
-            Remove-CertificateThumbprint `
-                -Store My `
-                -Thumbprint $candidate.Thumbprint
-        ) {
-            $leafRemoved++
-        }
-    }
-
-    # --------------------------------------------------------
-    # Remove intermediate CA.
-    # --------------------------------------------------------
-
-    $intermediateRemoved = 0
-
-    foreach ($candidate in $intermediateCandidates) {
-
-        if (
-            Remove-CertificateThumbprint `
-                -Store CA `
-                -Thumbprint $candidate.Thumbprint
-        ) {
-            $intermediateRemoved++
-        }
-    }
-
-    # --------------------------------------------------------
-    # Remove root CA.
-    # --------------------------------------------------------
-
-    $rootRemoved = 0
-
-    foreach ($candidate in $rootCandidates) {
-
-        if (
-            Remove-CertificateThumbprint `
-                -Store Root `
-                -Thumbprint $candidate.Thumbprint
-        ) {
-            $rootRemoved++
-        }
-    }
-
-    # --------------------------------------------------------
-    # Verify removal.
-    # --------------------------------------------------------
-
-    Write-TrustStoreLog `
-        'Verifying certificate removal...' `
-        'INFO'
-
-    $remaining =
-        @(Get-PkiTrustStoreCandidates)
-
-    $remainingCount =
-        $remaining.Count
-
-    $totalRemoved =
-        $leafRemoved +
-        $intermediateRemoved +
-        $rootRemoved
-
-    Write-TrustStoreLog `
-        '------------------------------------------------------------' `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Leaf certificates removed      : $leafRemoved" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Intermediate CAs removed       : $intermediateRemoved" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "Root CAs removed               : $rootRemoved" `
-        'INFO'
-
-    Write-TrustStoreLog `
-        "TOTAL certificates removed     : $totalRemoved" `
-        'OK'
-
-    if ($remainingCount -gt 0) {
-
-        Write-TrustStoreLog `
-            "Matching certificates remaining: $remainingCount" `
-            'WARN'
-
-        foreach ($certificate in $remaining) {
-
-            Write-TrustStoreLog `
-                "REMAINING: LocalMachine\$($certificate.Store)" `
-                'WARN'
-
-            Write-TrustStoreLog `
-                "  Thumbprint : $($certificate.Thumbprint)" `
-                'WARN'
-
-            Write-TrustStoreLog `
-                "  Subject    : $($certificate.Subject)" `
-                'WARN'
-
-            Write-TrustStoreLog `
-                "  Issuer     : $($certificate.Issuer)" `
-                'WARN'
-        }
-
-        Write-TrustStoreLog `
-            'PKI folders WILL NOT be removed because certificates remain.' `
-            'WARN'
-
-        return $totalRemoved
-    }
-
-    Write-TrustStoreLog `
-        'Matching certificates remaining: 0' `
-        'OK'
-
-    Write-TrustStoreLog `
-        'All matching Agantra/NextMantra certificates removed from LocalMachine.' `
-        'OK'
-
-    Write-TrustStoreLog `
-        'Windows Local Machine certificate cleanup verified.' `
-        'OK'
-
-    # --------------------------------------------------------
-    # Remove generated PKI directory only after successful
-    # certificate-store cleanup.
-    # --------------------------------------------------------
-
-    Write-TrustStoreLog `
-        'Starting PKI folder cleanup...' `
-        'INFO'
-
-    $folderCleanupResult =
-        Remove-PkiGeneratedFolders
-
-    Write-TrustStoreLog `
-        '------------------------------------------------------------' `
-        'INFO'
-
-    if ($folderCleanupResult) {
-
-        Write-TrustStoreLog `
-            'RemoveAllTrust completed successfully.' `
-            'OK'
-
-        Write-TrustStoreLog `
-            'All matching certificates removed.' `
-            'OK'
-
-        Write-TrustStoreLog `
-            'Generated PKI folders removed.' `
-            'OK'
+function Get-PkiTrustStoreOf {
+    # Decided by the kind of CA, NOT by a "store" value an older manifest may carry.
+    param([Parameter(Mandatory)]$Entry)
+    $kind = $null; $ext = $false
+    if ($Entry -is [System.Collections.IDictionary]) {
+        if ($Entry.Contains('kind')) { $kind = $Entry['kind'] }
+        if ($Entry.Contains('externallySigned')) { $ext = [bool]$Entry['externallySigned'] }
     }
     else {
+        if ($null -ne $Entry.PSObject.Properties['kind']) { $kind = $Entry.kind }
+        if ($null -ne $Entry.PSObject.Properties['externallySigned']) { $ext = [bool]$Entry.externallySigned }
+    }
+    if ($ext) { return 'CA' }
+    return (Get-PkiThumbprintStoreName -Kind ([string]$kind))
+}
 
-        Write-TrustStoreLog `
-            'Certificate cleanup completed successfully.' `
-            'OK'
+function Invoke-PkiCertutil {
+    param([Parameter(Mandatory)][string[]]$Arguments)
+    $out = & certutil.exe @Arguments 2>&1
+    return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = (($out | ForEach-Object { "$_" }) -join "`n") }
+}
 
-        Write-TrustStoreLog `
-            'Some generated PKI folders could not be removed.' `
-            'WARN'
+function Test-PkiCertificateInStore {
+    # True when a certificate with this SHA-1 thumbprint is in LocalMachine\<Store>.
+    param([Parameter(Mandatory)][string]$Thumbprint, [Parameter(Mandatory)][string]$Store)
+    try {
+        $s = [System.Security.Cryptography.X509Certificates.X509Store]::new($Store, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+        $s.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::OpenExistingOnly)
+        try { if ($s.Certificates.Find([System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint, $Thumbprint, $false).Count -gt 0) { return $true } }
+        finally { $s.Close() }
+    }
+    catch { }
+    # .NET could not read the store (or parse a certificate in it): ask CryptoAPI directly
+    $r = Invoke-PkiCertutil -Arguments @('-store', $Store, $Thumbprint)
+    return ($r.ExitCode -eq 0)      # certutil returns non-zero when the certificate is not in the store
+}
+
+function Remove-PkiCertificateFromStore {
+    # Removes one certificate (by SHA-1 thumbprint) from LocalMachine\<Store>. True when it is gone afterwards.
+    param([Parameter(Mandatory)][string]$Thumbprint, [Parameter(Mandatory)][string]$Store)
+    try {
+        $s = [System.Security.Cryptography.X509Certificates.X509Store]::new($Store, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+        $s.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::OpenExistingOnly)
+        try {
+            foreach ($c in @($s.Certificates.Find([System.Security.Cryptography.X509Certificates.X509FindType]::FindByThumbprint, $Thumbprint, $false))) { $s.Remove($c) }
+        }
+        finally { $s.Close() }
+    }
+    catch { }
+    if (-not (Test-PkiCertificateInStore -Thumbprint $Thumbprint -Store $Store)) { return $true }
+    $r = Invoke-PkiCertutil -Arguments @('-delstore', $Store, $Thumbprint)
+    return (-not (Test-PkiCertificateInStore -Thumbprint $Thumbprint -Store $Store))
+}
+
+function Add-PkiCertificateToStore {
+    # Returns @{ Status = present | installed | failed; Method; Message }
+    param([string]$CertificatePath, [string]$StoreName, [string]$Label)
+    $thumb = (Get-PkiCertificateFingerprint -Path $CertificatePath).Sha1
+    if (Test-PkiCertificateInStore -Thumbprint $thumb -Store $StoreName) {
+        Write-PkiLog "  already in $StoreName : $Label" 'INFO'
+        return [ordered]@{ Status = 'present'; Method = ''; Message = '' }
+    }
+    $err = ''
+    try {
+        $der = [byte[]](ConvertFrom-PkiPemToDer -Path $CertificatePath)
+        $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new([byte[]]$der)
+        $store = [System.Security.Cryptography.X509Certificates.X509Store]::new($StoreName, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+        $store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        try { $store.Add($cert) } finally { $store.Close() }
+        if (Test-PkiCertificateInStore -Thumbprint $thumb -Store $StoreName) {
+            Write-PkiLog "  installed in $StoreName : $Label" 'OK'
+            return [ordered]@{ Status = 'installed'; Method = '.NET'; Message = '' }
+        }
+        $err = '.NET reported success but the certificate is not in the store'
+    }
+    catch { $err = $_.Exception.Message.Split("`n")[0] }
+
+    # Second route: CryptoAPI through certutil.exe (does not need .NET to parse the certificate)
+    $r = Invoke-PkiCertutil -Arguments @('-f', '-addstore', $StoreName, $CertificatePath)
+    if ($r.ExitCode -eq 0 -and (Test-PkiCertificateInStore -Thumbprint $thumb -Store $StoreName)) {
+        Write-PkiLog "  installed in $StoreName : $Label   (certutil)" 'OK'
+        return [ordered]@{ Status = 'installed'; Method = 'certutil'; Message = '' }
+    }
+    $msg = ".NET: $err | certutil: exit $($r.ExitCode) $(($r.Output -split "`n" | Where-Object { $_.Trim() } | Select-Object -Last 1))"
+    Write-PkiLog "  FAILED $StoreName : $Label - $msg" 'ERROR'
+    return [ordered]@{ Status = 'failed'; Method = ''; Message = $msg }
+}
+
+function Get-PkiLeafFromPfx {
+    # Loads a PFX and returns ONLY its leaf: the certificate that has the private key.
+    # Why: Windows files every OTHER certificate of a PFX (here: intermediate, Quadrant Root, Track Root) in the
+    # Intermediate store when the PFX is imported with Import-PfxCertificate / certutil. That put our roots
+    # back under Intermediate Certification Authorities. Loading the PFX ourselves avoids it.
+    param(
+        [Parameter(Mandatory)][string]$PfxPath, [Parameter(Mandatory)][string]$Password, [string]$Thumbprint,
+        $Flags = ([System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::MachineKeySet -bor [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::PersistKeySet)
+    )
+    $loader = 'System.Security.Cryptography.X509Certificates.X509CertificateLoader' -as [type]      # .NET 9 and newer
+    if ($null -ne $loader) { $col = $loader::LoadPkcs12CollectionFromFile($PfxPath, $Password, $Flags) }
+    else {
+        $col = [System.Security.Cryptography.X509Certificates.X509Certificate2Collection]::new()
+        $col.Import($PfxPath, $Password, $Flags)
+    }
+    $leaf = $null
+    foreach ($c in $col) { if ($c.HasPrivateKey) { $leaf = $c; break } }
+    if ($null -eq $leaf -and $Thumbprint) { foreach ($c in $col) { if ($c.Thumbprint -ieq $Thumbprint) { $leaf = $c; break } } }
+    if ($null -eq $leaf) { throw 'The PFX contains no certificate with a private key.' }
+    return $leaf
+}
+
+function Install-PkiLeafPfx {
+    param([Parameter(Mandatory)]$Leaf)
+    $thumb = $Leaf.sha1
+    if (Test-PkiCertificateInStore -Thumbprint $thumb -Store 'My') {
+        Write-PkiLog "  already in My : $($Leaf.name)" 'INFO'
+        return [ordered]@{ Status = 'present'; Message = '' }
+    }
+    # route 1: only the leaf goes to My; the chain certificates of the PFX are NOT imported
+    $err0 = ''
+    try {
+        $cert = Get-PkiLeafFromPfx -PfxPath $Leaf.pfx -Password $script:Pki.Password -Thumbprint $thumb
+        $st = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+        $st.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
+        try { $st.Add($cert) } finally { $st.Close() }
+        if (Test-PkiCertificateInStore -Thumbprint $thumb -Store 'My') {
+            Write-PkiLog "  installed in My : $($Leaf.name)   (leaf only)" 'OK'
+            return [ordered]@{ Status = 'installed'; Message = '' }
+        }
+        $err0 = 'the leaf is not in the store after Add'
+    }
+    catch { $err0 = $_.Exception.Message.Split("`n")[0] }
+    Write-PkiLog "  leaf-only import of $($Leaf.name) failed ($err0); using the Windows PFX import" 'INFO'
+
+    # route 2 / 3: the Windows PFX import. It also puts the chain certificates of the PFX in the Intermediate
+    # store; Install-PkiTrust removes those copies afterwards.
+    $err = ''
+    try {
+        $secure = ConvertTo-SecureString -String $script:Pki.Password -AsPlainText -Force
+        Import-PfxCertificate -FilePath $Leaf.pfx -CertStoreLocation 'Cert:\LocalMachine\My' -Password $secure | Out-Null
+        if (Test-PkiCertificateInStore -Thumbprint $thumb -Store 'My') {
+            Write-PkiLog "  installed in My : $($Leaf.name)" 'OK'
+            return [ordered]@{ Status = 'installed'; Message = '' }
+        }
+        $err = 'Import-PfxCertificate reported success but the certificate is not in the store'
+    }
+    catch { $err = $_.Exception.Message.Split("`n")[0] }
+    # The PFX password is the lab password of this PKI.
+    $r = Invoke-PkiCertutil -Arguments @('-f', '-p', $script:Pki.Password, '-importpfx', 'My', $Leaf.pfx)
+    if ($r.ExitCode -eq 0 -and (Test-PkiCertificateInStore -Thumbprint $thumb -Store 'My')) {
+        Write-PkiLog "  installed in My : $($Leaf.name)   (certutil)" 'OK'
+        return [ordered]@{ Status = 'installed'; Message = '' }
+    }
+    $msg = "leaf-only: $err0 | Import-PfxCertificate: $err | certutil: exit $($r.ExitCode)"
+    Write-PkiLog "  could not import $($Leaf.name) into My: $msg" 'WARN'
+    return [ordered]@{ Status = 'failed'; Message = $msg }
+}
+
+# ------------------------------------------------------------
+# Where do our certificates REALLY sit?  (read back after every install and in -Verify)
+# ------------------------------------------------------------
+function Get-PkiStorePlacement {
+    <#
+    .SYNOPSIS
+        Pure classification (no store access). 
+    .PARAMETER Current
+        Our CA certificates: objects/hashtables with Id, Name, Sha1, Expected (Root | CA).
+    .PARAMETER Stores
+        Contents of the stores: @{ Root = @(@{Sha1; Subject}); CA = @(...) } (only certificates that carry
+        this PKI's identity need to be listed).
+    .OUTPUTS
+        Ok, Missing, WrongStore (in the other store, or in BOTH), Stale (ours, but not in the current PKI).
+    #>
+    param([Parameter(Mandatory)]$Current, [Parameter(Mandatory)][hashtable]$Stores)
+    $get = { param($o, $k) if ($o -is [System.Collections.IDictionary]) { $o[$k] } else { $o.$k } }
+    $has = { param($store, $sha) @($Stores[$store] | Where-Object { (& $get $_ 'Sha1') -ieq $sha }).Count -gt 0 }
+    $r = [ordered]@{
+        Ok = [System.Collections.Generic.List[object]]::new(); Missing = [System.Collections.Generic.List[object]]::new()
+        WrongStore = [System.Collections.Generic.List[object]]::new(); Stale = [System.Collections.Generic.List[object]]::new()
+    }
+    $known = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($c in @($Current)) {
+        $id = & $get $c 'Id'; $name = & $get $c 'Name'; $sha = & $get $c 'Sha1'; $exp = & $get $c 'Expected'
+        [void]$known.Add($sha)
+        $other = if ($exp -eq 'Root') { 'CA' } else { 'Root' }
+        $inExp = & $has $exp $sha
+        $inOther = & $has $other $sha
+        if ($inExp -and -not $inOther) { [void]$r.Ok.Add([ordered]@{ Id = $id; Name = $name; Store = $exp }) }
+        elseif ($inOther) {
+            $where = if ($inExp) { "in BOTH stores (also in $other)" } else { "in $other instead of $exp" }
+            [void]$r.WrongStore.Add([ordered]@{ Id = $id; Name = $name; Expected = $exp; Actual = $other; Detail = $where })
+        }
+        else { [void]$r.Missing.Add([ordered]@{ Id = $id; Name = $name; Expected = $exp }) }
+    }
+    foreach ($st in 'Root', 'CA') {
+        foreach ($e in @($Stores[$st])) {
+            $sha = & $get $e 'Sha1'
+            if (-not $known.Contains($sha)) { [void]$r.Stale.Add([ordered]@{ Store = $st; Subject = (& $get $e 'Subject'); Sha1 = $sha }) }
+        }
+    }
+    return $r
+}
+
+function Read-PkiStoreContents {
+    # LocalMachine Root and CA: the certificates that carry this PKI's identity. $null for a store that cannot be read.
+    $out = @{ Root = $null; CA = $null }
+    foreach ($name in 'Root', 'CA') {
+        try {
+            $st = [System.Security.Cryptography.X509Certificates.X509Store]::new($name, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+            $st.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::OpenExistingOnly)
+            try {
+                $out[$name] = @($st.Certificates | Where-Object { Test-PkiCertificateIdentity -Certificate $_ } |
+                    ForEach-Object { [ordered]@{ Sha1 = $_.Thumbprint; Subject = $_.Subject } })
+            }
+            finally { $st.Close() }
+        }
+        catch { Write-PkiLog "  LocalMachine\$name could not be read: $($_.Exception.Message.Split("`n")[0])" 'WARN' }
+    }
+    return $out
+}
+
+function Get-PkiTrustStoreReport {
+    # Reads the real stores and classifies every CA certificate of $Entries.
+    param([Parameter(Mandatory)]$Entries)
+    Assert-PkiWindows
+    $current = foreach ($e in @($Entries)) {
+        $g = { param($k) if ($e -is [System.Collections.IDictionary]) { $e[$k] } else { $e.$k } }
+        [ordered]@{ Id = (& $g 'id'); Name = (& $g 'commonName'); Sha1 = (& $g 'sha1'); Expected = (Get-PkiTrustStoreOf -Entry $e) }
+    }
+    $stores = Read-PkiStoreContents
+    $readable = @{ Root = ($null -ne $stores.Root); CA = ($null -ne $stores.CA) }
+    $stores = @{ Root = @($stores.Root); CA = @($stores.CA) }
+    $rep = Get-PkiStorePlacement -Current @($current) -Stores $stores
+    $rep['Readable'] = $readable
+    $rep['Total'] = @($current).Count
+    $rep['RootExpected'] = @($current | Where-Object { $_.Expected -eq 'Root' }).Count
+    $rep['CaExpected'] = @($current | Where-Object { $_.Expected -eq 'CA' }).Count
+    return $rep
+}
+
+function Write-PkiTrustStoreReport {
+    # Prints the report; returns $true when every CA certificate is in the right store and in no other.
+    param([Parameter(Mandatory)]$Report)
+    $r = $Report
+    $okRoot = @($r.Ok | Where-Object { $_.Store -eq 'Root' }).Count
+    $okCa = @($r.Ok | Where-Object { $_.Store -eq 'CA' }).Count
+    Write-PkiLog "Trusted Root Certification Authorities : $okRoot of $($r.RootExpected) roots in place (Enterprise Root, Track Roots, Quadrant Roots)" $(if ($okRoot -eq $r.RootExpected) { 'OK' } else { 'ERROR' })
+    Write-PkiLog "Intermediate Certification Authorities : $okCa of $($r.CaExpected) intermediates in place (DV / OV / EV)" $(if ($okCa -eq $r.CaExpected) { 'OK' } else { 'ERROR' })
+    foreach ($w in $r.WrongStore) { Write-PkiLog "  WRONG STORE : $($w.Name) is $($w.Detail)" 'ERROR' }
+    foreach ($m in $r.Missing) { Write-PkiLog "  NOT INSTALLED: $($m.Name) (belongs in $($m.Expected))" 'ERROR' }
+    if ($r.Stale.Count -gt 0) {
+        Write-PkiLog "$($r.Stale.Count) certificate(s) with this PKI's name are in the stores but are NOT part of the PKI in .\pki (an older generation):" 'WARN'
+        foreach ($t in $r.Stale) { Write-PkiLog "  LocalMachine\$($t.Store) : $($t.Subject.Split(',')[0..1] -join ',')   [$($t.Sha1.Substring(0, 12))...]" 'WARN' }
+        Write-PkiLog '  They are left alone. Remove them with  .\pki_setup.ps1 -RemoveAllTrust  (this also deletes .\pki) or in certlm.msc.' 'WARN'
+    }
+    return ($r.WrongStore.Count -eq 0 -and $r.Missing.Count -eq 0)
+}
+
+function Install-PkiTrust {
+    <#
+    .SYNOPSIS
+        Installs every CA certificate (Root / CA) and every default leaf PFX (My) in LocalMachine.
+    .DESCRIPTION
+        Each certificate is verified in the store by thumbprint afterwards. A CA certificate that
+        cannot be installed stops the run with an error at the end (all the others are still
+        installed). A leaf PFX that Windows cannot import is a warning: the files stay on disk.
+    .PARAMETER Manifest
+        Optional parsed pki-manifest.json. Defaults to the state of the current run.
+    #>
+    param($Manifest)
+    Assert-PkiWindows
+    Assert-Administrator
+
+    $cas = if ($null -ne $Manifest) { @($Manifest.certificateAuthorities) } else { @($script:Pki.Built.Values) }
+    $leaves = if ($null -ne $Manifest) { @($Manifest.leaves) } else { @($script:Pki.Leaves) }
+
+    $failedCa = [System.Collections.Generic.List[string]]::new()
+    $nNew = 0; $nPresent = 0; $nMoved = 0
+    foreach ($ca in $cas) {
+        $store = Get-PkiTrustStoreOf -Entry $ca
+        $r = Add-PkiCertificateToStore -CertificatePath $ca.certificate -StoreName $store -Label $ca.commonName
+        switch ($r.Status) { 'installed' { $nNew++ } 'present' { $nPresent++ } default { [void]$failedCa.Add("$($ca.commonName): $($r.Message)") } }
     }
 
-    return $totalRemoved
+    # Enterprise Root signed by a public CA: also install the public CA's intermediates (not the public
+    # root, which is already trusted) so Windows can build the chain without downloading anything.
+    if ($null -ne $script:Pki.ExternalRoot -and $script:Pki.ExternalRoot.Chain) {
+        $k = 0
+        foreach ($pem in (Get-PkiExternalChainIntermediates)) {
+            $k++
+            $tmp = Join-Path ([System.IO.Path]::GetTempPath()) "pki-ext-$k-$([guid]::NewGuid().ToString('N')).pem"
+            try {
+                Write-Utf8NoBom -Path $tmp -Content $pem
+                $r = Add-PkiCertificateToStore -CertificatePath $tmp -StoreName 'CA' -Label "public CA intermediate $k"
+                if ($r.Status -eq 'failed') { Write-PkiLog "  public CA intermediate $k could not be installed (ignored): $($r.Message)" 'WARN' }
+            }
+            finally { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+        }
+    }
+
+    $nLeaf = 0; $failedLeaf = [System.Collections.Generic.List[string]]::new()
+    foreach ($leaf in $leaves) {
+        if (-not $leaf.pfx) { continue }
+        $r = Install-PkiLeafPfx -Leaf $leaf
+        if ($r.Status -eq 'failed') { [void]$failedLeaf.Add("$($leaf.name): $($r.Message)") } else { $nLeaf++ }
+    }
+
+    # RECONCILE (after the leaf PFX import, which may have filed chain certificates in the Intermediate store):
+    # no root may stay in Intermediate and no intermediate in Trusted Root. Copies in the other store are removed.
+    foreach ($ca in $cas) {
+        $store = Get-PkiTrustStoreOf -Entry $ca
+        $other = if ($store -eq 'Root') { 'CA' } else { 'Root' }
+        $thumb = if ($ca -is [System.Collections.IDictionary]) { [string]$ca['sha1'] } else { [string]$ca.sha1 }
+        if (-not $thumb) { continue }
+        if (Test-PkiCertificateInStore -Thumbprint $thumb -Store $store) {
+            if (Test-PkiCertificateInStore -Thumbprint $thumb -Store $other) {
+                if (Remove-PkiCertificateFromStore -Thumbprint $thumb -Store $other) { $nMoved++; Write-PkiLog "  removed the copy in $other (it belongs in $store) : $($ca.commonName)" 'OK' }
+                else { Write-PkiLog "  could not remove the copy in $other : $($ca.commonName)" 'WARN' }
+            }
+        }
+    }
+
+    Write-PkiLog "Trust store: $($cas.Count - $failedCa.Count) of $($cas.Count) CA certificate(s) in place ($nNew installed now, $nPresent already there, $nMoved copies removed from the wrong store); $nLeaf leaf PFX file(s) in My." 'OK'
+    if ($failedLeaf.Count -gt 0) {
+        Write-PkiLog "$($failedLeaf.Count) leaf PFX file(s) could not be imported (the files stay in .\pki\leaf):" 'WARN'
+        foreach ($f in $failedLeaf) { Write-PkiLog "  - $f" 'WARN' }
+        Write-PkiLog '  ML-DSA private keys need a Windows build with post-quantum CNG support (Windows 11 24H2+ / Server 2025, updated).' 'WARN'
+    }
+    # Read the stores back: every root MUST be in Trusted Root, every intermediate in Intermediate, none in both.
+    $placementOk = $true
+    try {
+        $rep = Get-PkiTrustStoreReport -Entries $cas
+        $placementOk = Write-PkiTrustStoreReport -Report $rep
+    }
+    catch { Write-PkiLog "The stores could not be read back: $($_.Exception.Message.Split("`n")[0])" 'WARN' }
+    if (-not $placementOk -and $failedCa.Count -eq 0) {
+        throw "Some CA certificates are not in the required store (see the ERROR lines above). Run  .\pki_setup.ps1 -ReinstallTrust  from an elevated PowerShell; if it still fails, send me this output."
+    }
+    if ($failedCa.Count -gt 0) {
+        throw ("These CA certificates could not be installed in the LocalMachine stores:`n  - " + ($failedCa -join "`n  - ") +
+               "`nML-DSA certificates need Windows 11 24H2 or newer / Windows Server 2025 with the 2025-2026 updates. " +
+               "Windows 10 and Server 2022 cannot hold them: use the Classic quadrants (-Quadrant 1,2) there.")
+    }
+}
+
+function Remove-PkiCertificatesWhere {
+    # Removes the matching certificates. Anything already gone is simply ignored:
+    # a missing store, a certificate that is not there, or one that cannot be
+    # removed produces at most a note, and the process continues.
+    param([scriptblock]$Predicate, [string[]]$Stores = @('Root', 'CA', 'My'))
+    Assert-PkiWindows
+    Assert-Administrator
+    $removed = 0
+    foreach ($name in $Stores) {
+        $store = Open-PkiStore -Name $name
+        if ($null -eq $store) { continue }
+        try {
+            $hits = @()
+            try { $hits = @($store.Certificates | Where-Object { & $Predicate $_ }) }
+            catch { Write-PkiLog "  could not read LocalMachine\$name ($($_.Exception.Message.Split("`n")[0])); skipped." 'WARN' }
+            foreach ($cert in $hits) {
+                try {
+                    $store.Remove($cert)
+                    $removed++
+                    Write-PkiLog "  removed from $name : $($cert.Subject)" 'OK'
+                }
+                catch { Write-PkiLog "  already gone or not removable from $name, ignored: $($cert.Subject) ($($_.Exception.Message.Split("`n")[0]))" 'INFO' }
+            }
+        }
+        finally { $store.Close() }
+    }
+    return $removed
+}
+
+function Get-PkiFolderThumbprints {
+    # SHA-1 thumbprints of every PEM certificate file below the PKI folder.
+    # Works for ANY layout (also the old single-root layout), so a leftover PKI
+    # from an earlier version can still be removed from Windows.
+    param([Parameter(Mandatory)][string]$Folder)
+    $set = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    if (-not (Test-Path -LiteralPath $Folder -PathType Container)) { return $set }
+    foreach ($f in (Get-ChildItem -LiteralPath $Folder -Recurse -File -Include '*.crt', '*.pem', '*.cer' -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike 'external-chain*' -and $_.Name -notlike '*-chain.pem' })) {   # never the public CA's certificates
+        try {
+            $der = ConvertFrom-PkiPemToDer -Path $f.FullName
+            [void]$set.Add([BitConverter]::ToString([System.Security.Cryptography.SHA1]::HashData($der)).Replace('-', ''))
+        }
+        catch { }   # not a PEM certificate (private key, CRL, chain with no cert ...)
+    }
+    return $set
+}
+
+function Remove-CurrentTrust {
+    # Removes the certificates of the PKI in .\pki, matched by SHA-1 thumbprint.
+    $thumbs = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($b in $script:Pki.Built.Values) { [void]$thumbs.Add($b.sha1) }
+    foreach ($l in $script:Pki.Leaves) { [void]$thumbs.Add($l.sha1) }
+
+    # 1. manifest of this generator (older manifests have a different shape: tolerate it)
+    $manifestPath = Join-Path $script:Pki.PkiRoot 'pki-manifest.json'
+    if (Test-Path -LiteralPath $manifestPath) {
+        try {
+            $m = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+            foreach ($section in 'certificateAuthorities', 'leaves') {
+                $prop = $m.PSObject.Properties[$section]
+                if ($null -eq $prop -or $null -eq $prop.Value) { continue }
+                foreach ($entry in @($prop.Value)) {
+                    $sha = $entry.PSObject.Properties['sha1']
+                    if ($null -ne $sha -and $sha.Value) { [void]$thumbs.Add([string]$sha.Value) }
+                }
+            }
+        }
+        catch { Write-PkiLog "Manifest could not be read ($($_.Exception.Message.Split("`n")[0])); using the certificate files instead." 'WARN' }
+    }
+
+    # 2. every certificate file in the folder (any layout, any generator version)
+    foreach ($t in (Get-PkiFolderThumbprints -Folder $script:Pki.PkiRoot)) { [void]$thumbs.Add($t) }
+
+    if ($thumbs.Count -eq 0) {
+        Write-PkiLog 'No certificates found in the PKI folder, so there is nothing to remove by thumbprint. Use -RemoveAllTrust to remove by identity.' 'WARN'
+        return
+    }
+    Write-PkiLog "Looking for $($thumbs.Count) certificate thumbprint(s) in LocalMachine Root, CA and My ..."
+    $n = Remove-PkiCertificatesWhere -Predicate { param($c) $thumbs.Contains($c.Thumbprint) }
+    if ($n -eq 0) { Write-PkiLog 'None of them is installed (already removed, or never installed). Use -RemoveAllTrust to remove by name instead.' 'INFO' }
+    Write-PkiLog "Removed $n certificate(s) of the PKI in $($script:Pki.PkiRoot)." 'OK'
+}
+
+function Remove-AllTrust {
+    # Removes every certificate that carries this PKI's identity, from Root, CA and My.
+    $n = Remove-PkiCertificatesWhere -Predicate { param($c) Test-PkiCertificateIdentity -Certificate $c }
+    Write-PkiLog "Removed $n certificate(s) matching 'Agantra Inovatif' / 'NextMantra'." 'OK'
 }

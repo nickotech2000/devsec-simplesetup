@@ -1,871 +1,397 @@
 # ============================================================
-# 02_OpenSSL.ps1
-#
-# PKI Script - OpenSSL Helper
-#
+# PKI Script
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-#
-# Purpose:
-#   - Locate OpenSSL
-#   - Initialize OpenSSL
-#   - Execute OpenSSL safely
-#   - Normalize Unicode PKI naming to ASCII
-#   - Provide ASCII-safe PKI values for OpenSSL
-#
-# IMPORTANT:
-#   PowerShell may pass Unicode command-line arguments to
-#   OpenSSL incorrectly depending on the OpenSSL/Windows
-#   process boundary and encoding.
-#
-#   Therefore:
-#
-#       Original:
-#           Agantra Inovatif OÜ
-#
-#       OpenSSL-safe:
-#           Agantra Inovatif OU
-#
-#   The original Unicode value is preserved.
-#   OpenSSL-facing values are available through:
-#
-#       $script:Pki.AuthorAscii
-#       $script:Pki.CompanyAscii
-#       $script:Pki.EmailAscii
-#
 # ============================================================
-
+# 02_OpenSSL.ps1
+#
+# OpenSSL 4.x only.
+#   * Version gate: OpenSSL older than 4.0 stops the script.
+#   * No ENGINE API: no "openssl engine", no OPENSSL_NO_ENGINE.
+#   * Native providers only, selected with -provider flags and the
+#     provider sections written by 03_RuntimeConfig.ps1:
+#         non-FIPS : -provider default
+#         FIPS     : -provider fips -provider base -propquery fips=yes
+#   * Algorithms: RSA, ECDSA and ML-DSA (native in OpenSSL 3.5 / 4.x, default and FIPS
+#     providers). The Quantum quadrants use ML-DSA at every level. A failed ML-DSA key is an
+#     ERROR. Only with -PqcFallback does the script create an RSA key instead (genrsa), with a
+#     warning per key, so a build can continue; such a certificate is NOT quantum-safe.
+# ============================================================
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-
-# ============================================================
-# Convert Unicode Text To ASCII
-# ============================================================
-function ConvertTo-Ascii {
-
-    <#
-    .SYNOPSIS
-        Converts Unicode text to the closest ASCII representation.
-
-    .DESCRIPTION
-        Uses Unicode FormD normalization to separate base
-        characters from combining marks.
-
-        Example:
-
-            Ü
-             |
-             +-- U
-             +-- combining diaeresis
-
-        The combining mark is removed:
-
-            Ü -> U
-
-        Additional Unicode characters that do not decompose
-        through FormD are handled using Unicode code points.
-
-    .EXAMPLES
-
-        ConvertTo-Ascii 'Agantra Inovatif OÜ'
-
-        Result:
-            Agantra Inovatif OU
-
-        ConvertTo-Ascii 'München'
-
-        Result:
-            Munchen
-
-        ConvertTo-Ascii 'François'
-
-        Result:
-            Francois
-
-        ConvertTo-Ascii 'José García'
-
-        Result:
-            Jose Garcia
-    #>
-
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string]$Text
-    )
-
-
-    # --------------------------------------------------------
-    # Empty value
-    # --------------------------------------------------------
-    if ([string]::IsNullOrEmpty($Text)) {
-        return $Text
-    }
-
-
-    # --------------------------------------------------------
-    # Unicode FormD normalization
-    # --------------------------------------------------------
-    #
-    # Example:
-    #
-    #   Ü
-    #
-    # becomes:
-    #
-    #   U + combining diaeresis
-    #
-    # The combining mark is removed below.
-    # --------------------------------------------------------
-    $normalized = $Text.Normalize(
-        [System.Text.NormalizationForm]::FormD
-    )
-
-
-    # --------------------------------------------------------
-    # Remove combining marks
-    # --------------------------------------------------------
-    $builder = [System.Text.StringBuilder]::new()
-
-
-    foreach ($char in $normalized.ToCharArray()) {
-
-        $category =
-            [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory(
-                $char
-            )
-
-
-        if (
-            $category -ne
-                [System.Globalization.UnicodeCategory]::NonSpacingMark -and
-
-            $category -ne
-                [System.Globalization.UnicodeCategory]::SpacingCombiningMark -and
-
-            $category -ne
-                [System.Globalization.UnicodeCategory]::EnclosingMark
-        ) {
-
-            [void]$builder.Append($char)
+function Get-PkiOpenSslVersionOf {
+    # Runs "<exe> version"; $null when it is not OpenSSL / LibreSSL or does not run.
+    param([Parameter(Mandatory)][string]$Exe)
+    try {
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName = $Exe
+        [void]$psi.ArgumentList.Add('version')
+        $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+        $psi.Environment['OPENSSL_CONF'] = (Get-PkiNeutralOpenSslConf)
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $out = $p.StandardOutput.ReadToEnd()
+        [void]$p.WaitForExit(20000)
+        if ($out -match '^(?<prod>OpenSSL|LibreSSL)\s+(?<maj>\d+)\.(?<min>\d+)(\.(?<pat>\d+))?') {
+            return [pscustomobject]@{
+                Exe = $Exe; Product = $Matches['prod']; Major = [int]$Matches['maj']; Minor = [int]$Matches['min']
+                Patch = $(if ($Matches['pat']) { [int]$Matches['pat'] } else { 0 }); Text = $out.Trim()
+            }
         }
     }
-
-
-    $result = $builder.ToString()
-
-
-    # ========================================================
-    # Unicode characters which do not decompose using FormD
-    # ========================================================
-    #
-    # IMPORTANT:
-    #
-    # Do NOT put Unicode characters directly in a PowerShell
-    # hashtable.
-    #
-    # Use hexadecimal Unicode code points instead.
-    #
-    # This prevents source-file encoding/parser problems.
-    # ========================================================
-
-
-    # --------------------------------------------------------
-    # Æ -> AE
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00C6,
-        'AE'
-    )
-
-
-    # --------------------------------------------------------
-    # æ -> ae
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00E6,
-        'ae'
-    )
-
-
-    # --------------------------------------------------------
-    # Œ -> OE
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0152,
-        'OE'
-    )
-
-
-    # --------------------------------------------------------
-    # œ -> oe
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0153,
-        'oe'
-    )
-
-
-    # --------------------------------------------------------
-    # Ø -> O
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00D8,
-        'O'
-    )
-
-
-    # --------------------------------------------------------
-    # ø -> o
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00F8,
-        'o'
-    )
-
-
-    # --------------------------------------------------------
-    # Ð -> D
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00D0,
-        'D'
-    )
-
-
-    # --------------------------------------------------------
-    # ð -> d
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00F0,
-        'd'
-    )
-
-
-    # --------------------------------------------------------
-    # Þ -> TH
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00DE,
-        'TH'
-    )
-
-
-    # --------------------------------------------------------
-    # þ -> th
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00FE,
-        'th'
-    )
-
-
-    # --------------------------------------------------------
-    # Ł -> L
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0141,
-        'L'
-    )
-
-
-    # --------------------------------------------------------
-    # ł -> l
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0142,
-        'l'
-    )
-
-
-    # --------------------------------------------------------
-    # Đ -> D
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0110,
-        'D'
-    )
-
-
-    # --------------------------------------------------------
-    # đ -> d
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0111,
-        'd'
-    )
-
-
-    # --------------------------------------------------------
-    # Ħ -> H
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0126,
-        'H'
-    )
-
-
-    # --------------------------------------------------------
-    # ħ -> h
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0127,
-        'h'
-    )
-
-
-    # --------------------------------------------------------
-    # Ŧ -> T
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0166,
-        'T'
-    )
-
-
-    # --------------------------------------------------------
-    # ŧ -> t
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x0167,
-        't'
-    )
-
-
-    # --------------------------------------------------------
-    # ß -> ss
-    # --------------------------------------------------------
-    $result = $result.Replace(
-        [string][char]0x00DF,
-        'ss'
-    )
-
-
-    # ========================================================
-    # Final ASCII-only filtering
-    # ========================================================
-    $asciiBuilder =
-        [System.Text.StringBuilder]::new()
-
-
-    foreach ($char in $result.ToCharArray()) {
-
-        $codePoint = [int][char]$char
-
-
-        if ($codePoint -le 127) {
-
-            [void]$asciiBuilder.Append($char)
-        }
-    }
-
-
-    return $asciiBuilder.ToString()
+    catch { }
+    return $null
 }
 
-
-# ============================================================
-# Get OpenSSL-Safe Value
-# ============================================================
-function Get-PkiOpenSslValue {
-
-    <#
-    .SYNOPSIS
-        Converts a PKI value to an ASCII-safe OpenSSL value.
-    #>
-
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string]$Value
-    )
-
-
-    return ConvertTo-Ascii -Text $Value
+function Get-PkiOpenSslCandidates {
+    # Every openssl in PATH (in PATH order), then the usual install folders (FireDaemon, Shining Light, Homebrew).
+    $list = [System.Collections.Generic.List[string]]::new()
+    $add = { param($p) if (-not [string]::IsNullOrWhiteSpace($p) -and (Test-Path -LiteralPath $p -PathType Leaf)) { $r = (Resolve-Path -LiteralPath $p).Path; if (-not ($list | Where-Object { $_ -ieq $r })) { [void]$list.Add($r) } } }
+    foreach ($name in 'openssl.exe', 'openssl') {
+        foreach ($cmd in @(Get-Command $name -All -CommandType Application -ErrorAction SilentlyContinue)) { & $add $cmd.Source }
+    }
+    if ($IsWindows) {
+        $pf = $env:ProgramFiles
+        foreach ($d in 'FireDaemon OpenSSL 4', 'FireDaemon OpenSSL', 'FireDaemon OpenSSL 3', 'OpenSSL-Win64', 'OpenSSL') { & $add (Join-Path $pf "$d\bin\openssl.exe") }
+    }
+    else {
+        foreach ($p in '/opt/homebrew/opt/openssl@4/bin/openssl', '/usr/local/opt/openssl@4/bin/openssl', '/opt/homebrew/bin/openssl', '/usr/local/bin/openssl') { & $add $p }
+    }
+    return ,$list
 }
 
-
-# ============================================================
-# Get PKI ASCII Name
-# ============================================================
-function Get-PkiAsciiName {
-
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string]$Value
-    )
-
-
-    return ConvertTo-Ascii -Text $Value
-}
-
-
-# ============================================================
-# Find OpenSSL
-# ============================================================
-function Find-OpenSSL {
-
-    # --------------------------------------------------------
-    # First try PATH
-    # --------------------------------------------------------
-    $commands = @(
-        'openssl.exe',
-        'openssl'
-    )
-
-
-    foreach ($name in $commands) {
-
-        $cmd =
-            Get-Command `
-                $name `
-                -ErrorAction SilentlyContinue
-
-
-        if ($null -ne $cmd) {
-
-            return $cmd.Source
+function Get-PkiOpenSslAdvice {
+    param([string[]]$Found = @(), [bool]$Windows = $IsWindows)
+    $foundText = if ($Found.Count -gt 0) { "Found:`n    " + ($Found -join "`n    ") } else { 'No openssl was found.' }
+    $boot = $null
+    if ($null -ne $script:Pki -and $script:Pki.Contains('ScriptRoot')) {
+        foreach ($d in @($script:Pki.ScriptRoot, (Split-Path -Parent $script:Pki.ScriptRoot))) {
+            if ($d -and (Test-Path -LiteralPath (Join-Path $d 'Install-DevEnvironment.ps1'))) { $boot = Join-Path $d 'Install-DevEnvironment.ps1'; break }
         }
     }
+    $bootCmd = if ($boot) { $boot } else { '.\Install-DevEnvironment.ps1' }
+    if ($Windows) {
+        return @"
+This PKI needs OpenSSL 4.x (OpenSSL 3.x is not supported): the Quantum quadrants use native ML-DSA and the
+FIPS quadrants use the OpenSSL 4 FIPS provider.
+$foundText
 
-
-    # --------------------------------------------------------
-    # Common Windows installation locations
-    # --------------------------------------------------------
-    $commonPaths = @(
-        'C:\Program Files\OpenSSL-Win64\bin\openssl.exe',
-        'C:\Program Files\OpenSSL\bin\openssl.exe',
-        'C:\Program Files\OpenSSL-Win32\bin\openssl.exe',
-        'C:\Program Files (x86)\OpenSSL-Win32\bin\openssl.exe'
-    )
-
-
-    foreach ($path in $commonPaths) {
-
-        if (
-            Test-Path `
-                -LiteralPath $path `
-                -PathType Leaf
-        ) {
-
-            return $path
-        }
+HOW TO FIX
+  1. In an ELEVATED PowerShell run your bootstrap script (it installs FireDaemon OpenSSL through winget,
+     package FireDaemon.OpenSSL, puts it in PATH and creates fipsmodule.cnf). OpenSSL only:
+         $bootCmd -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipWindowsTerminal
+     (or run it without the -Skip switches to prepare the whole development environment)
+  2. Open a NEW PowerShell window (PATH is read at start) and check:      openssl version
+     It must say OpenSSL 4.x.x. If an older OpenSSL comes first in PATH, give the new one explicitly:
+         .\pki_setup.ps1 -OpenSslPath "C:\Program Files\FireDaemon OpenSSL 4\bin\openssl.exe"
+"@
     }
+    return @"
+This PKI needs OpenSSL 4.x (OpenSSL 3.x is not supported): the Quantum quadrants use native ML-DSA and the
+FIPS quadrants use the OpenSSL 4 FIPS provider.
+$foundText
 
-
-    # --------------------------------------------------------
-    # OpenSSL not found
-    # --------------------------------------------------------
-    throw @"
-OpenSSL executable was not found.
-
-Please install OpenSSL and ensure that openssl.exe
-is available in the PATH environment variable.
-
-Common installation paths checked:
-
-$($commonPaths -join "`n")
+HOW TO FIX   Install OpenSSL 4.x (Homebrew: brew install openssl@4, or build it from source with enable-fips)
+and pass it explicitly:   ./pki_setup.ps1 -OpenSslPath /path/to/openssl
 "@
 }
 
-
-# ============================================================
-# Initialize OpenSSL
-# ============================================================
-function Initialize-OpenSSL {
-
-    # --------------------------------------------------------
-    # Locate OpenSSL
-    # --------------------------------------------------------
-    $script:Pki.OpenSslExe =
-        Find-OpenSSL
-
-
-    Write-PkiVerbose (
-        "OpenSSL executable: " +
-        $script:Pki.OpenSslExe
-    )
-
-
-    # --------------------------------------------------------
-    # Get OpenSSL version
-    # --------------------------------------------------------
-    $versionResult =
-        Invoke-OpenSSL `
-            -Arguments @('version') `
-            -CaptureOutput
-
-
-    $script:Pki.OpenSslVersion =
-        $versionResult.StdOut.Trim()
-
-
-    Write-PkiLog (
-        "OpenSSL: " +
-        $script:Pki.OpenSslVersion
-    )
-}
-
-
-# ============================================================
-# Initialize PKI ASCII Names
-# ============================================================
-function Initialize-PkiAsciiNames {
-
-    <#
-    .SYNOPSIS
-        Creates ASCII-safe PKI values.
-
-    .DESCRIPTION
-        Original values are preserved.
-
-        Example:
-
-            Company
-                Agantra Inovatif OÜ
-
-            CompanyUnicode
-                Agantra Inovatif OÜ
-
-            CompanyAscii
-                Agantra Inovatif OU
-
-        Certificate generation code should use the *Ascii
-        properties when passing values to OpenSSL.
-    #>
-
-
-    # --------------------------------------------------------
-    # Ensure Pki object exists
-    # --------------------------------------------------------
-    if ($null -eq $script:Pki) {
-
-        throw (
-            'The $script:Pki object has not been initialized.'
-        )
-    }
-
-
-    # --------------------------------------------------------
-    # Default Author
-    # --------------------------------------------------------
-    if (-not $script:Pki.ContainsKey('Author')) {
-
-        $script:Pki.Author =
-            'Nicko Satria Utama'
-    }
-
-
-    # --------------------------------------------------------
-    # Default Company
-    # --------------------------------------------------------
-    if (-not $script:Pki.ContainsKey('Company')) {
-
-        $script:Pki.Company =
-            'Agantra Inovatif OÜ'
-    }
-
-
-    # --------------------------------------------------------
-    # Default Email
-    # --------------------------------------------------------
-    if (-not $script:Pki.ContainsKey('Email')) {
-
-        $script:Pki.Email =
-            'nicko@nextmantra.com'
-    }
-
-
-    # ========================================================
-    # Preserve original Unicode values
-    # ========================================================
-
-    $script:Pki.AuthorUnicode =
-        [string]$script:Pki.Author
-
-
-    $script:Pki.CompanyUnicode =
-        [string]$script:Pki.Company
-
-
-    $script:Pki.EmailUnicode =
-        [string]$script:Pki.Email
-
-
-    # ========================================================
-    # Generate ASCII-safe values
-    # ========================================================
-
-    $script:Pki.AuthorAscii =
-        ConvertTo-Ascii `
-            -Text $script:Pki.AuthorUnicode
-
-
-    $script:Pki.CompanyAscii =
-        ConvertTo-Ascii `
-            -Text $script:Pki.CompanyUnicode
-
-
-    $script:Pki.EmailAscii =
-        ConvertTo-Ascii `
-            -Text $script:Pki.EmailUnicode
-
-
-    # ========================================================
-    # Logging
-    # ========================================================
-
-    Write-PkiVerbose (
-        'PKI Author Unicode: ' +
-        $script:Pki.AuthorUnicode
-    )
-
-
-    Write-PkiVerbose (
-        'PKI Author ASCII  : ' +
-        $script:Pki.AuthorAscii
-    )
-
-
-    Write-PkiVerbose (
-        'PKI Company Unicode: ' +
-        $script:Pki.CompanyUnicode
-    )
-
-
-    Write-PkiVerbose (
-        'PKI Company ASCII  : ' +
-        $script:Pki.CompanyAscii
-    )
-
-
-    Write-PkiVerbose (
-        'PKI Email Unicode: ' +
-        $script:Pki.EmailUnicode
-    )
-
-
-    Write-PkiVerbose (
-        'PKI Email ASCII  : ' +
-        $script:Pki.EmailAscii
-    )
-}
-
-
-# ============================================================
-# Validate / Prepare OpenSSL Subject Value
-# ============================================================
-function ConvertTo-PkiOpenSslSubject {
-
-    <#
-    .SYNOPSIS
-        Converts a certificate subject component to ASCII.
-
-    .DESCRIPTION
-        This should be used by certificate-generation functions
-        before constructing OpenSSL subject strings.
-
-    Example:
-
-        ConvertTo-PkiOpenSslSubject `
-            'Agantra Inovatif OÜ (NextMantra)'
-
-    Result:
-
-        Agantra Inovatif OU (NextMantra)
-    #>
-
-    param(
-        [Parameter(Mandatory)]
-        [AllowEmptyString()]
-        [string]$Value
-    )
-
-
-    return ConvertTo-Ascii -Text $Value
-}
-
-
-# ============================================================
-# Invoke OpenSSL
-# ============================================================
-function Invoke-OpenSSL {
-
-    <#
-    .SYNOPSIS
-        Executes OpenSSL safely.
-
-    .DESCRIPTION
-        Uses System.Diagnostics.Process and ArgumentList.
-
-        ArgumentList avoids manual command-line quoting problems
-        involving spaces and special characters.
-    #>
-
-    param(
-        [Parameter(Mandatory)]
-        [string[]]$Arguments,
-
-        [switch]$CaptureOutput
-    )
-
-
-    # --------------------------------------------------------
-    # Validate OpenSSL executable
-    # --------------------------------------------------------
-    Assert-PkiFile `
-        -Path $script:Pki.OpenSslExe
-
-
-    # --------------------------------------------------------
-    # Prepare safe debug representation
-    # --------------------------------------------------------
-    $displayArguments = @(
-        foreach ($argument in $Arguments) {
-
-            if ($argument -match '^pass(out|in)$') {
-
-                '[PASSWORD]'
-            }
-            else {
-
-                $argument
-            }
+function Find-OpenSSL {
+    # Best OpenSSL 4.x or newer: an explicit -OpenSslPath is used as given (its version is checked by
+    # Initialize-OpenSSL); otherwise every candidate is asked for its version and the newest 4.x wins,
+    # even when an older OpenSSL (Git for Windows, an old package) comes first in PATH.
+    param([string]$ExplicitPath)
+    $script:PkiOpenSslNotes = [System.Collections.Generic.List[string]]::new()
+
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitPath)) {
+        if (-not (Test-Path -LiteralPath $ExplicitPath -PathType Leaf)) {
+            $advice = Get-PkiOpenSslAdvice
+            throw ('OpenSSL executable given with -OpenSslPath was not found: ' + $ExplicitPath + [Environment]::NewLine + [Environment]::NewLine + $advice)
         }
-    )
-
-
-    Write-PkiVerbose (
-        'OpenSSL command: openssl.exe ' +
-        ($displayArguments -join ' ')
-    )
-
-
-    # ========================================================
-    # Process configuration
-    # ========================================================
-
-    $psi =
-        [System.Diagnostics.ProcessStartInfo]::new()
-
-
-    $psi.FileName =
-        $script:Pki.OpenSslExe
-
-
-    foreach ($argument in $Arguments) {
-
-        [void]$psi.ArgumentList.Add(
-            [string]$argument
-        )
+        return (Resolve-Path -LiteralPath $ExplicitPath).Path
     }
 
+    $found = [System.Collections.Generic.List[object]]::new()
+    foreach ($exe in (Get-PkiOpenSslCandidates)) {
+        $v = Get-PkiOpenSslVersionOf -Exe $exe
+        if ($null -ne $v) { [void]$found.Add($v) }
+    }
+    $good = @($found | Where-Object { $_.Product -eq 'OpenSSL' -and $_.Major -ge 4 })
+    if ($good.Count -eq 0) {
+        $lines = @($found | ForEach-Object { ($_.Text.Split('(')[0].Trim()) + '   at ' + $_.Exe })
+        $advice = Get-PkiOpenSslAdvice -Found $lines
+        throw ('OpenSSL 4.0 or newer was not found.' + [Environment]::NewLine + $advice)
+    }
+    $best = $good | Sort-Object -Property @{ Expression = 'Major'; Descending = $true }, @{ Expression = 'Minor'; Descending = $true }, @{ Expression = 'Patch'; Descending = $true } | Select-Object -First 1
+    foreach ($f in $found) {
+        if ($f.Exe -ine $best.Exe -and ($f.Major -lt 4 -or $f.Product -ne 'OpenSSL')) {
+            $fv = $f.Text.Split([char]40)[0].Trim()
+            [void]$script:PkiOpenSslNotes.Add('skipped ' + $fv + ' at ' + $f.Exe + ' (OpenSSL 4.x is required)')
+        }
+    }
+    return $best.Exe
+}
 
+function Get-PkiNeutralOpenSslConf {
+    # A minimal configuration (default provider only) for commands that need no PKI configuration,
+    # such as "openssl version". Written once per user to the temp folder.
+    $path = Join-Path ([System.IO.Path]::GetTempPath()) 'agantra-pki-neutral-openssl.cnf'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        $text = "# Neutral OpenSSL configuration of the Agantra PKI scripts: default provider only.`nopenssl_conf = openssl_init`n`n[ openssl_init ]`nproviders = provider_sect`n`n[ provider_sect ]`ndefault = default_sect`n`n[ default_sect ]`nactivate = 1`n"
+        [System.IO.File]::WriteAllText($path, $text, [System.Text.UTF8Encoding]::new($false))
+    }
+    return $path
+}
+
+function Invoke-OpenSSL {
+    <#
+    .SYNOPSIS
+        Runs OpenSSL with System.Diagnostics.Process (no shell quoting issues).
+    .PARAMETER ConfigPath
+        Set as OPENSSL_CONF for this process only, so every command (also
+        those without a -config option) loads the provider sections in it.
+    .PARAMETER AllowFailure
+        Return the result instead of throwing when the exit code is not 0.
+    #>
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [string]$ConfigPath,
+        [switch]$AllowFailure
+    )
+
+    Assert-PkiFile -Path $script:Pki.OpenSslExe
+
+    $shown = [System.Collections.Generic.List[string]]::new()
+    $hide = $false
+    foreach ($a in $Arguments) {
+        if ($hide) { [void]$shown.Add('[REDACTED]'); $hide = $false; continue }
+        [void]$shown.Add($a)
+        if ($a -in '-passin', '-passout', '-pass') { $hide = $true }
+    }
+    Write-PkiVerbose ('openssl ' + ($shown -join ' '))
+
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = $script:Pki.OpenSslExe
+    foreach ($a in $Arguments) { [void]$psi.ArgumentList.Add([string]$a) }
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.CreateNoWindow = $true
+    # ALWAYS set OPENSSL_CONF. A machine-wide OPENSSL_CONF (for example a master configuration that also
+    # activates the third-party oqsprovider) must never reach the PKI scripts: native providers only.
+    $psi.Environment['OPENSSL_CONF'] = $(if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) { $ConfigPath } else { Get-PkiNeutralOpenSslConf })
 
-
-    # ========================================================
-    # Execute process
-    # ========================================================
-
-    $process =
-        [System.Diagnostics.Process]::new()
-
-
-    $process.StartInfo =
-        $psi
-
-
-    $stdout = ''
-    $stderr = ''
-    $exitCode = -1
-
-
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $psi
     try {
-
         [void]$process.Start()
-
-
-        $stdout =
-            $process.StandardOutput.ReadToEnd()
-
-
-        $stderr =
-            $process.StandardError.ReadToEnd()
-
-
+        $errTask = $process.StandardError.ReadToEndAsync()
+        $stdout = $process.StandardOutput.ReadToEnd()
         $process.WaitForExit()
-
-
-        $exitCode =
-            $process.ExitCode
+        $stderr = $errTask.GetAwaiter().GetResult()
+        $exit = $process.ExitCode
     }
-    finally {
+    finally { $process.Dispose() }
 
-        $process.Dispose()
+    $result = [pscustomobject]@{ ExitCode = $exit; StdOut = $stdout; StdErr = $stderr }
+    if ($exit -ne 0 -and -not $AllowFailure) {
+        $msg = "OpenSSL exited with code $exit (openssl $($shown -join ' '))."
+        if (-not [string]::IsNullOrWhiteSpace($stderr)) { $msg += "`nSTDERR:`n$($stderr.Trim())" }
+        if (-not [string]::IsNullOrWhiteSpace($stdout)) { $msg += "`nSTDOUT:`n$($stdout.Trim())" }
+        throw $msg
     }
-
-
-    # ========================================================
-    # Handle OpenSSL failure
-    # ========================================================
-
-    if ($exitCode -ne 0) {
-
-        $details =
-            "OpenSSL exited with code $exitCode."
-
-
-        if (
-            -not [string]::IsNullOrWhiteSpace($stderr)
-        ) {
-
-            $details += (
-                "`nSTDERR:`n" +
-                $stderr.Trim()
-            )
-        }
-
-
-        if (
-            -not [string]::IsNullOrWhiteSpace($stdout)
-        ) {
-
-            $details += (
-                "`nSTDOUT:`n" +
-                $stdout.Trim()
-            )
-        }
-
-
-        throw $details
-    }
-
-
-    # ========================================================
-    # Return output
-    # ========================================================
-
-    if ($CaptureOutput) {
-
-        return [pscustomobject]@{
-            ExitCode = $exitCode
-            StdOut   = $stdout
-            StdErr   = $stderr
-        }
-    }
-
-
-    return $stdout
+    return $result
 }
 
+function Initialize-OpenSSL {
+    $script:Pki.OpenSslExe = Find-OpenSSL -ExplicitPath $script:Pki.OpenSslPath
+    $v = Invoke-OpenSSL -Arguments @('version')
+    $text = $v.StdOut.Trim()
+    $script:Pki.OpenSslVersion = $text
 
-# ============================================================
-# END OF 02_OpenSSL.ps1
-# ============================================================
+    $short = $text.Split('(')[0].Trim()
+    $exe = $script:Pki.OpenSslExe
+    if ($text -notmatch '^OpenSSL\s+(?<maj>\d+)\.(?<min>\d+)(\.(?<pat>\d+))?') {
+        $advice = Get-PkiOpenSslAdvice -Found @($short + '   at ' + $exe)
+        throw ('Unrecognised OpenSSL version string: ' + $text + ' (' + $exe + '). This PKI requires OpenSSL 4.0 or newer (LibreSSL and BoringSSL are not supported).' + [Environment]::NewLine + $advice)
+    }
+    $major = [int]$Matches['maj']
+    if ($major -lt 4) {
+        $advice = Get-PkiOpenSslAdvice -Found @($short + '   at ' + $exe)
+        throw ('OpenSSL 4.0 or newer is required. This is ' + $short + ' (' + $exe + ').' + [Environment]::NewLine + $advice)
+    }
+    Write-PkiLog "OpenSSL: $text"
+    Write-PkiLog "  executable: $($script:Pki.OpenSslExe)"
+    if ($null -ne (Get-Variable -Name PkiOpenSslNotes -Scope Script -ErrorAction SilentlyContinue)) {
+        foreach ($n in $script:PkiOpenSslNotes) { Write-PkiLog "  $n" 'INFO' }
+    }
+
+    # The default provider must load: every non-FIPS operation relies on it.
+    $p = Invoke-OpenSSL -Arguments @('list', '-providers', '-provider', 'default') -AllowFailure
+    if ($p.ExitCode -ne 0) {
+        throw "The OpenSSL default provider could not be loaded.`n$($p.StdErr.Trim())"
+    }
+    Write-PkiVerbose ($p.StdOut.Trim())
+}
+
+# ------------------------------------------------------------
+# Providers
+# ------------------------------------------------------------
+function Get-PkiProviderArgs {
+    param([bool]$Fips)
+    if ($Fips) { return @('-provider', 'fips', '-provider', 'base', '-propquery', 'fips=yes') }
+    return @('-provider', 'default')
+}
+
+function Get-PkiProviderConfigPath {
+    param([bool]$Fips)
+    if ($Fips) { return (Join-Path $script:Pki.PkiRoot 'provider-fips.cnf') }
+    return (Join-Path $script:Pki.PkiRoot 'provider-default.cnf')
+}
+
+function Test-PkiFipsProvider {
+    # Loads the FIPS provider (runs its self-tests). Throws a clear message on failure.
+    $cnf = Get-PkiProviderConfigPath -Fips $true
+    $r = Invoke-OpenSSL -Arguments (@('list', '-providers') + (Get-PkiProviderArgs -Fips $true)) -ConfigPath $cnf -AllowFailure
+    if ($r.ExitCode -ne 0) {
+        throw @"
+The OpenSSL FIPS provider could not be loaded, so FIPS quadrants (2 and 4) cannot be generated.
+$($r.StdErr.Trim())
+
+Fix one of:
+  0. Run your Install-DevEnvironment.ps1 (FireDaemon OpenSSL with the FIPS module and fipsmodule.cnf), then retry
+  1. Install the FIPS module and create its configuration:
+       openssl fipsinstall -out fipsmodule.cnf -module <path to fips.dll>
+     then run again with  -FipsModuleConfig <path to fipsmodule.cnf>
+  2. Generate only the non-FIPS quadrants:  -Quadrant 1,3
+"@
+    }
+    Write-PkiLog 'FIPS provider loaded.' 'OK'
+}
+
+# ------------------------------------------------------------
+# Key protection (Windows ACL): owner, SYSTEM and Administrators only
+# ------------------------------------------------------------
+function Protect-PkiKeyFile {
+    param([Parameter(Mandatory)][string]$Path)
+    if ($IsWindows) {
+        try {
+            $user = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            & icacls.exe $Path /inheritance:r /grant:r "${user}:(F)" 'SYSTEM:(F)' 'BUILTIN\Administrators:(F)' | Out-Null
+        }
+        catch { Write-PkiLog "Could not restrict key file ACL: $Path ($($_.Exception.Message))" 'WARN' }
+    }
+    else {
+        try { & chmod 600 $Path } catch { }
+    }
+}
+
+# ------------------------------------------------------------
+# Private key generation (PKCS#8 PEM)
+#   Family rsa   : genpkey -algorithm RSA  -pkeyopt rsa_keygen_bits:N
+#   Family ecdsa : genpkey -algorithm EC   -pkeyopt ec_paramgen_curve:<curve>
+#   Family pqc   : genpkey -algorithm mldsa87 | mldsa65 | mldsa44
+# Returns @{ Family; Bits; Curve; Algorithm; Fallback }
+# ------------------------------------------------------------
+function New-PkiPrivateKey {
+    param(
+        [Parameter(Mandatory)][string]$KeyPath,
+        [Parameter(Mandatory)][ValidateSet('rsa', 'ecdsa', 'pqc')][string]$Family,
+        [int]$Bits = 0,
+        [string]$Curve = 'P-384',
+        [bool]$Fips = $false,
+        [string]$Label = 'key',
+        [string]$PqcAlgorithm,
+        [int]$FallbackBits = 0
+    )
+    if ([string]::IsNullOrWhiteSpace($PqcAlgorithm)) { $PqcAlgorithm = $script:Pki.PqcAlgorithm }
+    if ($FallbackBits -le 0) { $FallbackBits = $script:Pki.FallbackRsaBits }
+
+    $prov = Get-PkiProviderArgs -Fips $Fips
+    $cnf  = Get-PkiProviderConfigPath -Fips $Fips
+    Ensure-PkiDirectory -Path (Split-Path -Parent $KeyPath)
+    if (Test-Path -LiteralPath $KeyPath) { Remove-Item -LiteralPath $KeyPath -Force }
+
+    $info = $null
+    switch ($Family) {
+        'rsa' {
+            [void](Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('genpkey', '-algorithm', 'RSA', '-pkeyopt', "rsa_keygen_bits:$Bits", '-out', $KeyPath) + $prov))
+            $info = [ordered]@{ Family = 'rsa'; Bits = $Bits; Curve = $null; Algorithm = "RSA-$Bits"; Fallback = $false }
+        }
+        'ecdsa' {
+            [void](Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('genpkey', '-algorithm', 'EC', '-pkeyopt', "ec_paramgen_curve:$Curve", '-pkeyopt', 'ec_param_enc:named_curve', '-out', $KeyPath) + $prov))
+            $info = [ordered]@{ Family = 'ecdsa'; Bits = 0; Curve = $Curve; Algorithm = "ECDSA-$($Curve -replace '-','')"; Fallback = $false }
+        }
+        'pqc' {
+            try {
+                [void](Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('genpkey', '-algorithm', $PqcAlgorithm, '-out', $KeyPath) + $prov))
+                $info = [ordered]@{ Family = 'pqc'; Bits = 0; Curve = $null; Algorithm = (Get-PkiPqcDisplayName $PqcAlgorithm); Fallback = $false }
+            }
+            catch {
+                $reason = ($_.Exception.Message -split "`n" | Where-Object { $_ -match 'error|unsupported|unknown|not found|fail|initializ' } | Select-Object -First 1)
+                if ([string]::IsNullOrWhiteSpace($reason)) { $reason = ($_.Exception.Message -split "`n")[0] }
+                if (Test-Path -LiteralPath $KeyPath) { Remove-Item -LiteralPath $KeyPath -Force -ErrorAction SilentlyContinue }
+                $mode = if ($Fips) { 'FIPS provider' } else { 'default provider' }
+                if (-not $script:Pki.PqcFallback) {
+                    throw @"
+ML-DSA key generation failed for '$Label' ($PqcAlgorithm, $mode).
+Reason: $reason
+The Quantum quadrants must use a post-quantum algorithm, so the script stops instead of creating an
+RSA key. Use OpenSSL 4.x with native ML-DSA (and, for FIPS, a FIPS module that includes ML-DSA).
+To build anyway with RSA-$FallbackBits keys in their place (NOT quantum-safe), add -PqcFallback.
+"@
+                }
+                Write-PkiLog "ML-DSA key '$Label' ($PqcAlgorithm, $mode) failed: $reason" 'WARN'
+                Write-PkiLog "  -PqcFallback: creating a classical RSA-$FallbackBits key instead (genrsa). This certificate is NOT quantum-safe." 'WARN'
+                [void](Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('genrsa', '-out', $KeyPath) + $prov + @([string]$FallbackBits)))
+                $info = [ordered]@{ Family = 'rsa'; Bits = $FallbackBits; Curve = $null; Algorithm = "RSA-$FallbackBits"; Fallback = $true }
+                [void]$script:Pki.PqcFallbacks.Add([ordered]@{ Label = $Label; RequestedAlgorithm = $PqcAlgorithm; UsedAlgorithm = "RSA-$FallbackBits"; Fips = $Fips; Reason = $reason })
+            }
+        }
+    }
+
+    if (-not (Test-Path -LiteralPath $KeyPath -PathType Leaf) -or (Get-Item -LiteralPath $KeyPath).Length -lt 64) {
+        throw "OpenSSL reported success but did not write a key for '$Label': $KeyPath"
+    }
+    if ((Get-Content -LiteralPath $KeyPath -TotalCount 1) -ne '-----BEGIN PRIVATE KEY-----') {
+        throw "Key for '$Label' is not PKCS#8 PEM: $KeyPath"
+    }
+    Protect-PkiKeyFile -Path $KeyPath
+    return $info
+}
+
+# Signature digest / options -------------------------------------------------
+function Get-PkiIssueMd {
+    # Digest used when a CA signs the certificates it issues.
+    param([string]$Kind, [string]$Family)
+    if ($Family -eq 'pqc') { return 'default' }          # ML-DSA is a pure signature: no external digest
+    if ($Kind -in 'root', 'track') { return 'sha512' }
+    if ($Family -eq 'ecdsa') { return 'sha384' }
+    return 'sha256'
+}
+
+function Get-PkiSigOpts {
+    # RSA-PSS (optional shield). Not used for ECDSA / ML-DSA.
+    param([string]$Family, [string]$Md)
+    if ($script:Pki.RsaPss -and $Family -eq 'rsa' -and $Md -ne 'default') {
+        return @('-sigopt', 'rsa_padding_mode:pss', '-sigopt', "rsa_mgf1_md:$Md", '-sigopt', 'rsa_pss_saltlen:digest')
+    }
+    return @()
+}
+
+function Get-PkiOwnMd {
+    # Digest of a CA's own CSR (proof of possession). Root-level CAs: SHA-512.
+    param([string]$Kind, [string]$Family)
+    if ($Family -eq 'pqc') { return 'default' }
+    if ($Kind -in 'root', 'track', 'quadrant') { return 'sha512' }
+    if ($Family -eq 'ecdsa') { return 'sha384' }
+    return 'sha256'
+}
+
+function Get-PkiMdArgs {
+    # -sha512 for req (not for pure-signature keys)
+    param([string]$Md)
+    if ($Md -eq 'default') { return @() }
+    return @("-$Md")
+}

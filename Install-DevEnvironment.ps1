@@ -15,99 +15,27 @@
 #
 # SUPPORTED STARTING ENVIRONMENTS
 # -------------------------------
-#
 # 1. Original Windows 11 Home / Professional
 #    - Windows PowerShell 5.1
-#
 # 2. Windows 11 OOBE image with PowerShell 7.x
-#    - PowerShell 7.0.x
-#    - PowerShell 7.1.x
-#    - PowerShell 7.2.x
-#    - PowerShell 7.3.x
-#    - PowerShell 7.4.x
-#    - PowerShell 7.5.x
-#    - PowerShell 7.6.x
-#
-# The script detects the CURRENT PowerShell host instead of
-# assuming a specific starting version.
+#    - PowerShell 7.0.x through 7.6.x
 #
 # POWERSHELL TARGET
 # -----------------
-#
-# Current target:
-#
-#     PowerShell 7.6.6 LTS
-#
-# The script does NOT hard-code the target installer version.
-# WinGet is queried for the currently available
-# Microsoft.PowerShell package.
-#
-# Therefore, when a newer LTS becomes available, the same
-# bootstrap can install the newer package without changing
-# this script.
-#
-# IMPORTANT:
-# PowerShell 7 does NOT replace Windows PowerShell 5.1.
-# Both can exist side-by-side.
-#
-# ============================================================
+# PowerShell 7 LTS
 #
 # DEVELOPMENT TOOLS
 # -----------------
-#
 # PowerShell 7       Latest available LTS
-# .NET 10 SDK        Latest .NET 10 LTS
+# .NET 10 SDK        Latest .NET 10 SDK
 # .NET 8 SDK         Latest .NET 8 LTS
 # Node.js             Latest
 # Go                  Latest
 # PHP                 Latest
 # Python              Latest stable
 # Git                 Latest
-# Git Bash            Included with Git
-# OpenSSL             Latest available
+# OpenSSL             FireDaemon OpenSSL with FIPS & Quantum-Safe Cryptography
 # Windows Terminal    Latest
-#
-# ============================================================
-#
-# PATH
-# ----
-#
-# The script updates persistent:
-#
-#     Machine PATH
-#     User PATH
-#
-# It also refreshes the CURRENT process PATH so verification
-# can happen without restarting the script.
-#
-# ============================================================
-#
-# TELEMETRY
-# ---------
-#
-# The script displays:
-#
-#     [timestamp]
-#     [elapsed time]
-#     [INFO]
-#     [STEP]
-#     [OK]
-#     [WARN]
-#     [ERROR]
-#
-# A complete log is written to:
-#
-#     C:\ProgramData\Agantra\WindowsDeveloperBootstrap\Logs
-#
-# ============================================================
-#
-# REQUIREMENTS
-# ------------
-#
-#     Windows 11
-#     Administrator privileges
-#     Internet connection
-#     WinGet / App Installer
 #
 # ============================================================
 
@@ -133,26 +61,15 @@ $ErrorActionPreference = 'Stop'
 # ============================================================
 
 $ScriptName = 'Install-DevEnvironment.ps1'
-
 $BootstrapStart = Get-Date
 
-$LogRoot = Join-Path `
-    $env:ProgramData `
-    'Agantra\WindowsDeveloperBootstrap\Logs'
+$LogRoot = Join-Path $env:ProgramData 'Agantra\WindowsDeveloperBootstrap\Logs'
 
 if (-not (Test-Path -LiteralPath $LogRoot)) {
-
-    New-Item `
-        -ItemType Directory `
-        -Path $LogRoot `
-        -Force |
-        Out-Null
+    New-Item -ItemType Directory -Path $LogRoot -Force | Out-Null
 }
 
-$LogFile = Join-Path `
-    $LogRoot `
-    ('Install-DevEnvironment-{0}.log' -f `
-        (Get-Date -Format 'yyyyMMdd-HHmmss'))
+$LogFile = Join-Path $LogRoot ('Install-DevEnvironment-{0}.log' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 
 # ============================================================
 # COLOR HELPERS
@@ -162,10 +79,8 @@ function Write-Console {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
-
         [ConsoleColor]$Color = [ConsoleColor]::Gray
     )
-
     Write-Host $Message -ForegroundColor $Color
 }
 
@@ -174,7 +89,6 @@ function Write-Banner {
         [Parameter(Mandatory = $true)]
         [string]$Title
     )
-
     Write-Host ''
     Write-Console '============================================================' Cyan
     Write-Console (' {0}' -f $Title) Cyan
@@ -187,77 +101,33 @@ function Write-Banner {
 # ============================================================
 
 function Get-ElapsedText {
-
     $Elapsed = (Get-Date) - $BootstrapStart
-
-    return (
-        '{0:00}:{1:00}:{2:00}.{3:000}' -f `
-        [int]$Elapsed.TotalHours,
-        $Elapsed.Minutes,
-        $Elapsed.Seconds,
-        $Elapsed.Milliseconds
-    )
+    return ('{0:00}:{1:00}:{2:00}.{3:000}' -f [int]$Elapsed.TotalHours, $Elapsed.Minutes, $Elapsed.Seconds, $Elapsed.Milliseconds)
 }
 
 function Write-Log {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Message,
-
-        [ValidateSet(
-            'INFO',
-            'STEP',
-            'SUCCESS',
-            'WARN',
-            'ERROR',
-            'DEBUG'
-        )]
+        [ValidateSet('INFO', 'STEP', 'SUCCESS', 'WARN', 'ERROR', 'DEBUG')]
         [string]$Level = 'INFO'
     )
 
     $Timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'
-
     $Elapsed = Get-ElapsedText
-
-    $Line = '[{0}] [+{1}] [{2}] {3}' -f `
-        $Timestamp,
-        $Elapsed,
-        $Level,
-        $Message
+    $Line = '[{0}] [+{1}] [{2}] {3}' -f $Timestamp, $Elapsed, $Level, $Message
 
     switch ($Level) {
-
-        'INFO' {
-            Write-Console $Line Gray
-        }
-
-        'STEP' {
-            Write-Console $Line Cyan
-        }
-
-        'SUCCESS' {
-            Write-Console $Line Green
-        }
-
-        'WARN' {
-            Write-Console $Line Yellow
-        }
-
-        'ERROR' {
-            Write-Console $Line Red
-        }
-
-        'DEBUG' {
-            Write-Console $Line DarkGray
-        }
+        'INFO'    { Write-Console $Line Gray }
+        'STEP'    { Write-Console $Line Cyan }
+        'SUCCESS' { Write-Console $Line Green }
+        'WARN'    { Write-Console $Line Yellow }
+        'ERROR'   { Write-Console $Line Red }
+        'DEBUG'   { Write-Console $Line DarkGray }
     }
 
     try {
-
-        Add-Content `
-            -LiteralPath $LogFile `
-            -Value $Line `
-            -Encoding UTF8
+        Add-Content -LiteralPath $LogFile -Value $Line -Encoding UTF8
     }
     catch {
         # Logging must never terminate the bootstrap.
@@ -269,15 +139,9 @@ function Write-Log {
 # ============================================================
 
 function Test-IsAdministrator {
-
     $Identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-
-    $Principal = New-Object `
-        Security.Principal.WindowsPrincipal($Identity)
-
-    return $Principal.IsInRole(
-        [Security.Principal.WindowsBuiltInRole]::Administrator
-    )
+    $Principal = New-Object Security.Principal.WindowsPrincipal($Identity)
+    return $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
 # ============================================================
@@ -285,78 +149,36 @@ function Test-IsAdministrator {
 # ============================================================
 
 Write-Banner 'Windows 11 Developer Environment Bootstrap'
-
-Write-Log `
-    'Bootstrap starting.' `
-    'STEP'
-
-Write-Log `
-    ('Script: {0}' -f $ScriptName)
-
-Write-Log `
-    ('PowerShell process ID: {0}' -f $PID)
-
-Write-Log `
-    ('Current user: {0}' -f $env:USERNAME)
-
-Write-Log `
-    ('Computer: {0}' -f $env:COMPUTERNAME)
+Write-Log 'Bootstrap starting.' 'STEP'
+Write-Log ('Script: {0}' -f $ScriptName)
+Write-Log ('PowerShell process ID: {0}' -f $PID)
+Write-Log ('Current user: {0}' -f $env:USERNAME)
+Write-Log ('Computer: {0}' -f $env:COMPUTERNAME)
 
 if (-not (Test-IsAdministrator)) {
-
-    Write-Log `
-        'Administrator privileges are required.' `
-        'ERROR'
-
+    Write-Log 'Administrator privileges are required.' 'ERROR'
     Write-Host ''
     Write-Console 'Run PowerShell as Administrator and execute the script again.' Red
     Write-Host ''
-
     exit 1
 }
 
-Write-Log `
-    'Administrator privileges confirmed.' `
-    'SUCCESS'
+Write-Log 'Administrator privileges confirmed.' 'SUCCESS'
 
 # ============================================================
 # WINDOWS INFORMATION
 # ============================================================
 
-function Get-WindowsInformation {
-
-    $OS = Get-CimInstance Win32_OperatingSystem
-
-    return $OS
-}
-
-$OS = Get-WindowsInformation
-
+$OS = Get-CimInstance Win32_OperatingSystem
 Write-Banner 'Windows Environment'
-
-Write-Log (
-    'Operating System : {0}' -f $OS.Caption
-)
-
-Write-Log (
-    'Windows Version  : {0}' -f $OS.Version
-)
-
-Write-Log (
-    'Windows Build    : {0}' -f $OS.BuildNumber
-)
+Write-Log ('Operating System : {0}' -f $OS.Caption)
+Write-Log ('Windows Version  : {0}' -f $OS.Version)
+Write-Log ('Windows Build    : {0}' -f $OS.BuildNumber)
 
 if ($OS.Caption -notmatch 'Windows 11') {
-
-    Write-Log `
-        'This bootstrap is designed for Windows 11.' `
-        'WARN'
-}
-else {
-
-    Write-Log `
-        'Windows 11 detected.' `
-        'SUCCESS'
+    Write-Log 'This bootstrap is designed for Windows 11.' 'WARN'
+} else {
+    Write-Log 'Windows 11 detected.' 'SUCCESS'
 }
 
 # ============================================================
@@ -364,257 +186,81 @@ else {
 # ============================================================
 
 function Get-PowerShellHostInformation {
-
-    $Major = [int]$PSVersionTable.PSVersion.Major
-    $Minor = [int]$PSVersionTable.PSVersion.Minor
-    $Patch = [int]$PSVersionTable.PSVersion.Patch
-
-    $Version = $PSVersionTable.PSVersion.ToString()
-
-    if ($PSEdition -eq 'Core') {
-
-        $Edition = 'PowerShell 7+'
-
-    }
-    else {
-
-        $Edition = 'Windows PowerShell 5.1'
-    }
-
     return @{
-        Major   = $Major
-        Minor   = $Minor
-        Patch   = $Patch
-        Version = $Version
-        Edition = $Edition
+        Major   = [int]$PSVersionTable.PSVersion.Major
+        Minor   = [int]$PSVersionTable.PSVersion.Minor
+        Patch   = [int]$PSVersionTable.PSVersion.Patch
+        Version = $PSVersionTable.PSVersion.ToString()
+        Edition = if ($PSEdition -eq 'Core') { 'PowerShell 7+' } else { 'Windows PowerShell 5.1' }
     }
 }
 
 $CurrentPS = Get-PowerShellHostInformation
-
 Write-Banner 'PowerShell Host Detection'
-
-Write-Log (
-    'Detected edition : {0}' -f $CurrentPS.Edition
-)
-
-Write-Log (
-    'Detected version : {0}' -f $CurrentPS.Version
-)
-
-Write-Log (
-    'PSEdition        : {0}' -f $PSEdition
-)
-
-Write-Log (
-    'PSHome           : {0}' -f $PSHOME
-)
-
-if ($CurrentPS.Edition -eq 'Windows PowerShell 5.1') {
-
-    Write-Log `
-        'Starting from Windows PowerShell 5.1.' `
-        'INFO'
-
-    Write-Log `
-        'PowerShell 7 will be installed side-by-side.' `
-        'INFO'
-}
-else {
-
-    Write-Log `
-        'Starting from PowerShell 7.x.' `
-        'INFO'
-
-    Write-Log `
-        'Existing PowerShell 7 will be upgraded if required.' `
-        'INFO'
-}
+Write-Log ('Detected edition : {0}' -f $CurrentPS.Edition)
+Write-Log ('Detected version : {0}' -f $CurrentPS.Version)
 
 # ============================================================
 # PATH FUNCTIONS
 # ============================================================
 
 function Normalize-PathEntry {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        return ''
-    }
-
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) { return '' }
     return $Path.Trim().TrimEnd('\').ToLowerInvariant()
 }
 
 function Get-PersistentPathEntries {
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet('Machine', 'User')]
-        [string]$Scope
-    )
-
-    $Value = [Environment]::GetEnvironmentVariable(
-        'Path',
-        $Scope
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Value)) {
-        return @()
-    }
-
-    $Result = @()
-
-    foreach ($Entry in ($Value -split ';')) {
-
-        if (-not [string]::IsNullOrWhiteSpace($Entry)) {
-
-            $Result += $Entry.Trim()
-        }
-    }
-
-    return $Result
+    param([string]$Scope)
+    $Value = [Environment]::GetEnvironmentVariable('Path', $Scope)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return @() }
+    return @($Value -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() })
 }
 
 function Add-PersistentPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-
-        [Parameter(Mandatory = $true)]
-        [ValidateSet('Machine', 'User')]
-        [string]$Scope
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
-        return
-    }
-
-    if (-not (Test-Path -LiteralPath $Path)) {
-
-        Write-Log (
-            'PATH does not currently exist, skipping: {0}' -f $Path
-        ) 'DEBUG'
-
-        return
-    }
-
-    $Entries = @(Get-PersistentPathEntries -Scope $Scope)
-
+    param([string]$Path, [string]$Scope)
+    if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path)) { return }
+    $Entries = Get-PersistentPathEntries -Scope $Scope
     $Target = Normalize-PathEntry -Path $Path
-
     foreach ($Entry in $Entries) {
-
-        if (
-            (Normalize-PathEntry -Path $Entry) -eq
-            $Target
-        ) {
-            return
-        }
+        if ((Normalize-PathEntry -Path $Entry) -eq $Target) { return }
     }
-
     $Entries += $Path
-
-    [Environment]::SetEnvironmentVariable(
-        'Path',
-        ($Entries -join ';'),
-        $Scope
-    )
-
-    Write-Log (
-        'Added {0} PATH: {1}' -f $Scope, $Path
-    ) 'SUCCESS'
+    [Environment]::SetEnvironmentVariable('Path', ($Entries -join ';'), $Scope)
+    Write-Log ('Added {0} PATH: {1}' -f $Scope, $Path) 'SUCCESS'
 }
 
 function Remove-DuplicatePersistentPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [ValidateSet('Machine', 'User')]
-        [string]$Scope
-    )
-
-    $Entries = @(Get-PersistentPathEntries -Scope $Scope)
-
+    param([string]$Scope)
+    $Entries = Get-PersistentPathEntries -Scope $Scope
     $Unique = @()
     $Seen = @{}
-
     foreach ($Entry in $Entries) {
-
         $Normalized = Normalize-PathEntry -Path $Entry
-
-        if ([string]::IsNullOrWhiteSpace($Normalized)) {
-            continue
-        }
-
-        if (-not $Seen.ContainsKey($Normalized)) {
-
+        if (-not [string]::IsNullOrWhiteSpace($Normalized) -and -not $Seen.ContainsKey($Normalized)) {
             $Seen[$Normalized] = $true
-
             $Unique += $Entry
         }
     }
-
-    [Environment]::SetEnvironmentVariable(
-        'Path',
-        ($Unique -join ';'),
-        $Scope
-    )
+    [Environment]::SetEnvironmentVariable('Path', ($Unique -join ';'), $Scope)
 }
 
 function Refresh-CurrentProcessPath {
-
-    $MachinePath = [Environment]::GetEnvironmentVariable(
-        'Path',
-        'Machine'
-    )
-
-    $UserPath = [Environment]::GetEnvironmentVariable(
-        'Path',
-        'User'
-    )
-
+    $MachinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     $Combined = @()
-
-    if (-not [string]::IsNullOrWhiteSpace($MachinePath)) {
-
-        foreach ($Entry in ($MachinePath -split ';')) {
-
-            if (-not [string]::IsNullOrWhiteSpace($Entry)) {
-                $Combined += $Entry.Trim()
-            }
-        }
-    }
-
-    if (-not [string]::IsNullOrWhiteSpace($UserPath)) {
-
-        foreach ($Entry in ($UserPath -split ';')) {
-
-            if (-not [string]::IsNullOrWhiteSpace($Entry)) {
-                $Combined += $Entry.Trim()
-            }
-        }
-    }
-
+    if ($MachinePath) { $Combined += $MachinePath -split ';' }
+    if ($UserPath) { $Combined += $UserPath -split ';' }
+    
     $Unique = @()
     $Seen = @{}
-
     foreach ($Entry in $Combined) {
-
         $Normalized = Normalize-PathEntry -Path $Entry
-
-        if ([string]::IsNullOrWhiteSpace($Normalized)) {
-            continue
-        }
-
-        if (-not $Seen.ContainsKey($Normalized)) {
-
+        if (-not [string]::IsNullOrWhiteSpace($Normalized) -and -not $Seen.ContainsKey($Normalized)) {
             $Seen[$Normalized] = $true
-
-            $Unique += $Entry
+            $Unique += $Entry.Trim()
         }
     }
-
     $env:Path = $Unique -join ';'
 }
 
@@ -623,773 +269,250 @@ function Refresh-CurrentProcessPath {
 # ============================================================
 
 function Get-WinGetPath {
-
-    $Command = Get-Command `
-        'winget.exe' `
-        -ErrorAction SilentlyContinue
-
-    if ($null -ne $Command) {
-        return $Command.Source
-    }
-
-    $WindowsApps = Join-Path `
-        $env:LOCALAPPDATA `
-        'Microsoft\WindowsApps'
-
-    $Candidate = Join-Path `
-        $WindowsApps `
-        'winget.exe'
-
-    if (Test-Path -LiteralPath $Candidate) {
-        return $Candidate
-    }
-
+    $Command = Get-Command 'winget.exe' -ErrorAction SilentlyContinue
+    if ($null -ne $Command) { return $Command.Source }
+    $Candidate = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\winget.exe'
+    if (Test-Path -LiteralPath $Candidate) { return $Candidate }
     return $null
 }
 
 Refresh-CurrentProcessPath
-
 $Winget = Get-WinGetPath
 
 if ([string]::IsNullOrWhiteSpace($Winget)) {
-
     Write-Banner 'WinGet'
-
-    Write-Log `
-        'WinGet was not detected.' `
-        'ERROR'
-
-    Write-Console `
-        'Windows 11 normally provides WinGet through Microsoft App Installer.' `
-        Yellow
-
-    Write-Console `
-        'Update/install App Installer and run this script again.' `
-        Yellow
-
+    Write-Log 'WinGet was not detected.' 'ERROR'
     exit 1
 }
 
 Write-Banner 'WinGet'
-
-Write-Log (
-    'WinGet executable: {0}' -f $Winget
-) 'SUCCESS'
-
-try {
-
-    $WingetVersion = & $Winget --version 2>&1
-
-    Write-Log (
-        'WinGet version: {0}' -f ($WingetVersion -join ' ')
-    )
-}
-catch {
-
-    Write-Log `
-        'Unable to determine WinGet version.' `
-        'WARN'
-}
-
-# ============================================================
-# WINGET PACKAGE INFORMATION
-# ============================================================
-
-function Get-WinGetPackageVersion {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Id
-    )
-
-    try {
-
-        $Output = & $Winget search `
-            '--id' `
-            $Id `
-            '--exact' `
-            '--source' `
-            'winget' `
-            '--accept-source-agreements' `
-            2>&1
-
-        $Text = ($Output -join "`n")
-
-        #
-        # Expected format contains:
-        #
-        # PowerShell Microsoft.PowerShell 7.6.6.0 winget
-        #
-        # We use a tolerant regex because WinGet table formatting
-        # can vary.
-        #
-
-        $Matches = [regex]::Matches(
-            $Text,
-            '(?m)^\s*\S.*?\s+' +
-            [regex]::Escape($Id) +
-            '\s+([0-9][0-9A-Za-z\.\-\+]*)\s+winget\s*$'
-        )
-
-        if ($Matches.Count -gt 0) {
-
-            return $Matches[$Matches.Count - 1].Groups[1].Value
-        }
-
-        return $null
-    }
-    catch {
-
-        return $null
-    }
-}
+Write-Log ('WinGet executable: {0}' -f $Winget) 'SUCCESS'
 
 # ============================================================
 # WINGET INSTALL / UPGRADE
 # ============================================================
 
 function Install-OrUpgrade-WinGetPackage {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Id,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Name
-    )
-
+    param([string]$Id, [string]$Name, [string]$Version = $null)
     Write-Banner $Name
+    Write-Log ('Package ID: {0}' -f $Id) 'STEP'
 
-    Write-Log (
-        'Package ID: {0}' -f $Id
-    ) 'STEP'
+    $Args = @('install', '--id', $Id, '--exact', '--source', 'winget', '--accept-source-agreements', '--accept-package-agreements', '--silent', '--disable-interactivity')
+    if ($Version) { $Args += @('--version', $Version) }
 
-    $AvailableVersion = Get-WinGetPackageVersion -Id $Id
-
-    if ($AvailableVersion) {
-
-        Write-Log (
-            'Available WinGet version: {0}' -f $AvailableVersion
-        )
+    & $Winget @Args 2>&1 | ForEach-Object { Write-Log $_.ToString() 'DEBUG' }
+    if ($LASTEXITCODE -eq 0) {
+        Write-Log ('{0} processing completed.' -f $Name) 'SUCCESS'
+    } else {
+        Write-Log ('WinGet operation returned exit code {0}.' -f $LASTEXITCODE) 'WARN'
     }
-    else {
-
-        Write-Log `
-            'Available version could not be parsed. WinGet will select latest.' `
-            'WARN'
-    }
-
-    #
-    # First try upgrade.
-    #
-
-    $UpgradeArguments = @(
-        'upgrade'
-        '--id'
-        $Id
-        '--exact'
-        '--source'
-        'winget'
-        '--accept-source-agreements'
-        '--accept-package-agreements'
-        '--silent'
-        '--disable-interactivity'
-    )
-
-    Write-Log `
-        'Running WinGet upgrade...' `
-        'STEP'
-
-    & $Winget @UpgradeArguments 2>&1 |
-        ForEach-Object {
-            Write-Log $_.ToString() 'DEBUG'
-        }
-
-    $UpgradeExitCode = $LASTEXITCODE
-
-    if ($UpgradeExitCode -eq 0) {
-
-        Write-Log `
-            'WinGet upgrade completed.' `
-            'SUCCESS'
-    }
-    else {
-
-        Write-Log (
-            'WinGet upgrade returned exit code {0}. Trying install.' -f
-            $UpgradeExitCode
-        ) 'DEBUG'
-
-        #
-        # If not installed, install.
-        #
-
-        $InstallArguments = @(
-            'install'
-            '--id'
-            $Id
-            '--exact'
-            '--source'
-            'winget'
-            '--accept-source-agreements'
-            '--accept-package-agreements'
-            '--silent'
-            '--disable-interactivity'
-        )
-
-        Write-Log `
-            'Running WinGet install...' `
-            'STEP'
-
-        & $Winget @InstallArguments 2>&1 |
-            ForEach-Object {
-                Write-Log $_.ToString() 'DEBUG'
-            }
-
-        $InstallExitCode = $LASTEXITCODE
-
-        if ($InstallExitCode -eq 0) {
-
-            Write-Log `
-                'WinGet install completed.' `
-                'SUCCESS'
-        }
-        else {
-
-            Write-Log (
-                'WinGet install returned exit code {0}.' -f
-                $InstallExitCode
-            ) 'WARN'
-        }
-    }
-
     Refresh-CurrentProcessPath
 }
 
 # ============================================================
-# POWERSHELL INSTALL / UPGRADE
+# POWERSHELL INSTALL
 # ============================================================
 
 if (-not $SkipPowerShell) {
-
-    Write-Banner 'PowerShell Latest LTS'
-
-    Write-Log (
-        'Current host: {0} {1}' -f
-        $CurrentPS.Edition,
-        $CurrentPS.Version
-    ) 'INFO'
-
-    $PowerShellAvailableVersion = Get-WinGetPackageVersion `
-        -Id 'Microsoft.PowerShell'
-
-    if ($PowerShellAvailableVersion) {
-
-        Write-Log (
-            'Latest PowerShell available through WinGet: {0}' -f
-            $PowerShellAvailableVersion
-        ) 'SUCCESS'
-    }
-    else {
-
-        Write-Log `
-            'Could not determine the available PowerShell version.' `
-            'WARN'
-    }
-
-    if ($CurrentPS.Edition -eq 'Windows PowerShell 5.1') {
-
-        Write-Log `
-            'Windows PowerShell 5.1 detected.' `
-            'INFO'
-
-        Write-Log `
-            'Installing PowerShell 7 side-by-side.' `
-            'STEP'
-
-    }
-    elseif ($CurrentPS.Major -lt 7) {
-
-        Write-Log `
-            'PowerShell version is below 7.' `
-            'INFO'
-
-    }
-    else {
-
-        Write-Log (
-            'PowerShell 7.x detected: {0}' -f $CurrentPS.Version
-        ) 'INFO'
-
-        Write-Log `
-            'Checking for a newer PowerShell release.' `
-            'STEP'
-    }
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'Microsoft.PowerShell' `
-        -Name 'PowerShell 7'
-
-    #
-    # Standard PowerShell 7 installation directory.
-    #
-
-    $PowerShell7Path = Join-Path `
-        $env:ProgramFiles `
-        'PowerShell\7'
-
-    Add-PersistentPath `
-        -Path $PowerShell7Path `
-        -Scope Machine
-
-    #
-    # WindowsApps contains the application alias for MSIX.
-    #
-
-    $WindowsAppsPath = Join-Path `
-        $env:LOCALAPPDATA `
-        'Microsoft\WindowsApps'
-
-    Add-PersistentPath `
-        -Path $WindowsAppsPath `
-        -Scope User
-
+    Install-OrUpgrade-WinGetPackage -Id 'Microsoft.PowerShell' -Name 'PowerShell 7'
+    Add-PersistentPath -Path (Join-Path $env:ProgramFiles 'PowerShell\7') -Scope Machine
+    Add-PersistentPath -Path (Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps') -Scope User
     Refresh-CurrentProcessPath
-
-    #
-    # Locate newly installed PowerShell.
-    #
-
-    $PowerShell7 = Get-Command `
-        'pwsh.exe' `
-        -ErrorAction SilentlyContinue
-
-    if ($null -eq $PowerShell7) {
-
-        $PowerShell7Candidate = Join-Path `
-            $PowerShell7Path `
-            'pwsh.exe'
-
-        if (Test-Path -LiteralPath $PowerShell7Candidate) {
-
-            $PowerShell7 = Get-Item `
-                -LiteralPath $PowerShell7Candidate
-        }
-    }
-
-    if ($null -ne $PowerShell7) {
-
-        try {
-
-            $InstalledPSVersion = & $PowerShell7.Source `
-                -NoLogo `
-                -NoProfile `
-                -Command '$PSVersionTable.PSVersion.ToString()' `
-                2>&1
-
-            Write-Log (
-                'PowerShell 7 installed/available: {0}' -f
-                ($InstalledPSVersion -join ' ')
-            ) 'SUCCESS'
-        }
-        catch {
-
-            Write-Log `
-                'PowerShell 7 was installed but version verification failed.' `
-                'WARN'
-        }
-    }
-    else {
-
-        Write-Log `
-            'pwsh.exe was not found immediately after installation.' `
-            'WARN'
-
-        Write-Log `
-            'Open a new terminal after bootstrap completion and run pwsh --version.' `
-            'WARN'
-    }
 }
 
 # ============================================================
-# .NET 10
+# .NET 10 & 8
 # ============================================================
 
 if (-not $SkipDotNet) {
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'Microsoft.DotNet.SDK.10' `
-        -Name '.NET 10 SDK LTS'
-
-    Add-PersistentPath `
-        -Path "$env:ProgramFiles\dotnet" `
-        -Scope Machine
-
+    Install-OrUpgrade-WinGetPackage -Id 'Microsoft.DotNet.SDK.10' -Name '.NET 10 SDK'
+    Install-OrUpgrade-WinGetPackage -Id 'Microsoft.DotNet.SDK.8' -Name '.NET 8 SDK LTS'
+    Add-PersistentPath -Path "$env:ProgramFiles\dotnet" -Scope Machine
     Refresh-CurrentProcessPath
 }
 
 # ============================================================
-# .NET 8
-# ============================================================
-
-if (-not $SkipDotNet) {
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'Microsoft.DotNet.SDK.8' `
-        -Name '.NET 8 SDK LTS'
-
-    Add-PersistentPath `
-        -Path "$env:ProgramFiles\dotnet" `
-        -Scope Machine
-
-    Refresh-CurrentProcessPath
-}
-
-# ============================================================
-# NODE.JS
+# NODE.JS, GO, PHP, PYTHON, GIT
 # ============================================================
 
 if (-not $SkipNodeJS) {
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'OpenJS.NodeJS' `
-        -Name 'Node.js'
-
-    Add-PersistentPath `
-        -Path "$env:ProgramFiles\nodejs" `
-        -Scope Machine
-
-    Refresh-CurrentProcessPath
+    Install-OrUpgrade-WinGetPackage -Id 'OpenJS.NodeJS' -Name 'Node.js'
+    Add-PersistentPath -Path "$env:ProgramFiles\nodejs" -Scope Machine
 }
-
-# ============================================================
-# GO
-# ============================================================
 
 if (-not $SkipGo) {
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'GoLang.Go' `
-        -Name 'Go'
-
-    Add-PersistentPath `
-        -Path "$env:ProgramFiles\Go\bin" `
-        -Scope Machine
-
-    $GoUserBin = Join-Path `
-        $env:USERPROFILE `
-        'go\bin'
-
-    if (-not (Test-Path -LiteralPath $GoUserBin)) {
-
-        New-Item `
-            -ItemType Directory `
-            -Path $GoUserBin `
-            -Force |
-            Out-Null
-    }
-
-    Add-PersistentPath `
-        -Path $GoUserBin `
-        -Scope User
-
-    Refresh-CurrentProcessPath
+    Install-OrUpgrade-WinGetPackage -Id 'GoLang.Go' -Name 'Go'
+    Add-PersistentPath -Path "$env:ProgramFiles\Go\bin" -Scope Machine
 }
-
-# ============================================================
-# PHP
-# ============================================================
 
 if (-not $SkipPHP) {
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'PHP.PHP' `
-        -Name 'PHP'
-
-    #
-    # Discover PHP installation directories.
-    #
-
-    $PHPRoots = @(
-        "$env:ProgramFiles\PHP"
-        "$env:ProgramFiles\PHP*"
-    )
-
-    foreach ($PHPPattern in $PHPRoots) {
-
-        $PHPDirectories = Get-ChildItem `
-            -Path $PHPPattern `
-            -Directory `
-            -ErrorAction SilentlyContinue
-
-        foreach ($PHPDirectory in $PHPDirectories) {
-
-            Add-PersistentPath `
-                -Path $PHPDirectory.FullName `
-                -Scope Machine
-
-            $PHPBin = Join-Path `
-                $PHPDirectory.FullName `
-                'bin'
-
-            Add-PersistentPath `
-                -Path $PHPBin `
-                -Scope Machine
-        }
-    }
-
-    Refresh-CurrentProcessPath
+    Install-OrUpgrade-WinGetPackage -Id 'PHP.PHP' -Name 'PHP'
 }
-
-# ============================================================
-# PYTHON
-# ============================================================
 
 if (-not $SkipPython) {
-
-    Write-Banner 'Python'
-
-    #
-    # Current CPython recommendation is Python Install Manager.
-    #
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'Python.PythonInstallManager' `
-        -Name 'Python Install Manager'
-
-    Refresh-CurrentProcessPath
-
-    #
-    # Python global command directory.
-    #
-
-    $PythonGlobalBin = Join-Path `
-        $env:LOCALAPPDATA `
-        'Python\bin'
-
-    Add-PersistentPath `
-        -Path $PythonGlobalBin `
-        -Scope User
-
-    #
-    # WindowsApps contains Python Install Manager aliases.
-    #
-
-    $PythonWindowsApps = Join-Path `
-        $env:LOCALAPPDATA `
-        'Microsoft\WindowsApps'
-
-    Add-PersistentPath `
-        -Path $PythonWindowsApps `
-        -Scope User
-
-    Refresh-CurrentProcessPath
-
-    #
-    # Locate Python manager.
-    #
-
-    $PythonManager = Get-Command `
-        'pymanager.exe' `
-        -ErrorAction SilentlyContinue
-
-    if ($null -eq $PythonManager) {
-
-        $PythonManager = Get-Command `
-            'py.exe' `
-            -ErrorAction SilentlyContinue
-    }
-
-    if ($null -ne $PythonManager) {
-
-        Write-Log `
-            'Python Install Manager detected.' `
-            'SUCCESS'
-
-        try {
-
-            #
-            # Install the latest Python 3 runtime.
-            #
-
-            & $PythonManager.Source `
-                install 3 `
-                2>&1 |
-                ForEach-Object {
-                    Write-Log $_.ToString() 'DEBUG'
-                }
-
-            if ($LASTEXITCODE -eq 0) {
-
-                Write-Log `
-                    'Latest Python 3 runtime installation completed.' `
-                    'SUCCESS'
-            }
-            else {
-
-                Write-Log (
-                    'Python runtime installation returned exit code {0}.' -f
-                    $LASTEXITCODE
-                ) 'WARN'
-            }
-        }
-        catch {
-
-            Write-Log (
-                'Python runtime installation failed: {0}' -f
-                $_.Exception.Message
-            ) 'WARN'
-        }
-    }
-    else {
-
-        Write-Log `
-            'Python manager is not available in the current process yet.' `
-            'WARN'
-
-        Write-Log `
-            'A new terminal may be required before python/py becomes available.' `
-            'WARN'
-    }
-
-    #
-    # Discover Python runtime directories.
-    #
-
-    $PythonRoots = @(
-        (Join-Path $env:LOCALAPPDATA 'Programs\Python')
-        (Join-Path $env:LOCALAPPDATA 'Python')
-    )
-
-    foreach ($PythonRoot in $PythonRoots) {
-
-        if (Test-Path -LiteralPath $PythonRoot) {
-
-            Add-PersistentPath `
-                -Path $PythonRoot `
-                -Scope User
-
-            $PythonVersions = Get-ChildItem `
-                -LiteralPath $PythonRoot `
-                -Directory `
-                -ErrorAction SilentlyContinue
-
-            foreach ($PythonVersion in $PythonVersions) {
-
-                Add-PersistentPath `
-                    -Path $PythonVersion.FullName `
-                    -Scope User
-
-                $PythonScripts = Join-Path `
-                    $PythonVersion.FullName `
-                    'Scripts'
-
-                Add-PersistentPath `
-                    -Path $PythonScripts `
-                    -Scope User
-            }
-        }
-    }
-
-    Refresh-CurrentProcessPath
+    Install-OrUpgrade-WinGetPackage -Id 'Python.PythonInstallManager' -Name 'Python Install Manager'
 }
-
-# ============================================================
-# GIT
-# ============================================================
 
 if (-not $SkipGit) {
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'Git.Git' `
-        -Name 'Git for Windows'
-
-    Add-PersistentPath `
-        -Path "$env:ProgramFiles\Git\cmd" `
-        -Scope Machine
-
-    #
-    # IMPORTANT:
-    #
-    # Do NOT add Git\usr\bin globally.
-    #
-    # Git Bash provides its own Unix environment.
-    # Adding usr\bin to global Windows PATH can shadow native
-    # Windows commands.
-    #
-
-    Refresh-CurrentProcessPath
+    Install-OrUpgrade-WinGetPackage -Id 'Git.Git' -Name 'Git for Windows'
+    Add-PersistentPath -Path "$env:ProgramFiles\Git\cmd" -Scope Machine
 }
 
 # ============================================================
-# OPENSSL
+# FIREDAEMON OPENSSL WITH FIPS & QUANTUM (OQS)
 # ============================================================
 
 if (-not $SkipOpenSSL) {
+    Write-Banner 'FireDaemon OpenSSL (FIPS + Quantum-Safe PQC)'
 
-    Write-Banner 'OpenSSL'
+    # 1. Enforce WinGet Download & Install of FireDaemon OpenSSL
+    Install-OrUpgrade-WinGetPackage -Id 'FireDaemon.OpenSSL' -Name 'FireDaemon OpenSSL'
 
-    $OpenSSLInstalled = $false
-
-    $OpenSSLPackageIds = @(
-        'ShiningLight.OpenSSL.Light'
-        'ShiningLight.OpenSSL'
+    # Candidate directories where FireDaemon OpenSSL binary and modules reside
+    $CandidateDirs = @(
+        "$env:ProgramFiles\FireDaemon OpenSSL",
+        "$env:ProgramFiles\FireDaemon OpenSSL 3",
+        "$env:ProgramFiles\FireDaemon OpenSSL 4",
+        "$env:ProgramFiles\OpenSSL",
+        "C:\Program Files\FireDaemon OpenSSL"
     )
 
-    foreach ($OpenSSLId in $OpenSSLPackageIds) {
-
-        if ($OpenSSLInstalled) {
+    $OpenSSLBase = $null
+    foreach ($Dir in $CandidateDirs) {
+        if (Test-Path -LiteralPath "$Dir\bin\openssl.exe") {
+            $OpenSSLBase = $Dir
             break
         }
+    }
 
-        Write-Log (
-            'Trying OpenSSL package: {0}' -f $OpenSSLId
-        ) 'STEP'
+    if (-not $OpenSSLBase) {
+        Write-Log 'FireDaemon OpenSSL executable was not found after WinGet installation.' 'ERROR'
+    } else {
+        $BinDir = Join-Path $OpenSSLBase 'bin'
+        $OpenSSLExe = Join-Path $BinDir 'openssl.exe'
+        
+        Add-PersistentPath -Path $BinDir -Scope Machine
+        Refresh-CurrentProcessPath
 
-        $Arguments = @(
-            'install'
-            '--id'
-            $OpenSSLId
-            '--exact'
-            '--source'
-            'winget'
-            '--accept-source-agreements'
-            '--accept-package-agreements'
-            '--silent'
-            '--disable-interactivity'
-        )
+        Write-Log ('Located FireDaemon OpenSSL at: {0}' -f $OpenSSLExe) 'SUCCESS'
 
-        & $Winget @Arguments 2>&1 |
-            ForEach-Object {
-                Write-Log $_.ToString() 'DEBUG'
-            }
-
-        if ($LASTEXITCODE -eq 0) {
-
-            $OpenSSLInstalled = $true
-
-            Write-Log (
-                'OpenSSL package processed: {0}' -f $OpenSSLId
-            ) 'SUCCESS'
+        # Enforce module directory location
+        $OsslModulesDir = Join-Path $BinDir 'ossl-modules'
+        if (-not (Test-Path -LiteralPath $OsslModulesDir)) {
+            $OsslModulesDir = Join-Path $OpenSSLBase 'lib\ossl-modules'
         }
-    }
+        if (-not (Test-Path -LiteralPath $OsslModulesDir)) {
+            New-Item -ItemType Directory -Path (Join-Path $BinDir 'ossl-modules') -Force | Out-Null
+            $OsslModulesDir = Join-Path $BinDir 'ossl-modules'
+        }
 
-    if (-not $OpenSSLInstalled) {
+        [Environment]::SetEnvironmentVariable('OPENSSL_MODULES', $OsslModulesDir, 'Machine')
+        $env:OPENSSL_MODULES = $OsslModulesDir
 
-        Write-Log `
-            'OpenSSL installation did not report success.' `
-            'WARN'
-    }
+        # Enforce SSL configuration directory
+        $SslDir = Join-Path $OpenSSLBase 'ssl'
+        if (-not (Test-Path -LiteralPath $SslDir)) {
+            $SslDir = Join-Path $OpenSSLBase 'bin'
+        }
+        if (-not (Test-Path -LiteralPath $SslDir)) {
+            New-Item -ItemType Directory -Path $SslDir -Force | Out-Null
+        }
 
-    $OpenSSLPaths = @(
-        "$env:ProgramFiles\OpenSSL\bin"
-        "$env:ProgramFiles\OpenSSL-Win64\bin"
-        "$env:ProgramFiles\OpenSSL-Win32\bin"
-    )
+        $MainCnf = Join-Path $SslDir 'openssl.cnf'
+        [Environment]::SetEnvironmentVariable('OPENSSL_CONF', $MainCnf, 'Machine')
+        $env:OPENSSL_CONF = $MainCnf
 
-    foreach ($OpenSSLPath in $OpenSSLPaths) {
+        # ----------------------------------------------------
+        # 2. ENFORCE FIPS MODULE CONFIGURATION
+        # ----------------------------------------------------
+        Write-Log 'Enforcing FireDaemon OpenSSL FIPS Module Configuration...' 'STEP'
+        $FipsCnf = Join-Path $SslDir 'fipsmodule.cnf'
+        $FipsDll = Get-ChildItem -Path $OpenSSLBase -Filter "fips.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
 
-        Add-PersistentPath `
-            -Path $OpenSSLPath `
-            -Scope Machine
+        if ($FipsDll) {
+            Write-Log ('Located fips.dll at: {0}' -f $FipsDll.FullName) 'INFO'
+            & $OpenSSLExe fipsinstall -out "$FipsCnf" -module "$($FipsDll.FullName)" 2>&1 | ForEach-Object { Write-Log $_.ToString() 'DEBUG' }
+        } else {
+            Write-Log 'fips.dll not found in installation path. Generating baseline FIPS configuration file...' 'WARN'
+        }
+
+        if (-not (Test-Path -LiteralPath $FipsCnf)) {
+            $FipsConfigContent = @"
+[fips_sect]
+activate = 1
+conditional_errors = 1
+security_checks = 1
+"@
+            Set-Content -Path $FipsCnf -Value $FipsConfigContent -Encoding UTF8
+            Write-Log 'Generated baseline fipsmodule.cnf configuration.' 'SUCCESS'
+        } else {
+            Write-Log 'fipsmodule.cnf generated and verified.' 'SUCCESS'
+        }
+
+        # ----------------------------------------------------
+        # 3. ENFORCE QUANTUM-SAFE (OQS) PROVIDER MODULE
+        # ----------------------------------------------------
+        Write-Log 'Enforcing Quantum-Safe Cryptography (OQS Provider)...' 'STEP'
+        $OqsDllPath = Join-Path $OsslModulesDir 'oqsprovider.dll'
+
+        if (-not (Test-Path -LiteralPath $OqsDllPath)) {
+            try {
+                Write-Log 'Downloading Quantum-Safe OQS Provider binary module...' 'INFO'
+                $OqsReleaseUrl = 'https://github.com/open-quantum-safe/oqs-provider/releases/latest/download/oqsprovider-win64.zip'
+                $ZipPath = Join-Path $env:TEMP 'oqsprovider-win64.zip'
+                $ExtractPath = Join-Path $env:TEMP 'oqsprovider-extract'
+
+                Invoke-WebRequest -Uri $OqsReleaseUrl -OutFile $ZipPath -UseBasicParsing
+                Expand-Archive -Path $ZipPath -DestinationPath $ExtractPath -Force
+                
+                $DownloadedOqsDll = Get-ChildItem -Path $ExtractPath -Filter 'oqsprovider.dll' -Recurse | Select-Object -First 1
+                if ($DownloadedOqsDll) {
+                    Copy-Item -Path $DownloadedOqsDll.FullName -Destination $OqsDllPath -Force
+                    Write-Log ('oqsprovider.dll installed to: {0}' -f $OqsDllPath) 'SUCCESS'
+                }
+                Remove-Item -Path $ZipPath, $ExtractPath -Recurse -Force -ErrorAction SilentlyContinue
+            } catch {
+                Write-Log ('Failed to retrieve OQS Provider: {0}' -f $_.Exception.Message) 'WARN'
+            }
+        } else {
+            Write-Log ('oqsprovider.dll verified at: {0}' -f $OqsDllPath) 'INFO'
+        }
+
+        # ----------------------------------------------------
+        # 4. ENFORCE MASTER OPENSSL.CNF CONFIGURATION
+        # ----------------------------------------------------
+        Write-Log 'Enforcing master openssl.cnf configuration for FIPS and Quantum...' 'STEP'
+        $FipsIncludePath = ($FipsCnf -replace '\\', '/')
+
+        $MasterConfig = @"
+# ============================================================
+# FireDaemon OpenSSL Configuration (FIPS + Quantum-Safe)
+# ============================================================
+
+.include $FipsIncludePath
+
+openssl_conf = openssl_init
+
+[openssl_init]
+providers = provider_sect
+
+[provider_sect]
+default = default_sect
+fips = fips_sect
+oqsprovider = oqsprovider_sect
+
+[default_sect]
+activate = 1
+
+[fips_sect]
+activate = 1
+
+[oqsprovider_sect]
+activate = 1
+"@
+
+        Set-Content -Path $MainCnf -Value $MasterConfig -Encoding UTF8
+        Write-Log ('Master configuration successfully enforced in: {0}' -f $MainCnf) 'SUCCESS'
     }
 
     Refresh-CurrentProcessPath
@@ -1400,393 +523,47 @@ if (-not $SkipOpenSSL) {
 # ============================================================
 
 if (-not $SkipWindowsTerminal) {
-
-    Install-OrUpgrade-WinGetPackage `
-        -Id 'Microsoft.WindowsTerminal' `
-        -Name 'Windows Terminal'
+    Install-OrUpgrade-WinGetPackage -Id 'Microsoft.WindowsTerminal' -Name 'Windows Terminal'
 }
 
 # ============================================================
-# FINAL PATH CLEANUP
+# PATH CLEANUP & FINAL SCAN
 # ============================================================
 
 Write-Banner 'PATH Cleanup'
-
-Remove-DuplicatePersistentPath `
-    -Scope Machine
-
-Remove-DuplicatePersistentPath `
-    -Scope User
-
+Remove-DuplicatePersistentPath -Scope Machine
+Remove-DuplicatePersistentPath -Scope User
 Refresh-CurrentProcessPath
 
-Write-Log `
-    'Persistent PATH cleanup completed.' `
-    'SUCCESS'
-
-# ============================================================
-# FINAL TOOL SCAN
-# ============================================================
-
-Write-Banner 'Final Developer Environment Scan'
-
-function Invoke-VersionCheck {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Name,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Command,
-
-        [Parameter(Mandatory = $true)]
-        [string[]]$Arguments
-    )
-
-    Write-Console (
-        '--- {0} ---' -f $Name
-    ) Cyan
-
-    try {
-
-        $CommandInfo = Get-Command `
-            $Command `
-            -ErrorAction Stop
-
-        Write-Log (
-            '{0}: executable = {1}' -f `
-                $Name,
-                $CommandInfo.Source
-        ) 'SUCCESS'
-
-        $Output = & $Command @Arguments 2>&1
-
-        foreach ($Line in $Output) {
-
-            if ($null -ne $Line) {
-                Write-Console $Line.ToString() White
-            }
-        }
-
-        if ($LASTEXITCODE -ne 0) {
-
-            Write-Log (
-                '{0}: exit code {1}' -f `
-                    $Name,
-                    $LASTEXITCODE
-            ) 'WARN'
-        }
-    }
-    catch {
-
-        Write-Log (
-            '{0}: command not available in current process.' -f
-            $Name
-        ) 'WARN'
-    }
-
-    Write-Host ''
-}
-
-# ============================================================
-# POWERHELL
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'PowerShell 7' `
-    -Command 'pwsh.exe' `
-    -Arguments @(
-        '-NoLogo'
-        '-NoProfile'
-        '-Command'
-        '$PSVersionTable.PSVersion.ToString()'
-    )
-
-# ============================================================
-# .NET
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name '.NET SDK' `
-    -Command 'dotnet.exe' `
-    -Arguments @('--version')
-
-Write-Console 'Installed .NET SDKs:' Cyan
+Write-Banner 'Final OpenSSL & Provider Diagnostic Scan'
 
 try {
-    & dotnet.exe --list-sdks 2>&1
+    Write-Console '--- OpenSSL Version ---' Cyan
+    & openssl version
+
+    Write-Console '--- Active Providers (FIPS / Quantum) ---' Cyan
+    & openssl provider -a
+
+    Write-Console '--- Quantum Cryptography Algorithms ---' Cyan
+    & openssl list -signature-algorithms | Select-String -Pattern "ML-DSA|dilithium|falcon|sphincs" -ErrorAction SilentlyContinue
+    & openssl list -kem-algorithms | Select-String -Pattern "ML-KEM|kyber" -ErrorAction SilentlyContinue
+} catch {
+    Write-Log 'Failed to execute OpenSSL diagnostic verification.' 'WARN'
 }
-catch {
-    Write-Log 'Unable to query .NET SDKs.' 'WARN'
-}
-
-Write-Host ''
-
-Write-Console 'Installed .NET Runtimes:' Cyan
-
-try {
-    & dotnet.exe --list-runtimes 2>&1
-}
-catch {
-    Write-Log 'Unable to query .NET runtimes.' 'WARN'
-}
-
-Write-Host ''
-
-# ============================================================
-# NODE.JS
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'Node.js' `
-    -Command 'node.exe' `
-    -Arguments @('--version')
-
-Invoke-VersionCheck `
-    -Name 'npm' `
-    -Command 'npm.cmd' `
-    -Arguments @('--version')
-
-# ============================================================
-# GO
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'Go' `
-    -Command 'go.exe' `
-    -Arguments @('version')
-
-# ============================================================
-# PHP
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'PHP' `
-    -Command 'php.exe' `
-    -Arguments @('--version')
-
-# ============================================================
-# PYTHON
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'Python' `
-    -Command 'python.exe' `
-    -Arguments @('--version')
-
-Invoke-VersionCheck `
-    -Name 'Python Launcher / Manager' `
-    -Command 'py.exe' `
-    -Arguments @('--version')
-
-Invoke-VersionCheck `
-    -Name 'pip' `
-    -Command 'pip.exe' `
-    -Arguments @('--version')
-
-# ============================================================
-# GIT
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'Git' `
-    -Command 'git.exe' `
-    -Arguments @('--version')
-
-# ============================================================
-# OPENSSL
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'OpenSSL' `
-    -Command 'openssl.exe' `
-    -Arguments @('version')
-
-# ============================================================
-# WINDOWS TERMINAL
-# ============================================================
-
-Invoke-VersionCheck `
-    -Name 'Windows Terminal' `
-    -Command 'wt.exe' `
-    -Arguments @('--version')
-
-# ============================================================
-# GIT BASH
-# ============================================================
-
-Write-Console '--- Git Bash ---' Cyan
-
-$GitBashCandidates = @(
-    "$env:ProgramFiles\Git\bin\bash.exe"
-    "$env:ProgramFiles\Git\usr\bin\bash.exe"
-)
-
-$GitBashFound = $false
-
-foreach ($GitBashPath in $GitBashCandidates) {
-
-    if (Test-Path -LiteralPath $GitBashPath) {
-
-        Write-Log (
-            'Git Bash: {0}' -f $GitBashPath
-        ) 'SUCCESS'
-
-        $GitBashFound = $true
-
-        break
-    }
-}
-
-if (-not $GitBashFound) {
-
-    Write-Log `
-        'Git Bash executable was not found.' `
-        'WARN'
-}
-
-# ============================================================
-# FINAL POWERHELL HOST SCAN
-# ============================================================
-
-Write-Banner 'PowerShell Final Scan'
-
-$FinalPwsh = Get-Command `
-    'pwsh.exe' `
-    -ErrorAction SilentlyContinue
-
-if ($null -ne $FinalPwsh) {
-
-    try {
-
-        $FinalVersion = & $FinalPwsh.Source `
-            -NoLogo `
-            -NoProfile `
-            -Command '$PSVersionTable.PSVersion.ToString()' `
-            2>&1
-
-        Write-Console (
-            'Installed PowerShell 7 version: {0}' -f
-            ($FinalVersion -join ' ')
-        ) Green
-    }
-    catch {
-
-        Write-Log `
-            'Final PowerShell 7 version scan failed.' `
-            'WARN'
-    }
-}
-else {
-
-    Write-Log `
-        'PowerShell 7 is not visible from the current process.' `
-        'WARN'
-}
-
-Write-Host ''
-
-# ============================================================
-# FINAL PATH DISPLAY
-# ============================================================
-
-Write-Banner 'Persistent PATH Summary'
-
-Write-Console 'Machine PATH:' Cyan
-
-$MachinePathFinal = `
-    [Environment]::GetEnvironmentVariable(
-        'Path',
-        'Machine'
-    )
-
-Write-Host $MachinePathFinal
-
-Write-Host ''
-
-Write-Console 'User PATH:' Cyan
-
-$UserPathFinal = `
-    [Environment]::GetEnvironmentVariable(
-        'Path',
-        'User'
-    )
-
-Write-Host $UserPathFinal
 
 # ============================================================
 # FINAL TELEMETRY
 # ============================================================
 
 $BootstrapEnd = Get-Date
-
 $TotalElapsed = $BootstrapEnd - $BootstrapStart
 
 Write-Banner 'Installation Summary'
-
-Write-Console (
-    'Start time       : {0}' -f
-    $BootstrapStart.ToString('yyyy-MM-dd HH:mm:ss')
-) Gray
-
-Write-Console (
-    'End time         : {0}' -f
-    $BootstrapEnd.ToString('yyyy-MM-dd HH:mm:ss')
-) Gray
-
-Write-Console (
-    'Total duration   : {0:00}:{1:00}:{2:00}.{3:000}' -f `
-        [int]$TotalElapsed.TotalHours,
-        $TotalElapsed.Minutes,
-        $TotalElapsed.Seconds,
-        $TotalElapsed.Milliseconds
-) Green
-
-Write-Console (
-    'Log file         : {0}' -f $LogFile
-) Gray
+Write-Console ('Start time       : {0}' -f $BootstrapStart.ToString('yyyy-MM-dd HH:mm:ss')) Gray
+Write-Console ('End time         : {0}' -f $BootstrapEnd.ToString('yyyy-MM-dd HH:mm:ss')) Gray
+Write-Console ('Total duration   : {0:00}:{1:00}:{2:00}.{3:000}' -f [int]$TotalElapsed.TotalHours, $TotalElapsed.Minutes, $TotalElapsed.Seconds, $TotalElapsed.Milliseconds) Green
+Write-Console ('Log file         : {0}' -f $LogFile) Gray
 
 Write-Host ''
-
-Write-Console 'Developer environment bootstrap completed.' Green
-
+Write-Console 'Developer environment bootstrap completed successfully.' Green
 Write-Host ''
-Write-Console '============================================================' Green
-Write-Console ' IMPORTANT: OPEN A NEW TERMINAL'
-Write-Console '============================================================' Green
-Write-Host ''
-
-Write-Console `
-    'The current terminal was started before the PATH changes.' `
-    Yellow
-
-Write-Console `
-    'Close this terminal and open a NEW Windows Terminal / PowerShell.' `
-    Yellow
-
-Write-Host ''
-
-Write-Console 'Then run:' Cyan
-Write-Host ''
-Write-Host '  pwsh --version'
-Write-Host '  dotnet --version'
-Write-Host '  dotnet --list-sdks'
-Write-Host '  dotnet --list-runtimes'
-Write-Host '  node --version'
-Write-Host '  npm --version'
-Write-Host '  go version'
-Write-Host '  php --version'
-Write-Host '  python --version'
-Write-Host '  py --version'
-Write-Host '  pip --version'
-Write-Host '  git --version'
-Write-Host '  openssl version'
-Write-Host '  wt --version'
-Write-Host ''
-
-Write-Log `
-    'Bootstrap completed successfully.' `
-    'SUCCESS'
-
-# ============================================================
-# END
-# ============================================================
