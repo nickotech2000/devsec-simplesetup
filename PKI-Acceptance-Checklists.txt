@@ -1,0 +1,137 @@
+====================================================================================================
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.8.0-phaseC     2026-10-06
+====================================================================================================
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt,
+                                                  PkiTransport-MANUAL.txt
+ Run the checks of a phase on the machines named; report the output of the steps that matter and anything that fails.
+
+ A  PHASE A  (pki_setup.ps1)          B  PHASE B  (GenerateLeafCertificate.ps1)          C  PHASE C  (the transport)
+====================================================================================================
+ A  PHASE A ACCEPTANCE CHECKLIST  (run on your machines; Phase B starts after these pass)
+====================================================================================================
+ Windows 11 26H2 Pro VM, PowerShell 7.6.6 (elevated), in the project folder:
+
+   #    Step / command                                       Expected result
+  ---   ---------------------------------------------------  --------------------------------------
+  A1    Get-ChildItem -Recurse -File | Unblock-File          no error
+  A2    .\pki_setup.ps1 -Check                               every line PASS or INFO; "READY".
+                                                             "ML-DSA (Quantum quadrants)" PASS with
+                                                             OpenSSL 4.0.3. Add -FipsModuleConfig to
+                                                             include Q2 / Q4.
+  A3    .\pki_setup.ps1 -Clean -InstallTrust                 "ML-DSA works in this OpenSSL" for Q3 and Q4,
+                                                             then the table of 19 CAs and 4 leaves: Quantum
+                                                             rows ML-DSA-87 / ML-DSA-65, no "*";
+                                                             "Trust store: 19 of 19 CA certificate(s)
+                                                             in place"; 4 leaf PFX in My (or a warning
+                                                             for ML-DSA PFX files, see L11)
+  A4    .\pki_setup.ps1 -Verify                              "PKI is valid"; Windows stores PASS;
+                                                             "Windows chain: ..." PASS for the Classic
+                                                             leaves AND the ML-DSA leaves
+  A5    certlm.msc                                           Trusted Root Certification Authorities: 7
+                                                             (Enterprise, 2 Track, 4 Quadrant roots);
+                                                             Intermediate Certification Authorities: 12
+                                                             (DV / OV / EV, also the ML-DSA ones).
+                                                             Nothing of ours in the wrong store.
+  A5b   .\pki_setup.ps1 -ReinstallTrust  (if A5 shows Track /   "moved to the right store", then "7 of 7 roots in
+                                                             place / 12 of 12 intermediates", then
+        Quadrant roots under Intermediate, e.g. after 4.4)   A5 is right; -Verify "Windows chain" lines PASS
+  A6    Kestrel (Visual Studio 2026, .NET 10) with the       page loads over https in Edge, no warning
+        CLASSIC .pfx (q1-rsa2048)
+  A7    Node, Go, Python, PHP, Java client with the root     each connects to a Classic-leaf server
+  A8    .\pki_setup.ps1 -IanaPen 99999 -Clean ... then       leaf shows 1.3.6.1.4.1.99999.1 and .1.1
+        certutil -dump on a leaf
+  A9    .\pki_setup.ps1 -RemoveAllTrust                      Agantra certificates gone, pki folder gone
+
+ Ubuntu 26.04 server (copy pki\root\root.crt and the leaf sets with scp):
+
+  U1    sudo cp root.crt /usr/local/share/ca-certificates/agantra-root.crt ; sudo update-ca-certificates
+                                                             "1 added"
+  U2    nginx with the CLASSIC fullchain + key (manual 8.3); sudo nginx -t && sudo systemctl reload nginx
+  U3    curl --cacert root.crt https://<host>                page loads, no certificate error
+  U4    openssl s_client -connect <host>:443 -groups X25519MLKEM768 </dev/null     (system OpenSSL 3.5+)
+                                                             "Negotiated TLS1.3 group: X25519MLKEM768"
+                                                             and "Verification: OK"
+  U5    nginx with the QUANTUM (q3-mldsa65) fullchain + key  curl --cacert root.crt https://<host> works;
+        on a test host name                                  s_client shows "Peer signature type: ML-DSA-65"
+                                                             (a browser is expected to refuse it: L1)
+
+  A10   .\pki_setup.ps1 -ShowNames, then change Prefix in      names change; -ShowNames shows them; a too long
+        [ ca_names ] and run it again                         or duplicate name is refused
+  A11   .\pki_setup.ps1 -Clean -ClassicPKI -InstallTrust      6 CAs + 1 leaf; Root / CA stores as before
+  A12   rehearsal of the public-CA flow with a stand-in CA     document PUBLIC-CA-ENTERPRISE-ROOT.txt,
+        (document, section 10)                                section 10: refusals and acceptance as listed
+
+ Report back: the output of A2, the summary table of A3, A4, and anything that fails.
+
+
+====================================================================================================
+ B  PHASE B ACCEPTANCE CHECKLIST  (run on your machines)
+====================================================================================================
+  #     Command                                                     Expected
+  ---   ----------------------------------------------------------  -------------------------------------------
+  B1    .\GenerateLeafCertificate.ps1 -Check                        every line PASS, "READY"
+  B2    .\GenerateLeafCertificate.ps1 -DnsName www.example.com      leafcerts\www.example.com\ (next to the
+                                                                    scripts) with six purpose folders, each
+                                                                    "validated", all formats, EV, 397 days
+  B3    the same command again                                      a NEW folder www.example.com_<date>-<time>
+  B3b   .\GenerateLeafCertificate.ps1 -Unblock                       counts of unblocked / unlocked items; no
+                                                                    program listed (or close the one listed)
+  B4    .\GenerateLeafCertificate.ps1 -DV -Classic -FIPS -Format ALL -DnsName a.example.com,b.example.com
+                                                                    ECDSA-P256, DV subject = CN only, all formats
+  B5    .\GenerateLeafCertificate.ps1 -OV -Quantum -DnsName m.example.com     ML-DSA-65, issuer q3-ov
+  B6    .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName p.example.com   issuer q4-ev
+  B7    .\GenerateLeafCertificate.ps1 -DnsName x.example.com -KeyBits 1024        refused (RSA below 2048)
+  B8    .\GenerateLeafCertificate.ps1 -List                         the leaves above
+  B9    in the folder of B4:  .\convert-formats.ps1                 runs without an OpenSSL error
+  B10   Windows, elevated:  .\GenerateLeafCertificate.ps1 -DnsName w.example.com -InstallPfx
+                                                                    leaf in LocalMachine\My; NO new certificate
+                                                                    in Intermediate or Trusted Root (certlm.msc)
+  B11   Kestrel with the .pfx of B2 (Edge)                           page loads, no warning
+  B12   Ubuntu: nginx with B2 fullchain + key, and with B5          curl --http2 / --http3 and s_client as in
+        (copy the folders; trust root.crt as in section 7A)         tls-guidance.txt
+  B13   rename Install-DevEnvironment.ps1's OpenSSL out of PATH (or  the output says OpenSSL 4.x is missing and
+        use -OpenSslPath with a 3.x)                                 suggests Install-DevEnvironment.ps1
+
+ Report back: B1, B2, B3, B10 (and certlm.msc), and anything that fails.
+====================================================================================================
+====================================================================================================
+ C  PHASE C ACCEPTANCE CHECKLIST  (the transport)
+====================================================================================================
+
+  #     Where / command                                              Expected
+  ---   -----------------------------------------------------------
+        ---------------------------------------------------------
+  C1    source: .\PkiTransport.ps1 -Pack -GeneratePassword -Kit      a .certpacked, the password shown once, the
+        SHA-256, a kit folder
+  C2    source: .\PkiTransport.ps1 -Pack -IncludeLeafCerts           the package holds leafcerts; the warning about
+        private keys
+  C3    rename a copy to .zip / .7z, open it in 7-Zip with the pw    it opens (a .certpacked is a real archive)
+  C4    Windows 11 25H2+ (elevated, kit): .\PkiTransport.ps1 -Check  every line PASS, "READY"
+  C5    Windows 10, or Windows 11 24H2 (if you have one): -Check     FAIL with the reason, "NOT READY", exit code 2;
+        -Install unpacks nothing
+  C6    Windows 11 25H2+: .\PkiTransport.ps1 -Install -Package ...   7 roots in Trusted Root, 12 intermediates in
+        Intermediate (certlm.msc),
+                                                                     "all N certificate(s) chain to the roots of the
+                                                                         package"
+  C7    Windows 11 25H2+: -Install -IncludeLeafCerts -InstallLeafPfx the leaf in LocalMachine\My; NOTHING new in
+        Intermediate / Root
+  C8    any pwsh 7: .\Unpack-PkiTransport.ps1 -Package ... -Extract roots     files only; no certificate store changed
+  C9    Windows: .\PkiTransport.ps1 -RemoveTrust -Package ...        the CAs are gone from the stores
+  C10   Ubuntu 26: sudo ./pki-transport.sh --package ... --yes       7 files agantra-pki-* in
+        /usr/local/share/ca-certificates, "verify against
+                                                                     the system store"
+  C11   CentOS Stream 10, Rocky 10, RHEL 9, Oracle Linux 10: the same 7-Zip is installed (EPEL) or give --7z; anchors in
+                                                                     /etc/pki/ca-trust/source/anchors, update-ca-trust
+                                                                         run
+  C12   SLES 16, openSUSE Tumbleweed: the same                       anchors in /etc/pki/trust/anchors
+  C13   macOS M2 and M4: sudo ./pki-transport.sh --package ... --yes the roots are in the System keychain; report which
+        certificates macOS refused
+  C14   one Linux and one Mac without OpenSSL 4: --install-openssl   OpenSSL 4.0.3 built (several minutes), checksum
+        matched, the scan passes
+  C15   a wrong password (any script)                               refused, nothing written (shell exit code 5)
+  C16   ./pki-transport.sh --package ... --remove-trust              the files agantra-pki-* are gone; the store is
+        rebuilt
+
+ Report back: C4, C6, C7 (and certlm.msc), C10 to C14, and anything that fails.
+====================================================================================================

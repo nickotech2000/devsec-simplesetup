@@ -42,6 +42,8 @@ $script:PkiModuleCatalog = @(
     @{ File = '11_Preflight.ps1';            Sets = 'All', 'Library';          Purpose = '-Check and -Verify' }
     @{ File = '12_ExistingPki.ps1';          Sets = 'All', 'Library';          Purpose = 'load an existing PKI from its manifest' }
     @{ File = '13_ExternalRoot.ps1';         Sets = 'All', 'Library';          Purpose = 'Enterprise Root signed by a public CA, cross-signing' }
+    @{ File = '14_LeafGenerator.ps1';        Sets = 'All', 'Library';          Purpose = 'the leaf certificate generator (all levels, keys, formats)' }
+    @{ File = '15_LeafGuidance.ps1';         Sets = 'All', 'Library';          Purpose = 'conversion script and TLS guidance written next to a leaf' }
 )
 
 $__pkiSet = 'All'

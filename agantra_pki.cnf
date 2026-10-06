@@ -130,6 +130,26 @@ CpsUrl           = https://cps.nextmantra.com/ev_cps.pdf
 
 
 # ============================================================
+# LEAF NAMES  (GenerateLeafCertificate.ps1)
+#
+# Where the leaf certificates are written and how they are called. Defaults are in
+# scripts\01b_CaNaming.ps1; remove the "#" of a line to change it.
+# Tokens: {Name} {Level} {Quadrant} {Tag} {Algorithm} {Track} {Fips} {Purpose} {PurposeName} {Date} {Time}
+# If the folder of a leaf exists already, a NEW folder with the date and time is created
+# (Folder + UniqueSuffix); nothing is ever overwritten.
+# ============================================================
+
+[ leaf_names ]
+
+# OutputFolder  = leafcerts            (next to the scripts, NOT inside the pki folder; a full path is allowed)
+# Folder        = {Name}
+# Stem          = {Name}-{Level}-{Tag}
+# UniqueSuffix  = _{Date}-{Time}
+# PurposeFolder = {PurposeName}        (a set = one certificate per purpose: the folder of each purpose)
+# PurposeStem   = {Name}-{Purpose}-{Level}-{Tag}
+
+
+# ============================================================
 # POLICY OIDs  (the EV policy is REQUIRED)
 #
 # Every certificate of the PKI carries the policy of its level, so a client or an

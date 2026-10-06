@@ -2,14 +2,16 @@
  AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
 ====================================================================================================
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 4.5.2-phaseA                      Updated: 2026-10-05
+ Version : 4.7.0-phaseB                      Updated: 2026-10-05
  Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
            GenerateLeafCertificate.ps1, pki_reuse.ps1, transport script  (Phases B and C, not started)
- Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help
+ Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help   .\GenerateLeafCertificate.ps1 -Help
+ Leaf    : GenerateLeafCertificate-MANUAL.txt (own manual with the -Help text)
  Also    : PUBLIC-CA-ENTERPRISE-ROOT.txt (Enterprise Root signed by a public CA)   scripts\README.txt (modules)
 
  This file is rewritten with every delivery. Section 12 is the change log, section 10 the decisions
- and open questions, section 9 the limitations, section 14 the Phase A acceptance checklist.
+ and open questions, section 9 the limitations, section 14 the Phase A acceptance checklist, section 15 the
+ leaf certificate generator (Phase B), section 16 the Phase B acceptance checklist.
 
  CONTENTS
     1  Goals and targets                        7  Where ML-DSA works / servers and clients
@@ -20,6 +22,8 @@
     6  Diagrams 2-5 - trust, handshake, files, 12  Change log          13  Quick commands
        public CA
                                                14  PHASE A ACCEPTANCE CHECKLIST
+                                               15  Leaf certificate generator (Phase B)
+                                               16  PHASE B ACCEPTANCE CHECKLIST
 
 
 ====================================================================================================
@@ -416,6 +420,8 @@
 ====================================================================================================
  8.1  Project folder
         pki_setup.ps1                  entry point; -Help lists every parameter
+        GenerateLeafCertificate.ps1    Phase B entry point: leaf certificates of every purpose and format (section 15)
+        GenerateLeafCertificate-MANUAL.txt   its manual, with the complete -Help text
         agantra_pki.cnf                configuration (replaces ev_pki.cnf)
         pki_setup-MANUAL.txt           user manual
         PKI-Design-with-FIPS-and-PQC.txt   this file
@@ -425,8 +431,8 @@
         scripts\00_Common   01_Configuration   02_OpenSSL   03_RuntimeConfig   04_CertificateAuthority
                 05_LeafCertificates   06_Validation   07_TrustStore   08_Cleanup
                 09_Administrator   10_Main   11_Preflight   12_ExistingPki   13_ExternalRoot
-                01b_CaNaming (all CA names)
- 8.2  Output (pki\)
+                01b_CaNaming (all CA and leaf names)   14_LeafGenerator   15_LeafGuidance
+ 8.2  Output (pki\)   [the leaf certificates of GenerateLeafCertificate.ps1 are NOT here: <script folder>\leafcerts, 15.5]
         root\                          Enterprise Root: root.crt  root.key  root.pfx  root.cnf ...
                                        public CA: external-request.txt  external-state.json  external-chain.pem
                                        cross-sign\  (root-cross.csr, root-cross-N.crt)
@@ -435,7 +441,7 @@
         quantum\root\                  Quantum Track Root (ML-DSA-87)
         quantum\q3\{root,dv,ov,ev}\    quantum\q4\{root,dv,ov,ev}\
           each CA folder: <id>.crt .key .pfx .cnf <id>-chain.crt  index.txt  serial  crlnumber  issued\
-        leaf\                          default EV leaf files
+        leaf\                          default EV leaf files (pki_setup.ps1)
         publish\                       root.crt  ca-bundle.crt  <slug>.crt/.crl/.pem  README.txt
         provider-default.cnf  provider-fips.cnf      native provider configuration
         pki-manifest.json  telemetry.json  .agantra-pki (marker used by -Clean)
@@ -567,6 +573,26 @@
       Two ML-DSA implementations (native and oqsprovider) in one shell can confuse other tools.
  L30  Install-DevEnvironment.ps1 installs FireDaemon.OpenSSL (latest). It is not guaranteed to be 4.x; the
       scripts check and say so (section 2.3 of the manual).
+ L31  Phase B was tested here on Linux with OpenSSL 4.0.3 and the real FIPS provider: all levels, all four quadrants,
+      every format, the floors, the naming, live TLS 1.3 handshakes. NOT tested: -InstallPfx and everything that
+      touches the Windows stores, Windows PowerShell behaviour of convert-formats.ps1 (UTF-8 with BOM), and the
+      server snippets of tls-guidance.txt in your nginx / Apache / Kestrel versions.
+ L32  ML-DSA leaves: Windows Schannel (Kestrel / IIS on Windows), Java 25 and browsers do not accept them for HTTPS
+      (L1). Issue Classic leaves for those; the Quantum leaves are for OpenSSL services and mutual TLS (10.11).
+ L33  -Duns writes organizationIdentifier = DUNS+<number>. The CA/Browser Forum has no D-U-N-S scheme there; this is a
+      private convention. EV here means the EV policy OID and subject fields, not a browser EV badge (L22).
+ L34  .cer is written as DER (the Windows default export); .cert as PEM; .p7b as PEM-armored PKCS#7 with leaf and
+      chain. The conversion script shows how to get the other encodings.
+ L35  tls-guidance.txt lists cipher suites and group names that are right for OpenSSL 3.5+ / 4.x servers. FIPS group
+      names (SecP256r1MLKEM768 ...) and ChaCha20 / X25519 exclusion follow common FIPS practice; confirm against the
+      validated module you deploy. Windows Schannel has its own cipher policy (registry / group policy).
+ L36  Unlock = the Read-only attribute is removed from EVERY file and folder of the script folder at every start. A
+      key file you marked read-only on purpose is writable again: protect keys with access rights (ACLs) instead.
+ L37  The Windows Internet mark is removed with Unblock-File: tested only for its Read-only part on Linux.
+ L38  leafcerts\ is never deleted by pki_setup.ps1; leaves of a replaced PKI do not chain to the new one (warning).
+      Leaves of version 4.6 (pki\leafcerts) are not moved.
+ L39  An OCSP signing certificate is for YOUR OCSP responder; this PKI does not run one. A time stamping certificate
+      needs a time stamping authority service to be useful.
 
 ====================================================================================================
  10  DECISIONS AND OPEN QUESTIONS
@@ -598,6 +624,27 @@
                  Intermediate store (owner, 2026-10-05; before: Track / Quadrant Roots were in CA).
  10.18 DECIDED   OpenSSL 4.x only, newest 4.x chosen automatically, 3.x refused with the install steps
                  (Install-DevEnvironment.ps1); the capability gate runs before any key is made.
+ 10.19 DECIDED   Phase B: GenerateLeafCertificate.ps1 uses the 'Library' module set, the SAME generator as
+                 pki_setup.ps1 (14_LeafGenerator), the naming module (leaf names in [ leaf_names ]) and the
+                 readiness gate (OpenSSL 4.x + FIPS + ML-DSA, else the Install-DevEnvironment.ps1 suggestion).
+ 10.20 DECIDED   Leaf folders: <script folder>\leafcerts\<name> (NOT pki\leafcerts, owner 2026-10-05); an existing
+                 folder is never reused: a NEW folder with date and time is created (-2, -3 in the same second).
+                 A failed run removes its own new folder; a SET is all or nothing.
+ 10.21 DECIDED   Defaults -EV, -Classic, non-FIPS. DV subject is CN only. -Purpose, not -Eku. Code signing forces
+                 RSA 4096 / P-384 / ML-DSA-65. Floors are rejected, not silently corrected.
+ 10.22 DECIDED   The script has no [CmdletBinding()] because that reserves -EV and -OV (aliases of -ErrorVariable and
+                 -OutVariable), the names of the levels; -Verbose is a declared switch.
+ 10.23 DECIDED   -InstallPfx imports the leaf only (the chain inside a PFX would be filed under Intermediate).
+ 10.24 OPEN      Phase C (transport script) is next. Phase B acceptance is section 16.
+ 10.25 DECIDED   One run = one certificate for EACH purpose (ServerAuth, ClientAuth, CodeSigning, EmailProtection,
+                 TimeStamping, OcspSigning), each in EVERY format; -Format defaults to ALL. -Purpose = ONE certificate
+                 with exactly those purposes. (My reading of the 2026-10-05 request; the alternative is a default of
+                 ServerAuth + ClientAuth only: one line to change.)
+ 10.26 DECIDED   Purposes are never mixed by default: code signing and TLS do not share a certificate; TimeStamping
+                 (critical EKU) and OcspSigning (no-check) always stand alone.
+ 10.27 DECIDED   Every main script has the STANDARD BOOTSTRAP (unblock + unlock the script folder, children and
+                 recursive, before any module is loaded) and -Unblock; Unlock-PkiTree / Invoke-PkiUnblockUnlock in
+                 00_Common.ps1. The Phase C script must have it too.
  10.16 OPEN      Which public CA, product and level you will really use. Ask for pathlen >= 3 at level 0; if
                  only pathlen 0 / 1 is offered tell me: the signed level has to move (document, section 5).
 
@@ -659,11 +706,49 @@
  L27  OpenSSL 4.x only + suggestion Install-DevEnvironment.ps1      DONE (best 4.x chosen, advice printed)
  L28  FIPS and Quantum generation proven before building           DONE (capability gate, -Check)
  L29  A4 findings fixed (byte[] bug, store placement)               DONE
+ B1   Phase B: GenerateLeafCertificate.ps1, reuse scripts folder    DONE (Library set, 14 / 15 modules)
+ B2   Naming configuration for leaf certificates                    DONE ([ leaf_names ], 01b_CaNaming)
+ B3   Unique folder with date and time when the folder exists       DONE (tested, also same second)
+ B4   Before install: OpenSSL 4.x + FIPS + Quantum, else suggest    DONE (readiness gate, -Check)
+      Install-DevEnvironment.ps1
+ B5   DV / OV / EV, Classic / Quantum, FIPS, purposes, floors       DONE (tested, all four quadrants)
+ B6   Formats DER CER CERT PEM P7B RFC 7468 PFX + conversion script DONE (script runs clean for RSA / EC / ML-DSA)
+ B7   TLS 1.2 / 1.3, HTTP/2, HTTP/3 guidance (Classic, FIPS, PQC)   DONE (tls-guidance.txt; handshakes proven)
+ B8   Documentation: -Help, design, manual                          DONE
+ B9   pki_reuse.ps1 and the transport script                        Phase C
+ B10  One run: a certificate for EVERY EKU, every format, one go   DONE (set; TimeStamping and OcspSigning new)
+ B11  All formats by default (DER PEM P7B CER CERT RFC 7468 PFX)    DONE (-Format ALL; they all existed)
+ B12  Leaf folders in <script folder>\leafcerts, not pki\leafcerts  DONE
+ B13  Every main script: unblock + unlock, children, recursive      DONE (bootstrap, -Unblock, Unlock-PkiTree)
+ B14  Own documentation file for GenerateLeafCertificate with -Help DONE (GenerateLeafCertificate-MANUAL.txt)
 
 
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
+ 4.7.0-phaseB  2026-10-05
+   + SET: no -Purpose = one certificate for EACH purpose, every format, one go. New purposes TimeStamping (critical,
+     alone) and OcspSigning (+ no-check). -AllPurposes, -ExcludePurpose; -Purpose = ONE certificate (the 4.6 way).
+   + -Format defaults to ALL (all seven formats at once; they existed in 4.6 behind -Format ALL).
+   + Location: <script folder>\leafcerts (NOT pki\leafcerts); Get-PkiLeafRoot; [ leaf_names ] PurposeFolder, PurposeStem.
+   + Unblock + unlock, children and recursive: STANDARD BOOTSTRAP at the top of pki_setup.ps1 and
+     GenerateLeafCertificate.ps1 (before any module is loaded), -Unblock in both, Unlock-PkiTree and
+     Invoke-PkiUnblockUnlock (00_Common.ps1); the new leaf folder is unblocked and unlocked after a run.
+   + pki_setup.ps1 warns when a new PKI would orphan leaf certificates in leafcerts\.
+   + Cross-certificate chains (-fullchain-cross.crt) follow the new location and the set layout.
+   + GenerateLeafCertificate-MANUAL.txt (new): the manual with the complete -Help text.
+ 4.6.0-phaseB  2026-10-05   PHASE B
+   + GenerateLeafCertificate.ps1: any DV / OV / EV leaf; -Classic / -Quantum / -FIPS = Q1..Q4; purposes
+     ServerAuth, ClientAuth, EmailProtection, CodeSigning; RSA / ECDSA / ML-DSA with enforced floors; policies;
+     validity by level; subject by level; formats PEM DER CER CERT P7B RFC 7468 PFX; validation of every file.
+   + scripts\14_LeafGenerator.ps1 (the generator, shared with pki_setup.ps1: 05_LeafCertificates is now a wrapper),
+     scripts\15_LeafGuidance.ps1 (convert-formats.ps1, tls-guidance.txt), leaf naming in 01b_CaNaming.ps1.
+   + Folder per leaf in pki\leafcerts; an existing folder gets a NEW sibling with date and time.
+   + OpenSSL readiness before anything is made (4.x, FIPS, ML-DSA) with the Install-DevEnvironment.ps1 suggestion.
+   + Cross-certificate chains (-fullchain-cross.crt) also for leafcerts, made before or after the import.
+   + The CA policy section accepts organizationIdentifier (D-U-N-S); the leaf issuance adds it for older CAs.
+   + Found and fixed while testing: a one-pair subject list was unrolled by PowerShell (DV subject), a parameter was
+     shadowed by a local variable of another case, "openssl ec -traditional" does not exist in OpenSSL 4 (use pkey).
  4.5.2-phaseA  2026-10-05
    + Found by the 4.5.1 read-back on your machine: 6 roots "in BOTH stores". Cause: each leaf PFX contains the
      leaf plus intermediate, Quadrant Root and Track Root (4 certificates); Windows files every non-leaf
@@ -731,6 +816,10 @@
    .\pki_setup.ps1 -Check                                      is this machine ready?
    .\pki_setup.ps1 -ShowNames                                  names of all CAs, nothing generated
    .\pki_setup.ps1 -ClassicPKI -InstallTrust                   Classic PKI only
+   .\GenerateLeafCertificate.ps1 -Check                        OpenSSL 4.x with FIPS and ML-DSA?
+   .\GenerateLeafCertificate.ps1 -DnsName www.example.com       the set: every purpose, every format (Q1, EV)
+   .\GenerateLeafCertificate.ps1 -Unblock                       unblock + unlock the folders, children, recursive
+   .\GenerateLeafCertificate.ps1 -List                          leaves made so far (leafcerts\)
    .\pki_setup.ps1 -Verify                                     re-validate the PKI in .\pki
    .\pki_setup.ps1 -InstallTrust                               Windows 11: all quadrants
    .\pki_setup.ps1 -Quadrant 1,3 -InstallTrust                 no FIPS module needed
@@ -800,4 +889,113 @@
         (document, section 10)                                section 10: refusals and acceptance as listed
 
  Report back: the output of A2, the summary table of A3, A4, and anything that fails.
+
+
+====================================================================================================
+ 15  LEAF CERTIFICATE GENERATOR  (Phase B: GenerateLeafCertificate.ps1)
+====================================================================================================
+ 15.1 Flow
+      GenerateLeafCertificate.ps1 -DnsName x
+        |  STANDARD BOOTSTRAP: unblock + unlock the script folder (children, recursive) before any module is loaded
+        |  load scripts\PkiModules.ps1  (set Library)  ->  Initialize-PkiConfiguration  (cnf, defaults, naming)
+        |  Test-PkiLeafNaming             templates must give valid folder and file names
+        |  Initialize-OpenSSL             OpenSSL 4.x only (newest 4.x of all candidates), else HOW TO FIX
+        |  Assert-PkiLeafOpenSslReady     ML-DSA (default), FIPS provider, ML-DSA (FIPS): needed = stop, else warn
+        |                                 both with the Install-DevEnvironment.ps1 suggestion
+        |  Import-PkiExisting             the PKI from pki-manifest.json (no providers needed)
+        |  New-PkiLeafSetSpecs            one spec per purpose (all validated BEFORE a file is written)
+        |  New-PkiUniqueFolder            <script folder>\leafcerts\<name>   or   <name>_<date>-<time>
+        |  Invoke-PkiLeafSet              per purpose: key -> CSR -> issue (quadrant's intermediate) -> chains -> PFX
+        |                                 -> every format -> Test-PkiLeafResult -> guidance;  all or nothing
+        |  (one certificate with -Purpose: New-PkiLeafSpec -> New-PkiLeafCertificate -> Test-PkiLeafResult)
+        |  leaf-info.json per certificate, leaf-set.json, leafcerts\leaf-index.json;  unblock + unlock the new folder
+        v  summary
+
+ 15.2 Reuse  (requirement: reuse the scripts folder)
+      Modules 00-04, 06, 07 (Install-PkiLeafPfx), 11 (checks, ML-DSA self-test), 12 (existing PKI), 13 (anchor,
+      cross chain). New: 14_LeafGenerator, 15_LeafGuidance and the leaf part of 01b_CaNaming. The generator is the
+      one pki_setup.ps1 uses for its default EV leaves (05_LeafCertificates.ps1 only chooses which leaves).
+
+ 15.3 Level, quadrant, issuer
+      -Classic = Q1, -Classic -FIPS = Q2, -Quantum = Q3, -Quantum -FIPS = Q4.   issuer id  q<N>-dv | q<N>-ov | q<N>-ev
+      Defaults EV, Classic, non-FIPS.   Browser / Windows server leaves: Q1 / Q2.   OpenSSL services, mTLS: Q3 / Q4.
+
+ 15.4 Rules by level
+      Subject    DV: CN.   OV: C ST L street postalCode O OU CN name emailAddress telephoneNumber.
+                 EV: OV + businessCategory jurisdictionC/ST/L serialNumber (+ organizationIdentifier DUNS+n).
+                 No "Validation" field. CN: DV first DNS (S/MIME e-mail, else company); OV / EV first DNS.
+      Key        RSA 2048 | 3072 | 4096 | 8192 (below 2048 REJECTED).  ECDSA P-256 | P-384 | P-521 (smaller REJECTED).
+                 ML-DSA 44 | 65 | 87.  Hash SHA-256 | 384 | 512 (SHA-1, SHA-224, MD5 REJECTED); the issuer's digest
+                 by default.  Code signing FORCED: RSA >= 4096, ECDSA >= P-384, ML-DSA >= 65.
+      Validity   EV 397 days (<= 398), OV 3 years, DV 5 years, -Days n; never beyond the issuer.
+      Policies   level OID + [ policy_oids ] / [ iana_pen ] policies + -Policy "OID|CPS".
+      Purposes   One certificate EACH (the set): ServerAuth, ClientAuth, CodeSigning, EmailProtection, TimeStamping
+                 (EKU critical, alone, RFC 3161), OcspSigning (+ id-pkix-ocsp-nocheck). Key usage follows (RSA adds
+                 keyEncipherment for TLS server / S/MIME; S/MIME adds nonRepudiation). -Purpose = ONE certificate.
+                 Names: TLS purposes use the DNS names / IPs; S/MIME the e-mail (else ContactEmail); the other three
+                 have no SAN and a CN "<company> Code Signing | Time Stamping | OCSP Responder".
+
+ 15.5 Output   (<script folder>\leafcerts, NOT inside pki; -OutputRoot or [ leaf_names ] OutputFolder changes it)
+      leafcerts\<Folder>\                 the SET. Folder = {Name}. Exists -> <Folder>_<yyyyMMdd>-<HHmmss>[-n].
+        leaf-set.json
+        <PurposeFolder>\                   serverauth clientauth codesigning emailprotection timestamping ocspsigning
+          <stem>.crt .key .cnf  -fullchain.crt  -chain.crt  [-fips.pfx]
+          .pem .der .cer .cert .p7b .rfc7468.pem .pfx          (ALL formats: -Format defaults to ALL)
+          [-fullchain-cross.crt]  convert-formats.ps1  tls-guidance.txt (ServerAuth, ClientAuth)  leaf-info.json
+      One certificate (-Purpose): the files above directly in leafcerts\<Folder>\.
+      leafcerts\leaf-index.json   every certificate made; -List shows it.
+      Stem = {Name}-{Level}-{Tag} (one certificate) or PurposeStem {Name}-{Purpose}-{Level}-{Tag} (in a set).
+
+ 15.6 TLS profiles written into tls-guidance.txt
+      Profile            Protocols       TLS 1.3 suites                       Groups
+      Classic non-FIPS   1.3 + 1.2       AES-256-GCM, ChaCha20, AES-128-GCM   X25519MLKEM768, X25519, P-256, P-384
+      Classic FIPS       1.3 + 1.2       AES-256-GCM, AES-128-GCM             SecP256r1MLKEM768, SecP384r1MLKEM1024
+      Quantum (ML-DSA)   1.3 only        as the non-FIPS / FIPS line above    as above;  signature mldsa44 | 65 | 87
+      HTTP/2: ALPN h2 (TLS 1.2+, AEAD).  HTTP/3: QUIC over UDP 443, TLS 1.3, Alt-Svc.
+
+ 15.7 Tests run (OpenSSL 4.0.3 with the FIPS provider, Linux)
+      * every level x every quadrant, ALL formats, independent "openssl verify" with only the Enterprise Root;
+      * refusals: RSA 1024, RSA 3000, SHA-1, SHA-224, EV 500 days, Quantum + RSA, ML-DSA on Classic, -DV -EV,
+        S/MIME without e-mail, ServerAuth without name, bad DNS, bad OID, missing quadrant: all stopped, no folder left;
+      * folder rule: second run, four runs in the same second; custom [ leaf_names ]; -OutputRoot; -NoGuidance;
+      * readiness: FIPS missing and needed (stop), missing and not needed (warn + suggestion), ML-DSA missing (stop),
+        OpenSSL 3.x only (refused);
+      * convert-formats.ps1 executed for RSA, ECDSA (FIPS) and ML-DSA (FIPS): no OpenSSL error, keys round-trip;
+      * live TLS 1.3 handshakes: Verification OK, hybrid key exchange, peer signature rsa_pss / ecdsa / mldsa65;
+      * Phase B on a -ClassicPKI folder and on a PKI whose root was signed by a (stand-in) public CA;
+      * cross-certificate chains for leaves made before and after the import;
+      * 4.7: the set on all four quadrants (18 certificates verified with only the Enterprise Root, each with its
+        OpenSSL purpose), the time stamping EKU (critical) and OCSP no-check, the refusals of purpose combinations,
+        the set rerun (new folder), convert-formats.ps1 for the non-TLS purposes, unlock of read-only files by the
+        bootstrap and by -Unblock in both scripts, cross chains for the set layout, the leafcerts warning of pki_setup.
+
+====================================================================================================
+ 16  PHASE B ACCEPTANCE CHECKLIST  (run on your machines)
+====================================================================================================
+  #     Command                                                     Expected
+  ---   ----------------------------------------------------------  -------------------------------------------
+  B1    .\GenerateLeafCertificate.ps1 -Check                        every line PASS, "READY"
+  B2    .\GenerateLeafCertificate.ps1 -DnsName www.example.com      leafcerts\www.example.com\ (next to the
+                                                                    scripts) with six purpose folders, each
+                                                                    "validated", all formats, EV, 397 days
+  B3    the same command again                                      a NEW folder www.example.com_<date>-<time>
+  B3b   .\GenerateLeafCertificate.ps1 -Unblock                       counts of unblocked / unlocked items; no
+                                                                    program listed (or close the one listed)
+  B4    .\GenerateLeafCertificate.ps1 -DV -Classic -FIPS -Format ALL -DnsName a.example.com,b.example.com
+                                                                    ECDSA-P256, DV subject = CN only, all formats
+  B5    .\GenerateLeafCertificate.ps1 -OV -Quantum -DnsName m.example.com     ML-DSA-65, issuer q3-ov
+  B6    .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName p.example.com   issuer q4-ev
+  B7    .\GenerateLeafCertificate.ps1 -DnsName x.example.com -KeyBits 1024        refused (RSA below 2048)
+  B8    .\GenerateLeafCertificate.ps1 -List                         the leaves above
+  B9    in the folder of B4:  .\convert-formats.ps1                 runs without an OpenSSL error
+  B10   Windows, elevated:  .\GenerateLeafCertificate.ps1 -DnsName w.example.com -InstallPfx
+                                                                    leaf in LocalMachine\My; NO new certificate
+                                                                    in Intermediate or Trusted Root (certlm.msc)
+  B11   Kestrel with the .pfx of B2 (Edge)                           page loads, no warning
+  B12   Ubuntu: nginx with B2 fullchain + key, and with B5          curl --http2 / --http3 and s_client as in
+        (copy the folders; trust root.crt as in section 7A)         tls-guidance.txt
+  B13   rename Install-DevEnvironment.ps1's OpenSSL out of PATH (or  the output says OpenSSL 4.x is missing and
+        use -OpenSslPath with a 3.x)                                 suggests Install-DevEnvironment.ps1
+
+ Report back: B1, B2, B3, B10 (and certlm.msc), and anything that fails.
 ====================================================================================================

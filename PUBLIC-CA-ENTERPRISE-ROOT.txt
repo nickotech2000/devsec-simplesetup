@@ -1,7 +1,7 @@
 ====================================================================================================
  ENTERPRISE ROOT SIGNED BY A PUBLIC CA  (DigiCert, GlobalSign, Sectigo, ...)
 ====================================================================================================
- Version 4.5.2-phaseA      2026-10-05      pki_setup.ps1 + scripts\13_ExternalRoot.ps1
+ Version 4.7.0-phaseB      2026-10-05      pki_setup.ps1 + scripts\13_ExternalRoot.ps1
  Owner  : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: pki_setup-MANUAL.txt, PKI-Design-with-FIPS-and-PQC.txt, .\pki_setup.ps1 -Help
 
@@ -217,7 +217,9 @@
    pki\root\cross-sign\          model B: request, sheet, root-cross-N.crt, chains, cross-state.json
    pki\publish\external-chain.pem, <slug>-cross-N.pem
    <leaf>-fullchain.crt          (model A) leaf + your CAs + Enterprise Root + public intermediates
-   <leaf>-fullchain-cross.crt    (model B) fullchain + cross-certificate + public intermediates
+   <leaf>-fullchain-cross.crt    (model B) fullchain + cross-certificate + public intermediates. Written for the
+                                 default leaves AND for the leaves of GenerateLeafCertificate.ps1 (leafcerts\, next to the scripts), those
+                                 made before the import and those made after it.
    pki-manifest.json             enterpriseRoot: externallySigned, externalCa, issuer, notAfter,
                                  crossCertificates;  every CA entry has "store" (Root or CA)
 

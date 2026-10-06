@@ -1,8 +1,8 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 4.5.2-phaseA      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
- Used by : pki_setup.ps1 (now)    GenerateLeafCertificate.ps1 (Phase B)    transport / install script (Phase C)
+ Version 4.7.0-phaseB      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
+ Used by : pki_setup.ps1   GenerateLeafCertificate.ps1 (Phase B, done)   transport / install script (Phase C)
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
  The scripts in the project folder load it and call the functions.
@@ -39,7 +39,9 @@
 ====================================================================================================
  File                          Provides                                          Needs
  ----------------------------  ------------------------------------------------  --------------------
- 00_Common.ps1                 Write-PkiLog, Invoke-PkiStep, telemetry, Ensure-  nothing
+ 00_Common.ps1                 Write-PkiLog, Invoke-PkiStep, telemetry, Unblock- nothing
+                               PkiTree, Unlock-PkiTree, Invoke-PkiUnblockUnlock,
+                               Ensure-
                                PkiDirectory, Write-Utf8NoBom, Assert-PkiFile,
                                PEM helpers (ConvertFrom-PkiPemToDer, Split-
                                PkiPemBundle, Get-PkiCertificateFingerprint),
@@ -49,9 +51,9 @@
                                CATALOG (New-PkiCatalog, Get-PkiCa), policy
                                helpers (Get-PkiExtraPolicies, Get-PkiLeafDays),
                                root key policy constants
- 01b_CaNaming.ps1              NAMING of all CAs: templates, tokens, Get-        00, 01
-                               PkiCaCommonName, Get-PkiCaSlug, Test-PkiNaming,
-                               Show-PkiCaNames
+ 01b_CaNaming.ps1              NAMING of all CAs and of the LEAF folders / files: 00, 01
+                               templates, tokens, Get-PkiCaCommonName, Get-PkiCaSlug,
+                               Test-PkiNaming, Get-PkiLeafNames, New-PkiUniqueFolder
  02_OpenSSL.ps1                Find-OpenSSL (newest 4.x of all candidates),     00, 01
                                Initialize-OpenSSL (4.x gate, advice that names
                                Install-DevEnvironment.ps1), Invoke-OpenSSL (always
@@ -76,25 +78,31 @@
                                from its manifest (-ReinstallTrust uses it)
  13_ExternalRoot.ps1           Enterprise Root signed by a public CA, cross-     00-04, 12
                                signing (see PUBLIC-CA-ENTERPRISE-ROOT.txt)
+ 14_LeafGenerator.ps1          THE leaf generator: New-PkiLeafSpec, New-Pki-     00-04, 06, 11-13
+                               LeafCertificate, key floors, subject by level,
+                               formats, validation, leaf index, OpenSSL readiness
+                               (Assert-PkiLeafOpenSslReady)
+ 15_LeafGuidance.ps1           convert-formats.ps1 and tls-guidance.txt          14
 
 
 ====================================================================================================
  3  PATTERNS FOR PHASE B AND PHASE C
 ====================================================================================================
- PHASE B - GenerateLeafCertificate.ps1: issue a leaf from an existing intermediate
+ PHASE B - GenerateLeafCertificate.ps1 (DONE): issue a leaf from an existing intermediate. It is the model:
 
-     [CmdletBinding()] param( ... its own parameters ... )
+     param( ... its own parameters, no [CmdletBinding()] ... )
      $PkiModuleSet = 'Library'
-     . (Join-Path $PSScriptRoot 'scripts\PkiModules.ps1')
+     . (Join-Path $script:ScriptRoot 'scripts\PkiModules.ps1')
 
-     Initialize-PkiConfiguration -ScriptRoot $PSScriptRoot -Bound $PSBoundParameters   # cnf + defaults
-     Initialize-OpenSSL                                                                # 4.x gate
-     $manifest = Import-PkiExisting                       # catalog with the real keys, Built, Leaves
-     $ca = Get-PkiCa -Id 'q1-ev'                          # DV / OV / EV intermediate of a quadrant
-     # ... build the leaf configuration, issue with the CA's own configuration file:
-     #     Get-PkiCaPaths -Ca $ca  (key, crt, cnf)     Get-PkiIssueMd, Get-PkiSigOpts, Get-PkiProviderArgs
-     #     Get-PkiExtraPolicies -Level EV|OV|DV        Get-PkiLeafDays -Level EV|OV|DV
-     #     Get-PkiTrustAnchor  (self-signed root or public chain)   Get-PkiExternalChainIntermediates
+     Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters     # cnf + defaults
+     Test-PkiLeafNaming                                                                       # [ leaf_names ]
+     Initialize-OpenSSL                                                                       # 4.x gate + advice
+     [void](Assert-PkiLeafOpenSslReady -NeedFips $fips -NeedPqc $quantum)                     # FIPS + ML-DSA gate
+     [void](Import-PkiExisting -SkipProviders)                                                # the PKI on disk
+     $leafRoot = Get-PkiLeafRoot                                    # <script folder>\leafcerts
+     $specs = New-PkiLeafSetSpecs -Base $base -Purposes $purposes   # one per purpose, validated before any write
+     $res   = Invoke-PkiLeafSet -Specs $specs -LeafRoot $leafRoot   # folders, issue, validate, guidance; all or nothing
+     # one certificate:  New-PkiLeafSpec / New-PkiUniqueFolder / New-PkiLeafCertificate / Test-PkiLeafResult
 
  PHASE C - transport / install script on another machine: only trust
 
@@ -138,7 +146,14 @@
  * Functions return objects, they do not exit the script. Errors are thrown with a message that says
    what to do. User-facing text goes through Write-PkiLog.
  * Return a collection that may hold ONE item with a leading comma  (return ,$list)  so PowerShell does
-   not unroll it. Wrap callers in @( ) when they need an array.
+   not unroll it. Wrap callers in @( ) when they need an array. (A one-pair subject list became the string "CN".)
+ * PowerShell variables are case-INSENSITIVE: a parameter $R and a local $r are the same variable. Never reuse a
+   parameter's name, in any case, for a local.
+ * EVERY MAIN SCRIPT has the STANDARD BOOTSTRAP (Invoke-PkiBootstrapUnlock, same text in pki_setup.ps1 and
+   GenerateLeafCertificate.ps1) at its top, before any module is loaded, and an -Unblock switch that calls
+   Invoke-PkiUnblockUnlock. Copy it into the Phase C script.
+ * Do not use [CmdletBinding()] in an entry script that has -EV or -OV: they are aliases of -ErrorVariable and
+   -OutVariable.
  * 'openssl' arguments go through Invoke-OpenSSL (it sets OPENSSL_CONF, hides passwords, throws with the
    OpenSSL message). File arguments of  openssl verify  come LAST, after the provider options.
  * Run  -Check  and a full build with a real OpenSSL 4 after a change; -Verify must stay green.
@@ -156,4 +171,8 @@
  What counts as valid                                   06_Validation.ps1
  Windows store behaviour                                07_TrustStore.ps1
  Public-CA Enterprise Root, cross-signing               13_ExternalRoot.ps1
+ Leaf certificates (any level, key, format)             14_LeafGenerator.ps1
+ Leaf folder / file names / location                    agantra_pki.cnf [ leaf_names ]  or  01b_CaNaming.ps1
+ Unblock / unlock                                       00_Common.ps1 (Unblock-PkiTree, Unlock-PkiTree)
+ Conversion script and TLS guidance text                15_LeafGuidance.ps1
 ====================================================================================================

@@ -67,6 +67,16 @@ function Write-PkiSummary {
 }
 
 function Invoke-PkiGeneration {
+    # Leaf certificates of an earlier PKI stay in <script folder>\leafcerts (never deleted here). Say so.
+    try {
+        $lr = Get-PkiLeafRoot
+        $idx = Join-Path $lr 'leaf-index.json'
+        if (Test-Path -LiteralPath $idx) {
+            $cnt = @(Get-Content -LiteralPath $idx -Raw | ConvertFrom-Json -AsHashtable).Count
+            Write-PkiLog "$cnt leaf certificate(s) of an earlier PKI are in $lr. A new PKI has new CA keys: they will NOT chain to it. Keep them for the old PKI or delete them." 'WARN'
+        }
+    }
+    catch { }
     Invoke-PkiStep -Name 'Check output folder' -Action { Test-PkiOutputBeforeGeneration; Write-PkiFolderMarker -Folder $script:Pki.PkiRoot }
     Invoke-PkiStep -Name 'Initialize OpenSSL 4.x' -Action { Initialize-OpenSSL }
     Invoke-PkiStep -Name 'Write provider configuration' -Action { Initialize-PkiProviderConfigs }
@@ -87,19 +97,13 @@ function Invoke-PkiGeneration {
 }
 
 function Invoke-PkiUnblock {
-    # .\pki_setup.ps1 -Unblock : unblock every script and every PKI file, report lock holders.
-    $paths = @($script:Pki.ScriptRoot, $script:Pki.PkiRoot) | Select-Object -Unique
-    $n = Unblock-PkiTree -Path $paths
-    Write-PkiLog "Unblocked $n file(s) in: $($paths -join ', ')" 'OK'
-    if (Test-Path -LiteralPath $script:Pki.PkiRoot) {
-        $holders = @(Get-PkiLockingProcesses -Folder $script:Pki.PkiRoot)
-        if ($holders.Count -gt 0) {
-            Write-PkiLog "Processes that currently hold files in $($script:Pki.PkiRoot):" 'WARN'
-            foreach ($h in $holders) { Write-PkiLog "  $h" 'WARN' }
-            Write-PkiLog 'Close them (or the Explorer window / editor tab) before -Clean or -RemoveAllTrust.' 'WARN'
-        }
-        else { Write-PkiLog "No process holds files in $($script:Pki.PkiRoot)." 'OK' }
+    # .\pki_setup.ps1 -Unblock : UNBLOCK + UNLOCK every script, the PKI folder and the leaf folder (children, recursive),
+    # then report the processes that hold files open.
+    if ($null -ne (Get-Variable -Name BootstrapUnlocked -Scope Script -ErrorAction SilentlyContinue)) {
+        Write-PkiLog "Start-up bootstrap of this script: $($script:BootstrapUnlocked) read-only item(s) unlocked in $($script:Pki.ScriptRoot) (the Internet mark is removed on Windows)."
     }
+    $paths = @($script:Pki.ScriptRoot, $script:Pki.PkiRoot, (Get-PkiLeafRoot)) | Select-Object -Unique
+    [void](Invoke-PkiUnblockUnlock -Path $paths)
 }
 
 function Invoke-PkiMain {
@@ -134,6 +138,8 @@ function Invoke-PkiMain {
     # Files of a PKI folder (and of other script folders) that came from a zip or a download.
     $n = Unblock-PkiTree -Path @($script:Pki.PkiRoot)
     if ($n -gt 0) { Write-PkiLog "Unblocked $n file(s) in $($script:Pki.PkiRoot)." 'INFO' }
+    $n = Unlock-PkiTree -Path @($script:Pki.PkiRoot)
+    if ($n -gt 0) { Write-PkiLog "Unlocked $n read-only item(s) in $($script:Pki.PkiRoot)." 'INFO' }
 
     if ($script:Pki.ReinstallTrust) {
         # Install the PKI that already exists in .\pki into the Windows stores again (no regeneration, no OpenSSL):
@@ -177,7 +183,7 @@ function Invoke-PkiMain {
 
     Invoke-PkiGeneration
 
-    [void](Unblock-PkiTree -Path @($script:Pki.PkiRoot))
+    [void](Unblock-PkiTree -Path @($script:Pki.PkiRoot)); [void](Unlock-PkiTree -Path @($script:Pki.PkiRoot))
     Stop-PkiTelemetry -Success $true
     Write-PkiTelemetryFile
     Write-PkiSummary

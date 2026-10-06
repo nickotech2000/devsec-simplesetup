@@ -1,11 +1,13 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 4.5.2-phaseA          2026-10-05
+ Agantra Inovatif Enterprise PKI generator          Version 4.7.0-phaseB          2026-10-05
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PKI-Design-with-FIPS-and-PQC.txt (design, diagrams, limitations)
           PUBLIC-CA-ENTERPRISE-ROOT.txt        (Enterprise Root signed by DigiCert / GlobalSign / Sectigo)
           scripts\README.txt                   (the shared modules, for later scripts)
+          GenerateLeafCertificate-MANUAL.txt   (leaf certificates, Phase B: the manual of GenerateLeafCertificate.ps1)
+          .\GenerateLeafCertificate.ps1 -Help  (every parameter; section 16 of this manual is the short form)
           .\pki_setup.ps1 -Help                (every parameter)
 
  CONTENTS
@@ -18,6 +20,7 @@
       which server
    7  Trust the Enterprise Root on every device      (7A: copy the PKI to the Ubuntu server)
   14  Change the names of the CAs                 15  Classic PKI only, and a public CA for the root
+  16  Leaf certificates: GenerateLeafCertificate.ps1 (short form; full manual: GenerateLeafCertificate-MANUAL.txt)
 
 
 ====================================================================================================
@@ -191,6 +194,11 @@
 
  5.11a Install the existing PKI in Windows again (no rebuild, no OpenSSL)
         .\pki_setup.ps1 -ReinstallTrust            (elevated)
+ 5.15 Leaf certificates for every purpose and every format, in one go (section 16; GenerateLeafCertificate-MANUAL.txt)
+        .\GenerateLeafCertificate.ps1 -DnsName www.example.com
+        .\GenerateLeafCertificate.ps1 -OV -Classic -FIPS -DnsName api.example.com
+ 5.16 Unblock and unlock the folders, children and recursive
+        .\pki_setup.ps1 -Unblock          .\GenerateLeafCertificate.ps1 -Unblock
  5.12 Classic PKI only (Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV intermediates)
         .\pki_setup.ps1 -ClassicPKI -InstallTrust
  5.13 See the names of all CAs before generating, and change them (section 14)
@@ -484,6 +492,13 @@
  "-ClassicPKI ... cannot be combined"           Use -ClassicPKI OR -Quadrant, not both
  "path length is N, but this PKI needs ..."     The public CA gave too small a pathlen: see
                                                 PUBLIC-CA-ENTERPRISE-ROOT.txt, section 5 and 12
+ "This leaf certificate needs FIPS / ML-DSA"   GenerateLeafCertificate.ps1 found OpenSSL 4.x without the FIPS
+                                                module or without ML-DSA. Run Install-DevEnvironment.ps1 (section 2.3),
+                                                then  .\GenerateLeafCertificate.ps1 -Check
+ "RSA key size ... is rejected" / "Hash ... is    The floors of section 16.5: RSA 2048, ECDSA P-256, SHA-256. Use a
+  rejected"                                     stronger value
+ "This PKI has no Quadrant N"                   The PKI was built with -ClassicPKI or -Quadrant. Use a quadrant it
+                                                has, or build a full PKI
  "OpenSSL 4.0 or newer ... not found / is      Only OpenSSL 3.x was found. Follow the HOW TO FIX steps
   required"                                     printed in the output (section 2.3: Install-DevEnvironment.ps1,
                                                 new PowerShell window, openssl version, or -OpenSslPath)
@@ -599,4 +614,45 @@
    Things you must know: the public CA decides key size, pathlen (this PKI needs >= 3), EKU, name
    constraints and validity; every CA below is shortened to end before the public certificate; public TLS
    leaves are limited to 398 days; do not combine -Clean with -ImportEnterpriseRoot (it deletes the key).
+
+
+====================================================================================================
+ 16  LEAF CERTIFICATES: GenerateLeafCertificate.ps1   (short form; the full manual is GenerateLeafCertificate-MANUAL.txt)
+====================================================================================================
+ pki_setup.ps1 builds the CAs and one default EV leaf per quadrant. GenerateLeafCertificate.ps1 issues every other leaf
+ from the intermediates. Every parameter: .\GenerateLeafCertificate.ps1 -Help (also section 13 of its manual).
+
+ 16.1 One run, everything
+        .\GenerateLeafCertificate.ps1 -DnsName www.example.com
+        makes a certificate for EVERY purpose (ServerAuth, ClientAuth, CodeSigning, EmailProtection, TimeStamping,
+        OcspSigning), each in EVERY format (PEM, DER, CER, CERT, P7B, RFC 7468, PFX), validates all of them and writes
+            <script folder>\leafcerts\www.example.com\<purpose>\...      (next to the scripts, NOT inside pki)
+        Defaults: -EV, -Classic (Q1), no -FIPS, RSA 2048, 397 days.
+        A folder that exists is never touched: a NEW folder www.example.com_<yyyyMMdd>-<HHmmss> is created.
+        -Purpose ServerAuth,ClientAuth makes ONE certificate with exactly those purposes; -ExcludePurpose leaves some out.
+
+ 16.2 Level and quadrant
+        -DV | -OV | -EV     and     -Classic = Q1   -Classic -FIPS = Q2   -Quantum = Q3   -Quantum -FIPS = Q4
+        Browsers and Windows servers: Classic (Q1 / Q2). OpenSSL services and mutual TLS: Quantum (Q3 / Q4) or Classic.
+
+ 16.3 Before it starts
+        OpenSSL must be 4.x WITH the FIPS module and ML-DSA; the script proves it and prints the result. What this run
+        needs and is missing stops it; what it does not need is a warning. Both suggest Install-DevEnvironment.ps1
+        (section 2.3). .\GenerateLeafCertificate.ps1 -Check shows the readiness only.
+        The script unblocks and unlocks its folder, children and recursive, at every start (-Unblock does only that).
+
+ 16.4 Rules  (details: GenerateLeafCertificate-MANUAL.txt, sections 4, 5 and 7)
+        Keys: RSA >= 2048, ECDSA >= P-256, hash >= SHA-256; weaker is rejected. Code signing is forced to RSA 4096 /
+        P-384 / ML-DSA-65. EV 397 days (max 398), OV 3 years, DV 5 years, or -Days. DV subject = CN only.
+        TimeStamping (critical EKU) and OcspSigning (with the no-check extension) always stand alone.
+
+ 16.5 Files  (every purpose folder)
+        <stem>.crt .key (PKCS#8) -fullchain.crt -chain.crt .cnf, and .pem .der .cer .cert .p7b .rfc7468.pem .pfx
+        (+ -fips.pfx for FIPS leaves), convert-formats.ps1 (the exact OpenSSL syntax for every format),
+        tls-guidance.txt (ServerAuth / ClientAuth: TLS 1.2 / 1.3, HTTP/2, HTTP/3), leaf-info.json.
+        Names of the folders and files: agantra_pki.cnf [ leaf_names ]. -List shows what was made.
+
+ 16.6 Windows
+        -InstallPfx imports the PFX of each leaf into LocalMachine\My (elevated). Only the leaf, never the chain.
+        ML-DSA PFX files need Windows 11 24H2+ / Server 2025.
 ====================================================================================================

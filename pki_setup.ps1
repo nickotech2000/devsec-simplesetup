@@ -113,13 +113,14 @@ function Show-PkiHelp {
     @'
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.5.2-phaseA
+ Version 4.7.0-phaseB
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
  Manual : pki_setup-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt
  Public CA : PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : scripts\README.txt
+ Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   GenerateLeafCertificate-MANUAL.txt
 
 REQUIREMENTS
   PowerShell 7+ and OpenSSL 4.x ONLY. OpenSSL 3.x is refused. When several OpenSSL versions are installed
@@ -233,6 +234,16 @@ USAGE
                                                AND delete the .\pki folder with all contents
   .\pki_setup.ps1 -Verbose                     show every OpenSSL command
   .\pki_setup.ps1 -Help
+
+LEAF CERTIFICATES  (Phase B)
+  pki_setup.ps1 makes the CAs and ONE default EV leaf per quadrant (pki\leaf). Every other leaf is made by
+  .\GenerateLeafCertificate.ps1 into <script folder>\leafcerts\<name>\<purpose>\ (NOT inside pki). One run makes a
+  certificate for EVERY purpose (ServerAuth, ClientAuth, CodeSigning, EmailProtection, TimeStamping, OcspSigning), each
+  in EVERY format (PEM, DER, CER, CERT, P7B, RFC 7468, PFX). DV / OV / EV, Classic / Quantum, FIPS. It uses the SAME
+  generator and scripts folder, checks first that OpenSSL is 4.x with the FIPS module and ML-DSA (otherwise it suggests
+  Install-DevEnvironment.ps1), never overwrites a folder (a new one with the date and time is created) and has the
+  same -Unblock. Names of the folders and files: agantra_pki.cnf [ leaf_names ].
+  .\GenerateLeafCertificate.ps1 -Help    Manual: GenerateLeafCertificate-MANUAL.txt
 
 CLASSIC PKI  (-ClassicPKI)
   Builds only:  Enterprise Root -> Classic Track Root -> Q1 Root -> DV / OV / EV intermediates
@@ -364,15 +375,18 @@ WINDOWS TRUST   (elevated PowerShell; other modes need no elevation)
   in pki_setup-MANUAL.txt.
 
 UNBLOCK / UNLOCK
-  -Unblock             Remove the Windows "downloaded from the Internet" mark from every file
-                       below the script folder and the PKI folder, then list the processes
-                       that hold files in .\pki open (Windows Restart Manager). Nothing is
-                       killed: close the listed program (Explorer window, editor, shell).
-  The script unblocks its own scripts at every start, and the PKI folder before and after
-  generation. A script that is still blocked the very first time needs once:
+  -Unblock             UNBLOCK (remove the Windows "downloaded from the Internet" mark) and UNLOCK (remove the
+                       Read-only attribute) every file and folder below the script folder, the PKI folder and the
+                       leaf folder (<script folder>\leafcerts), children and recursive; then list the programs
+                       that hold files in those folders open (Windows Restart Manager). Nothing is killed: close
+                       the listed program (Explorer window, editor, shell).
+  Every start of the script does the same for its own folder BEFORE any script is loaded (the standard bootstrap
+  of every main script), and again for the PKI folder before and after generation. GenerateLeafCertificate.ps1
+  has the same -Unblock. A script that is still blocked the very first time needs once:
       Get-ChildItem -Path . -Recurse -File | Unblock-File
-  -Clean / -RemoveAllTrust leave the folder first when your shell is inside it, retry while
-  antivirus or the indexer releases it, and name the holders if it stays locked.
+  -Clean / -RemoveAllTrust leave the folder first when your shell is inside it, retry while a program holds it, and
+  name that program. They do NOT touch <script folder>\leafcerts: leaf certificates of the old PKI do not chain to a
+  new one; the script warns when such leaves exist.
 
 CHECK / VERIFY  (read-only; nothing in the PKI folder or the stores is changed)
   -Check               Preflight. Tests PowerShell, OS, OpenSSL 4.x, the default provider, the FIPS
@@ -439,13 +453,25 @@ Write-Host 'Email  : nicko@nextmantra.com'
 Write-Host '============================================================'
 Write-Host ''
 
-try {
-    if ($IsWindows) {
-        Get-ChildItem -Path $script:ScriptRoot -Recurse -File -ErrorAction SilentlyContinue |
-            Unblock-File -ErrorAction SilentlyContinue
+# ------------------------------------------------------------------------------------------------------------
+# STANDARD BOOTSTRAP of every main script: UNBLOCK + UNLOCK the whole script folder, children and recursive,
+# BEFORE any other script of the folder is loaded (a blocked script cannot be loaded). Same text in
+# GenerateLeafCertificate.ps1.
+#   unblock = remove the Windows "downloaded from the Internet" mark    unlock = remove the Read-only attribute
+# ------------------------------------------------------------------------------------------------------------
+function Invoke-PkiBootstrapUnlock {
+    param([Parameter(Mandatory)][string]$Root)
+    $ro = [System.IO.FileAttributes]::ReadOnly
+    $unlocked = 0
+    foreach ($i in (@(Get-Item -LiteralPath $Root -Force) + @(Get-ChildItem -LiteralPath $Root -Recurse -Force -ErrorAction SilentlyContinue))) {
+        try { if (($i.Attributes -band $ro) -ne 0) { $i.Attributes = $i.Attributes -bxor $ro; $unlocked++ } } catch { }
+        if ($IsWindows -and -not $i.PSIsContainer) { Unblock-File -LiteralPath $i.FullName -ErrorAction SilentlyContinue }
     }
+    return $unlocked
 }
-catch { Write-Host "[WARN] Automatic script unblocking failed: $($_.Exception.Message)" -ForegroundColor Yellow }
+$script:BootstrapUnlocked = 0
+try { $script:BootstrapUnlocked = [int](Invoke-PkiBootstrapUnlock -Root $script:ScriptRoot) }
+catch { Write-Host "[WARN] Automatic unblock / unlock failed: $($_.Exception.Message)" -ForegroundColor Yellow }
 
 try {
     # All modules come from ONE loader (scripts\PkiModules.ps1); later scripts load them the same way.

@@ -254,6 +254,56 @@ function Unblock-PkiTree {
     return $count
 }
 
+function Unlock-PkiTree {
+    <#
+    .SYNOPSIS
+        UNLOCK: removes the Read-only attribute from the folders and files below the given folders, children and
+        recursive (Windows refuses to overwrite or delete read-only items; so does a copy from a read-only medium).
+    .OUTPUTS
+        Number of items (folders and files) that were read-only and are not any more.
+    #>
+    param([Parameter(Mandatory)][string[]]$Path)
+    $count = 0
+    $ro = [System.IO.FileAttributes]::ReadOnly
+    foreach ($root in $Path) {
+        if ([string]::IsNullOrWhiteSpace($root) -or -not (Test-Path -LiteralPath $root)) { continue }
+        $items = @(Get-Item -LiteralPath $root -Force -ErrorAction SilentlyContinue) + @(Get-ChildItem -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue)
+        foreach ($i in $items) {
+            try {
+                if (($i.Attributes -band $ro) -ne 0) { $i.Attributes = $i.Attributes -bxor $ro; $count++ }
+            }
+            catch { }
+        }
+    }
+    return $count
+}
+
+function Invoke-PkiUnblockUnlock {
+    <#
+    .SYNOPSIS
+        The mechanism behind -Unblock of every main script: UNBLOCK (the Windows "downloaded from the Internet" mark),
+        UNLOCK (Read-only attribute) on every folder given, children and recursive, then list the processes that hold
+        files open (Windows Restart Manager; nothing is killed).
+    #>
+    param([Parameter(Mandatory)][string[]]$Path, [switch]$Quiet)
+    $paths = @($Path | Where-Object { $_ } | Select-Object -Unique)
+    $unblocked = Unblock-PkiTree -Path $paths
+    $unlocked = Unlock-PkiTree -Path $paths
+    $holders = [System.Collections.Generic.List[string]]::new()
+    foreach ($p in $paths) {
+        if (Test-Path -LiteralPath $p -PathType Container) { foreach ($h in @(Get-PkiLockingProcesses -Folder $p)) { if (-not $holders.Contains($h)) { [void]$holders.Add($h) } } }
+    }
+    if (-not $Quiet) {
+        foreach ($p in $paths) { Write-PkiLog "  $(if (Test-Path -LiteralPath $p) { 'processed' } else { 'not found ' }) : $p" 'INFO' }
+        Write-PkiLog "Unblocked $unblocked file(s) (Internet mark), unlocked $unlocked item(s) (Read-only), in $($paths.Count) folder(s), children and recursive." 'OK'
+        if ($holders.Count -gt 0) {
+            Write-PkiLog 'These processes hold files open in those folders (close them before deleting or overwriting):' 'WARN'
+            foreach ($h in $holders) { Write-PkiLog "  $h" 'WARN' }
+        }
+    }
+    return [ordered]@{ Unblocked = $unblocked; Unlocked = $unlocked; Holders = @($holders) }
+}
+
 function Get-PkiLockingProcesses {
     <#
     .SYNOPSIS

@@ -25,7 +25,8 @@
 #       3. .\pki_setup.ps1 -ImportCrossCert <cross.pem> -ExternalChain <chain.pem>
 #            stores it, publishes it, writes <leaf>-fullchain-cross.crt for every leaf
 #
-# Provides : Invoke-PkiEnterpriseRootCsr, Import-PkiEnterpriseRoot, Use-PkiExternalRoot,
+# Provides : Invoke-PkiEnterpriseRootCsr, Import-PkiEnterpriseRoot, Use-PkiExternalRoot, Get-PkiLatestCrossCertificate,
+#            New-PkiCrossFullchainFile,
 #            Invoke-PkiCrossSignCsr, Invoke-PkiImportCrossCert, Get-PkiTrustAnchor,
 #            Get-PkiExternalChainIntermediates, Test-PkiPemSelfSigned, Get-PkiIssuerRemainingDays
 # Requires : 00_Common, 01_Configuration, 01b_CaNaming, 02_OpenSSL, 03_RuntimeConfig,
@@ -349,6 +350,31 @@ function Use-PkiExternalRoot {
 # ------------------------------------------------------------
 # B. cross-signing the existing (self-signed) Enterprise Root key
 # ------------------------------------------------------------
+function Get-PkiLatestCrossCertificate {
+    # The newest cross-certificate imported with -ImportCrossCert, or $null.
+    $p = Get-PkiExternalPaths
+    if (-not (Test-Path -LiteralPath $p.CrossState)) { return $null }
+    $state = @(Get-Content -LiteralPath $p.CrossState -Raw | ConvertFrom-Json -AsHashtable)
+    if ($state.Count -eq 0) { return $null }
+    return $state[$state.Count - 1]
+}
+
+function New-PkiCrossFullchainFile {
+    # <leaf>-fullchain.crt -> <leaf>-fullchain-cross.crt = fullchain + cross-certificate + public CA intermediates.
+    # Servers that must also serve clients which only know the public root send this file.
+    param([Parameter(Mandatory)][string]$FullChain, [Parameter(Mandatory)]$Cross)
+    $out = $FullChain -replace '-fullchain\.crt$', '-fullchain-cross.crt'
+    if ($out -eq $FullChain -or -not (Test-Path -LiteralPath $Cross['certificate'])) { return $null }
+    $sb = [System.Text.StringBuilder]::new()
+    [void]$sb.Append(([System.IO.File]::ReadAllText($FullChain)).TrimEnd() + "`n")
+    [void]$sb.Append(([System.IO.File]::ReadAllText($Cross['certificate'])).TrimEnd() + "`n")
+    if ($Cross['chain'] -and (Test-Path -LiteralPath $Cross['chain'])) {
+        foreach ($pem in (Split-PkiPemBundle -Path $Cross['chain'])) { if (-not (Test-PkiPemSelfSigned -Pem $pem)) { [void]$sb.Append($pem.TrimEnd() + "`n") } }
+    }
+    Write-Utf8NoBom -Path $out -Content $sb.ToString()
+    return $out
+}
+
 function Invoke-PkiCrossSignCsr {
     $c = $script:Pki
     $p = Get-PkiExternalPaths
@@ -443,19 +469,20 @@ function Invoke-PkiImportCrossCert {
     Ensure-PkiDirectory -Path $c.PublishDir
     $slug = (Get-PkiCa -Id 'root').Slug
     Copy-Item -LiteralPath $crossCrt -Destination (Join-Path $c.PublishDir "$slug-cross-$n.pem") -Force
-    $inter = [System.Collections.Generic.List[string]]::new()
-    if ($chainFile) {
-        foreach ($pem in (Split-PkiPemBundle -Path $chainFile)) { if (-not (Test-PkiPemSelfSigned -Pem $pem)) { [void]$inter.Add($pem) } }
-    }
-    $crossPem = [System.IO.File]::ReadAllText($crossCrt).TrimEnd() + "`n"
+    $cross = $state[$state.Count - 1]
     $made = 0
     foreach ($l in $c.Leaves) {
         $full = [string]$l['fullchain']
-        if (-not (Test-Path -LiteralPath $full)) { continue }
-        $out = $full -replace '-fullchain\.crt$', '-fullchain-cross.crt'
-        $text = [System.IO.File]::ReadAllText($full).TrimEnd() + "`n" + $crossPem + (($inter | ForEach-Object { $_.TrimEnd() + "`n" }) -join '')
-        Write-Utf8NoBom -Path $out -Content $text
-        $made++
+        if ($full -and (Test-Path -LiteralPath $full) -and (New-PkiCrossFullchainFile -FullChain $full -Cross $cross)) { $made++ }
+    }
+    # leaves made by GenerateLeafCertificate.ps1 (leafcerts\leaf-index.json, next to the scripts)
+    $leafRoot = Get-PkiLeafRoot
+    $idx = Join-Path $leafRoot 'leaf-index.json'
+    if (Test-Path -LiteralPath $idx) {
+        foreach ($e in @(Get-Content -LiteralPath $idx -Raw | ConvertFrom-Json -AsHashtable)) {
+            $full = Join-Path (Join-Path $leafRoot $e['folder']) "$($e['stem'])-fullchain.crt"
+            if (Test-Path -LiteralPath $full) { if (New-PkiCrossFullchainFile -FullChain $full -Cross $cross) { $made++ } }
+        }
     }
 
     # record in the manifest
@@ -467,5 +494,5 @@ function Invoke-PkiImportCrossCert {
 
     Write-PkiLog "Cross-certificate stored: $crossCrt" 'OK'
     Write-PkiLog "  issuer: $issuer" 'INFO'
-    Write-PkiLog "  $made leaf chain file(s) written (<leaf>-fullchain-cross.crt): servers that must serve clients without your Enterprise Root send these." 'OK'
+    Write-PkiLog "  $made leaf chain file(s) written (<leaf>-fullchain-cross.crt, default leaves and leafcerts): servers that must serve clients without your Enterprise Root send these." 'OK'
 }

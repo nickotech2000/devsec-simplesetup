@@ -61,16 +61,49 @@ function Get-PkiOpenSslCandidates {
     return ,$list
 }
 
+function Get-PkiBootstrapCommand {
+    # The command that installs OpenSSL (FireDaemon, FIPS module, fipsmodule.cnf) with the bootstrap script only.
+    $boot = $null
+    foreach ($root in @($(if ($null -ne $script:Pki -and $script:Pki.Contains('ScriptRoot')) { $script:Pki.ScriptRoot }), $PSScriptRoot, (Split-Path -Parent $PSScriptRoot))) {
+        if ($root -and (Test-Path -LiteralPath (Join-Path $root 'Install-DevEnvironment.ps1'))) { $boot = Join-Path $root 'Install-DevEnvironment.ps1'; break }
+    }
+    $b = if ($boot) { $boot } else { '.\Install-DevEnvironment.ps1' }
+    return "$b -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipWindowsTerminal"
+}
+
+function Get-PkiOpenSslCapabilityAdvice {
+    # OpenSSL 4.x is there but FIPS and / or ML-DSA do not work.
+    param([string[]]$Missing, [bool]$Windows = $IsWindows)
+    $head = @"
+This OpenSSL cannot do: $($Missing -join ', ').
+The PKI needs OpenSSL 4.x WITH the FIPS module (fipsmodule.cnf) and native ML-DSA (post-quantum).
+
+"@
+    if ($Windows) {
+        $cmd = Get-PkiBootstrapCommand
+        return $head + @"
+HOW TO FIX (Windows)
+  1. In an ELEVATED PowerShell run your bootstrap script. It installs FireDaemon OpenSSL with FIPS and
+     quantum-safe support, adds it to PATH and creates fipsmodule.cnf. OpenSSL only:
+         $cmd
+  2. Open a NEW PowerShell window and check:  openssl version   (OpenSSL 4.x.x)
+  3. Run this script again. To use one specific OpenSSL:  -OpenSslPath "C:\Program Files\FireDaemon OpenSSL 4\bin\openssl.exe"
+     FIPS only:  openssl fipsinstall -out fipsmodule.cnf -module <path to fips.dll>   then  -FipsModuleConfig <path>
+"@
+    }
+    return $head + @"
+HOW TO FIX
+  Install or build OpenSSL 4.x with the FIPS module (enable-fips), create the module configuration with
+      openssl fipsinstall -out fipsmodule.cnf -module <path to fips.so>
+  and pass it:  -OpenSslPath /path/to/openssl  -FipsModuleConfig /path/to/fipsmodule.cnf
+  (On Windows, Install-DevEnvironment.ps1 does all of this.)
+"@
+}
+
 function Get-PkiOpenSslAdvice {
     param([string[]]$Found = @(), [bool]$Windows = $IsWindows)
     $foundText = if ($Found.Count -gt 0) { "Found:`n    " + ($Found -join "`n    ") } else { 'No openssl was found.' }
-    $boot = $null
-    if ($null -ne $script:Pki -and $script:Pki.Contains('ScriptRoot')) {
-        foreach ($d in @($script:Pki.ScriptRoot, (Split-Path -Parent $script:Pki.ScriptRoot))) {
-            if ($d -and (Test-Path -LiteralPath (Join-Path $d 'Install-DevEnvironment.ps1'))) { $boot = Join-Path $d 'Install-DevEnvironment.ps1'; break }
-        }
-    }
-    $bootCmd = if ($boot) { $boot } else { '.\Install-DevEnvironment.ps1' }
+    $bootCmdLine = Get-PkiBootstrapCommand
     if ($Windows) {
         return @"
 This PKI needs OpenSSL 4.x (OpenSSL 3.x is not supported): the Quantum quadrants use native ML-DSA and the
@@ -80,7 +113,7 @@ $foundText
 HOW TO FIX
   1. In an ELEVATED PowerShell run your bootstrap script (it installs FireDaemon OpenSSL through winget,
      package FireDaemon.OpenSSL, puts it in PATH and creates fipsmodule.cnf). OpenSSL only:
-         $bootCmd -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipWindowsTerminal
+         $bootCmdLine
      (or run it without the -Skip switches to prepare the whole development environment)
   2. Open a NEW PowerShell window (PATH is read at start) and check:      openssl version
      It must say OpenSSL 4.x.x. If an older OpenSSL comes first in PATH, give the new one explicitly:

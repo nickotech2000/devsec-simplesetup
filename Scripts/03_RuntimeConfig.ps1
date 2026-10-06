@@ -296,7 +296,7 @@ function Write-PkiCaConfig {
     [void]$L.Add('[ policy_any ]')
     foreach ($f in 'countryName', 'stateOrProvinceName', 'localityName', 'organizationName', 'organizationalUnitName',
                    'emailAddress', 'name', 'telephoneNumber', 'businessCategory', 'serialNumber', 'streetAddress',
-                   'postalCode', 'jurisdictionCountryName', 'jurisdictionStateOrProvinceName', 'jurisdictionLocalityName') {
+                   'postalCode', 'jurisdictionCountryName', 'jurisdictionStateOrProvinceName', 'jurisdictionLocalityName', 'organizationIdentifier') {
         [void]$L.Add("$f = optional")
     }
     [void]$L.Add('commonName = supplied')
