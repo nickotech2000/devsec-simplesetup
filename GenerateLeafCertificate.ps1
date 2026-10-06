@@ -113,7 +113,7 @@ function Show-PkiLeafHelp {
     @'
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.7.0-phaseB
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

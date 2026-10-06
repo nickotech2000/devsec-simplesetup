@@ -1,9 +1,10 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL   (PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 4.8.0-phaseC     2026-10-06
+ Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 4.9.0-phaseC     2026-10-06
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Related: pki_setup-MANUAL.txt                (the PKI itself)           GenerateLeafCertificate-MANUAL.txt (leaf
+ Related: Install-DevEnvironment-MANUAL.txt (the bootstrap that installs 7-Zip and OpenSSL 4)
+          pki_setup-MANUAL.txt                (the PKI itself)           GenerateLeafCertificate-MANUAL.txt (leaf
                                               certificates)
           PKI-Design-with-FIPS-and-PQC.txt    (design, section 17 = this transport)
           PKI-Acceptance-Checklists.txt       (what to run on your machines, section C)
@@ -18,6 +19,7 @@
     6  Unpack only (any machine, PowerShell 7)  13  PkiTransport.ps1 -Help
     7  Linux and macOS: pki-transport.sh        14  Unpack-PkiTransport.ps1 -Help
                                                 15  pki-transport.sh --help        16  What changed
+                                                17  Prerequisites: what is installed for you
 ====================================================================================================
  1  WHAT THE TRANSPORT IS
 ====================================================================================================
@@ -318,7 +320,7 @@
 ====================================================================================================
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 4.8.0-phaseC
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -360,8 +362,9 @@ PACK  (source)
                          when private keys are included).        -SevenZipPath <exe>   7-Zip, for 7z.
   -IncludeLeafCerts      Adds leafcerts\ (next to the scripts). Contains private keys.   -LeafName <wildcards>  only those.
   -IncludeCaKeys         Adds pki\ with the CA private keys. Only for a machine that must issue certificates.
-  -Kit                   Also writes <name>-kit\ next to the package: the three transport scripts, the modules the
-                         destination needs and the manual. The destination then needs nothing else.
+  -Kit                   Also writes <name>-kit\ next to the package: the three transport scripts, the two bootstrap scripts
+                         (Install-DevEnvironment.ps1 / .sh), the modules the destination needs and the manuals. The destination then
+                         needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
   -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
@@ -372,8 +375,8 @@ INSTALL  (destination: Windows 11 25H2 or newer)
   .\PkiTransport.ps1 -Install -Package .\dev.certpacked
   1. SCAN. Windows 11 client, version 25H2 (build 26200) or newer. Windows 11 24H2 and older, Windows 10, 8.1, 7, Windows
      Server and everything else are NOT supported: the script says why and stops (exit code 2).
-     OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: the script stops (exit code 4) and suggests
-     Install-DevEnvironment.ps1 (OpenSSL with FIPS and quantum support). -SkipOpenSslCheck continues anyway.
+     OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: it is INSTALLED when you agree (or give -InstallMissing) with
+     Install-DevEnvironment.ps1; otherwise the script stops (exit code 4). -SkipOpenSslCheck continues anyway.
      Elevated PowerShell (administrator).
   2. Only then: the package is decrypted, every file is checked against its SHA-256, and what -Extract selects is
      written to -Destination.
@@ -386,6 +389,9 @@ INSTALL  (destination: Windows 11 25H2 or newer)
   -InstallLeafPfx        Also imports the leaf PFX files into LocalMachine\My (only the leaf). Needs leafcerts in the
                          package. -PfxPassword <text> is the PFX password (default Abc12345!).
   -Force                 Overwrite files that exist and differ.     -SevenZipPath <exe>   7-Zip, for a 7z package.
+  -InstallMissing        Install what is missing instead of only reporting it: 7-Zip (7z packages, -ArchiveFormat 7z) and OpenSSL 4.0.1+
+                         (FIPS + quantum-safe, proven) with Install-DevEnvironment.ps1, which must sit next to this script (the kit has
+                         it). Without the switch you are asked when a person is at the console.
   -OpenSslPath <exe>     Use this openssl.        -SkipOpenSslCheck   Do not stop when OpenSSL 4.0.1+ is missing.
   -NoVerify              Do not run the OpenSSL chain check at the end.
 
@@ -411,7 +417,7 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 4.8.0-phaseC
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -450,6 +456,8 @@ PARAMETERS
   -List                    Show scope, CAs, leaves and files; write nothing.
   -Force                   Overwrite files that exist and differ (identical files are left alone).
   -SevenZipPath <exe>      7-Zip, for a 7z package (zip packages need nothing).
+  -InstallMissing          A 7z package and no 7-Zip: install 7-Zip (Install-DevEnvironment.ps1 -Only 7Zip, or WinGet; Linux / macOS:
+                           Install-DevEnvironment.sh --only 7zip) instead of stopping. Without it you are asked when a person is there.
   -Unblock                 UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and -Destination, children
                            and recursive, list the programs that hold files open, and stop. Done at every start too.
   -Verbose                 Show detail.      -Help   This text.
@@ -467,7 +475,7 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  pki-transport.sh - DESTINATION script for Linux and macOS
- Version 4.8.0-phaseC
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -523,8 +531,11 @@ OPTIONS
 PREPARATION
   --yes, -y             Do not ask: install what is missing (packages, 7-Zip). Needed when there is no terminal.
   --dry-run             Print every system-changing command instead of running it. Unpacking into --dest still happens.
-  --install-openssl     Build OpenSSL 4.0.3 (with the FIPS module) from the official source release into --openssl-prefix.
-                        Without it the script asks (or stops with exit code 4 when there is no terminal).
+  --install-openssl     Install OpenSSL 4 as a FULL build (FIPS provider, ML-DSA / ML-KEM, shared libraries, headers, docs) from the
+                        official source release into --openssl-prefix (default /opt/openssl-4.0.3), through Install-DevEnvironment.sh
+                        when it sits next to this script. Without the option the script asks (exit code 4 when there is no terminal).
+                        An OpenSSL 4 that lacks the FIPS module or ML-DSA is NOT accepted (a stripped build). The build takes
+                        minutes on several cores and over an hour on ONE core.
   --openssl-prefix DIR  Where --install-openssl installs. Default /opt/openssl-4.0.3.
   --openssl FILE        Use this openssl binary (4.0.1 or newer).
   --skip-openssl-check  Continue without OpenSSL 4 (the chain proof is skipped). Not recommended.
@@ -532,6 +543,8 @@ PREPARATION
   --store-dir DIR       Linux, unknown distribution: the directory of trust anchors.
   --update-cmd CMD      Linux, unknown distribution: the command that rebuilds the store (run as root).
   --destdir DIR         Prefix for the store directory (image builds, tests): nothing is run to update the store.
+  --unblock             UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, locked, immutable flags) this script's folder and
+                        --dest, children and recursive, then stop. The same is done silently at every start.
   --version             Show the version.          --help, -h   This text.
 
 PLATFORMS  (family -> store directory -> command)
@@ -548,20 +561,36 @@ LIMITATIONS
   * Needs root (or sudo) to install into the system store and to install packages. Not needed for --list or --no-trust.
   * 7-Zip packages for your distribution are tried in this order (best effort; EPEL is needed on the RHEL family):
     7zip, p7zip + p7zip-plugins, p7zip-full. A ZipCrypto zip needs only unzip. Use --7z when you have 7-Zip elsewhere.
-  * --install-openssl compiles OpenSSL: it needs a compiler, make and perl (installed when you agree) and takes minutes.
-    The checksum of the tarball is taken from the same official release page.
+  * --install-openssl compiles OpenSSL: it needs a compiler, make and perl (installed when you agree). 5 minutes on 8 cores, over an
+    hour on one core. The checksum of the tarball is taken from the same official release page. The result is proven (FIPS provider,
+    ML-DSA, ML-KEM) before the script goes on.
   * macOS: ML-DSA (post-quantum) certificates may be refused by the macOS keychain; classic CAs install.
   * Tested on Ubuntu 24.04 (real store, real packages). The other platforms are tested only by simulation (--dry-run):
     the commands are the documented ones of each distribution, but never ran on them. macOS never ran.
 ====================================================================================================
- 16  WHAT CHANGED  (4.8.0-phaseC)
+ 16  WHAT CHANGED  (4.9.0-phaseC)
 ====================================================================================================
 
- New: PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh, scripts\16_CertPack.ps1 (the archive layer) and
-     17_Transport.ps1, the
- module set Transport, Unlock/Unblock in all three, this manual. The documentation is now one manual per script
-     (pki_setup-MANUAL.txt,
- GenerateLeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt), the design in PKI-Design-with-FIPS-and-PQC.txt and the
-     acceptance steps in
- PKI-Acceptance-Checklists.txt.
+ -InstallMissing (PkiTransport.ps1, Unpack-PkiTransport.ps1): 7-Zip and OpenSSL 4 are INSTALLED, not only reported (section 17). pki-transport.sh accepts only a READY
+ OpenSSL 4 (FIPS + ML-DSA + ML-KEM, never a stripped build), builds a FULL one on request, has --unblock. The kit carries Install-DevEnvironment.ps1 / .sh.
+ 4.8.0-phaseC: new PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh, the archive layer, this manual.
+
+====================================================================================================
+ 17  PREREQUISITES: WHAT IS INSTALLED FOR YOU
+====================================================================================================
+
+ The transport needs three programs. When one is missing, the scripts install it instead of leaving you with an error:
+   Program                 Needed for                                   Windows (PkiTransport.ps1 / Unpack-PkiTransport.ps1)       Linux / macOS (pki-transport.sh)
+   ----------------------  -------------------------------------------  ---------------------------------------------------------  -------------------------------
+   OpenSSL 4.0.1+, READY   the scan; proving every chain (ML-DSA)       -InstallMissing, or answer yes: Install-DevEnvironment.ps1  asks, or --install-openssl: a FULL
+                           (FIPS provider + ML-DSA + ML-KEM, not        -Only OpenSSL (FireDaemon OpenSSL, then proven)            build (Install-DevEnvironment.sh,
+                           stripped)                                                                                                else its own copy of the build)
+   7-Zip                   a 7z package; (Linux, macOS) an AES-256 zip  -InstallMissing: Install-DevEnvironment.ps1 -Only 7Zip,    asks, or --yes: apt / dnf / zypper /
+                                                                        else WinGet 7zip.7zip                                       brew; EPEL on the RHEL family
+   certificate store tools Linux system store                           (not applicable)                                           asks, or --yes: ca-certificates
+ Where the bootstrap scripts are looked for: next to the running script and in its parent folder. The -Kit copies them, so a destination that
+ received only the kit can install what it lacks. Without -InstallMissing the PowerShell scripts ask when a person is at the console and otherwise
+ stop with the exact command to run. A STRIPPED OpenSSL 4 (no FIPS module, no ML-DSA / ML-KEM) is not accepted by pki-transport.sh; on Windows run
+ Install-DevEnvironment.ps1 -Check to see the readiness table. OpenSSL BUILD TIME (Linux, macOS): about 5 minutes on 8 cores, over an hour on one core.
+ Details and the readiness checks: Install-DevEnvironment-MANUAL.txt.
 ====================================================================================================

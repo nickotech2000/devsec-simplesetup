@@ -113,7 +113,7 @@ function Show-PkiHelp {
     @'
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.7.0-phaseB
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -121,6 +121,7 @@ function Show-PkiHelp {
  Manual : pki_setup-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt
  Public CA : PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : scripts\README.txt
  Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   GenerateLeafCertificate-MANUAL.txt
+ Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./pki-transport.sh --help   PkiTransport-MANUAL.txt
 
 REQUIREMENTS
   PowerShell 7+ and OpenSSL 4.x ONLY. OpenSSL 3.x is refused. When several OpenSSL versions are installed
@@ -244,6 +245,12 @@ LEAF CERTIFICATES  (Phase B)
   Install-DevEnvironment.ps1), never overwrites a folder (a new one with the date and time is created) and has the
   same -Unblock. Names of the folders and files: agantra_pki.cnf [ leaf_names ].
   .\GenerateLeafCertificate.ps1 -Help    Manual: GenerateLeafCertificate-MANUAL.txt
+
+TRANSPORT  (Phase C)
+  .\PkiTransport.ps1 -Pack packs this PKI into a password-protected .certpacked (a zip or 7z under another name): CA certificates
+  only, or with the leafcerts, or with the whole PKI and its CA keys. On a Windows 11 25H2+ machine .\PkiTransport.ps1 -Install scans,
+  unpacks and installs the trust; Unpack-PkiTransport.ps1 only unpacks; pki-transport.sh does it on Linux and macOS.
+  Manual: PkiTransport-MANUAL.txt.
 
 CLASSIC PKI  (-ClassicPKI)
   Builds only:  Enterprise Root -> Classic Track Root -> Q1 Root -> DV / OV / EV intermediates

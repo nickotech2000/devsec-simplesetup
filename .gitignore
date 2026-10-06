@@ -1,2 +1,4 @@
 /pki
 /leafcerts/
+/transport/
+*.certpacked

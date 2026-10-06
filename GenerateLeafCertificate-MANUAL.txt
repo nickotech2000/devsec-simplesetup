@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.7.0-phaseB          2026-10-05
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.0-phaseC          2026-10-06
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: .\GenerateLeafCertificate.ps1 -Help     (the same text as section 13 of this file)
           pki_setup-MANUAL.txt                  (the PKI itself, trust, servers)
@@ -48,8 +48,7 @@
        [PASS] FIPS provider          [PASS] ML-DSA (FIPS provider)
    What THIS run needs and is missing STOPS the script (a FIPS leaf needs the FIPS provider, a Quantum leaf needs
    ML-DSA). What it does not need is a warning. Both suggest the fix: run your bootstrap, elevated, OpenSSL only:
-       .\Install-DevEnvironment.ps1 -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython `
-           -SkipGit -SkipWindowsTerminal
+       .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
    then open a NEW PowerShell window. OpenSSL 3.x is refused. Check only:   .\GenerateLeafCertificate.ps1 -Check
  * A quadrant the PKI does not have (built with -ClassicPKI or -Quadrant) is refused with the way to build it.
 ====================================================================================================
@@ -275,7 +274,7 @@
 ====================================================================================================
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.7.0-phaseB
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

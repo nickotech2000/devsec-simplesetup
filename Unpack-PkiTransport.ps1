@@ -31,6 +31,7 @@ param(
     [string[]]$LeafName,
     [switch]$List,
     [switch]$Force,
+    [switch]$InstallMissing,
     [string]$SevenZipPath,
     [switch]$Unblock,
     [switch]$Help,
@@ -44,7 +45,7 @@ function Show-PkiUnpackHelp {
     @'
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 4.8.0-phaseC
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -83,6 +84,8 @@ PARAMETERS
   -List                    Show scope, CAs, leaves and files; write nothing.
   -Force                   Overwrite files that exist and differ (identical files are left alone).
   -SevenZipPath <exe>      7-Zip, for a 7z package (zip packages need nothing).
+  -InstallMissing          A 7z package and no 7-Zip: install 7-Zip (Install-DevEnvironment.ps1 -Only 7Zip, or WinGet; Linux / macOS:
+                           Install-DevEnvironment.sh --only 7zip) instead of stopping. Without it you are asked when a person is there.
   -Unblock                 UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and -Destination, children
                            and recursive, list the programs that hold files open, and stop. Done at every start too.
   -Verbose                 Show detail.      -Help   This text.
@@ -145,6 +148,11 @@ try {
     if ([string]::IsNullOrEmpty($pw)) { $pw = $env:PKI_TRANSPORT_PASSWORD }
     if ([string]::IsNullOrEmpty($pw)) { $pw = Read-PkiPackagePassword }
 
+    if ((Get-PkiArchiveType -Path $Package) -eq '7z' -and -not (Find-PkiSevenZip -Explicit $SevenZipPath)) {
+        $doInstall = [bool]$InstallMissing
+        if (-not $doInstall) { $doInstall = Confirm-PkiInstall 'This is a 7z package and 7-Zip was not found. Install 7-Zip now?' }
+        if ($doInstall) { [void](Install-PkiSevenZip) }
+    }
     Write-PkiLog "Opening $Package ($(Get-PkiArchiveType -Path $Package))"
     $script:PackageOpened = Open-PkiCertPackage -Path $Package -Password $pw -SevenZipPath $SevenZipPath
     $m = $script:PackageOpened.Manifest

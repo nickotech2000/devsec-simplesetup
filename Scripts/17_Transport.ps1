@@ -576,7 +576,7 @@ function Write-PkiTransportKit {
     Ensure-PkiDirectory -Path $KitDirectory
     $scripts = Join-Path $KitDirectory 'scripts'
     Ensure-PkiDirectory -Path $scripts
-    $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'PkiTransport-MANUAL.txt'
+    $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt'
     foreach ($f in $top) { if (Test-Path -LiteralPath (Join-Path $Root $f)) { Copy-Item -LiteralPath (Join-Path $Root $f) -Destination $KitDirectory -Force } }
     foreach ($f in 'PkiModules.ps1', '00_Common.ps1', '02_OpenSSL.ps1', '07_TrustStore.ps1', '09_Administrator.ps1', '16_CertPack.ps1', '17_Transport.ps1') {
         $src = Join-Path (Join-Path $Root 'scripts') $f
@@ -617,4 +617,34 @@ function Test-PkiPackageChains {
     Write-PkiLog "$($bad.Count) of $($targets.Count) certificate(s) do NOT chain to the roots of the package:" 'ERROR'
     foreach ($b in $bad) { Write-PkiLog "  $b" 'ERROR' }
     return $false
+}
+
+
+function Install-PkiOpenSsl {
+    <#
+    .SYNOPSIS
+        Installs OpenSSL 4 (FIPS and quantum-safe, proven) with the bootstrap script: Install-DevEnvironment.ps1 on Windows
+        (-Only OpenSSL, elevated), Install-DevEnvironment.sh elsewhere (--yes --only openssl). Returns $true when the bootstrap
+        reports success; the caller scans again.
+    #>
+    if ($IsWindows) {
+        $ide = Find-PkiCompanionScript -Name 'Install-DevEnvironment.ps1'
+        if (-not $ide) { Write-PkiLog 'Install-DevEnvironment.ps1 was not found next to the scripts. Copy it here (the -Kit has it) and run it:  .\Install-DevEnvironment.ps1 -Only OpenSSL' 'WARN'; return $false }
+        Assert-Administrator
+        Write-PkiLog "Installing OpenSSL 4 with $ide (FireDaemon OpenSSL: FIPS + quantum-safe, then proven)" 'INFO'
+        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $ide -Only OpenSSL | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        return ($LASTEXITCODE -eq 0)
+    }
+    $sh = Find-PkiCompanionScript -Name 'Install-DevEnvironment.sh'
+    if (-not $sh) { Write-PkiLog 'Install-DevEnvironment.sh was not found next to the scripts (the -Kit has it).' 'WARN'; return $false }
+    Write-PkiLog "Installing OpenSSL 4 with $sh (a FULL build: FIPS + ML-DSA / ML-KEM; minutes on several cores, over an hour on one)" 'INFO'
+    & bash $sh --yes --only openssl | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    return ($LASTEXITCODE -eq 0)
+}
+
+function Confirm-PkiInstall {
+    # Asks (when a person is there) whether to install what is missing.
+    param([Parameter(Mandatory)][string]$Question)
+    if ([Console]::IsInputRedirected -or -not [Environment]::UserInteractive) { return $false }
+    return ((Read-Host "$Question [y/N]") -match '^(y|yes)$')
 }

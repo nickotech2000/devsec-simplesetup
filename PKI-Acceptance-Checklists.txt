@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.8.0-phaseC     2026-10-06
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.0-phaseC     2026-10-06
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt,
@@ -134,4 +134,26 @@
         rebuilt
 
  Report back: C4, C6, C7 (and certlm.msc), C10 to C14, and anything that fails.
+
+====================================================================================================
+ D  DEVELOPER BOOTSTRAP ACCEPTANCE CHECKLIST  (Install-DevEnvironment.ps1 / .sh)
+====================================================================================================
+
+  #     Where / command                                              Expected
+  ---   -----------------------------------------------------------  ---------------------------------------------------------
+  D1    Windows 11: .\Install-DevEnvironment.ps1 -Check              the component list; OpenSSL readiness table (no installation)
+  D2    Windows 11, elevated: .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip      FireDaemon OpenSSL >= 4.0.1, 7-Zip; table: version, FIPS,
+                                                                     ML-DSA, ML-KEM all PASS; "master openssl.cnf" without oqsprovider
+  D3    Windows 11: run it again                                     nothing is reinstalled; exit code 0
+  D4    Windows 11: .\Install-DevEnvironment.ps1 -Unblock            counts of unblocked / unlocked items
+  D5    Windows 11 kit: .\PkiTransport.ps1 -Install ... -InstallMissing on a machine WITHOUT OpenSSL 4     it installs OpenSSL, scans again, goes on
+  D6    Ubuntu 26: sudo ./Install-DevEnvironment.sh --yes --only openssl,7zip      7-Zip installed; OpenSSL 4 built (minutes to over an hour),
+                                                                     five checks PASS, link /usr/local/bin/openssl4; the system openssl unchanged
+  D7    CentOS Stream 10 / Rocky 10 / RHEL 9 / Oracle 10: the same     7-Zip from EPEL (or report), OpenSSL built
+  D8    SLES 16 / openSUSE Tumbleweed: the same                      7zip / p7zip, OpenSSL built
+  D9    macOS M2 and M4: ./Install-DevEnvironment.sh --yes --only openssl,7zip   Xcode tools present; sevenzip by brew; OpenSSL built; five checks
+  D10   any: ./Install-DevEnvironment.sh --check --only openssl      READY (exit 0) after D6 to D9; NOT READY (exit 4) before
+  D11   any Linux / macOS: ./Install-DevEnvironment.sh --unblock     files writable and executable; macOS: no quarantine mark
+
+ Report back: D2 (the readiness table), D5, D6 to D9 (how long the build took), and anything that fails.
 ====================================================================================================

@@ -15,7 +15,7 @@
 # Manual : PkiTransport-MANUAL.txt        Help: ./pki-transport.sh --help
 # ============================================================
 
-VERSION="4.8.0-phaseC"
+VERSION="4.9.0-phaseC"
 PREFIX_NAME="agantra-pki-"                 # every file this script puts in the system store starts with this
 OSSL_MIN_MAJOR=4; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=1
 OSSL_BUILD_VERSION="4.0.3"                 # the version --install-openssl builds
@@ -26,7 +26,7 @@ usage() {
 cat <<'EOF'
 ============================================================
  pki-transport.sh - DESTINATION script for Linux and macOS
- Version 4.8.0-phaseC
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -82,8 +82,11 @@ OPTIONS
 PREPARATION
   --yes, -y             Do not ask: install what is missing (packages, 7-Zip). Needed when there is no terminal.
   --dry-run             Print every system-changing command instead of running it. Unpacking into --dest still happens.
-  --install-openssl     Build OpenSSL 4.0.3 (with the FIPS module) from the official source release into --openssl-prefix.
-                        Without it the script asks (or stops with exit code 4 when there is no terminal).
+  --install-openssl     Install OpenSSL 4 as a FULL build (FIPS provider, ML-DSA / ML-KEM, shared libraries, headers, docs) from the
+                        official source release into --openssl-prefix (default /opt/openssl-4.0.3), through Install-DevEnvironment.sh
+                        when it sits next to this script. Without the option the script asks (exit code 4 when there is no terminal).
+                        An OpenSSL 4 that lacks the FIPS module or ML-DSA is NOT accepted (a stripped build). The build takes
+                        minutes on several cores and over an hour on ONE core.
   --openssl-prefix DIR  Where --install-openssl installs. Default /opt/openssl-4.0.3.
   --openssl FILE        Use this openssl binary (4.0.1 or newer).
   --skip-openssl-check  Continue without OpenSSL 4 (the chain proof is skipped). Not recommended.
@@ -91,6 +94,8 @@ PREPARATION
   --store-dir DIR       Linux, unknown distribution: the directory of trust anchors.
   --update-cmd CMD      Linux, unknown distribution: the command that rebuilds the store (run as root).
   --destdir DIR         Prefix for the store directory (image builds, tests): nothing is run to update the store.
+  --unblock             UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, locked, immutable flags) this script's folder and
+                        --dest, children and recursive, then stop. The same is done silently at every start.
   --version             Show the version.          --help, -h   This text.
 
 PLATFORMS  (family -> store directory -> command)
@@ -107,13 +112,30 @@ LIMITATIONS
   * Needs root (or sudo) to install into the system store and to install packages. Not needed for --list or --no-trust.
   * 7-Zip packages for your distribution are tried in this order (best effort; EPEL is needed on the RHEL family):
     7zip, p7zip + p7zip-plugins, p7zip-full. A ZipCrypto zip needs only unzip. Use --7z when you have 7-Zip elsewhere.
-  * --install-openssl compiles OpenSSL: it needs a compiler, make and perl (installed when you agree) and takes minutes.
-    The checksum of the tarball is taken from the same official release page.
+  * --install-openssl compiles OpenSSL: it needs a compiler, make and perl (installed when you agree). 5 minutes on 8 cores, over an
+    hour on one core. The checksum of the tarball is taken from the same official release page. The result is proven (FIPS provider,
+    ML-DSA, ML-KEM) before the script goes on.
   * macOS: ML-DSA (post-quantum) certificates may be refused by the macOS keychain; classic CAs install.
   * Tested on Ubuntu 24.04 (real store, real packages). The other platforms are tested only by simulation (--dry-run):
     the commands are the documented ones of each distribution, but never ran on them. macOS never ran.
 EOF
 }
+
+# ------------------------------------------------------------------------------------------------ UNBLOCK + UNLOCK
+SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+unblock_unlock() {   # $1 = folder ; children and recursive. Linux: write bit, immutable flag. macOS: quarantine mark, locked flags.
+  local d="$1"
+  [ -d "$d" ] || return 0
+  chmod -R u+rw "$d" 2>/dev/null
+  find "$d" -maxdepth 3 -type f -name '*.sh' -exec chmod u+x {} + 2>/dev/null
+  case "${PKI_UNAME:-$(uname -s)}" in
+    Darwin) command -v xattr >/dev/null 2>&1 && xattr -dr com.apple.quarantine "$d" 2>/dev/null
+            command -v chflags >/dev/null 2>&1 && chflags -R nouchg,noschg "$d" 2>/dev/null ;;
+    *)      command -v chattr >/dev/null 2>&1 && chattr -R -i "$d" 2>/dev/null ;;
+  esac
+  return 0
+}
+unblock_unlock "$SCRIPT_DIR"
 
 # ------------------------------------------------------------------------------------------------ messages
 if [ -t 1 ]; then C_R=$(printf '\033[31m'); C_G=$(printf '\033[32m'); C_Y=$(printf '\033[33m'); C_C=$(printf '\033[36m'); C_0=$(printf '\033[0m'); else C_R=; C_G=; C_Y=; C_C=; C_0=; fi
@@ -132,7 +154,7 @@ dry()   { printf '%s[DRY ]%s %s\n' "$C_C" "$C_0" "$*"; }
 # ------------------------------------------------------------------------------------------------ options
 PACKAGE=""; PASS=""; PASSFILE=""; DEST=""; EXTRACT=""; LEAF=""; TRUST="roots"; DO_TRUST=1; REMOVE=0; LIST=0; CHECK=0
 FORCE=0; NOVERIFY=0; YES=0; DRYRUN=0; INSTALL_OSSL=0; OSSL_PREFIX=""; OSSL_BIN=""; SKIP_OSSL=0; SEVENZ=""
-STORE_DIR_OVERRIDE=""; UPDATE_CMD_OVERRIDE=""; DESTDIR=""
+STORE_DIR_OVERRIDE=""; UPDATE_CMD_OVERRIDE=""; DESTDIR=""; UNBLOCK=0
 
 need_value() { [ $# -ge 2 ] && [ -n "$2" ] || die "Option $1 needs a value. See --help." 1; }
 while [ $# -gt 0 ]; do
@@ -161,11 +183,17 @@ while [ $# -gt 0 ]; do
     --7z) need_value "$@"; SEVENZ="$2"; shift 2 ;;              --7z=*) SEVENZ="${1#*=}"; shift ;;
     --store-dir) need_value "$@"; STORE_DIR_OVERRIDE="$2"; shift 2 ;; --store-dir=*) STORE_DIR_OVERRIDE="${1#*=}"; shift ;;
     --update-cmd) need_value "$@"; UPDATE_CMD_OVERRIDE="$2"; shift 2 ;; --update-cmd=*) UPDATE_CMD_OVERRIDE="${1#*=}"; shift ;;
+    --unblock) UNBLOCK=1; shift ;;
     --destdir) need_value "$@"; DESTDIR="$2"; shift 2 ;;        --destdir=*) DESTDIR="${1#*=}"; shift ;;
     -*) die "Unknown option $1. See ./pki-transport.sh --help" 1 ;;
     *) if [ -z "$PACKAGE" ]; then PACKAGE="$1"; shift; else die "Unexpected argument $1. See --help." 1; fi ;;
   esac
 done
+if [ "$UNBLOCK" = 1 ]; then
+  echo "UNBLOCK + UNLOCK (children and recursive): $SCRIPT_DIR"; unblock_unlock "$SCRIPT_DIR"
+  [ -n "$DEST" ] && unblock_unlock "$DEST"
+  echo "Done: write permission set, scripts executable; quarantine / locked / immutable flags removed where the system has them."; exit 0
+fi
 case "$TRUST" in roots|enterprise|all-ca) ;; none) DO_TRUST=0 ;; *) die "--trust must be roots, enterprise, all-ca or none (got '$TRUST')." 1 ;; esac
 
 # ------------------------------------------------------------------------------------------------ platform
@@ -259,6 +287,30 @@ ver_ok() {      # "maj min pat" >= minimum ?
 }
 
 # ------------------------------------------------------------------------------------------------ OpenSSL 4
+# The proof: version, FIPS provider active, ML-DSA sign + verify, ML-KEM key generation, ML-DSA inside the FIPS provider.
+openssl_ready() {   # $1 = openssl binary, $2 = quiet ; returns 0 when ALL checks pass
+  local o="$1" q="$2" t fips="" ok_all=0 prefix cnf v
+  t="$(mktemp -d "${TMPDIR:-/tmp}/ossl-ready.XXXXXX")" || return 1
+  row() { [ "$q" = quiet ] || scan "$1" "$2" "$3" "$4"; }
+  v="$("$o" version 2>/dev/null | head -1)"
+  if ver_ok "$(ver_parts "$v")"; then row "$C_G" PASS "version" "$(echo "$v" | cut -d'(' -f1)"; else row "$C_R" FAIL "version" "${v:-not runnable}"; ok_all=1; fi
+  prefix="$(cd "$(dirname "$o")/.." 2>/dev/null && pwd)"
+  for cnf in "$prefix/ssl/fipsmodule.cnf" "$prefix/etc/ssl/fipsmodule.cnf" "$(dirname "$o")/fipsmodule.cnf"; do [ -f "$cnf" ] && { fips="$cnf"; break; }; done
+  if [ -n "$fips" ]; then
+    printf 'openssl_conf = openssl_init\n.include %s\n[openssl_init]\nproviders = provider_sect\n[provider_sect]\nfips = fips_sect\nbase = base_sect\n[base_sect]\nactivate = 1\n' "$fips" > "$t/fips.cnf"
+    if OPENSSL_CONF="$t/fips.cnf" "$o" list -providers -provider fips -provider base 2>&1 | grep -q 'fips'; then row "$C_G" PASS "FIPS provider" "active ($fips)"; else row "$C_R" FAIL "FIPS provider" "does not load"; ok_all=1; fips=""; fi
+  else row "$C_R" FAIL "FIPS provider" "no fipsmodule.cnf: a stripped build"; ok_all=1; fi
+  echo hello > "$t/d.txt"
+  if "$o" genpkey -algorithm ML-DSA-65 -out "$t/k.pem" >/dev/null 2>&1 && "$o" pkeyutl -sign -inkey "$t/k.pem" -rawin -in "$t/d.txt" -out "$t/s.bin" >/dev/null 2>&1 \
+     && "$o" pkeyutl -verify -inkey "$t/k.pem" -rawin -in "$t/d.txt" -sigfile "$t/s.bin" >/dev/null 2>&1; then row "$C_G" PASS "ML-DSA" "ML-DSA-65 sign and verify"; else row "$C_R" FAIL "ML-DSA" "ML-DSA-65 failed"; ok_all=1; fi
+  if "$o" genpkey -algorithm ML-KEM-768 -out "$t/kem.pem" >/dev/null 2>&1 && [ -s "$t/kem.pem" ]; then row "$C_G" PASS "ML-KEM" "ML-KEM-768 key generation"; else row "$C_R" FAIL "ML-KEM" "ML-KEM-768 failed"; ok_all=1; fi
+  if [ -n "$fips" ]; then
+    if OPENSSL_CONF="$t/fips.cnf" "$o" genpkey -provider fips -propquery fips=yes -algorithm ML-DSA-65 -out "$t/kf.pem" >/dev/null 2>&1 && [ -s "$t/kf.pem" ]; then row "$C_G" PASS "ML-DSA in FIPS" "inside the FIPS provider"; else row "$C_Y" WARN "ML-DSA in FIPS" "not available inside the FIPS provider"; fi
+  fi
+  rm -rf "$t"
+  return $ok_all
+}
+
 OPENSSL=""; OSSL_TEXT=""; OSSL_OLD=""
 find_openssl() {
   OPENSSL=""; OSSL_TEXT=""; OSSL_OLD=""
@@ -271,7 +323,11 @@ find_openssl() {
     v="$("$c" version 2>/dev/null | head -1)"
     p="$(ver_parts "$v")"
     [ -n "$p" ] || continue
-    if ver_ok "$p"; then OPENSSL="$c"; OSSL_TEXT="$(echo "$v" | cut -d'(' -f1 | sed 's/ *$//')"; return 0; fi
+    if ver_ok "$p"; then
+      if openssl_ready "$c" quiet; then OPENSSL="$c"; OSSL_TEXT="$(echo "$v" | cut -d'(' -f1 | sed 's/ *$//')"; return 0; fi
+      [ -z "$OSSL_OLD" ] && OSSL_OLD="$(echo "$v" | cut -d'(' -f1 | sed 's/ *$//') at $c (a STRIPPED build: no FIPS module or no ML-DSA / ML-KEM)"
+      continue
+    fi
     [ -z "$OSSL_OLD" ] && OSSL_OLD="$(echo "$v" | cut -d'(' -f1 | sed 's/ *$//') at $c"
   done
   return 1
@@ -280,7 +336,7 @@ find_openssl() {
 build_openssl() {
   local prefix="${OSSL_PREFIX:-/opt/openssl-$OSSL_BUILD_VERSION}" v="$OSSL_BUILD_VERSION" work base ncpu
   base="https://github.com/openssl/openssl/releases/download/openssl-$v"
-  info "Building OpenSSL $v (with the FIPS module) into $prefix. This takes several minutes."
+  info "Building OpenSSL $v as a FULL build (FIPS provider, ML-DSA / ML-KEM, shared libraries, headers, docs) into $prefix. Minutes on several cores, over an hour on one."
   # build tools
   local missing=""
   command -v make >/dev/null 2>&1 || missing="make"
@@ -300,8 +356,8 @@ build_openssl() {
   fi
   if [ "$DRYRUN" = 1 ]; then
     dry "curl -fL -o openssl-$v.tar.gz $base/openssl-$v.tar.gz   (+ the .sha256 file, checked)"
-    dry "./Configure --prefix=$prefix --openssldir=$prefix/ssl --libdir=lib enable-fips no-docs -Wl,-rpath,$prefix/lib"
-    dry "make -j && make install_sw install_ssldirs install_fips"
+    dry "./Configure --prefix=$prefix --openssldir=$prefix/ssl --libdir=lib enable-fips -Wl,-rpath,$prefix/lib   (full build)"
+    dry "make -j && make install   (installs the FIPS module, writes fipsmodule.cnf)"
     return 0
   fi
   work="$(mktemp -d "${TMPDIR:-/tmp}/pki-openssl.XXXXXX")" || return 1
@@ -318,13 +374,14 @@ build_openssl() {
   ok "OpenSSL $v tarball: SHA-256 matches the official release page."
   ncpu="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)"
   ( cd "$work" && tar xzf "openssl-$v.tar.gz" && cd "openssl-$v" || exit 1
-    ./Configure --prefix="$prefix" --openssldir="$prefix/ssl" --libdir=lib enable-fips no-docs "-Wl,-rpath,$prefix/lib" > "$work/configure.log" 2>&1 || { tail -5 "$work/configure.log"; exit 1; }
+    ./Configure --prefix="$prefix" --openssldir="$prefix/ssl" --libdir=lib enable-fips "-Wl,-rpath,$prefix/lib" > "$work/configure.log" 2>&1 || { tail -5 "$work/configure.log"; exit 1; }
     make -j"$ncpu" > "$work/make.log" 2>&1 || { tail -8 "$work/make.log"; exit 1; }
-    if [ -w "$(dirname "$prefix")" ] || [ "$(id -u)" = 0 ]; then make install_sw install_ssldirs install_fips > "$work/install.log" 2>&1 || { tail -8 "$work/install.log"; exit 1; }
-    else sudo make install_sw install_ssldirs install_fips > "$work/install.log" 2>&1 || { tail -8 "$work/install.log"; exit 1; }; fi ) || { err "Building OpenSSL $v failed."; rm -rf "$work"; return 1; }
+    if [ -w "$(dirname "$prefix")" ] || [ "$(id -u)" = 0 ]; then make install > "$work/install.log" 2>&1 || { tail -8 "$work/install.log"; exit 1; }
+    else sudo make install > "$work/install.log" 2>&1 || { tail -8 "$work/install.log"; exit 1; }; fi ) || { err "Building OpenSSL $v failed."; rm -rf "$work"; return 1; }
   rm -rf "$work"
   OSSL_PREFIX="$prefix"
   ok "OpenSSL $v installed in $prefix (the system openssl is untouched; use $prefix/bin/openssl)."
+  mkdir -p /usr/local/bin 2>/dev/null; priv ln -sf "$prefix/bin/openssl" /usr/local/bin/openssl4 2>/dev/null
   return 0
 }
 
@@ -340,12 +397,18 @@ ensure_openssl() {
     elif [ "$YES" = 1 ] && [ "$DRYRUN" = 0 ]; then go=1; fi
   fi
   if [ "$go" = 1 ] || [ "$DRYRUN" = 1 ]; then
-    build_openssl || return 4
+    if [ -x "$SCRIPT_DIR/Install-DevEnvironment.sh" ] || [ -f "$SCRIPT_DIR/Install-DevEnvironment.sh" ]; then
+      info "Using Install-DevEnvironment.sh for the OpenSSL installation."
+      bash "$SCRIPT_DIR/Install-DevEnvironment.sh" --yes --only openssl ${OSSL_PREFIX:+--openssl-prefix "$OSSL_PREFIX"} $([ "$DRYRUN" = 1 ] && echo --dry-run) || return 4
+    else
+      build_openssl || return 4
+    fi
     [ "$DRYRUN" = 1 ] && return 0
-    find_openssl && { pass "OpenSSL" "$OSSL_TEXT  [$OPENSSL]"; return 0; }
+    if find_openssl; then pass "OpenSSL" "$OSSL_TEXT  [$OPENSSL]"; openssl_ready "$OPENSSL"; return 0; fi
   fi
   err "OpenSSL 4.0.1 or newer is required on this machine."
-  echo "  Install it with this script:   ./pki-transport.sh --install-openssl --package <file>      (builds $OSSL_BUILD_VERSION from source)"
+  echo "  Install it with this script:   ./pki-transport.sh --install-openssl --package <file>      (a FULL build of $OSSL_BUILD_VERSION: FIPS + ML-DSA / ML-KEM)"
+  echo "  Or with the bootstrap:          ./Install-DevEnvironment.sh --yes --only openssl"
   echo "  Or use your own build:         --openssl /path/to/openssl      Or skip the check (not recommended): --skip-openssl-check"
   return 4
 }

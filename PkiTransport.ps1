@@ -61,6 +61,7 @@ param(
     [string]$PfxPassword = 'Abc12345!',
     [switch]$Force,
     [switch]$SkipOpenSslCheck,
+    [switch]$InstallMissing,
 
     # ---- environment ----
     [string]$ConfigFile,
@@ -80,7 +81,7 @@ function Show-PkiTransportHelp {
     @'
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 4.8.0-phaseC
+ Version 4.9.0-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -122,8 +123,9 @@ PACK  (source)
                          when private keys are included).        -SevenZipPath <exe>   7-Zip, for 7z.
   -IncludeLeafCerts      Adds leafcerts\ (next to the scripts). Contains private keys.   -LeafName <wildcards>  only those.
   -IncludeCaKeys         Adds pki\ with the CA private keys. Only for a machine that must issue certificates.
-  -Kit                   Also writes <name>-kit\ next to the package: the three transport scripts, the modules the
-                         destination needs and the manual. The destination then needs nothing else.
+  -Kit                   Also writes <name>-kit\ next to the package: the three transport scripts, the two bootstrap scripts
+                         (Install-DevEnvironment.ps1 / .sh), the modules the destination needs and the manuals. The destination then
+                         needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
   -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
@@ -134,8 +136,8 @@ INSTALL  (destination: Windows 11 25H2 or newer)
   .\PkiTransport.ps1 -Install -Package .\dev.certpacked
   1. SCAN. Windows 11 client, version 25H2 (build 26200) or newer. Windows 11 24H2 and older, Windows 10, 8.1, 7, Windows
      Server and everything else are NOT supported: the script says why and stops (exit code 2).
-     OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: the script stops (exit code 4) and suggests
-     Install-DevEnvironment.ps1 (OpenSSL with FIPS and quantum support). -SkipOpenSslCheck continues anyway.
+     OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: it is INSTALLED when you agree (or give -InstallMissing) with
+     Install-DevEnvironment.ps1; otherwise the script stops (exit code 4). -SkipOpenSslCheck continues anyway.
      Elevated PowerShell (administrator).
   2. Only then: the package is decrypted, every file is checked against its SHA-256, and what -Extract selects is
      written to -Destination.
@@ -148,6 +150,9 @@ INSTALL  (destination: Windows 11 25H2 or newer)
   -InstallLeafPfx        Also imports the leaf PFX files into LocalMachine\My (only the leaf). Needs leafcerts in the
                          package. -PfxPassword <text> is the PFX password (default Abc12345!).
   -Force                 Overwrite files that exist and differ.     -SevenZipPath <exe>   7-Zip, for a 7z package.
+  -InstallMissing        Install what is missing instead of only reporting it: 7-Zip (7z packages, -ArchiveFormat 7z) and OpenSSL 4.0.1+
+                         (FIPS + quantum-safe, proven) with Install-DevEnvironment.ps1, which must sit next to this script (the kit has
+                         it). Without the switch you are asked when a person is at the console.
   -OpenSslPath <exe>     Use this openssl.        -SkipOpenSslCheck   Do not stop when OpenSSL 4.0.1+ is missing.
   -NoVerify              Do not run the OpenSSL chain check at the end.
 
@@ -245,6 +250,11 @@ try {
         [void](Import-PkiExisting -SkipProviders)
         $leafRoot = Get-PkiLeafRoot
         if ($ZipEncryption -eq 'ZipCrypto' -and ($IncludeLeafCerts -or $IncludeCaKeys)) { throw '-ZipEncryption ZipCrypto is weak and is refused for a package with private keys (-IncludeLeafCerts, -IncludeCaKeys). Use Aes256.' }
+        if ($ArchiveFormat -eq '7z' -and -not (Find-PkiSevenZip -Explicit $SevenZipPath)) {
+            $doInstall = [bool]$InstallMissing
+            if (-not $doInstall) { $doInstall = Confirm-PkiInstall '7-Zip is needed for a 7z package and was not found. Install it now?' }
+            if ($doInstall) { [void](Install-PkiSevenZip) }
+        }
         if ($ArchiveFormat -eq '7z' -and -not (Find-PkiSevenZip -Explicit $SevenZipPath)) { throw "-ArchiveFormat 7z needs 7-Zip and none was found. Install it (winget install 7zip.7zip) or give -SevenZipPath. The default zip format needs nothing." }
         if ($ArchiveFormat -eq 'zip' -and $ZipEncryption -eq 'ZipCrypto') { Write-PkiLog 'ZipCrypto is the old PKWARE encryption: weak against known-plaintext attacks. It is fine for CA certificates (public), not for anything secret.' 'WARN' }
         if ($IncludeLeafCerts) { Write-PkiLog "The package will contain the LEAF CERTIFICATES of $leafRoot WITH THEIR PRIVATE KEYS." 'WARN' }
@@ -280,7 +290,7 @@ try {
             $kitDir = Join-Path (Split-Path -Parent $res.Path) (([System.IO.Path]::GetFileNameWithoutExtension($res.Path)) + '-kit')
             $kf = Write-PkiTransportKit -Root $script:ScriptRoot -KitDirectory $kitDir
             Write-Host ''
-            Write-Host ("  Kit         : {0}   ({1} files: the three transport scripts, the modules, the manual)" -f $kitDir, $kf.Count)
+            Write-Host ("  Kit         : {0}   ({1} files: the transport scripts, Install-DevEnvironment.ps1 / .sh, the modules, the manuals)" -f $kitDir, $kf.Count)
         }
         Write-Host ''
         Write-PkiLog 'Next: copy the .certpacked (and the kit) to the destination.  Windows 11 25H2+: .\PkiTransport.ps1 -Install -Package <file>   Linux / macOS: ./pki-transport.sh --package <file>' 'INFO'
@@ -307,6 +317,11 @@ try {
     else { & $say 'Operating system' 'FAIL' "$($sup.Name)$(if ($sup.Build) { ', build ' + $sup.Build })"; & $sayRaw "      $($sup.Reason)" 'Red'; & $sayRaw "      Required: $($sup.Required)." 'Red'; $scanOk = $false }
     & $say 'PowerShell' 'PASS' "$($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))"
     $ossl = Get-PkiDestinationOpenSsl -ExplicitPath $OpenSslPath
+    if ($ossl.Status -ne 'Ok' -and -not $SkipOpenSslCheck -and $Install -and $sup.Supported) {
+        $doInstall = [bool]$InstallMissing
+        if (-not $doInstall) { $doInstall = Confirm-PkiInstall 'OpenSSL 4.0.1+ is missing. Install it now (Install-DevEnvironment.ps1 -Only OpenSSL)?' }
+        if ($doInstall) { [void](Install-PkiOpenSsl); $ossl = Get-PkiDestinationOpenSsl -ExplicitPath $OpenSslPath }
+    }
     switch ($ossl.Status) {
         'Ok' {
             $script:PkiDestOpenSslText = $ossl.Best.Text.Split([char]40)[0].Trim()
@@ -343,6 +358,11 @@ try {
     # ---------------- open the package ----------------
     if (-not $Package) { throw '-Package <file> is needed.' }
     $pw = & $getPassword $false
+    if ((Get-PkiArchiveType -Path $Package) -eq '7z' -and -not (Find-PkiSevenZip -Explicit $SevenZipPath)) {
+        $doInstall = [bool]$InstallMissing
+        if (-not $doInstall) { $doInstall = Confirm-PkiInstall 'This is a 7z package and 7-Zip was not found. Install 7-Zip now?' }
+        if ($doInstall) { [void](Install-PkiSevenZip) }
+    }
     Write-PkiLog "Opening $Package ($(Get-PkiArchiveType -Path $Package))"
     $script:PackageOpened = Open-PkiCertPackage -Path $Package -Password $pw.Password -SevenZipPath $SevenZipPath
     $m = $script:PackageOpened.Manifest

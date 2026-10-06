@@ -57,6 +57,7 @@ function Get-PkiOpenSslCandidates {
     }
     else {
         foreach ($p in '/opt/homebrew/opt/openssl@4/bin/openssl', '/usr/local/opt/openssl@4/bin/openssl', '/opt/homebrew/bin/openssl', '/usr/local/bin/openssl') { & $add $p }
+        foreach ($g in '/opt/openssl-4*/bin/openssl', '/usr/local/openssl-4*/bin/openssl', (Join-Path $HOME '.local/openssl-4*/bin/openssl')) { foreach ($f in @(Get-ChildItem -Path $g -ErrorAction SilentlyContinue)) { & $add $f.FullName } }
     }
     return ,$list
 }
@@ -68,7 +69,7 @@ function Get-PkiBootstrapCommand {
         if ($root -and (Test-Path -LiteralPath (Join-Path $root 'Install-DevEnvironment.ps1'))) { $boot = Join-Path $root 'Install-DevEnvironment.ps1'; break }
     }
     $b = if ($boot) { $boot } else { '.\Install-DevEnvironment.ps1' }
-    return "$b -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipWindowsTerminal"
+    return "$b -Only OpenSSL,7Zip"
 }
 
 function Get-PkiOpenSslCapabilityAdvice {
@@ -93,10 +94,10 @@ HOW TO FIX (Windows)
     }
     return $head + @"
 HOW TO FIX
-  Install or build OpenSSL 4.x with the FIPS module (enable-fips), create the module configuration with
-      openssl fipsinstall -out fipsmodule.cnf -module <path to fips.so>
-  and pass it:  -OpenSslPath /path/to/openssl  -FipsModuleConfig /path/to/fipsmodule.cnf
-  (On Windows, Install-DevEnvironment.ps1 does all of this.)
+  Run the bootstrap: it builds OpenSSL 4 as a FULL build (FIPS module, ML-DSA, ML-KEM) and proves it:
+      ./Install-DevEnvironment.sh --yes --only openssl        (minutes on several cores, over an hour on one core)
+  Then pass it:  -OpenSslPath <prefix>/bin/openssl  -FipsModuleConfig <prefix>/ssl/fipsmodule.cnf
+  (On Windows: Install-DevEnvironment.ps1 -Only OpenSSL.)
 "@
 }
 

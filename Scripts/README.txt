@@ -1,8 +1,8 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 4.7.0-phaseB      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
- Used by : pki_setup.ps1   GenerateLeafCertificate.ps1 (Phase B, done)   transport / install script (Phase C)
+ Version 4.9.0-phaseC      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
+ Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
  The scripts in the project folder load it and call the functions.
@@ -28,6 +28,8 @@
    All      every module                                pki_setup.ps1
    Library  every module except 10_Main                 scripts that issue or read certificates
                                                         (GenerateLeafCertificate.ps1, Phase B)
+   Transport 00_Common, 02_OpenSSL, 07_TrustStore,       the DESTINATION scripts (PkiTransport.ps1 -Install,
+             09_Administrator, 16_CertPack, 17_Transport   Unpack-PkiTransport.ps1): a small kit
    Trust    00_Common, 07_TrustStore, 09_Administrator   scripts that only install / remove trust in
                                                         the Windows stores (transport script, Phase C)
 
@@ -83,6 +85,13 @@
                                formats, validation, leaf index, OpenSSL readiness
                                (Assert-PkiLeafOpenSslReady)
  15_LeafGuidance.ps1           convert-formats.ps1 and tls-guidance.txt          14
+ 16_CertPack.ps1               .certpacked archives: AES-256 zip engine (.NET),   00
+                               ZipCrypto, 7-Zip wrappers, archive type detection,
+                               Find-PkiCompanionScript, Install-PkiSevenZip
+ 17_Transport.ps1              Phase C: scans (Windows 11 25H2+, OpenSSL 4.0.1+), 00, 02, 07, 09, 16
+                               password policy, package plan / pack / open /
+                               export, Windows trust install, chain proof, kit,
+                               Install-PkiOpenSsl (via Install-DevEnvironment.*)
 
 
 ====================================================================================================

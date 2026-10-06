@@ -490,3 +490,43 @@ function Expand-PkiArchive {
         default { throw "$Path is not a zip or 7z archive (first bytes not recognised): it is not a .certpacked file, or it is damaged." }
     }
 }
+
+
+# ------------------------------------------------------------
+# Installing what is missing (7-Zip): the bootstrap scripts do the work
+# ------------------------------------------------------------
+function Find-PkiCompanionScript {
+    # Install-DevEnvironment.ps1 / .sh: next to the running script, in its parent, or next to the modules.
+    param([Parameter(Mandatory)][string]$Name)
+    $roots = [System.Collections.Generic.List[string]]::new()
+    foreach ($r in @($(if ($null -ne $script:Pki -and $script:Pki.Contains('ScriptRoot')) { $script:Pki.ScriptRoot }), $PSScriptRoot, (Split-Path -Parent $PSScriptRoot))) {
+        if ($r) { [void]$roots.Add($r); [void]$roots.Add((Split-Path -Parent $r)) }
+    }
+    foreach ($r in $roots) { if ($r) { $p = Join-Path $r $Name; if (Test-Path -LiteralPath $p -PathType Leaf) { return (Resolve-Path -LiteralPath $p).Path } } }
+    return $null
+}
+
+function Install-PkiSevenZip {
+    # Windows: Install-DevEnvironment.ps1 -Only 7Zip, else WinGet directly. Linux / macOS: Install-DevEnvironment.sh --only 7zip.
+    # Returns $true when 7-Zip can be found afterwards.
+    if ($IsWindows) {
+        $ide = Find-PkiCompanionScript -Name 'Install-DevEnvironment.ps1'
+        $pwsh = (Get-Process -Id $PID).Path
+        if ($ide) {
+            Write-PkiLog "Installing 7-Zip with $ide" 'INFO'
+            & $pwsh -NoProfile -ExecutionPolicy Bypass -File $ide -Only 7Zip | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        }
+        elseif (Get-Command winget.exe -ErrorAction SilentlyContinue) {
+            Write-PkiLog 'Installing 7-Zip with WinGet (7zip.7zip)' 'INFO'
+            & winget.exe install --id 7zip.7zip --exact --source winget --accept-source-agreements --accept-package-agreements --silent --disable-interactivity | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        }
+        else { Write-PkiLog 'Neither Install-DevEnvironment.ps1 nor WinGet is available: install 7-Zip by hand (https://www.7-zip.org).' 'WARN'; return $false }
+    }
+    else {
+        $sh = Find-PkiCompanionScript -Name 'Install-DevEnvironment.sh'
+        if (-not $sh) { Write-PkiLog 'Install-DevEnvironment.sh was not found next to the scripts: install 7-Zip with your package manager (7zip or p7zip).' 'WARN'; return $false }
+        Write-PkiLog "Installing 7-Zip with $sh" 'INFO'
+        & bash $sh --yes --only 7zip | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    }
+    return [bool](Find-PkiSevenZip)
+}
