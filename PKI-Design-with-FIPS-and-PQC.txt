@@ -2,7 +2,7 @@
  AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
 ====================================================================================================
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 4.9.0-phaseC                      Updated: 2026-10-05
+ Version : 4.9.1-phaseC                      Updated: 2026-10-05
  Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
            GenerateLeafCertificate.ps1, pki_reuse.ps1, transport script  (Phases B and C, not started)
  Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help   .\GenerateLeafCertificate.ps1 -Help
@@ -611,6 +611,11 @@
       code ran on PowerShell 7 / Linux. The package names of 7-Zip (EPEL on the RHEL family, SUSE) and of dotnet / node / go / php are best effort.
  L48  The bootstrap scripts need the Internet and root (or administrator). Distribution packages may be older than "latest". Nothing is removed or downgraded.
  L49  A source build trusts the SHA-256 of the same release page (not a signature). The pwsh download is checked against hashes.sha256 of its release.
+ L50  A -AddDevelopmentSAN certificate has 428 SAN entries (about 6 KB more) and is NOT EV-conformant in its SAN: a public CA, a CT-logging validator or a browser
+      EV policy would reject it. Some clients ignore IP-address SANs or limit the SAN size. leaf-index.json lists every SAN entry of every certificate.
+ L51  A wildcard covers one label only (*.nextmantra.com does not match a.b.nextmantra.com or nextmantra.com): the development list therefore names the apex
+      domains separately and has no deeper wildcards.
+ L52  The development SAN is added to certificates made by GenerateLeafCertificate.ps1 only, not to the default EV leaves of pki_setup.ps1.
 
 ====================================================================================================
  10  DECISIONS AND OPEN QUESTIONS
@@ -684,6 +689,16 @@
                  ML-DSA / ML-KEM; a missing DLL in the master configuration breaks every openssl command). Install-DevEnvironment.sh is its sibling.
  10.38 DECIDED   Every script has unblock + unlock where the system has the concept: Windows (Internet mark, Read-only), Linux (write bit, immutable flag),
                  macOS (quarantine mark, locked flags); at every start and with -Unblock / --unblock.
+ 10.39 DECIDED   TLS comes in THREE certificates whenever ServerAuth and ClientAuth are both wanted: server only, client only and one with both EKUs, each with its own
+                 key. The default set therefore has SEVEN certificates. -Purpose ServerAuth,ClientAuth means the three; -Purpose ServerClientAuth the combined one alone.
+                 pki_setup.ps1 keeps ONE certificate with both EKUs per quadrant (not changed).
+ 10.40 DECIDED   -AddDevelopmentSAN merges a development list into the SAN of TLS certificates (all names) and S/MIME certificates (e-mail addresses only); code
+                 signing, time stamping and OCSP carry no SAN. The list is [ development_san ] of agantra_pki.cnf with a built-in copy; IP ranges are expanded address by
+                 address (at most 1024 per range). The user's own names stay first.
+ 10.41 DECIDED   -AddDevelopmentSAN deliberately overrides the SAN rules of EV (no wildcard, IP address, internal name, e-mail address) at -EV, by the owner's intent.
+                 The generator never had such rules to disable; the override is therefore a warning plus markers (developmentSan, evSanOverride) in the output, not a code path.
+                 EV subject, EV policy OID and 398 days are kept. The certificates are for development only.
+ 10.42 DECIDED   "*.nextmantra,ldap" of the request is read as *.nextmantra.ldap (typing error); the owner is asked to confirm.
  10.16 OPEN      Which public CA, product and level you will really use. Ask for pathlen >= 3 at level 0; if
                  only pathlen 0 / 1 is offered tell me: the signed level has to move (document, section 5).
 
@@ -760,6 +775,9 @@
  B12  Leaf folders in <script folder>\leafcerts, not pki\leafcerts  DONE
  B13  Every main script: unblock + unlock, children, recursive      DONE (bootstrap, -Unblock, Unlock-PkiTree)
  B14  Own documentation file for GenerateLeafCertificate with -Help DONE (GenerateLeafCertificate-MANUAL.txt)
+ B15  TLS as three certificates: server, client, server + client       DONE (default set = 7; -Purpose ServerAuth,ClientAuth = 3; ServerClientAuth = 1)
+ B16  -AddDevelopmentSAN with the owner's list, EV override intended     DONE (21 DNS, 403 IP, 4 e-mail; tested incl. ML-DSA and the OpenSSL name checks)
+ B17  Design, documentation and -Help updated                           DONE
  C1   Pack into a password-protected zip / 7z named .certpacked    DONE (zip AES-256, ZipCrypto, 7z; tested vs real 7-Zip)
  C2   Scan: Windows 11 25H2+ only, then unpack; else refuse        DONE (simulated machines; Windows itself untested)
  C3   OpenSSL 4.0.1 - 4.0.3 at the destination (Win, Linux, mac)   DONE (scan + advice; Linux / mac: source build, tested download)
@@ -781,6 +799,13 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
+ 4.9.1-phaseC  2026-10-06
+   + GenerateLeafCertificate.ps1: new purpose ServerClientAuth (serverAuth + clientAuth in ONE certificate). TLS now comes in THREE certificates (server only,
+     client only, server + client): the default set has SEVEN certificates; -Purpose ServerAuth,ClientAuth makes the three; -Purpose ServerClientAuth the combined one.
+   + -AddDevelopmentSAN: the development names (21 DNS, 403 IP addresses from two ranges and three single addresses, 4 e-mail addresses) merged into the SAN;
+     list in agantra_pki.cnf [ development_san ] with a built-in copy; EV SAN rules deliberately not applied; markers in leaf-info.json / leaf-index.json.
+   + Fixed: a set made with no -DnsName named its folder after the company, not after the first SAN name. Test-PkiLeafResult counts the IP addresses of the SAN.
+   + Found while testing: pwsh -File passes "a,b" as one string (use -Command or a PowerShell prompt for list parameters).
  4.9.0-phaseC  2026-10-06
    + Install-DevEnvironment.sh (new) and Install-DevEnvironment.ps1 (revised): components, OpenSSL 4 FULL build + readiness proof (stripped builds refused),
      7-Zip, -Check, -Only / --only, unblock + unlock, -Help / --help. oqsprovider opt-in; FireDaemon version checked and upgraded.
@@ -900,7 +925,8 @@
         |  Assert-PkiLeafOpenSslReady     ML-DSA (default), FIPS provider, ML-DSA (FIPS): needed = stop, else warn
         |                                 both with the Install-DevEnvironment.ps1 suggestion
         |  Import-PkiExisting             the PKI from pki-manifest.json (no providers needed)
-        |  New-PkiLeafSetSpecs            one spec per purpose (all validated BEFORE a file is written)
+        |  New-PkiLeafSetSpecs            one spec per purpose (7; a profile may stand for several EKUs: ServerClientAuth)
+        |                                 -AddDevelopmentSAN: Add-PkiDevelopmentSan merges the list into the SAN (all validated BEFORE a file is written)
         |  New-PkiUniqueFolder            <script folder>\leafcerts\<name>   or   <name>_<date>-<time>
         |  Invoke-PkiLeafSet              per purpose: key -> CSR -> issue (quadrant's intermediate) -> chains -> PFX
         |                                 -> every format -> Test-PkiLeafResult -> guidance;  all or nothing
@@ -926,8 +952,8 @@
                  by default.  Code signing FORCED: RSA >= 4096, ECDSA >= P-384, ML-DSA >= 65.
       Validity   EV 397 days (<= 398), OV 3 years, DV 5 years, -Days n; never beyond the issuer.
       Policies   level OID + [ policy_oids ] / [ iana_pen ] policies + -Policy "OID|CPS".
-      Purposes   One certificate EACH (the set): ServerAuth, ClientAuth, CodeSigning, EmailProtection, TimeStamping
-                 (EKU critical, alone, RFC 3161), OcspSigning (+ id-pkix-ocsp-nocheck). Key usage follows (RSA adds
+      Purposes   One certificate EACH (the set, 7): ServerAuth, ClientAuth, ServerClientAuth (both EKUs), CodeSigning,
+                 EmailProtection, TimeStamping (EKU critical, alone, RFC 3161), OcspSigning (+ id-pkix-ocsp-nocheck). Key usage follows (RSA adds
                  keyEncipherment for TLS server / S/MIME; S/MIME adds nonRepudiation). -Purpose = ONE certificate.
                  Names: TLS purposes use the DNS names / IPs; S/MIME the e-mail (else ContactEmail); the other three
                  have no SAN and a CN "<company> Code Signing | Time Stamping | OCSP Responder".
@@ -935,7 +961,7 @@
  15.5 Output   (<script folder>\leafcerts, NOT inside pki; -OutputRoot or [ leaf_names ] OutputFolder changes it)
       leafcerts\<Folder>\                 the SET. Folder = {Name}. Exists -> <Folder>_<yyyyMMdd>-<HHmmss>[-n].
         leaf-set.json
-        <PurposeFolder>\                   serverauth clientauth codesigning emailprotection timestamping ocspsigning
+        <PurposeFolder>\                   serverauth clientauth serverauth-clientauth codesigning emailprotection timestamping ocspsigning
           <stem>.crt .key .cnf  -fullchain.crt  -chain.crt  [-fips.pfx]
           .pem .der .cer .cert .p7b .rfc7468.pem .pfx          (ALL formats: -Format defaults to ALL)
           [-fullchain-cross.crt]  convert-formats.ps1  tls-guidance.txt (ServerAuth, ClientAuth)  leaf-info.json
@@ -965,6 +991,21 @@
         OpenSSL purpose), the time stamping EKU (critical) and OCSP no-check, the refusals of purpose combinations,
         the set rerun (new folder), convert-formats.ps1 for the non-TLS purposes, unlock of read-only files by the
         bootstrap and by -Unblock in both scripts, cross chains for the set layout, the leafcerts warning of pki_setup.
+
+ 15.8 TLS in three certificates and the development SAN  (4.9.1)
+      Profiles   $script:PkiPurposeProfiles gained ServerClientAuth = @{ Web = $true; Eku = @('ServerAuth','ClientAuth') }. New-PkiLeafSetSpecs expands a profile
+                 with an Eku list into the spec's EKU; Resolve-PkiPurposeEku does it for -Purpose. GenerateLeafCertificate.ps1 treats -Purpose with exactly
+                 ServerAuth and ClientAuth (ServerClientAuth allowed) as the three-certificate group; any other -Purpose list is still ONE certificate.
+      Dev SAN    Get-PkiDevelopmentSan (cnf [ development_san ] or the built-in list, cached) -> Add-PkiDevelopmentSan (merge, de-duplicate, validate) in New-PkiLeafSpec,
+                 after the SAN of the request is known: TLS purposes get DNS + IP + e-mail, EmailProtection the e-mail addresses only. Expand-PkiIpRange expands a
+                 first-last IPv4 range (at most 1024). The spec carries DevSan and EvSanOverride; Add-PkiLeafIndex writes them; the main script prints one WARN.
+      Checks     Test-PkiLeafResult: every DNS name and e-mail in the certificate, the IP count equal to the spec.
+      Tests run  OpenSSL 4.0.3 (Q1 EV / OV, Q4 EV ML-DSA): default set = 7 certificates with EKU serverAuth | clientAuth | serverAuth+clientAuth and distinct keys;
+                 -Purpose ServerAuth,ClientAuth = 3; ServerClientAuth = 1; legacy -Purpose ServerAuth,EmailProtection = 1; the refusal with -ExcludePurpose; the
+                 exclusion that leaves the two separate certificates; EV + -AddDevelopmentSAN: TLS 21/403/4, S/MIME 0/0/4, code signing none, flags in the index;
+                 your names first with duplicates removed (22 DNS); built-in list = cnf list; a custom list (2/4/1); bad range, oversized range, IPv6 range, unknown key,
+                 bad DNS name, bad e-mail: each stopped with the entry named; openssl verify with the full chain for 10 matching and 5 non-matching names / addresses.
+
 
 ====================================================================================================
  16  PHASE B ACCEPTANCE CHECKLIST  (moved)

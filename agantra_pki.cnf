@@ -253,6 +253,49 @@ IP.1 = 127.0.0.1
 
 email.1 = nicko@nextmantra.com
 
+# ============================================================
+# DEVELOPMENT SAN  (GenerateLeafCertificate.ps1 -AddDevelopmentSAN)
+# ============================================================
+# Merged into the SAN of the TLS certificates (S/MIME gets the e-mail addresses only). For development: wildcards,
+# IP addresses, internal names and e-mail addresses in one certificate are NOT EV-conformant, and that is intended.
+# Keys: DNS.n   IP.n   IPRange.n = first-last (IPv4, at most 1024 addresses, every address is written)   email.n
+# Remove the whole section to use the built-in list (the same as below).
+
+[ development_san ]
+
+DNS.1  = nextmantra.com
+DNS.2  = www.nextmantra.com
+DNS.3  = *.nextmantra.com
+DNS.4  = localhost
+DNS.5  = local.dev
+DNS.6  = *.nextmantra.internal
+DNS.7  = *.nextmantra.developer
+DNS.8  = nextmantra.internal
+DNS.9  = nextmantra.developer
+DNS.10 = nextmantra.api
+DNS.11 = *.nextmantra.api
+DNS.12 = agantra.internal
+DNS.13 = *.agantra.internal
+DNS.14 = agantra.developer
+DNS.15 = *.agantra.developer
+DNS.16 = agantra.api
+DNS.17 = *.agantra.api
+DNS.18 = nextmantra.ldap
+DNS.19 = *.nextmantra.ldap
+DNS.20 = agantra.ldap
+DNS.21 = *.agantra.ldap
+
+IP.1 = 127.0.0.1
+IP.2 = ::1
+IP.3 = 10.10.2.2
+IPRange.1 = 192.168.0.1-192.168.0.200
+IPRange.2 = 172.16.0.1-172.16.0.200
+
+email.1 = nicko@nextmantra.com
+email.2 = robby@nextmantra.com
+email.3 = info@nextmantra.com
+email.4 = airlangga@nextmantra.com
+
 
 # ============================================================
 # LEAF SUBJECT FIELDS

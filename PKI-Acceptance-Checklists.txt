@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.0-phaseC     2026-10-06
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.1-phaseC     2026-10-06
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt,
@@ -72,7 +72,8 @@
   ---   ----------------------------------------------------------  -------------------------------------------
   B1    .\GenerateLeafCertificate.ps1 -Check                        every line PASS, "READY"
   B2    .\GenerateLeafCertificate.ps1 -DnsName www.example.com      leafcerts\www.example.com\ (next to the
-                                                                    scripts) with six purpose folders, each
+                                                                    scripts) with SEVEN purpose folders (serverauth,
+                                                                    clientauth, serverauth-clientauth, ...), each
                                                                     "validated", all formats, EV, 397 days
   B3    the same command again                                      a NEW folder www.example.com_<date>-<time>
   B3b   .\GenerateLeafCertificate.ps1 -Unblock                       counts of unblocked / unlocked items; no
@@ -93,7 +94,24 @@
   B13   rename Install-DevEnvironment.ps1's OpenSSL out of PATH (or  the output says OpenSSL 4.x is missing and
         use -OpenSslPath with a 3.x)                                 suggests Install-DevEnvironment.ps1
 
- Report back: B1, B2, B3, B10 (and certlm.msc), and anything that fails.
+  B14   .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerAuth,ClientAuth
+                                                                    THREE certificates; openssl x509 -ext extendedKeyUsage:
+                                                                    serverAuth / clientAuth / both
+  B15   .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerClientAuth
+                                                                    ONE certificate with both EKUs, in leafcerts\api.example.com\
+  B16   .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         warning that the EV SAN rules are not applied; 7 certificates;
+        then: openssl x509 -in <serverauth leaf>.crt -noout -ext subjectAltName
+                                                                    the TLS leaves: 21 DNS, 403 IP, 4 e-mail; S/MIME: 4 e-mail; code
+                                                                    signing, time stamping, OCSP: no SAN
+  B17   Windows: Kestrel / IIS with the serverauth .pfx of B16 and  no certificate warning for https://localhost, https://127.0.0.1,
+        the hosts file entry  127.0.0.1 app.nextmantra.com          https://app.nextmantra.com, https://[::1] (if the client reads IP SANs)
+  B18   a machine with an address in 192.168.0.1-200 or 172.16.0.1-200 running the same site, opened by its IP address     no warning
+  B19   mutual TLS (nginx ssl_verify_client on / Kestrel RequireCertificate) with the clientauth leaf as the client certificate and the
+        serverauth leaf as the server certificate                    handshake succeeds; with the serverauth leaf as client it is refused
+  B20   remove one name from [ development_san ] in agantra_pki.cnf and run B16 again     the name is missing from the new certificate;
+        a broken entry (IPRange.1 = 10.0.0.9-10.0.0.1) stops the run with the entry named, no folder left
+
+ Report back: B1, B2, B3, B10 (and certlm.msc), B14 to B19, and anything that fails.
 ====================================================================================================
 ====================================================================================================
  C  PHASE C ACCEPTANCE CHECKLIST  (the transport)

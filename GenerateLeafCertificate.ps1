@@ -45,14 +45,15 @@ param(
 
     # ---- purposes: none given = ONE CERTIFICATE PER PURPOSE (the set) ----
     [switch]$AllPurposes,
-    [ValidateSet('ServerAuth', 'ClientAuth', 'CodeSigning', 'EmailProtection', 'TimeStamping', 'OcspSigning')][string[]]$Purpose,
-    [ValidateSet('ServerAuth', 'ClientAuth', 'CodeSigning', 'EmailProtection', 'TimeStamping', 'OcspSigning')][string[]]$ExcludePurpose,
+    [ValidateSet('ServerAuth', 'ClientAuth', 'ServerClientAuth', 'CodeSigning', 'EmailProtection', 'TimeStamping', 'OcspSigning')][string[]]$Purpose,
+    [ValidateSet('ServerAuth', 'ClientAuth', 'ServerClientAuth', 'CodeSigning', 'EmailProtection', 'TimeStamping', 'OcspSigning')][string[]]$ExcludePurpose,
 
     # ---- names ----
     [string[]]$DnsName,
     [string[]]$IpAddress,
     [string[]]$EmailAddress,
     [string]$CommonName,
+    [switch]$AddDevelopmentSAN,
 
     # ---- key and signature ----
     [ValidateSet('RSA', 'ECDSA', 'MLDSA')][string]$KeyType,
@@ -113,7 +114,7 @@ function Show-PkiLeafHelp {
     @'
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.0-phaseC
+ Version 4.9.1-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -124,12 +125,16 @@ function Show-PkiLeafHelp {
 WHAT IT DOES
   ONE RUN makes a certificate for EVERY purpose, each in EVERY format, validates all of them, and writes them to
       <script folder>\leafcerts\<name>\<purpose>\      (NOT inside the pki folder)
-  The six purposes (the "set"):
-      ServerAuth       TLS server               CodeSigning      code signing (Authenticode and others)
-      ClientAuth       TLS client / mutual TLS  TimeStamping     RFC 3161 time stamping (critical, alone)
-      EmailProtection  S/MIME                   OcspSigning      OCSP responder (with the no-check extension)
-  Every certificate has its own purpose, its own key and its own folder. Mixing purposes in one certificate is
-  possible (see -Purpose) but not the default: code signing and TLS should not share a certificate.
+  The "set" is SEVEN certificates, because TLS comes in THREE variants:
+      ServerAuth        TLS server only                 CodeSigning      code signing (Authenticode and others)
+      ClientAuth        TLS client only (mutual TLS)    TimeStamping     RFC 3161 time stamping (critical, alone)
+      ServerClientAuth  TLS server AND client in ONE    OcspSigning      OCSP responder (with the no-check extension)
+      EmailProtection   S/MIME
+  Every certificate has its own purpose, its own key and its own folder. The three TLS certificates carry the same
+  names but are three separate certificates: one for servers (serverAuth), one for clients (clientAuth) and one that
+  is both (serverAuth + clientAuth, for a service that is server and client, for example mutual TLS between services).
+  Mixing other purposes in one certificate is possible (see -Purpose) but not the default: code signing and TLS
+  should not share a certificate.
   If the set folder exists, a NEW folder <name>_<yyyyMMdd>-<HHmmss> is created. Nothing is overwritten.
   The same generator makes the default EV leaves of pki_setup.ps1.
 
@@ -146,7 +151,10 @@ USAGE
   .\GenerateLeafCertificate.ps1 -OV -Classic -FIPS -DnsName api.example.com -KeyType ECDSA -Curve P-384
   .\GenerateLeafCertificate.ps1 -EV -Quantum -DnsName mtls.example.com        ML-DSA leaves (OpenSSL services, mTLS)
   .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -ExcludePurpose TimeStamping,OcspSigning
-  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth -Format PFX
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth -Format PFX   (3 certs)
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerClientAuth   (1 cert)
+  .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         the set + development SAN
+  .\GenerateLeafCertificate.ps1 -EV -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerAuth,ClientAuth
   .\GenerateLeafCertificate.ps1 -List                                         leaf certificates made so far
   .\GenerateLeafCertificate.ps1 -Unblock                                      unblock + unlock the folders, then stop
 
@@ -160,14 +168,18 @@ LEVEL AND QUADRANT   (defaults: -EV, -Classic, no -FIPS)
 
 PURPOSES
   (none) | -AllPurposes   One certificate for EACH purpose (the set above). -AllPurposes only says it out loud.
-  -ExcludePurpose <list>  Leave purposes out of the set: ServerAuth ClientAuth CodeSigning EmailProtection
-                          TimeStamping OcspSigning.
-  -Purpose <list>         NOT a set: ONE certificate that carries exactly these purposes, for example
-                          ServerAuth,ClientAuth (the old default). TimeStamping and OcspSigning must stand alone.
-                          Cannot be combined with -AllPurposes / -ExcludePurpose.
+  -ExcludePurpose <list>  Leave purposes out of the set: ServerAuth ClientAuth ServerClientAuth CodeSigning
+                          EmailProtection TimeStamping OcspSigning. (-ExcludePurpose ServerClientAuth drops the
+                          combined certificate and keeps the two separate ones.)
+  -Purpose <list>         NOT a set (with two exceptions below): ONE certificate that carries exactly these
+                          purposes, for example ServerAuth,EmailProtection. TimeStamping and OcspSigning must stand
+                          alone. Cannot be combined with -AllPurposes / -ExcludePurpose.
+                          ServerAuth,ClientAuth (nothing else)  -> THREE certificates: server only, client only and
+                                                                   server + client (the TLS part of the set).
+                          ServerClientAuth                      -> ONE certificate with serverAuth + clientAuth.
   Names per purpose in a set:
-      ServerAuth, ClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com allowed), or the
-                               [ leaf_san ] list of agantra_pki.cnf when none is given.
+      ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com
+                               allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is given.
       EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address.
       CodeSigning, TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Code Signing | Time Stamping |
                                OCSP Responder".
@@ -176,6 +188,26 @@ NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
   Given on the command line = exactly these names. -CommonName replaces the CN of the TLS certificates and is the
   base of the CN of the other purposes.
+
+DEVELOPMENT SAN   (-AddDevelopmentSAN)
+  Adds the development list to the SAN. It is MERGED with the names you give (yours stay first, the CN is your first
+  name; duplicates are removed). With no -DnsName the names of [ leaf_san ] come first. The list:
+      DNS    nextmantra.com  www.nextmantra.com  *.nextmantra.com  localhost  local.dev
+             nextmantra.internal  *.nextmantra.internal  nextmantra.developer  *.nextmantra.developer
+             nextmantra.api  *.nextmantra.api  nextmantra.ldap  *.nextmantra.ldap
+             agantra.internal  *.agantra.internal  agantra.developer  *.agantra.developer
+             agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap                                 (21 names)
+      IP     127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200  172.16.0.1 - 172.16.0.200  (403 in all,
+             every address of both ranges is written)
+      E-MAIL nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com  airlangga@nextmantra.com
+  Where it goes: ServerAuth, ClientAuth, ServerClientAuth (and any certificate with one of them): everything.
+  EmailProtection: the e-mail addresses only. CodeSigning, TimeStamping, OcspSigning: nothing (they carry no SAN).
+  EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are
+  deliberately NOT applied, so an EV leaf with -AddDevelopmentSAN is the way to make EV-looking certificates for
+  development. The EV subject, the EV policy and the 398-day limit stay. A warning is printed and leaf-info.json says
+  developmentSan / evSanOverride = true. FOR DEVELOPMENT ONLY: a public CA would not issue such a certificate.
+  Change the list in [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); without
+  that section the built-in list above is used. A range may have at most 1024 addresses.
 
 KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
   -KeyType RSA|ECDSA|MLDSA   Default: Q1 RSA, Q2 ECDSA, Q3 / Q4 MLDSA. Quantum quadrants take MLDSA only.
@@ -235,6 +267,8 @@ LIMITATIONS
     Windows), Java 25 and the browsers do not accept them for HTTPS today: use a Classic leaf there.
   * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. Public TLS leaves are
     limited to 398 days.
+  * -AddDevelopmentSAN makes certificates that are NOT EV-conformant in their SAN (by intent); development only.
+    A SAN with 428 entries makes every TLS certificate about 6 KB larger than usual.
   * A set is all or nothing: if one certificate fails, the new set folder is removed.
   * Leaves of version 4.6 are in pki\leafcerts; they are not moved. Files are UTF-8 without BOM, LF endings,
     except convert-formats.ps1 (UTF-8 with BOM, CRLF).
@@ -303,11 +337,18 @@ try {
     if (-not ($DV -or $OV -or $EV)) { Write-PkiLog 'No -DV / -OV / -EV given: using -EV.' }
     if (-not ($Classic -or $Quantum)) { Write-PkiLog 'No -Classic / -Quantum given: using -Classic.' }
     if (-not $FIPS) { Write-PkiLog 'No -FIPS given: non-FIPS quadrant.' }
-    $setMode = -not [bool]$Purpose
-    $purposes = @(if ($setMode) { $script:PkiPurposeProfiles.Keys | Where-Object { @($ExcludePurpose) -notcontains $_ } } else { $Purpose })
+    # ServerAuth + ClientAuth asked together (and nothing else) = THREE certificates: server only, client only, server + client.
+    $threeTls = $false
+    if ($Purpose) {
+        $pu = @($Purpose | Select-Object -Unique)
+        if (($pu -contains 'ServerAuth') -and ($pu -contains 'ClientAuth') -and (@($pu | Where-Object { $_ -notin 'ServerAuth', 'ClientAuth', 'ServerClientAuth' }).Count -eq 0)) { $threeTls = $true }
+    }
+    $setMode = (-not [bool]$Purpose) -or $threeTls
+    $purposes = @(if (-not [bool]$Purpose) { $script:PkiPurposeProfiles.Keys | Where-Object { @($ExcludePurpose) -notcontains $_ } } elseif ($threeTls) { @('ServerAuth', 'ClientAuth', 'ServerClientAuth') } else { $Purpose })
     if ($setMode -and $purposes.Count -eq 0) { throw '-ExcludePurpose removed every purpose: nothing to make.' }
     Write-PkiLog "Leaf: $level, $track$(if ($FIPS) { ' FIPS' }) = Quadrant $quadrant, issuer q$quadrant-$($level.ToLowerInvariant())"
     Write-PkiLog $(if ($setMode) { "Set: one certificate for each of $($purposes.Count) purposes ($($purposes -join ', ')), every format, in one go." } else { "One certificate with the purposes: $($Purpose -join ', ')." })
+    if (($purposes -contains 'ServerAuth') -and ($purposes -contains 'ClientAuth') -and $setMode) { Write-PkiLog 'TLS: ServerAuth and ClientAuth are made as THREE certificates: server only, client only, and one with both (ServerClientAuth).' }
     Write-PkiLog "Output folder: $leafRoot"
     $oldLeaf = Join-Path $c.PkiRoot 'leafcerts'
     if ((Test-Path -LiteralPath (Join-Path $oldLeaf 'leaf-index.json')) -and ($oldLeaf -ne $leafRoot)) {
@@ -340,6 +381,12 @@ try {
         Level = $level; Quadrant = $quadrant; DnsName = $DnsName; IpAddress = $IpAddress; EmailAddress = $EmailAddress
         CommonName = $CommonName; KeyType = $KeyType; KeyBits = $KeyBits; Curve = $Curve
         PqcAlgorithm = $PqcAlgorithm; Hash = $Hash; Days = $Days; Policy = $Policy; Format = $Format
+        AddDevelopmentSan = [bool]$AddDevelopmentSAN
+    }
+    if ($AddDevelopmentSAN) {
+        $devList = Get-PkiDevelopmentSan
+        Write-PkiLog "-AddDevelopmentSAN: $($devList.Dns.Count) DNS names, $($devList.Ip.Count) IP addresses and $($devList.Email.Count) e-mail addresses ($($devList.Source)) are added to the SAN of the TLS certificates (S/MIME: the e-mail addresses only; code signing, time stamping and OCSP carry no SAN)." 'WARN'
+        if ($level -eq 'EV') { Write-PkiLog 'EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are deliberately NOT applied. The subject, the EV policy and the 398-day limit stay. For development only; no public CA would issue this.' 'WARN' }
     }
     $items = [System.Collections.Generic.List[hashtable]]::new()
     $setFolder = $null
@@ -356,7 +403,7 @@ try {
     }
     else {
         # ---------------- ONE certificate with the given purposes ----------------
-        $one = $base.Clone(); $one.Eku = @($Purpose)
+        $one = $base.Clone(); $one.Eku = @(Resolve-PkiPurposeEku -Purpose $Purpose)
         $spec = New-PkiLeafSpec -Options $one
         $folder = New-PkiUniqueFolder -Root $leafRoot -Name $spec.Folder -SuffixTemplate $spec.UniqueSuffix
         $script:LeafFolderCreated = $folder.Path
@@ -383,9 +430,9 @@ try {
     if ($setMode) {
         $setInfo = [ordered]@{
             set = $setName; path = $setFolder.Path; level = $level; quadrant = $quadrant; track = $track; fips = [bool]$FIPS
-            purposes = @($items | ForEach-Object { $_.Spec.Eku[0] }); formats = @($items[0].Spec.Formats)
+            purposes = @($items | ForEach-Object { $_.Spec.Eku -join '+' }); developmentSan = [bool]$AddDevelopmentSAN; formats = @($items[0].Spec.Formats)
             createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "GenerateLeafCertificate.ps1 $($script:PkiGeneratorVersion)"
-            certificates = @($items | ForEach-Object { [ordered]@{ purpose = $_.Spec.Eku[0]; folder = $_.Relative; stem = $_.Result.Stem; keyAlgorithm = $_.Result.Actual.Algorithm; notAfter = $_.Result.NotAfter; sha1 = $_.Result.Sha1 } })
+            certificates = @($items | ForEach-Object { [ordered]@{ purpose = ($_.Spec.Eku -join '+'); folder = $_.Relative; stem = $_.Result.Stem; keyAlgorithm = $_.Result.Actual.Algorithm; notAfter = $_.Result.NotAfter; sha1 = $_.Result.Sha1 } })
         }
         Write-Utf8NoBom -Path (Join-Path $setFolder.Path 'leaf-set.json') -Content ($setInfo | ConvertTo-Json -Depth 6)
     }
@@ -412,6 +459,7 @@ try {
     Write-Host ("  Folder     : {0}" -f $setFolder.Path)
     Write-Host ("  Level      : {0}   Quadrant {1} ({2}{3})   Issuer {4}" -f $level, $quadrant, $track, $(if ($FIPS) { ' FIPS' } else { '' }), $issuer.Id)
     Write-Host ("  Formats    : {0}" -f ($items[0].Spec.Formats -join ', '))
+    if ($AddDevelopmentSAN) { Write-Host ("  Dev SAN    : {0} DNS, {1} IP, {2} e-mail in the TLS certificates{3}" -f $devList.Dns.Count, $devList.Ip.Count, $devList.Email.Count, $(if ($level -eq 'EV') { ' (EV SAN rules NOT applied)' } else { '' })) -ForegroundColor Yellow }
     Write-Host ''
     Write-Host ('  {0,-16} {1,-12} {2,-6} {3,-11} {4}' -f 'PURPOSE', 'KEY', 'DAYS', 'EXPIRES', 'SUBJECT CN / FOLDER') -ForegroundColor Cyan
     foreach ($it in $items) {

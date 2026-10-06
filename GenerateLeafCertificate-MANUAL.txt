@@ -1,11 +1,12 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.0-phaseC          2026-10-06
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.1-phaseC          2026-10-06
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: .\GenerateLeafCertificate.ps1 -Help     (the same text as section 13 of this file)
           pki_setup-MANUAL.txt                  (the PKI itself, trust, servers)
-          PKI-Design-with-FIPS-and-PQC.txt      (design, section 15 = this script, section 16 = acceptance checklist)
+          PKI-Design-with-FIPS-and-PQC.txt      (design, section 15 = this script)
+          PKI-Acceptance-Checklists.txt         (what to run on your machines, section B)
           scripts\README.txt                    (the shared modules)
 
  CONTENTS
@@ -15,7 +16,8 @@
     4  Purposes: one certificate for each        11  Troubleshooting
     5  Formats: all of them, in one go           12  Limits you must know
     6  Where the files go, names, unique folders 13  -Help (the complete text)
-    7  Level, quadrant, keys, validity, policies 14  What changed in this version
+    7  Level, quadrant, keys, validity, policies 14  What changed in 4.7
+                                                15  Three TLS certificates and the development SAN (4.9.1)
 ====================================================================================================
  1  WHAT THE SCRIPT DOES
 ====================================================================================================
@@ -25,12 +27,12 @@
 
  ONE RUN, EVERYTHING
       .\GenerateLeafCertificate.ps1 -DnsName www.example.com
-   makes a certificate for EVERY purpose (server, client, code signing, S/MIME, time stamping, OCSP signing), each
-   in EVERY format (PEM, DER, CER, CERT, P7B, RFC 7468, PFX), validates all of them, and writes them to
+   makes SEVEN certificates, one for EVERY purpose (TLS in THREE variants: server only, client only, server + client;
+   code signing, S/MIME, time stamping, OCSP signing), each in EVERY format (PEM, DER, CER, CERT, P7B, RFC 7468, PFX), validates all of them, and writes them to
       <script folder>\leafcerts\www.example.com\<purpose>\
    (next to the scripts, NOT inside the pki folder).
 
- Every certificate has its own purpose and its own key. Code signing and TLS are NOT mixed in one certificate
+ Every certificate has its own purpose and its own key (the three TLS certificates too). Code signing and TLS are NOT mixed in one certificate
  (that is the usual practice, and RFC 3161 requires a time stamping certificate to carry that purpose alone).
  To get ONE certificate with several purposes anyway, give -Purpose (section 4).
 
@@ -71,6 +73,8 @@
                   Key usage digitalSignature (+ keyEncipherment for RSA).   SAN: DNS names / IPs.   CN: first DNS name.
  ClientAuth       TLS client, mutual TLS.   EKU clientAuth (1.3.6.1.5.5.7.3.2).
                   Key usage digitalSignature.   SAN: DNS names / IPs.   CN: first DNS name.
+ ServerClientAuth TLS server AND client in ONE certificate.   EKU serverAuth + clientAuth.
+                  Key usage as ServerAuth.   SAN and CN as ServerAuth.   (Section 15.)
  CodeSigning      Code signing.   EKU codeSigning (1.3.6.1.5.5.7.3.3).
                   Key usage digitalSignature.   SAN: none.   CN: "<company> Code Signing".
  EmailProtection  S/MIME.   EKU emailProtection (1.3.6.1.5.5.7.3.4).
@@ -81,11 +85,14 @@
  OcspSigning      OCSP responder.   EKU OCSPSigning (1.3.6.1.5.5.7.3.9) + no-check extension (1.3.6.1.5.5.7.48.1.5).
                   Key usage digitalSignature.   SAN: none.   CN: "<company> OCSP Responder".
 
- The set     no -Purpose (or -AllPurposes) = all six. -ExcludePurpose TimeStamping,OcspSigning leaves some out.
- One certificate with several purposes
-             -Purpose ServerAuth,ClientAuth    ONE certificate carrying exactly these (the old default).
+ The set     no -Purpose (or -AllPurposes) = all SEVEN. -ExcludePurpose TimeStamping,OcspSigning leaves some out;
+             -ExcludePurpose ServerClientAuth drops the combined TLS certificate and keeps the two separate ones.
+ TLS         -Purpose ServerAuth,ClientAuth    THREE certificates: server only, client only, server + client.
+             -Purpose ServerClientAuth         ONE certificate with both EKUs.
+ One certificate with several other purposes
+             -Purpose ServerAuth,EmailProtection    ONE certificate carrying exactly these.
              TimeStamping and OcspSigning must stand alone. Cannot be combined with -AllPurposes / -ExcludePurpose.
- Names       ServerAuth and ClientAuth use -DnsName / -IpAddress / -EmailAddress, or the [ leaf_san ] list of
+ Names       ServerAuth, ClientAuth and ServerClientAuth use -DnsName / -IpAddress / -EmailAddress, or the [ leaf_san ] list of
              agantra_pki.cnf when none is given. EmailProtection uses -EmailAddress, else the contact e-mail
              (-ContactEmail, default info@nextmantra.com). The other three have no SAN. -CommonName replaces the CN
              of the TLS certificates and is the base ("<base> Code Signing") of the others; the base defaults to the
@@ -229,6 +236,16 @@
          -Policy "1.3.6.1.4.1.99999.9|https://example.com/cps"
  Windows: also import the PFX files of the leaves into LocalMachine\My (elevated; only the leaf is imported)
      .\GenerateLeafCertificate.ps1 -OV -DnsName w.example.com -InstallPfx
+ The three TLS certificates only (server, client, server + client)
+     .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerAuth,ClientAuth
+ One TLS certificate that is both server and client
+     .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerClientAuth
+ Development: everything, with the development SAN (EV subject, EV policy, SAN rules of EV not applied)
+     .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN
+ Development: your own name first, the development SAN after it, ML-DSA, FIPS
+     .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerClientAuth
+ Count what went into the SAN
+     openssl x509 -in <leaf>.crt -noout -ext subjectAltName
  Unblock and unlock everything
      .\GenerateLeafCertificate.ps1 -Unblock
 ====================================================================================================
@@ -252,6 +269,10 @@
  Leaf of the old PKI does not verify               pki_setup -Clean made new CA keys; old leaves belong to the old PKI
  Files are read-only / blocked, a folder is busy   .\GenerateLeafCertificate.ps1 -Unblock (section 8)
  Leaves are in pki\leafcerts                       Version 4.6 wrote there; they are not moved: copy them to leafcerts\
+ "Invalid IP range ..." / "more than 1024 addresses"   A range in [ development_san ] is first-last, IPv4, at most 1024 addresses
+ "unknown key ... Use DNS.n, IP.n, IPRange.n or email.n" A key in [ development_san ] is misspelled
+ "Invalid DNS name in the development SAN"          A DNS.n entry of [ development_san ] is not a host name
+ -Purpose ServerClientAuth -ExcludePurpose ...      Refused: -Purpose is not a set. Use -ExcludePurpose with the set only
 ====================================================================================================
  12  LIMITS YOU MUST KNOW
 ====================================================================================================
@@ -269,12 +290,17 @@
  * The OCSP certificate is a responder certificate for YOUR OCSP responder software; this PKI does not run one.
  * leafcerts\ is never deleted by pki_setup.ps1 (-Clean, -RemoveAllTrust). Leaves of a replaced PKI stay until you
    delete them; pki_setup warns when it finds them.
+ * -AddDevelopmentSAN makes certificates whose SAN is NOT EV-conformant (wildcards, IP addresses, internal names, e-mail
+   addresses): by intent, for development; a public CA would not issue them. A SAN with 428 entries adds about 6 KB to
+   each TLS certificate, and leaf-index.json lists every entry of every certificate.
+ * The hostname rules of a client apply as always: *.nextmantra.com matches app.nextmantra.com, not a.b.nextmantra.com
+   and not nextmantra.com itself (that has its own entry). Some clients ignore IP addresses in the SAN.
 ====================================================================================================
  13  -HELP  (THE COMPLETE TEXT, IDENTICAL TO  .\GenerateLeafCertificate.ps1 -Help)
 ====================================================================================================
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.0-phaseC
+ Version 4.9.1-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -285,12 +311,16 @@
 WHAT IT DOES
   ONE RUN makes a certificate for EVERY purpose, each in EVERY format, validates all of them, and writes them to
       <script folder>\leafcerts\<name>\<purpose>\      (NOT inside the pki folder)
-  The six purposes (the "set"):
-      ServerAuth       TLS server               CodeSigning      code signing (Authenticode and others)
-      ClientAuth       TLS client / mutual TLS  TimeStamping     RFC 3161 time stamping (critical, alone)
-      EmailProtection  S/MIME                   OcspSigning      OCSP responder (with the no-check extension)
-  Every certificate has its own purpose, its own key and its own folder. Mixing purposes in one certificate is
-  possible (see -Purpose) but not the default: code signing and TLS should not share a certificate.
+  The "set" is SEVEN certificates, because TLS comes in THREE variants:
+      ServerAuth        TLS server only                 CodeSigning      code signing (Authenticode and others)
+      ClientAuth        TLS client only (mutual TLS)    TimeStamping     RFC 3161 time stamping (critical, alone)
+      ServerClientAuth  TLS server AND client in ONE    OcspSigning      OCSP responder (with the no-check extension)
+      EmailProtection   S/MIME
+  Every certificate has its own purpose, its own key and its own folder. The three TLS certificates carry the same
+  names but are three separate certificates: one for servers (serverAuth), one for clients (clientAuth) and one that
+  is both (serverAuth + clientAuth, for a service that is server and client, for example mutual TLS between services).
+  Mixing other purposes in one certificate is possible (see -Purpose) but not the default: code signing and TLS
+  should not share a certificate.
   If the set folder exists, a NEW folder <name>_<yyyyMMdd>-<HHmmss> is created. Nothing is overwritten.
   The same generator makes the default EV leaves of pki_setup.ps1.
 
@@ -307,7 +337,10 @@ USAGE
   .\GenerateLeafCertificate.ps1 -OV -Classic -FIPS -DnsName api.example.com -KeyType ECDSA -Curve P-384
   .\GenerateLeafCertificate.ps1 -EV -Quantum -DnsName mtls.example.com        ML-DSA leaves (OpenSSL services, mTLS)
   .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -ExcludePurpose TimeStamping,OcspSigning
-  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth -Format PFX
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth -Format PFX   (3 certs)
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerClientAuth   (1 cert)
+  .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         the set + development SAN
+  .\GenerateLeafCertificate.ps1 -EV -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerAuth,ClientAuth
   .\GenerateLeafCertificate.ps1 -List                                         leaf certificates made so far
   .\GenerateLeafCertificate.ps1 -Unblock                                      unblock + unlock the folders, then stop
 
@@ -321,14 +354,18 @@ LEVEL AND QUADRANT   (defaults: -EV, -Classic, no -FIPS)
 
 PURPOSES
   (none) | -AllPurposes   One certificate for EACH purpose (the set above). -AllPurposes only says it out loud.
-  -ExcludePurpose <list>  Leave purposes out of the set: ServerAuth ClientAuth CodeSigning EmailProtection
-                          TimeStamping OcspSigning.
-  -Purpose <list>         NOT a set: ONE certificate that carries exactly these purposes, for example
-                          ServerAuth,ClientAuth (the old default). TimeStamping and OcspSigning must stand alone.
-                          Cannot be combined with -AllPurposes / -ExcludePurpose.
+  -ExcludePurpose <list>  Leave purposes out of the set: ServerAuth ClientAuth ServerClientAuth CodeSigning
+                          EmailProtection TimeStamping OcspSigning. (-ExcludePurpose ServerClientAuth drops the
+                          combined certificate and keeps the two separate ones.)
+  -Purpose <list>         NOT a set (with two exceptions below): ONE certificate that carries exactly these
+                          purposes, for example ServerAuth,EmailProtection. TimeStamping and OcspSigning must stand
+                          alone. Cannot be combined with -AllPurposes / -ExcludePurpose.
+                          ServerAuth,ClientAuth (nothing else)  -> THREE certificates: server only, client only and
+                                                                   server + client (the TLS part of the set).
+                          ServerClientAuth                      -> ONE certificate with serverAuth + clientAuth.
   Names per purpose in a set:
-      ServerAuth, ClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com allowed), or the
-                               [ leaf_san ] list of agantra_pki.cnf when none is given.
+      ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com
+                               allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is given.
       EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address.
       CodeSigning, TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Code Signing | Time Stamping |
                                OCSP Responder".
@@ -337,6 +374,26 @@ NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
   Given on the command line = exactly these names. -CommonName replaces the CN of the TLS certificates and is the
   base of the CN of the other purposes.
+
+DEVELOPMENT SAN   (-AddDevelopmentSAN)
+  Adds the development list to the SAN. It is MERGED with the names you give (yours stay first, the CN is your first
+  name; duplicates are removed). With no -DnsName the names of [ leaf_san ] come first. The list:
+      DNS    nextmantra.com  www.nextmantra.com  *.nextmantra.com  localhost  local.dev
+             nextmantra.internal  *.nextmantra.internal  nextmantra.developer  *.nextmantra.developer
+             nextmantra.api  *.nextmantra.api  nextmantra.ldap  *.nextmantra.ldap
+             agantra.internal  *.agantra.internal  agantra.developer  *.agantra.developer
+             agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap                                 (21 names)
+      IP     127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200  172.16.0.1 - 172.16.0.200  (403 in all,
+             every address of both ranges is written)
+      E-MAIL nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com  airlangga@nextmantra.com
+  Where it goes: ServerAuth, ClientAuth, ServerClientAuth (and any certificate with one of them): everything.
+  EmailProtection: the e-mail addresses only. CodeSigning, TimeStamping, OcspSigning: nothing (they carry no SAN).
+  EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are
+  deliberately NOT applied, so an EV leaf with -AddDevelopmentSAN is the way to make EV-looking certificates for
+  development. The EV subject, the EV policy and the 398-day limit stay. A warning is printed and leaf-info.json says
+  developmentSan / evSanOverride = true. FOR DEVELOPMENT ONLY: a public CA would not issue such a certificate.
+  Change the list in [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); without
+  that section the built-in list above is used. A range may have at most 1024 addresses.
 
 KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
   -KeyType RSA|ECDSA|MLDSA   Default: Q1 RSA, Q2 ECDSA, Q3 / Q4 MLDSA. Quantum quadrants take MLDSA only.
@@ -396,6 +453,8 @@ LIMITATIONS
     Windows), Java 25 and the browsers do not accept them for HTTPS today: use a Classic leaf there.
   * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. Public TLS leaves are
     limited to 398 days.
+  * -AddDevelopmentSAN makes certificates that are NOT EV-conformant in their SAN (by intent); development only.
+    A SAN with 428 entries makes every TLS certificate about 6 KB larger than usual.
   * A set is all or nothing: if one certificate fails, the new set folder is removed.
   * Leaves of version 4.6 are in pki\leafcerts; they are not moved. Files are UTF-8 without BOM, LF endings,
     except convert-formats.ps1 (UTF-8 with BOM, CRLF).
@@ -415,4 +474,59 @@ LIMITATIONS
  5. This manual (new file) with the -Help text.
  Also: cross-certificate chains (-fullchain-cross.crt) for the leaves of a set; pki_setup.ps1 warns when a new PKI would
  orphan existing leaf certificates.
+====================================================================================================
+ 15  THREE TLS CERTIFICATES AND THE DEVELOPMENT SAN  (4.9.1)
+====================================================================================================
+
+ THE THREE TLS CERTIFICATES
+ Whenever ServerAuth and ClientAuth are both wanted, the run makes THREE certificates, each with its own key and its own folder:
+      serverauth\                 EKU serverAuth                  a TLS server (a web server, an API, a database)
+      clientauth\                 EKU clientAuth                  a TLS client (a browser identity, a service that calls another: mutual TLS)
+      serverauth-clientauth\      EKU serverAuth + clientAuth     a service that is both: a server for some peers, a client for others
+ They carry the same names (DNS, IP, e-mail) and the same subject; only the EKU (and so the use) differs. Why three: a strict server or
+ client may refuse a certificate whose EKU is wider than the role (some require clientAuth only, some serverAuth only), and a certificate
+ with both EKUs is accepted where either role is needed. Keep the key of each in the place that needs it; do not share one key.
+   Default (the set)                          the three, together with code signing, S/MIME, time stamping, OCSP = 7 certificates
+   -Purpose ServerAuth,ClientAuth             the three (a set folder with three purpose folders)
+   -Purpose ServerClientAuth                  ONE certificate with both EKUs (directly in leafcerts\<name>\)
+   -ExcludePurpose ServerClientAuth ...       the two separate ones (and whatever else of the set you did not exclude)
+   -Purpose ServerAuth,EmailProtection        as before: ONE certificate carrying exactly these (any other mix)
+ Purpose names in files: folder serverauth-clientauth, stem token server-client (www.example.com-server-client-ev-q1-rsa2048.crt).
+ leaf-set.json and leaf-index.json show the combined certificate as ServerAuth+ClientAuth / [ServerAuth, ClientAuth].
+ pki_setup.ps1 is not changed: its default EV leaves stay ONE certificate per quadrant with both EKUs.
+
+ -AddDevelopmentSAN
+ One switch puts the development names into the SAN. It is meant for the machines of a developer: the names of your sites, the loopback
+ address, your private networks and your own mailboxes in ONE certificate, so that any service of the lab can use it.
+      DNS (21)   nextmantra.com  www.nextmantra.com  *.nextmantra.com  localhost  local.dev
+                 nextmantra.internal  *.nextmantra.internal  nextmantra.developer  *.nextmantra.developer
+                 nextmantra.api  *.nextmantra.api  nextmantra.ldap  *.nextmantra.ldap
+                 agantra.internal  *.agantra.internal  agantra.developer  *.agantra.developer
+                 agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap
+      IP (403)   127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200 (200 addresses)  172.16.0.1 - 172.16.0.200 (200 addresses)
+      E-mail (4) nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com  airlangga@nextmantra.com
+ (A wildcard *.nextmantra.com covers ONE label: app.nextmantra.com yes, a.b.nextmantra.com no, nextmantra.com no: hence the separate entries.
+ "*.nextmantra,ldap" in the request was read as *.nextmantra.ldap: please check that this is what you meant.)
+
+   Where it goes     ServerAuth, ClientAuth, ServerClientAuth (and any certificate that has one of them): DNS, IP and e-mail.
+                     EmailProtection: the e-mail addresses only (DNS names and IP addresses make no sense in S/MIME).
+                     CodeSigning, TimeStamping, OcspSigning: nothing; they carry no SAN.
+   Merge             Your -DnsName / -IpAddress / -EmailAddress come FIRST (the first DNS name is the CN); the development names follow;
+                     duplicates (case-insensitive; IPv6 by value) are removed. With no names at all the names of [ leaf_san ] come first.
+   EV                The SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are deliberately NOT
+                     applied, also at -EV. The EV subject, the EV policy OID and the 398-day limit are kept. A warning says so; leaf-info.json
+                     and leaf-index.json carry developmentSan = true and evSanOverride = true; leaf-set.json carries developmentSan.
+                     The result is for development; no public CA would issue it and a public EV validator would reject it.
+   The list          [ development_san ] in agantra_pki.cnf:  DNS.n = name   IP.n = address   IPRange.n = first-last (IPv4, at most
+                     1024 addresses, each address written one by one)   email.n = address.   Edit it freely. Without that section the
+                     same list is built in. A bad entry stops the run before anything is written, with the entry in the message.
+   Check             Every certificate is validated: each DNS name and e-mail address must be in the issued certificate, and the number
+                     of IP addresses must match. Tested with OpenSSL 4.0.3 against the full chain: app.nextmantra.com, x.agantra.internal,
+                     db.nextmantra.ldap, localhost, 192.168.0.1, 192.168.0.200, 172.16.0.100, ::1, 10.10.2.2 and robby@nextmantra.com verify;
+                     a.b.nextmantra.com, 192.168.0.201, 172.16.0.201, 10.10.2.3 and nobody@nextmantra.com do not.
+
+ ALSO CHANGED IN 4.9.1
+   * A set made with no -DnsName used the company name for the set folder; it now uses the first name of the default SAN (nextmantra.com), like a
+     single certificate does. The certificates themselves did not change.
+   * Test-PkiLeafResult checks the number of IP addresses in the issued SAN.
 ====================================================================================================

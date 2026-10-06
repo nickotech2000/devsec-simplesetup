@@ -1,7 +1,7 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 4.9.0-phaseC          2026-10-05
+ Agantra Inovatif Enterprise PKI generator          Version 4.9.1-phaseC          2026-10-05
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PKI-Design-with-FIPS-and-PQC.txt (design, diagrams, limitations)
           PUBLIC-CA-ENTERPRISE-ROOT.txt        (Enterprise Root signed by DigiCert / GlobalSign / Sectigo)
@@ -629,7 +629,7 @@
 ====================================================================================================
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.9.0-phaseC
+ Version 4.9.1-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

@@ -18,11 +18,13 @@
 #              Code signing is forced to RSA >= 4096 / ECDSA >= P-384 / ML-DSA >= 65.
 #   Validity   EV 397 days (max 398), OV 3 years, DV 5 years, or -Days; never beyond the issuer.
 #   Formats    PEM, DER, CER, CERT, P7B, RFC 7468, PFX (always .crt .key -fullchain.crt -chain.crt)
-#   Purposes   ServerAuth, ClientAuth, CodeSigning, EmailProtection, TimeStamping, OcspSigning. A SET makes one
-#              certificate per purpose in one go (Invoke-PkiLeafSet), each in every format.
+#   Purposes   ServerAuth, ClientAuth, ServerClientAuth (both EKUs in ONE certificate), CodeSigning, EmailProtection,
+#              TimeStamping, OcspSigning. A SET makes one certificate per purpose in one go (Invoke-PkiLeafSet), each in
+#              every format: TLS therefore comes in THREE variants (server only, client only, server + client).
+#   Dev SAN    -AddDevelopmentSAN merges the [ development_san ] list (or the built-in copy) into the SAN of TLS certificates.
 #   Output     a folder per leaf; if it exists a NEW folder with date and time is created.
 #
-# Provides : New-PkiLeafSpec, New-PkiLeafSetSpecs, Invoke-PkiLeafSet, New-PkiLeafCertificate, Resolve-PkiLeafKey, Get-PkiLeafSan, Get-PkiLeafDn,
+# Provides : Get-PkiDevelopmentSan, Add-PkiDevelopmentSan, Expand-PkiIpRange, Resolve-PkiPurposeEku, New-PkiLeafSpec, New-PkiLeafSetSpecs, Invoke-PkiLeafSet, New-PkiLeafCertificate, Resolve-PkiLeafKey, Get-PkiLeafSan, Get-PkiLeafDn,
 #            Get-PkiLeafPolicies, Write-PkiLeafFormats, ConvertTo-PkiRfc7468, Test-PkiLeafResult,
 #            Add-PkiLeafIndex, Show-PkiLeafIndex, Get-PkiOpenSslReadiness, Assert-PkiLeafOpenSslReady
 # Requires : 00-04, 06 (Get-PkiCertText, Assert-PkiSignatureDigest), 11 (Add-PkiCheck, Invoke-PkiPqcSelfTest),
@@ -43,6 +45,7 @@ $script:PkiEkuMap = [ordered]@{
 $script:PkiPurposeProfiles = [ordered]@{
     ServerAuth      = @{ Token = 'server';    Label = 'TLS server';    Web = $true }
     ClientAuth      = @{ Token = 'client';    Label = 'TLS client';    Web = $true }
+    ServerClientAuth = @{ Token = 'server-client'; Label = 'TLS server + client'; Web = $true; Eku = @('ServerAuth', 'ClientAuth') }
     CodeSigning     = @{ Token = 'codesign';  Label = 'Code signing';  Web = $false; CnRole = 'Code Signing' }
     EmailProtection = @{ Token = 'email';     Label = 'S/MIME';        Web = $false }
     TimeStamping    = @{ Token = 'timestamp'; Label = 'Time stamping'; Web = $false; CnRole = 'Time Stamping' }
@@ -102,6 +105,111 @@ function Get-PkiLeafSan {
     }
     foreach ($m in $mailL) { if ($m -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') { throw "Invalid e-mail address in the SAN: '$m'" } }
     return [ordered]@{ Dns = @($dnsL); Ip = @($ipL); Email = @($mailL); Given = $given }
+}
+
+# ------------------------------------------------------------
+# Purposes: a profile name can stand for several EKUs (ServerClientAuth = ServerAuth + ClientAuth)
+# ------------------------------------------------------------
+function Resolve-PkiPurposeEku {
+    param([Parameter(Mandatory)][string[]]$Purpose)
+    $out = [System.Collections.Generic.List[string]]::new()
+    foreach ($p in $Purpose) {
+        $names = if ($script:PkiPurposeProfiles.Contains($p) -and $script:PkiPurposeProfiles[$p].Contains('Eku')) { @($script:PkiPurposeProfiles[$p]['Eku']) } else { @($p) }
+        foreach ($n in $names) { if ($out -notcontains $n) { [void]$out.Add($n) } }
+    }
+    return @($out)
+}
+
+# ------------------------------------------------------------
+# Development SAN (-AddDevelopmentSAN)
+#   The list is [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); when that section
+#   is missing or empty the built-in copy below is used. It is for DEVELOPMENT: wildcards, IP addresses, internal names
+#   and e-mail addresses in one certificate are not allowed by the EV rules of a public CA, and they are deliberately
+#   NOT checked here, also for an EV leaf.
+# ------------------------------------------------------------
+$script:PkiDevelopmentSanDefault = [ordered]@{
+    Dns = @(
+        'nextmantra.com', 'www.nextmantra.com', '*.nextmantra.com', 'localhost', 'local.dev',
+        '*.nextmantra.internal', '*.nextmantra.developer', 'nextmantra.internal', 'nextmantra.developer', 'nextmantra.api', '*.nextmantra.api',
+        'agantra.internal', '*.agantra.internal', 'agantra.developer', '*.agantra.developer', 'agantra.api', '*.agantra.api',
+        'nextmantra.ldap', '*.nextmantra.ldap', 'agantra.ldap', '*.agantra.ldap')
+    Ip = @('127.0.0.1', '::1', '10.10.2.2', '192.168.0.1-192.168.0.200', '172.16.0.1-172.16.0.200')    # a "first-last" entry is a range
+    Email = @('nicko@nextmantra.com', 'robby@nextmantra.com', 'info@nextmantra.com', 'airlangga@nextmantra.com')
+}
+$script:PkiDevelopmentSanCache = $null
+
+function Expand-PkiIpRange {
+    # "192.168.0.1-192.168.0.200" -> 200 addresses. IPv4 only, at most 1024 addresses.
+    param([Parameter(Mandatory)][string]$Range)
+    $parts = @($Range -split '\s*-\s*')
+    if ($parts.Count -ne 2) { throw "Invalid IP range '$Range': write first-last, for example 192.168.0.1-192.168.0.200." }
+    $a = $null; $b = $null
+    if (-not [System.Net.IPAddress]::TryParse($parts[0].Trim(), [ref]$a) -or -not [System.Net.IPAddress]::TryParse($parts[1].Trim(), [ref]$b) -or
+        $a.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork -or $b.AddressFamily -ne [System.Net.Sockets.AddressFamily]::InterNetwork) {
+        throw "Invalid IP range '$Range': both ends must be IPv4 addresses."
+    }
+    $toInt = { param($ip) $x = $ip.GetAddressBytes(); ([long]$x[0] * 16777216) + ([long]$x[1] * 65536) + ([long]$x[2] * 256) + [long]$x[3] }
+    $first = & $toInt $a; $last = & $toInt $b
+    if ($last -lt $first) { throw "Invalid IP range '$Range': the last address is below the first." }
+    if (($last - $first) -ge 1024) { throw "IP range '$Range' has more than 1024 addresses: make it smaller (a certificate with thousands of addresses is not useful)." }
+    for ($n = $first; $n -le $last; $n++) { '{0}.{1}.{2}.{3}' -f (($n -shr 24) -band 255), (($n -shr 16) -band 255), (($n -shr 8) -band 255), ($n -band 255) }
+}
+
+function Get-PkiDevelopmentSan {
+    # -> [ordered]@{ Dns; Ip; Email; Source }   (cached for the run)
+    if ($null -ne $script:PkiDevelopmentSanCache) { return $script:PkiDevelopmentSanCache }
+    $dnsL = [System.Collections.Generic.List[string]]::new(); $ipL = [System.Collections.Generic.List[string]]::new(); $mailL = [System.Collections.Generic.List[string]]::new()
+    $entries = @()
+    try { if ($null -ne $script:Pki -and $null -ne $script:Pki.Ini) { $entries = @(Get-PkiIniEntries -Ini $script:Pki.Ini -Section 'development_san') } } catch { $entries = @() }
+    $source = 'agantra_pki.cnf [ development_san ]'
+    $addIp = { param($v) foreach ($x in $(if ($v -match '^\s*[0-9.]+\s*-\s*[0-9.]+\s*$') { Expand-PkiIpRange -Range $v } else { @($v.Trim()) })) { if ($ipL -notcontains $x) { [void]$ipL.Add($x) } } }
+    $used = 0
+    foreach ($e in $entries) {
+        if ($null -eq $e -or [string]::IsNullOrWhiteSpace([string]$e.Value)) { continue }
+        $used++
+        if ($e.Key -match '^(?i)DNS(\.\d+)?$') { [void]$dnsL.Add($e.Value.Trim()) }
+        elseif ($e.Key -match '^(?i)(IP|IPRange)(\.\d+)?$') { & $addIp $e.Value }
+        elseif ($e.Key -match '^(?i)email(\.\d+)?$') { [void]$mailL.Add($e.Value.Trim()) }
+        else { throw "[ development_san ] in the configuration: unknown key '$($e.Key)'. Use DNS.n, IP.n, IPRange.n or email.n." }
+    }
+    if ($used -eq 0) {
+        $source = 'built-in list'
+        $d = $script:PkiDevelopmentSanDefault
+        foreach ($x in $d.Dns) { [void]$dnsL.Add($x) }
+        foreach ($x in $d.Ip) { & $addIp $x }
+        foreach ($x in $d.Email) { [void]$mailL.Add($x) }
+    }
+    $script:PkiDevelopmentSanCache = [ordered]@{ Dns = @($dnsL); Ip = @($ipL); Email = @($mailL); Source = $source }
+    return $script:PkiDevelopmentSanCache
+}
+
+function Add-PkiDevelopmentSan {
+    # Merges the development list into a SAN (duplicates removed, the names already there stay first). -EmailOnly: only the e-mail addresses.
+    param([Parameter(Mandatory)]$San, [switch]$EmailOnly)
+    $dev = Get-PkiDevelopmentSan
+    $dnsL = [System.Collections.Generic.List[string]]::new(); $ipL = [System.Collections.Generic.List[string]]::new(); $mailL = [System.Collections.Generic.List[string]]::new()
+    foreach ($x in $San.Dns) { [void]$dnsL.Add($x) }
+    foreach ($x in $San.Ip) { [void]$ipL.Add($x) }
+    foreach ($x in $San.Email) { [void]$mailL.Add($x) }
+    $before = @($dnsL.Count, $ipL.Count, $mailL.Count)
+    if (-not $EmailOnly) {
+        foreach ($d in $dev.Dns) {
+            if (-not (Test-PkiDnsName -Name $d)) { throw "Invalid DNS name in the development SAN: '$d'" }
+            if (-not ($dnsL | Where-Object { $_ -ieq $d })) { [void]$dnsL.Add($d) }
+        }
+        $have = @{}; foreach ($x in $ipL) { $t = $null; if ([System.Net.IPAddress]::TryParse($x, [ref]$t)) { $have[$t.ToString()] = $true } }
+        foreach ($a in $dev.Ip) {
+            $t = $null
+            if (-not [System.Net.IPAddress]::TryParse($a, [ref]$t)) { throw "Invalid IP address in the development SAN: '$a'" }
+            $k = $t.ToString(); if (-not $have.ContainsKey($k)) { $have[$k] = $true; [void]$ipL.Add($a) }
+        }
+    }
+    foreach ($m in $dev.Email) {
+        if ($m -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') { throw "Invalid e-mail address in the development SAN: '$m'" }
+        if (-not ($mailL | Where-Object { $_ -ieq $m })) { [void]$mailL.Add($m) }
+    }
+    return [ordered]@{ Dns = @($dnsL); Ip = @($ipL); Email = @($mailL); Given = $San.Given
+                       Added = [ordered]@{ Dns = $dnsL.Count - $before[0]; Ip = $ipL.Count - $before[1]; Email = $mailL.Count - $before[2] } }
 }
 
 # ------------------------------------------------------------
@@ -324,6 +432,12 @@ function New-PkiLeafSpec {
         $san = [ordered]@{ Dns = @(); Ip = @(); Email = @(); Given = $false }
     }
     else { $san = Get-PkiLeafSan -Dns $dnsIn -Ip $ipIn -Email $mailIn }
+    $devSan = $false
+    if ($Options.ContainsKey('AddDevelopmentSan') -and [bool]$Options['AddDevelopmentSan']) {
+        if ($webPurpose) { $san = Add-PkiDevelopmentSan -San $san; $devSan = $true }
+        elseif ($eku -contains 'EmailProtection') { $san = Add-PkiDevelopmentSan -San $san -EmailOnly; $devSan = $true }
+    }
+    $evSanOverride = ($devSan -and $level -eq 'EV' -and $webPurpose)
     if ($eku -contains 'ServerAuth' -and ($san.Dns.Count + $san.Ip.Count) -eq 0) { throw 'ServerAuth needs at least one DNS name or IP address (-DnsName / -IpAddress).' }
     if ($eku -contains 'EmailProtection' -and $san.Email.Count -eq 0) { throw 'EmailProtection needs at least one e-mail address (-EmailAddress).' }
     if ($eku -contains 'CodeSigning' -and $level -eq 'DV') { Write-PkiLog 'A code signing certificate is normally OV or EV; DV carries no organization in its subject.' 'WARN' }
@@ -374,6 +488,7 @@ function New-PkiLeafSpec {
         San = $san; DnPairs = $dn; Policies = $policies; Days = $days
         Primary = $primary; Folder = $names.Folder; PurposeFolder = $names.PurposeFolder; SetMode = $setMode; Stem = $stem; OutputFolder = $names.OutputFolder; UniqueSuffix = $names.UniqueSuffix
         Formats = @($fm); Notes = $notes; Tokens = $tokens
+        DevSan = $devSan; EvSanOverride = $evSanOverride
         OutDir = $null; Extras = $true
     }
 }
@@ -576,6 +691,8 @@ function Test-PkiLeafResult {
     foreach ($p in $Spec.Policies) { if ($t -notmatch [regex]::Escape($p.Oid)) { [void]$problems.Add("policy $($p.Oid) ($($p.Label)) is missing") } }
     foreach ($d in $Spec.San.Dns) { if ($t -notmatch [regex]::Escape("DNS:$d")) { [void]$problems.Add("SAN DNS:$d is missing") } }
     foreach ($m in $Spec.San.Email) { if ($t -notmatch [regex]::Escape("email:$m")) { [void]$problems.Add("SAN email:$m is missing") } }
+    $ipWanted = @($Spec.San.Ip).Count; $ipFound = ([regex]::Matches($t, 'IP Address:')).Count
+    if ($ipFound -ne $ipWanted) { [void]$problems.Add("SAN has $ipFound IP address(es), expected $ipWanted") }
     foreach ($pair in $Spec.DnPairs) {
         if ($pair[0] -eq 'organizationIdentifier' -and $t -notmatch 'organizationIdentifier|2\.5\.4\.97') { [void]$problems.Add('the D-U-N-S (organizationIdentifier) was dropped by the issuing CA') }
     }
@@ -659,15 +776,15 @@ function New-PkiLeafSetSpecs {
     $level = ([string]$Base.Level).ToUpperInvariant()
     $org = ConvertTo-PkiAscii (Get-PkiLeafSubjectValue 'Organization' 'O' 'Agantra Inovatif OU' $level)
     $baseCn = if ($Base.ContainsKey('CommonName') -and $Base.CommonName) { [string]$Base.CommonName } else { $org }
-    $webSan = Get-PkiLeafSan -Dns @($Base.DnsName) -Ip @($Base.IpAddress) -Email @($Base.EmailAddress)
+    $webSan = Get-PkiLeafSan -Dns @($Base.DnsName | Where-Object { $_ }) -Ip @($Base.IpAddress | Where-Object { $_ }) -Email @($Base.EmailAddress | Where-Object { $_ })
     $setName = if ($webSan.Dns.Count -gt 0) { $webSan.Dns[0] } elseif ($webSan.Ip.Count -gt 0) { $webSan.Ip[0] } else { $baseCn }
 
     $specs = [System.Collections.Generic.List[hashtable]]::new()
     foreach ($p in $Purposes) {
         $prof = $script:PkiPurposeProfiles[$p]
         $o = @{}
-        foreach ($k in 'Level', 'Quadrant', 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash', 'Days', 'Policy', 'Format') { if ($Base.ContainsKey($k)) { $o[$k] = $Base[$k] } }
-        $o.Eku = @($p); $o.SetMode = $true; $o.NameOverride = $setName
+        foreach ($k in 'Level', 'Quadrant', 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash', 'Days', 'Policy', 'Format', 'AddDevelopmentSan') { if ($Base.ContainsKey($k)) { $o[$k] = $Base[$k] } }
+        $o.Eku = $(if ($prof.Contains('Eku')) { @($prof['Eku']) } else { @($p) }); $o.SetMode = $true; $o.NameOverride = $setName
         if ($prof.Web) {
             $o.DnsName = @($Base.DnsName); $o.IpAddress = @($Base.IpAddress); $o.EmailAddress = @($Base.EmailAddress)
             if ($Base.ContainsKey('CommonName') -and $Base.CommonName) { $o.CommonName = [string]$Base.CommonName }
@@ -735,7 +852,8 @@ function Add-PkiLeafIndex {
     $entry = [ordered]@{
         folder = $FolderName; set = $Set; path = $R.Dir; stem = $R.Stem; level = $Spec.Level; quadrant = $Spec.Quadrant; track = $Spec.Track; fips = $Spec.Fips
         issuer = $Spec.Ca.Id; keyAlgorithm = $R.Actual.Algorithm; signatureDigest = $R.Md; purposes = @($Spec.Eku)
-        dns = @($Spec.San.Dns); ip = @($Spec.San.Ip); email = @($Spec.San.Email); days = $R.Days; notAfter = $R.NotAfter
+        dns = @($Spec.San.Dns); ip = @($Spec.San.Ip); email = @($Spec.San.Email); developmentSan = [bool]$Spec.DevSan; evSanOverride = [bool]$Spec.EvSanOverride
+        days = $R.Days; notAfter = $R.NotAfter
         sha1 = $R.Sha1; sha256 = $R.Sha256; formats = @($Spec.Formats); files = @($R.Files)
         createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "GenerateLeafCertificate.ps1 $($script:PkiGeneratorVersion)"
         openssl = $script:Pki.OpenSslVersion
