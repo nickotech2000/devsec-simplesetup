@@ -31,8 +31,8 @@ function Write-PkiPlan {
     Write-PkiLog "Output        : $($c.PkiRoot)"
     Write-PkiLog "Quadrants     : $($c.Quadrants -join ', ')   (1 Classic Non-FIPS, 2 Classic FIPS, 3 Quantum Non-FIPS, 4 Quantum FIPS)"
     Write-PkiLog "Validity      : Enterprise Root $($c.RootYears) years | Track Root $($c.TrackYears) years | Quadrant Root $($c.QuadrantYears) years | Intermediate $($c.IntYears) years | Leaf $($c.LeafDays) days"
-    Write-PkiLog "Root keys     : RSA-$($script:PkiRootRsaBits) / SHA-512 (Enterprise Root, Classic Track, Q1) | ECDSA $($script:PkiRootCurve) / SHA-512 (Q2) | $(Get-PkiPqcDisplayName $script:PkiRootPqc) (Quantum Track, Q3, Q4)"
-    Write-PkiLog "Intermediates : RSA-$($c.IntermediateRsaBits) / SHA-256 (Q1) | ECDSA $($c.IntermediateCurve) / SHA-384 (Q2) | $(Get-PkiPqcDisplayName $c.PqcAlgorithm) (Q3, Q4)   Leaf: Q1 RSA | Q2 ECDSA P-256 | Q3, Q4 $(Get-PkiPqcDisplayName $c.PqcLeafAlgorithm)$(if ($c.PqcFallback) { '   [-PqcFallback: RSA ' + $c.FallbackRsaBits + ' if ML-DSA fails]' })"
+    Write-PkiLog "Root keys     : RSA-$($script:PkiRootRsaBits) / SHA-512 (Enterprise Root, Classic Track, Classic Q1) | ECDSA $($script:PkiRootCurve) / SHA-512 (Classic Q2) | $(Get-PkiPqcDisplayName $script:PkiRootPqc) (Quantum Track, Quantum Q1 / Q2)"
+    Write-PkiLog "Intermediates : RSA-$($c.IntermediateRsaBits) / SHA-256 (Classic Q1) | ECDSA $($c.IntermediateCurve) / SHA-384 (Classic Q2) | $(Get-PkiPqcDisplayName $c.PqcAlgorithm) (Quantum Q1 / Q2)   Leaf: Classic Q1 RSA | Classic Q2 ECDSA P-256 | Quantum Q1 / Q2 $(Get-PkiPqcDisplayName $c.PqcLeafAlgorithm)$(if ($c.PqcFallback) { '   [-PqcFallback: RSA ' + $c.FallbackRsaBits + ' if ML-DSA fails]' })"
     if ($c.RsaPss) { Write-PkiLog 'RSA-PSS      : enabled for RSA CA signatures' }
     Write-PkiLog "Leaf defaults : EV $($c.LeafDays) days | OV $($c.OvLeafYears) years | DV $($c.DvLeafYears) years   (this script issues EV leaves; OV / DV leaves use these defaults)"
     Write-PkiLog "Policy OIDs   : EV $($script:PkiPolicyOid.EV) | OV $($script:PkiPolicyOid.OV) | DV $($script:PkiPolicyOid.DV)"

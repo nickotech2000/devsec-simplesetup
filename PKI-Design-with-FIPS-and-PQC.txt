@@ -2,7 +2,7 @@
  AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
 ====================================================================================================
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 4.9.1-phaseC                      Updated: 2026-10-05
+ Version : 4.9.2-phaseC                      Updated: 2026-10-05
  Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
            GenerateLeafCertificate.ps1, pki_reuse.ps1, transport script  (Phases B and C, not started)
  Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help   .\GenerateLeafCertificate.ps1 -Help
@@ -33,10 +33,11 @@
  1  GOALS AND TARGETS
 ====================================================================================================
  * One private PKI with two tracks, CLASSIC and QUANTUM, and four quadrants:
-        Q1 Classic Non-FIPS    Q2 Classic FIPS    Q3 Quantum Non-FIPS    Q4 Quantum FIPS
+        quadrant   1 Classic non-FIPS | 2 Classic FIPS | 3 Quantum non-FIPS | 4 Quantum FIPS       (internal numbers)
+        NAMED      Classic Q1         | Classic Q2     | Quantum Q1         | Quantum Q2           (Q1 = non-FIPS, Q2 = FIPS, both tracks)
    Each quadrant has three policy-isolated intermediates: DV, OV, EV.
  * CLASSIC  quadrants use RSA (Q1) and ECDSA (Q2).
-   QUANTUM  quadrants use the post-quantum signature ML-DSA at EVERY level: Track Root, Q3 / Q4 roots,
+   QUANTUM  quadrants use the post-quantum signature ML-DSA at EVERY level: Track Root, Quantum Q1 / Q2 roots,
    intermediates and leaves, FIPS and non-FIPS. Only the Enterprise Root, which anchors both tracks,
    is RSA. Servers that support it also negotiate the hybrid key exchange X25519MLKEM768 (ML-KEM).
  * Generation: PowerShell 7+ and OpenSSL 4.x. Older OpenSSL stops the script. ENGINE API gone;
@@ -82,7 +83,7 @@
        +-------+---------------+                                          +-------+-------------+
        |                       |                                          |                     |
  +-----v-----------+   +-------v---------+                       +--------v--------+   +--------v--------+
- | Q1 ROOT         |   | Q2 ROOT         |                       | Q3 ROOT         |   | Q4 ROOT         |
+ | CLASSIC Q1 ROOT |   | CLASSIC Q2 ROOT |                       | QUANTUM Q1 ROOT |   | QUANTUM Q2 ROOT |
  | Classic         |   | Classic         |                       | Quantum         |   | Quantum         |
  | NON-FIPS        |   | FIPS            |                       | NON-FIPS        |   | FIPS            |
  | RSA 8192/SHA512 |   | ECDSA P-521     |                       | ML-DSA-87       |   | ML-DSA-87       |
@@ -117,7 +118,7 @@
         ----------  ------------------------  --------  ------------------------------------------
         RSA         8192 bit                  SHA-512   Enterprise Root, Classic Track Root, Q1 root
         ECDSA       P-521 (secp521r1)         SHA-512   Q2 root (Classic FIPS)
-        ML-DSA      ML-DSA-87 (NIST level 5)  none      Quantum Track Root, Q3 root, Q4 root
+        ML-DSA      ML-DSA-87 (NIST level 5)  none      Quantum Track Root, Quantum Q1 root, Quantum Q2 root
 
       * Why 8192: it is also the largest RSA size Chrome (BoringSSL) accepts. 16384 would fail.
       * Why P-521: largest NIST curve; roots only sign CA certificates and never take part in a TLS
@@ -135,10 +136,10 @@
         ---------------------  -------------------------  -----------  ---------------------------
         Q1 intermediates       RSA 4096 (or 8192)         SHA-256      -IntermediateRsaBits
         Q2 intermediates       ECDSA P-384 (or P-256/521) SHA-384      -IntermediateCurve
-        Q3, Q4 intermediates   ML-DSA-87 (or 65 / 44)     none         -PqcAlgorithm
+        Quantum intermediates  ML-DSA-87 (or 65 / 44)     none         -PqcAlgorithm
         Leaf Q1                RSA 2048                   SHA-256      -LeafSizes
         Leaf Q2                ECDSA P-256                SHA-384      -
-        Leaf Q3, Q4            ML-DSA-65 (or 44 / 87)     none         -PqcLeafAlgorithm
+        Leaf Quantum           ML-DSA-65 (or 44 / 87)     none         -PqcLeafAlgorithm
       Leaf floors (Phase B): RSA below 2048, ECC below P-256 and hash below SHA-256 rejected.
       Code signing: key 4096 or larger and SHA-256 or larger, enforced even if the parameters say less.
       No silent downgrade: if OpenSSL cannot create an ML-DSA key the script STOPS. Only -PqcFallback
@@ -185,7 +186,11 @@
  Track Root          Agantra Inovatif Enterprise Classic Root CA G1
                      Agantra Inovatif Enterprise PQC-PostQuantum Root CA G2
  Quadrant Root       Agantra Inovatif Enterprise Classic Q1 Root CA G1          (Q2 likewise)
-                     Agantra Inovatif Enterprise PQC-PostQuantum Q3 Root CA G2  (Q4 likewise)
+                     Agantra Inovatif Enterprise PQC-PostQuantum Q1 Root CA G2  (Q2 likewise)
+                     Q1 = non-FIPS, Q2 = FIPS, in BOTH tracks. The track word and the generation (G1 Classic, G2 Quantum) keep every
+                     name and file stem unique: agantra-q1-root-g1 (Classic) / agantra-q1-root-g2 (Quantum).
+                     The internal quadrant numbers 1..4 (-Quadrant, ids q1-ev .. q4-ev, folders) are NOT renamed.
+                     Leaf file names use the same Q1 / Q2: www.example.com-ev-q2-mldsa65.crt is a Quantum FIPS leaf.
  Intermediate        Agantra Inovatif <EV|OV|DV> <algorithm> <G1|G2> CA
                        Agantra Inovatif EV RSA-4096 G1 CA
                        Agantra Inovatif OV ECDSA-P384 FIPS G1 CA
@@ -216,17 +221,23 @@
    The EV policy is REQUIRED: it is always written (a blank value falls back to the default), so a
    client or application can tell that it holds an EV certificate. Change the values in
    agantra_pki.cnf [ policy_oids ] or with -EvPolicyOid. EV, OV and DV must be valid and different.
-   All roots carry EV, OV and DV. An intermediate carries only its own level (policy isolation).
+   Enterprise Root and Track Roots   All issuance policies (anyPolicy 2.5.29.32.0; Windows: "All issuance policies") + EV
+                                     2.23.140.1.1, NOTHING else: no OV, no DV, no PEN, no custom policy. No extended key usage
+                                     (Windows: all application policies).
+   Quadrant Roots                    EV, OV and DV (+ the PEN policies and [ custom_policies ]).
+   Intermediates                     only their own level (policy isolation) + the PEN policies of that level + custom policies.
+   Leaves                            their level + the PEN policies of that level + custom policies + -Policy.
    The EV leaf carries EV.
- IANA Private Enterprise Number (PEN)   blank until you have it: IanaPen in agantra_pki.cnf [ iana_pen ]
+ IANA Private Enterprise Number (PEN)   67096 (Agantra Inovatif OU): PEN in agantra_pki.cnf [ iana_pen ]
    or -IanaPen <number>. When set, these OIDs are added (PenPolicyArc defaults to 1):
-        1.3.6.1.4.1.<PEN>.1      company policy        every certificate
-        1.3.6.1.4.1.<PEN>.1.1    company EV level      roots, EV intermediates, EV leaves
-        1.3.6.1.4.1.<PEN>.1.2    company OV level      roots, OV intermediates, OV leaves
-        1.3.6.1.4.1.<PEN>.1.3    company DV level      roots, DV intermediates, DV leaves
+        1.3.6.1.4.1.<PEN>.1      company policy        Quadrant Roots, intermediates, leaves
+        1.3.6.1.4.1.<PEN>.1.1    company EV level      Quadrant Roots, EV intermediates, EV leaves
+        1.3.6.1.4.1.<PEN>.1.2    company OV level      Quadrant Roots, OV intermediates, OV leaves
+        1.3.6.1.4.1.<PEN>.1.3    company DV level      Quadrant Roots, DV intermediates, DV leaves
+   NOT in the Enterprise Root and the Track Roots (they carry All issuance policies + EV only).
    Your applications can therefore recognise a company EV certificate by its own OID.
  Extra policies   agantra_pki.cnf [ custom_policies ]:   label = OID | CPS-URL
-   Written into EVERY certificate: root, track, quadrant, intermediate, leaf. Phase B adds a leaf
+   Written into every Quadrant Root, intermediate and leaf (NOT the Enterprise Root and Track Roots). Phase B adds a leaf
    parameter for more. A policy missing from the CA certificates is not asserted by the CA chain.
  CA extensions   basicConstraints critical CA:true pathlen:N | keyUsage critical keyCertSign,cRLSign
    subjectKeyIdentifier | authorityKeyIdentifier keyid:always | certificatePolicies |
@@ -263,7 +274,7 @@
 
    On Windows pki_setup installs EVERY root in the Trusted Root store and every intermediate in the
    Intermediate store (not only the Enterprise Root):
-        LocalMachine\Root   Enterprise Root, Classic / Quantum Track Roots, Q1..Q4 Quadrant Roots   (7)
+        LocalMachine\Root   Enterprise Root, Classic / Quantum Track Roots, the four Quadrant Roots   (7)
         LocalMachine\CA     all DV / OV / EV intermediates                                          (12)
         LocalMachine\My     default leaf PFX files (all quadrants)
    including every ML-DSA certificate on Windows 11 24H2+ / Server 2025 (checked by thumbprint).
@@ -281,7 +292,7 @@
           |  Certificate: RSA / ECDSA chain from this PKI                |
           key exchange: hybrid (quantum-safe)   authentication: RSA / ECDSA (classical)
 
-  B. QUANTUM leaf (Q3 / Q4): both ends must support ML-DSA certificates
+  B. QUANTUM leaf (quadrants 3 / 4): both ends must support ML-DSA certificates
         CLIENT with OpenSSL 3.5+ (curl, Python, Node, nginx proxy ...)  SERVER with OpenSSL 3.5+
           |  ClientHello: groups = X25519MLKEM768 ... ; signature_algorithms include mldsa44/65/87
           |------------------------------------------------------------->|
@@ -300,7 +311,7 @@
 
    pki\leaf\nextmantra.com-q3-mldsa65.crt             leaf only
                                        .key           private key (PKCS#8 PEM, no password)
-                                       -fullchain.crt leaf + EV intermediate + Q3 root + Quantum root
+                                       -fullchain.crt leaf + EV intermediate + Quantum Q1 root + Quantum Track Root
                                        .pfx           certificate + key + chain  (password -Password)
    (Classic leaf names: nextmantra.com-q1-rsa2048.*   nextmantra.com-q2-ecdsa-p256.*)
 
@@ -500,7 +511,7 @@
  L3   ML-DSA signatures are big: about 3.3 KB (ML-DSA-65) and 4.6 KB (ML-DSA-87) each. A Quantum chain of
       leaf + intermediate + quadrant root + track root carries four of them: tens of KB. Servers, proxies
       and load balancers with small header or handshake limits can fail.
- L4   The FIPS quadrant Q4 needs a FIPS provider that contains ML-DSA (OpenSSL 3.5+ / 4). The
+ L4   The Quantum FIPS quadrant (number 4, named Quantum Q2) needs a FIPS provider that contains ML-DSA (OpenSSL 3.5+ / 4). The
       FIPS provider is not by itself a compliance claim (L13).
  L5   Private PKI. Every client installs the Enterprise Root. Firefox, Chrome on Linux, Java, Node,
       Python, PHP and Android apps have their own stores or settings (manual, section 7).
@@ -548,7 +559,7 @@
       Versions change: check nginx -V, process.versions.openssl, ssl.OPENSSL_VERSION, your Windows build.
  L20  PHP 8.4.13 and Python builds on Windows may bundle an OpenSSL older than 3.5: no ML-DSA and no
       hybrid key exchange there. Java 25 never offers the hybrid group.
- L21  The IANA PEN is blank until you supply it; no company OIDs exist before that.
+ L21  The IANA PEN (67096) is set; company OIDs appear in certificates made AFTER it was set. Existing CAs do not have them (rebuild), and a leaf then warns that its issuer lacks the policy.
  L22  Policy OIDs alone do not make a browser show an EV badge: that needs a public root in the browser's
       EV list. They let YOUR applications recognise the certificate type.
 
@@ -616,6 +627,10 @@
  L51  A wildcard covers one label only (*.nextmantra.com does not match a.b.nextmantra.com or nextmantra.com): the development list therefore names the apex
       domains separately and has no deeper wildcards.
  L52  The development SAN is added to certificates made by GenerateLeafCertificate.ps1 only, not to the default EV leaves of pki_setup.ps1.
+ L53  Certificates cannot be renamed: a PKI built before 4.9.x keeps its old names, subjects and policies (a Quantum quadrant root called "... Q3 Root CA G2", roots with OV / DV
+      policies, no PEN). Rebuild with pki_setup.ps1 -Clean to get the current ones; the leaves of the old PKI then no longer chain to the new CAs. Leaf files made earlier keep
+      their q3 / q4 names.
+ L54  The short code signing subject is not an "EV code signing" subject in the CA/B Forum sense (no serialNumber, jurisdiction, businessCategory): it is for your own lab.
 
 ====================================================================================================
  10  DECISIONS AND OPEN QUESTIONS
@@ -634,9 +649,10 @@
  10.7  DECIDED   Leaf lifetime defaults: EV 397 days, OV 3 years, DV 5 years (overridable).
  10.8  DECIDED   IANA PEN: parameter and cnf entry exist and are blank. The EV policy is required.
  10.9  DECIDED   The year range "2026-2050" is removed from the intermediate names (CaYearRange gone).
- 10.10 OPEN      Your IANA PEN number. Supply it later in agantra_pki.cnf or with -IanaPen.
+ 10.10 DECIDED   IANA PEN 67096 (Agantra Inovatif OU): set in agantra_pki.cnf [ iana_pen ] PEN. Company policy 1.3.6.1.4.1.67096.1, levels .1.1 EV, .1.2 OV, .1.3 DV.
+                 CAs built BEFORE the PEN was set do not carry these policies: rebuild the PKI (pki_setup.ps1 -Clean) for the full effect.
  10.11 DECIDED   Browser-facing sites and Windows servers use the Classic leaves (Q1 / Q2); the Quantum leaves
-                 (Q3 / Q4) are for OpenSSL-based services and mutual TLS. (owner, 2026-10-05)
+                 (quadrants 3 / 4) are for OpenSSL-based services and mutual TLS. (owner, 2026-10-05)
  10.12 OPEN      Phase B starts only after you accept Phase A (section 14).
  10.13 DECIDED   Naming is one module with documented defaults and [ ca_names ] overrides (section 4).
  10.14 DECIDED   -ClassicPKI = Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV intermediates.
@@ -699,6 +715,15 @@
                  The generator never had such rules to disable; the override is therefore a warning plus markers (developmentSan, evSanOverride) in the output, not a code path.
                  EV subject, EV policy OID and 398 days are kept. The certificates are for development only.
  10.42 DECIDED   "*.nextmantra,ldap" of the request is read as *.nextmantra.ldap (typing error); the owner is asked to confirm.
+ 10.43 DECIDED   Enterprise Root and Track Roots carry All issuance policies (anyPolicy 2.5.29.32.0, Windows: "All issuance policies") + EV 2.23.140.1.1 and nothing else, and no extended
+                 key usage (Windows: all application policies). OV, DV, the PEN and custom policies start at the Quadrant Roots. (Implemented in the policy model; the documentation
+                 said "every certificate" and "all roots carry EV, OV and DV": corrected in 4.9.2. Post-generation validation refuses a root that carries more.)
+ 10.44 DECIDED   The IANA PEN (67096, or -IanaPen) goes into the Quadrant Roots, the intermediates (their level) and ALL leaves; never into the Enterprise Root or the Track Roots.
+ 10.45 DECIDED   Quadrant naming: Q1 = non-FIPS, Q2 = FIPS in BOTH tracks, for the Quadrant Root and Intermediate CA names and file stems (agantra-q1-ev-g2 is Quantum non-FIPS) and,
+                 since 4.9.2, for the file names of the leaves. The internal numbers 1..4 (-Quadrant, ids, folders, issuer ids q3-ev ...) are NOT renamed. Names are unique through the
+                 track word and the generation.
+ 10.46 DECIDED   Code signing subject: C, ST, L, O, CN with CN = O = the company (-CodeSigningCompany; empty = the Organization, default Agantra Inovatif OU), C = EE, ST = L = Tallinn,
+                 at every level; no OU, street, contact or EV-only fields. -CommonName does not apply to code signing.
  10.16 OPEN      Which public CA, product and level you will really use. Ask for pathlen >= 3 at level 0; if
                  only pathlen 0 / 1 is offered tell me: the signed level has to move (document, section 5).
 
@@ -778,6 +803,11 @@
  B15  TLS as three certificates: server, client, server + client       DONE (default set = 7; -Purpose ServerAuth,ClientAuth = 3; ServerClientAuth = 1)
  B16  -AddDevelopmentSAN with the owner's list, EV override intended     DONE (21 DNS, 403 IP, 4 e-mail; tested incl. ML-DSA and the OpenSSL name checks)
  B17  Design, documentation and -Help updated                           DONE
+ E1   Enterprise Root / Track Roots: All issuance policies + EV only        DONE (was implemented; verified, documentation corrected)
+ E2   IANA PEN only in Quadrant Roots, intermediates, leaves                DONE (was implemented; verified, documentation corrected)
+ E3   Names Q1 / Q2 in both tracks (CAs, stems, leaf file names)           DONE (CAs were; leaf file names changed in 4.9.2; docs rewritten)
+ E4   -CodeSigningCompany; default subject CN = O = Agantra Inovatif OU     DONE
+ E5   Design, manuals and -Help updated                                    DONE
  C1   Pack into a password-protected zip / 7z named .certpacked    DONE (zip AES-256, ZipCrypto, 7z; tested vs real 7-Zip)
  C2   Scan: Windows 11 25H2+ only, then unpack; else refuse        DONE (simulated machines; Windows itself untested)
  C3   OpenSSL 4.0.1 - 4.0.3 at the destination (Win, Linux, mac)   DONE (scan + advice; Linux / mac: source build, tested download)
@@ -799,6 +829,16 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
+ 4.9.2-phaseC  2026-10-06
+   + GenerateLeafCertificate.ps1 -CodeSigningCompany (alias -CodesignCompany): code signing subject C=EE, ST=Tallinn, L=Tallinn, O=CN=<company>; empty = the Organization.
+   + Leaf file names use the naming quadrant (Q1 = non-FIPS, Q2 = FIPS in both tracks): a Quantum FIPS leaf is ...-q2-mldsa65.crt (was q4). Default leaves of pki_setup too.
+   + Documentation and -Help corrected: PEN placement (not in the Enterprise Root and Track Roots), the policies of the roots (All issuance policies + EV), the names of the Quantum
+     quadrants (Q1 / Q2), the table of quadrant numbers and names; pki_setup -Help has a POLICIES and a NAMES OF THE QUADRANTS section.
+   + Verified on a FRESH build of the current code (19 CAs, -Verify valid): Enterprise Root and both Track Roots = Any Policy + 2.23.140.1.1 only, no EKU; Quadrant Roots EV + OV + DV +
+     PEN (1, 1.1, 1.2, 1.3); intermediates their level + PEN; names Classic Q1 / Q2 and PQC-PostQuantum Q1 / Q2, stems agantra-q1-root-g1 / -g2 ...; a leaf from it carries its level + PEN with no
+     "issuer lacks the policy" warning and verifies against the Enterprise Root alone.
+   + Found while finishing: the help text of pki_setup.ps1 had lost five sections (ROOT KEY POLICY, QUANTUM TRACK, VALIDITY, POLICIES, the COMMON NAMES heading); restored and updated.
+   + Verified, not changed: the root policies, the PEN placement and the Q1 / Q2 names of the Quadrant Root and Intermediate CAs were already implemented (see 10.43 to 10.45).
  4.9.1-phaseC  2026-10-06
    + GenerateLeafCertificate.ps1: new purpose ServerClientAuth (serverAuth + clientAuth in ONE certificate). TLS now comes in THREE certificates (server only,
      client only, server + client): the default set has SEVEN certificates; -Purpose ServerAuth,ClientAuth makes the three; -Purpose ServerClientAuth the combined one.
@@ -832,7 +872,7 @@
    + Cross-certificate chains (-fullchain-cross.crt) follow the new location and the set layout.
    + GenerateLeafCertificate-MANUAL.txt (new): the manual with the complete -Help text.
  4.6.0-phaseB  2026-10-05   PHASE B
-   + GenerateLeafCertificate.ps1: any DV / OV / EV leaf; -Classic / -Quantum / -FIPS = Q1..Q4; purposes
+   + GenerateLeafCertificate.ps1: any DV / OV / EV leaf; -Classic / -Quantum / -FIPS = quadrants 1..4; purposes
      ServerAuth, ClientAuth, EmailProtection, CodeSigning; RSA / ECDSA / ML-DSA with enforced floors; policies;
      validity by level; subject by level; formats PEM DER CER CERT P7B RFC 7468 PFX; validation of every file.
    + scripts\14_LeafGenerator.ps1 (the generator, shared with pki_setup.ps1: 05_LeafCertificates is now a wrapper),
@@ -868,7 +908,7 @@
      3.x is refused with HOW TO FIX steps naming Install-DevEnvironment.ps1; discovery covers the FireDaemon
      folders. Commands without a PKI configuration use a neutral config, so a machine-wide OPENSSL_CONF
      (master file with oqsprovider) cannot interfere.
-   + Capability gate before generation: ML-DSA (Q3 non-FIPS, Q4 FIPS) and the FIPS provider are proven first.
+   + Capability gate before generation: ML-DSA (quadrant 3 non-FIPS, quadrant 4 FIPS) and the FIPS provider are proven first.
  4.4.0-phaseA  2026-10-05
    + scripts\01b_CaNaming.ps1: all CA names, prefix, labels, generations and file-name stems in one
      configurable module ([ ca_names ] overrides); checks (64 characters, unique, tokens); -ShowNames.
@@ -881,7 +921,7 @@
      12_ExistingPki.ps1 (Import-PkiExisting), shared helpers moved to 00_Common.
    + Manifest: mode, enterpriseRoot (public CA, cross-certificates), per-CA store (Root / CA), naming.
  4.3.0-phaseA  2026-10-05
-   + Quantum track = ML-DSA at every level (Track Root, Q3 / Q4 roots, intermediates, leaves), FIPS and
+   + Quantum track = ML-DSA at every level (Track Root, Quantum Q1 / Q2 roots, intermediates, leaves), FIPS and
      non-FIPS. Enterprise Root stays RSA 8192. Strict: no silent RSA downgrade; -PqcFallback opt-in.
    + New parameters -PqcAlgorithm, -PqcLeafAlgorithm, -PqcFallback, -FallbackRsaBits.
    + "2026-2050" removed from the intermediate names.
@@ -940,8 +980,8 @@
       one pki_setup.ps1 uses for its default EV leaves (05_LeafCertificates.ps1 only chooses which leaves).
 
  15.3 Level, quadrant, issuer
-      -Classic = Q1, -Classic -FIPS = Q2, -Quantum = Q3, -Quantum -FIPS = Q4.   issuer id  q<N>-dv | q<N>-ov | q<N>-ev
-      Defaults EV, Classic, non-FIPS.   Browser / Windows server leaves: Q1 / Q2.   OpenSSL services, mTLS: Q3 / Q4.
+      -Classic = quadrant 1, -Classic -FIPS = 2, -Quantum = 3, -Quantum -FIPS = 4.   issuer id  q<N>-dv | q<N>-ov | q<N>-ev
+      Defaults EV, Classic, non-FIPS.   Browser / Windows server leaves: quadrants 1 / 2.   OpenSSL services, mTLS: quadrants 3 / 4.
 
  15.4 Rules by level
       Subject    DV: CN.   OV: C ST L street postalCode O OU CN name emailAddress telephoneNumber.
@@ -952,7 +992,7 @@
                  by default.  Code signing FORCED: RSA >= 4096, ECDSA >= P-384, ML-DSA >= 65.
       Validity   EV 397 days (<= 398), OV 3 years, DV 5 years, -Days n; never beyond the issuer.
       Policies   level OID + [ policy_oids ] / [ iana_pen ] policies + -Policy "OID|CPS".
-      Purposes   One certificate EACH (the set, 7): ServerAuth, ClientAuth, ServerClientAuth (both EKUs), CodeSigning,
+      Purposes   One certificate EACH (the set, 7; code signing has its own short subject, 15.9): ServerAuth, ClientAuth, ServerClientAuth (both EKUs), CodeSigning,
                  EmailProtection, TimeStamping (EKU critical, alone, RFC 3161), OcspSigning (+ id-pkix-ocsp-nocheck). Key usage follows (RSA adds
                  keyEncipherment for TLS server / S/MIME; S/MIME adds nonRepudiation). -Purpose = ONE certificate.
                  Names: TLS purposes use the DNS names / IPs; S/MIME the e-mail (else ContactEmail); the other three
@@ -1000,11 +1040,20 @@
                  after the SAN of the request is known: TLS purposes get DNS + IP + e-mail, EmailProtection the e-mail addresses only. Expand-PkiIpRange expands a
                  first-last IPv4 range (at most 1024). The spec carries DevSan and EvSanOverride; Add-PkiLeafIndex writes them; the main script prints one WARN.
       Checks     Test-PkiLeafResult: every DNS name and e-mail in the certificate, the IP count equal to the spec.
-      Tests run  OpenSSL 4.0.3 (Q1 EV / OV, Q4 EV ML-DSA): default set = 7 certificates with EKU serverAuth | clientAuth | serverAuth+clientAuth and distinct keys;
+      Tests run  OpenSSL 4.0.3 (quadrant 1 EV / OV, quadrant 4 EV ML-DSA): default set = 7 certificates with EKU serverAuth | clientAuth | serverAuth+clientAuth and distinct keys;
                  -Purpose ServerAuth,ClientAuth = 3; ServerClientAuth = 1; legacy -Purpose ServerAuth,EmailProtection = 1; the refusal with -ExcludePurpose; the
                  exclusion that leaves the two separate certificates; EV + -AddDevelopmentSAN: TLS 21/403/4, S/MIME 0/0/4, code signing none, flags in the index;
                  your names first with duplicates removed (22 DNS); built-in list = cnf list; a custom list (2/4/1); bad range, oversized range, IPv6 range, unknown key,
                  bad DNS name, bad e-mail: each stopped with the entry named; openssl verify with the full chain for 10 matching and 5 non-matching names / addresses.
+
+ 15.9 Code signing subject and quadrant numbers in names  (4.9.2)
+      Subject    Get-PkiCodeSigningDn: C, ST, L, O, CN; CN = O = -CodeSigningCompany, or the Organization when empty (default Agantra Inovatif OU); C / ST / L from -Country /
+                 -State / -Locality, the cnf, else EE / Tallinn / Tallinn. At every level; nothing else is written. A company name longer than 64 characters stops the run.
+                 New-PkiLeafSpec uses it for every certificate that has the CodeSigning purpose; New-PkiLeafSetSpecs passes -CodeSigningCompany on.
+      Numbers    Get-PkiNamingQuadrant (01b_CaNaming.ps1) gives the number used in NAMES: 1 = non-FIPS, 2 = FIPS. The leaf generator now builds the Quadrant and Tag tokens from it, so
+                 the file names of a leaf match the name of its issuer. Folders, ids, issuer ids and -Quadrant keep 1..4.
+      Tests run  OpenSSL 4.0.3: EV and OV code signing with and without a company (subject exactly as above, EKU codeSigning, RSA 4096); a Quantum FIPS set with a company (code signing
+                 subject and the unchanged EV server subject, file names -q2-mldsa65); a 70-character company refused with no folder left.
 
 
 ====================================================================================================

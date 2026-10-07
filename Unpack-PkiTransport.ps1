@@ -45,7 +45,7 @@ function Show-PkiUnpackHelp {
     @'
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 4.9.1-phaseC
+ Version 4.9.2-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

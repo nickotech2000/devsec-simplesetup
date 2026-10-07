@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.1-phaseC          2026-10-06
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.2-phaseC          2026-10-06
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: .\GenerateLeafCertificate.ps1 -Help     (the same text as section 13 of this file)
           pki_setup-MANUAL.txt                  (the PKI itself, trust, servers)
@@ -18,6 +18,7 @@
     6  Where the files go, names, unique folders 13  -Help (the complete text)
     7  Level, quadrant, keys, validity, policies 14  What changed in 4.7
                                                 15  Three TLS certificates and the development SAN (4.9.1)
+                                                16  Code signing subject and quadrant names (4.9.2)
 ====================================================================================================
  1  WHAT THE SCRIPT DOES
 ====================================================================================================
@@ -76,7 +77,8 @@
  ServerClientAuth TLS server AND client in ONE certificate.   EKU serverAuth + clientAuth.
                   Key usage as ServerAuth.   SAN and CN as ServerAuth.   (Section 15.)
  CodeSigning      Code signing.   EKU codeSigning (1.3.6.1.5.5.7.3.3).
-                  Key usage digitalSignature.   SAN: none.   CN: "<company> Code Signing".
+                  Key usage digitalSignature.   SAN: none.   Subject: C=EE, ST=Tallinn, L=Tallinn, O=<company>, CN=<company>
+                  (-CodeSigningCompany; empty = the organization, default Agantra Inovatif OU). Section 16.
  EmailProtection  S/MIME.   EKU emailProtection (1.3.6.1.5.5.7.3.4).
                   Key usage digitalSignature, nonRepudiation (+ keyEncipherment for RSA).
                   SAN: e-mail address.   CN: the e-mail address.
@@ -161,15 +163,16 @@
  7  LEVEL, QUADRANT, KEYS, VALIDITY, POLICIES
 ====================================================================================================
 
- Level / quadrant  -DV | -OV | -EV (default EV).  -Classic = Q1, -Classic -FIPS = Q2, -Quantum = Q3,
-                   -Quantum -FIPS = Q4.
+ Level / quadrant  -DV | -OV | -EV (default EV).  -Classic = quadrant 1, -Classic -FIPS = 2,
+                   -Quantum = 3, -Quantum -FIPS = 4 (internal numbers). In NAMES (CAs and leaf file names) Q1 = non-FIPS, Q2 = FIPS in
+                   both tracks: Classic Q1 / Q2, Quantum Q1 / Q2 (a Quantum FIPS leaf is ...-ev-q2-mldsa65.crt).
                    Browsers and Windows servers: Classic. OpenSSL services and mutual TLS: Quantum (or Classic).
  Subject           DV: CN only. OV: C ST L street postalCode O OU CN + name / emailAddress / telephoneNumber.
                    EV: OV + serialNumber, businessCategory, jurisdictionC / ST / L, and -Duns (organizationIdentifier =
                    DUNS+<n>, a private convention). Values: command line, else [ subject_ev ] / [ subject_ov ].
  Keys (floors are REJECTED, not corrected)
                    RSA 2048 | 3072 | 4096 | 8192   ECDSA P-256 | P-384 | P-521   ML-DSA 44 | 65 | 87
-                   Defaults: Q1 RSA 2048, Q2 ECDSA P-256, Q3 / Q4 ML-DSA-65. Hash sha256 | sha384 | sha512 (the issuer's
+                   Defaults: quadrant 1 RSA 2048, 2 ECDSA P-256, 3 / 4 ML-DSA-65. Hash sha256 | sha384 | sha512 (the issuer's
                    by default); SHA-1, SHA-224, MD5 rejected.
  Validity          EV 397 days (maximum 398), OV 3 years, DV 5 years, or -Days. Never longer than the issuer.
  Policies          The level OID (EV 2.23.140.1.1, OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [ policy_oids ] /
@@ -224,7 +227,7 @@
  One TLS certificate with server + client authentication, only a PFX
      .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth -Format PFX
  A code signing certificate only
-     .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CommonName "Agantra Code Signing"
+     .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"
  An S/MIME certificate for a person
      .\GenerateLeafCertificate.ps1 -DV -Purpose EmailProtection -EmailAddress user@example.com
  A time stamping and an OCSP certificate
@@ -244,6 +247,8 @@
      .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN
  Development: your own name first, the development SAN after it, ML-DSA, FIPS
      .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerClientAuth
+ Code signing certificate for your own company (CN = O = Example Ltd; empty company = Agantra Inovatif OU)
+     .\GenerateLeafCertificate.ps1 -EV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"
  Count what went into the SAN
      openssl x509 -in <leaf>.crt -noout -ext subjectAltName
  Unblock and unlock everything
@@ -300,7 +305,7 @@
 ====================================================================================================
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.1-phaseC
+ Version 4.9.2-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -341,15 +346,18 @@ USAGE
   .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerClientAuth   (1 cert)
   .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         the set + development SAN
   .\GenerateLeafCertificate.ps1 -EV -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerAuth,ClientAuth
+  .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"   CN = O = Example Ltd
   .\GenerateLeafCertificate.ps1 -List                                         leaf certificates made so far
   .\GenerateLeafCertificate.ps1 -Unblock                                      unblock + unlock the folders, then stop
 
 LEVEL AND QUADRANT   (defaults: -EV, -Classic, no -FIPS)
   -DV | -OV | -EV      Domain / Organization / Extended validation. Chooses the intermediate q<N>-dv|ov|ev.
   -Classic | -Quantum  Classic: RSA or ECDSA leaf.  Quantum: ML-DSA leaf.
-  -FIPS                FIPS quadrant (FIPS provider).  -Classic = Q1, -Classic -FIPS = Q2, -Quantum = Q3,
-                       -Quantum -FIPS = Q4.
-  Browser-facing sites and Windows servers: Classic (Q1 / Q2). Quantum: OpenSSL-based services and mutual TLS.
+  -FIPS                FIPS quadrant (FIPS provider).  Quadrant NUMBERS (parameters, ids, folders): -Classic = 1,
+                       -Classic -FIPS = 2, -Quantum = 3, -Quantum -FIPS = 4.  In NAMES the number is Q1 = non-FIPS,
+                       Q2 = FIPS in BOTH tracks (Classic Q1 / Q2, Quantum Q1 / Q2), also in the file names of the
+                       leaves; see .\pki_setup.ps1 -ShowNames.
+  Browser-facing sites and Windows servers: Classic (quadrants 1 / 2). Quantum: OpenSSL-based services and mutual TLS.
   A quadrant the PKI does not have (built with -ClassicPKI or -Quadrant) is refused with the fix.
 
 PURPOSES
@@ -367,13 +375,13 @@ PURPOSES
       ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com
                                allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is given.
       EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address.
-      CodeSigning, TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Code Signing | Time Stamping |
-                               OCSP Responder".
+      CodeSigning              no SAN; its own short subject (see CODE SIGNING SUBJECT).
+      TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Time Stamping | OCSP Responder".
 
 NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
   Given on the command line = exactly these names. -CommonName replaces the CN of the TLS certificates and is the
-  base of the CN of the other purposes.
+  base of the CN of Time Stamping and OCSP signing (code signing: see CODE SIGNING SUBJECT).
 
 DEVELOPMENT SAN   (-AddDevelopmentSAN)
   Adds the development list to the SAN. It is MERGED with the names you give (yours stay first, the CN is your first
@@ -395,8 +403,17 @@ DEVELOPMENT SAN   (-AddDevelopmentSAN)
   Change the list in [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); without
   that section the built-in list above is used. A range may have at most 1024 addresses.
 
+CODE SIGNING SUBJECT   (-CodeSigningCompany)
+  -CodeSigningCompany <name>   CN = O = <name>. Empty: CN = O = the organization (-Organization or the cnf; default
+                               Agantra Inovatif OU). Alias: -CodesignCompany.
+  The subject of every code signing certificate is short, at every level (DV, OV, EV):
+      C = EE   ST = Tallinn   L = Tallinn   O = <company>   CN = <company>
+  -Country / -State / -Locality change C, ST and L. Nothing else is written: no OU, street, postal code, contact
+  fields and, at -EV, none of the EV-only fields (serialNumber, businessCategory, jurisdiction*). <company> may not be
+  longer than 64 characters. -CommonName does not apply to code signing.
+
 KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
-  -KeyType RSA|ECDSA|MLDSA   Default: Q1 RSA, Q2 ECDSA, Q3 / Q4 MLDSA. Quantum quadrants take MLDSA only.
+  -KeyType RSA|ECDSA|MLDSA   Default: quadrant 1 RSA, 2 ECDSA, 3 / 4 MLDSA. Quantum quadrants take MLDSA only.
   -KeyBits <n>               RSA 2048 | 3072 | 4096 | 8192 (default 2048; below 2048 is rejected).
   -Curve P-256|P-384|P-521   ECDSA (default P-256; smaller curves are rejected).
   -PqcAlgorithm mldsa44|65|87  ML-DSA parameter set (default mldsa65, from the configuration).
@@ -529,4 +546,30 @@ LIMITATIONS
    * A set made with no -DnsName used the company name for the set folder; it now uses the first name of the default SAN (nextmantra.com), like a
      single certificate does. The certificates themselves did not change.
    * Test-PkiLeafResult checks the number of IP addresses in the issued SAN.
+====================================================================================================
+ 16  CODE SIGNING SUBJECT AND QUADRANT NAMES  (4.9.2)
+====================================================================================================
+
+ CODE SIGNING SUBJECT   (-CodeSigningCompany, alias -CodesignCompany)
+ Every code signing certificate has a short subject, at every level (DV, OV, EV):
+      C = EE     ST = Tallinn     L = Tallinn     O = <company>     CN = <company>
+   -CodeSigningCompany "Example Ltd"   CN = O = Example Ltd
+   (empty)                             CN = O = the organization: -Organization or [ subject_ov ] O, default Agantra Inovatif OU
+   -Country / -State / -Locality       change C, ST and L (otherwise the cnf, then EE / Tallinn / Tallinn)
+ Nothing else is written: no OU, street, postal code, contact fields, and at -EV none of the EV-only fields (serialNumber, businessCategory,
+ jurisdiction*). The EV policy, the validity of the level and the issuer (the EV intermediate for -EV) are unchanged. The company name may have
+ at most 64 characters (it is CN and O); a longer name stops the run before a file is written. -CommonName does not apply to code signing
+ (it still applies to the TLS certificates and is the base of the CN of Time Stamping and OCSP signing). In a set the code signing certificate
+ gets this subject while the others keep theirs. The folder of a single code signing certificate is named after the company.
+ This is not an "EV code signing" subject in the sense of the CA/B Forum (that needs serialNumber, jurisdiction and businessCategory): it is for
+ your own lab and signing scripts, installers and drivers inside your organization.
+
+ QUADRANT NUMBERS IN NAMES
+ Quadrant numbers 1..4 stay in the parameters, the issuer ids (q3-ev ...) and the folders. In NAMES the number is Q1 = non-FIPS and Q2 = FIPS
+ in both tracks. So the CAs are called Classic Q1 / Classic Q2 / Quantum Q1 / Quantum Q2 and, since 4.9.2, the files of a leaf too:
+      -Classic              quadrant 1   www.example.com-ev-q1-rsa2048.crt
+      -Classic -FIPS        quadrant 2   www.example.com-ev-q2-ecdsa-p256.crt
+      -Quantum              quadrant 3   www.example.com-ev-q1-mldsa65.crt      (before 4.9.2: q3)
+      -Quantum -FIPS        quadrant 4   www.example.com-ev-q2-mldsa65.crt      (before 4.9.2: q4)
+ The algorithm in the name tells Classic and Quantum apart. Leaves made before 4.9.2 keep their file names. Details: pki_setup.ps1 -ShowNames.
 ====================================================================================================

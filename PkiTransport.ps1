@@ -81,7 +81,7 @@ function Show-PkiTransportHelp {
     @'
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 4.9.1-phaseC
+ Version 4.9.2-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

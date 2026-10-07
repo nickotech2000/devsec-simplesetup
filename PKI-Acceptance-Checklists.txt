@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.1-phaseC     2026-10-06
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.2-phaseC     2026-10-06
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt,
@@ -18,8 +18,8 @@
   A2    .\pki_setup.ps1 -Check                               every line PASS or INFO; "READY".
                                                              "ML-DSA (Quantum quadrants)" PASS with
                                                              OpenSSL 4.0.3. Add -FipsModuleConfig to
-                                                             include Q2 / Q4.
-  A3    .\pki_setup.ps1 -Clean -InstallTrust                 "ML-DSA works in this OpenSSL" for Q3 and Q4,
+                                                             include quadrants 2 / 4.
+  A3    .\pki_setup.ps1 -Clean -InstallTrust                 "ML-DSA works in this OpenSSL" for quadrants 3 and 4,
                                                              then the table of 19 CAs and 4 leaves: Quantum
                                                              rows ML-DSA-87 / ML-DSA-65, no "*";
                                                              "Trust store: 19 of 19 CA certificate(s)
@@ -52,7 +52,7 @@
   U4    openssl s_client -connect <host>:443 -groups X25519MLKEM768 </dev/null     (system OpenSSL 3.5+)
                                                              "Negotiated TLS1.3 group: X25519MLKEM768"
                                                              and "Verification: OK"
-  U5    nginx with the QUANTUM (q3-mldsa65) fullchain + key  curl --cacert root.crt https://<host> works;
+  U5    nginx with the QUANTUM (q1-mldsa65: Quantum Q1) fullchain + key  curl --cacert root.crt https://<host> works;
         on a test host name                                  s_client shows "Peer signature type: ML-DSA-65"
                                                              (a browser is expected to refuse it: L1)
 
@@ -62,7 +62,16 @@
   A12   rehearsal of the public-CA flow with a stand-in CA     document PUBLIC-CA-ENTERPRISE-ROOT.txt,
         (document, section 10)                                section 10: refusals and acceptance as listed
 
- Report back: the output of A2, the summary table of A3, A4, and anything that fails.
+  A13   openssl x509 -in <Enterprise Root>.crt -noout -ext certificatePolicies,extendedKeyUsage, and the same for both Track Roots
+                                                              "Any Policy" and 2.23.140.1.1 ONLY (no 2.23.140.1.2.x, no 67096);
+                                                              no extended key usage. Windows (certlm.msc, Details): "All issuance policies"
+  A14   the same on a Quadrant Root and on an EV intermediate   Quadrant Root: EV, OV, DV + 1.3.6.1.4.1.67096.1 and .1.1 .1.2 .1.3;
+                                                              EV intermediate: 2.23.140.1.1 + 67096.1 + 67096.1.1. A leaf: its level + PEN
+  A15   .\pki_setup.ps1 -ShowNames, then look in certlm.msc    Quadrant Roots: Classic Q1, Classic Q2, "PQC-PostQuantum Q1", "PQC-PostQuantum
+                                                              Q2"; stems agantra-q1-root-g1, -q2-root-g1, -q1-root-g2, -q2-root-g2;
+                                                              no Q3 / Q4 in any name
+
+ Report back: the output of A2, the summary table of A3, A4, A13 to A15, and anything that fails.
 
 
 ====================================================================================================
@@ -80,8 +89,8 @@
                                                                     program listed (or close the one listed)
   B4    .\GenerateLeafCertificate.ps1 -DV -Classic -FIPS -Format ALL -DnsName a.example.com,b.example.com
                                                                     ECDSA-P256, DV subject = CN only, all formats
-  B5    .\GenerateLeafCertificate.ps1 -OV -Quantum -DnsName m.example.com     ML-DSA-65, issuer q3-ov
-  B6    .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName p.example.com   issuer q4-ev
+  B5    .\GenerateLeafCertificate.ps1 -OV -Quantum -DnsName m.example.com     ML-DSA-65, issuer q3-ov (quadrant 3)
+  B6    .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName p.example.com   issuer q4-ev (quadrant 4)
   B7    .\GenerateLeafCertificate.ps1 -DnsName x.example.com -KeyBits 1024        refused (RSA below 2048)
   B8    .\GenerateLeafCertificate.ps1 -List                         the leaves above
   B9    in the folder of B4:  .\convert-formats.ps1                 runs without an OpenSSL error
@@ -111,7 +120,14 @@
   B20   remove one name from [ development_san ] in agantra_pki.cnf and run B16 again     the name is missing from the new certificate;
         a broken entry (IPRange.1 = 10.0.0.9-10.0.0.1) stops the run with the entry named, no folder left
 
- Report back: B1, B2, B3, B10 (and certlm.msc), B14 to B19, and anything that fails.
+  B21   .\GenerateLeafCertificate.ps1 -EV -Purpose CodeSigning   openssl x509 -noout -subject: CN = O = Agantra Inovatif OU,
+                                                              C = EE, ST = Tallinn, L = Tallinn; nothing else
+  B22   .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"
+                                                              CN = O = Example Ltd; folder Example_Ltd; signtool sign with the .pfx works
+  B23   .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName q.example.com      the file names contain q2 (not q4): ...-ev-q2-mldsa65.crt
+  B24   a company name of 70 characters                          refused, no folder left
+
+ Report back: B1, B2, B3, B10 (and certlm.msc), B14 to B19, B21 to B23, and anything that fails.
 ====================================================================================================
 ====================================================================================================
  C  PHASE C ACCEPTANCE CHECKLIST  (the transport)

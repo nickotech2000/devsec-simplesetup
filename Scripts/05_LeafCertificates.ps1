@@ -10,7 +10,7 @@
 # quadrant's EV intermediate (qN-ev).
 #
 #   Q1  RSA (default 2048)   Non-FIPS Classic      Q2  ECDSA P-256   FIPS Classic
-#   Q3  ML-DSA-65            Non-FIPS Quantum      Q4  ML-DSA-65     FIPS Quantum
+#   3   ML-DSA-65            Non-FIPS Quantum      4   ML-DSA-65     FIPS Quantum   (named Quantum Q1 / Q2)
 #
 # The work is done by the SAME generator that GenerateLeafCertificate.ps1 uses
 # (14_LeafGenerator.ps1: New-PkiLeafSpec / New-PkiLeafCertificate). This file only decides WHICH default
@@ -34,7 +34,7 @@ function Get-PkiLeafSpecs {
             2 { [void]$specs.Add(@{ Quadrant = 2; Ca = $ca; Family = 'ecdsa'; Bits = 0; Curve = 'P-256'; PqcAlg = $null; Tag = 'q2-ecdsa-p256' }) }
             default {
                 $alg = $c.PqcLeafAlgorithm
-                [void]$specs.Add(@{ Quadrant = $q; Ca = $ca; Family = 'pqc'; Bits = 0; Curve = $null; PqcAlg = $alg; Tag = "q$q-$($alg.ToLowerInvariant() -replace '[^a-z0-9]','')" })
+                [void]$specs.Add(@{ Quadrant = $q; Ca = $ca; Family = 'pqc'; Bits = 0; Curve = $null; PqcAlg = $alg; Tag = "q$(Get-PkiNamingQuadrant -Ca $ca)-$($alg.ToLowerInvariant() -replace '[^a-z0-9]','')" })
             }
         }
     }

@@ -20,11 +20,12 @@
 #   {Prefix}        company prefix                     Agantra Inovatif
 #   {QuantumLabel}  word for the Quantum track         PQC-PostQuantum
 #   {Gen}           generation label of the CA         G1 (Enterprise, Classic)  G2 (Quantum)
-#   {N}             quadrant number                    1 .. 4
+#   {N}             quadrant number IN NAMES           1 = non-FIPS, 2 = FIPS  (both tracks; the Quantum quadrants 3 / 4 are
+#                                                      called Q1 / Q2 too: the track label and {Gen} tell them apart)
 #   {Level}         intermediate level                 DV | OV | EV
 #   {Algorithm}     key algorithm of the CA            RSA-4096 | ECDSA-P384 FIPS | ML-DSA-87 ...
 #   {Track}         Classic | Quantum | Enterprise
-#   {Id}            catalog id                         root, classic-root, q1-root, q3-ev ...
+#   {Id}            catalog id (INTERNAL)              root, classic-root, q1-root, q3-ev ...   (still q1 .. q4)
 #
 # RULES enforced at start (the script stops with the reason when one fails):
 #   * a common name may not be longer than 64 characters (X.520)
@@ -133,6 +134,14 @@ function Get-PkiAlgorithmLabel {
     return $label
 }
 
+function Get-PkiNamingQuadrant {
+    # The number a quadrant carries in NAMES (common name, file-name stem): 1 = non-FIPS, 2 = FIPS, in both tracks.
+    # The internal quadrant number (1 .. 4: -Quadrant, catalog ids, folders) is unchanged. 0 = not a quadrant CA.
+    param([Parameter(Mandatory)][hashtable]$Ca)
+    if ([int]$Ca.Quadrant -le 0) { return 0 }
+    if ($Ca.Fips) { return 2 } else { return 1 }
+}
+
 function Get-PkiCaCommonName {
     param([Parameter(Mandatory)][hashtable]$Ca)
     $n = $script:Pki.Naming
@@ -144,7 +153,7 @@ function Get-PkiCaCommonName {
     }
     $tokens = @{
         Prefix = $n.Prefix; QuantumLabel = $n.QuantumLabel; Gen = $Ca.Gen
-        N = [string]$Ca.Quadrant; Level = [string]$Ca.Validation
+        N = [string](Get-PkiNamingQuadrant -Ca $Ca); Level = [string]$Ca.Validation
         Algorithm = (Get-PkiAlgorithmLabel -Ca $Ca); Track = $Ca.Track; Id = $Ca.Id
     }
     return (ConvertTo-PkiAscii (Expand-PkiNameTemplate -Template $n.Templates[$key] -Tokens $tokens))
@@ -154,6 +163,7 @@ function Get-PkiCaSlug {
     # File-name stem: agantra-q1-ev-g1, agantra-enterprise-root-g1 ...
     param([Parameter(Mandatory)][hashtable]$Ca)
     $name = if ($Ca.Kind -eq 'root') { 'enterprise-root' } else { $Ca.Id }
+    if ([int]$Ca.Quadrant -gt 0) { $name = $name -replace '^q\d+', ('q' + (Get-PkiNamingQuadrant -Ca $Ca)) }    # q3-ev -> q1-ev, q4-ev -> q2-ev (the generation tells the tracks apart)
     return "$($script:Pki.Naming.SlugPrefix)-$name-$($Ca.Gen.ToLowerInvariant())".ToLowerInvariant()
 }
 
@@ -161,6 +171,7 @@ function Test-PkiNaming {
     # Called at start with the planned catalog.
     $problems = [System.Collections.Generic.List[string]]::new()
     $seen = @{}
+    $seenSlug = @{}
     foreach ($ca in $script:Pki.Catalog) {
         try { $cn = Get-PkiCaCommonName -Ca $ca }
         catch { [void]$problems.Add("$($ca.Id): $($_.Exception.Message)"); continue }
@@ -168,6 +179,7 @@ function Test-PkiNaming {
         if ($cn.Length -gt 64) { [void]$problems.Add("$($ca.Id): the common name '$cn' has $($cn.Length) characters (maximum 64)") }
         $k = $cn.ToLowerInvariant()
         if ($seen.ContainsKey($k)) { [void]$problems.Add("$($ca.Id) and $($seen[$k]) have the same common name '$cn'") } else { $seen[$k] = $ca.Id }
+        if ($seenSlug.ContainsKey($ca.Slug)) { [void]$problems.Add("$($ca.Id) and $($seenSlug[$ca.Slug]) have the same file-name stem '$($ca.Slug)': Quadrants 1 and 3 (and 2 and 4) are both called Q1 (Q2), so GenClassic and GenQuantum must differ") } else { $seenSlug[$ca.Slug] = $ca.Id }
         if ($ca.Slug -notmatch '^[a-z0-9][a-z0-9-]*$') { [void]$problems.Add("$($ca.Id): the file-name stem '$($ca.Slug)' may only contain a-z, 0-9 and '-' (check SlugPrefix and the generation labels)") }
     }
     if ($problems.Count -gt 0) {
@@ -192,6 +204,7 @@ function Show-PkiCaNames {
     }
     Write-Host ''
     Write-Host 'Intermediate names show the PLANNED algorithm; after generation they show the key that really exists.'
+    Write-Host 'Quadrant numbers in names: Q1 = non-FIPS, Q2 = FIPS, in both tracks (ID column: the internal quadrant ids q1 .. q4 are unchanged).'
 }
 
 # ============================================================

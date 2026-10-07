@@ -54,6 +54,7 @@ param(
     [string[]]$EmailAddress,
     [string]$CommonName,
     [switch]$AddDevelopmentSAN,
+    [Alias('CodesignCompany')][string]$CodeSigningCompany,
 
     # ---- key and signature ----
     [ValidateSet('RSA', 'ECDSA', 'MLDSA')][string]$KeyType,
@@ -114,7 +115,7 @@ function Show-PkiLeafHelp {
     @'
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.1-phaseC
+ Version 4.9.2-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -155,15 +156,18 @@ USAGE
   .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerClientAuth   (1 cert)
   .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         the set + development SAN
   .\GenerateLeafCertificate.ps1 -EV -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerAuth,ClientAuth
+  .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"   CN = O = Example Ltd
   .\GenerateLeafCertificate.ps1 -List                                         leaf certificates made so far
   .\GenerateLeafCertificate.ps1 -Unblock                                      unblock + unlock the folders, then stop
 
 LEVEL AND QUADRANT   (defaults: -EV, -Classic, no -FIPS)
   -DV | -OV | -EV      Domain / Organization / Extended validation. Chooses the intermediate q<N>-dv|ov|ev.
   -Classic | -Quantum  Classic: RSA or ECDSA leaf.  Quantum: ML-DSA leaf.
-  -FIPS                FIPS quadrant (FIPS provider).  -Classic = Q1, -Classic -FIPS = Q2, -Quantum = Q3,
-                       -Quantum -FIPS = Q4.
-  Browser-facing sites and Windows servers: Classic (Q1 / Q2). Quantum: OpenSSL-based services and mutual TLS.
+  -FIPS                FIPS quadrant (FIPS provider).  Quadrant NUMBERS (parameters, ids, folders): -Classic = 1,
+                       -Classic -FIPS = 2, -Quantum = 3, -Quantum -FIPS = 4.  In NAMES the number is Q1 = non-FIPS,
+                       Q2 = FIPS in BOTH tracks (Classic Q1 / Q2, Quantum Q1 / Q2), also in the file names of the
+                       leaves; see .\pki_setup.ps1 -ShowNames.
+  Browser-facing sites and Windows servers: Classic (quadrants 1 / 2). Quantum: OpenSSL-based services and mutual TLS.
   A quadrant the PKI does not have (built with -ClassicPKI or -Quadrant) is refused with the fix.
 
 PURPOSES
@@ -181,13 +185,13 @@ PURPOSES
       ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com
                                allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is given.
       EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address.
-      CodeSigning, TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Code Signing | Time Stamping |
-                               OCSP Responder".
+      CodeSigning              no SAN; its own short subject (see CODE SIGNING SUBJECT).
+      TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Time Stamping | OCSP Responder".
 
 NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
   Given on the command line = exactly these names. -CommonName replaces the CN of the TLS certificates and is the
-  base of the CN of the other purposes.
+  base of the CN of Time Stamping and OCSP signing (code signing: see CODE SIGNING SUBJECT).
 
 DEVELOPMENT SAN   (-AddDevelopmentSAN)
   Adds the development list to the SAN. It is MERGED with the names you give (yours stay first, the CN is your first
@@ -209,8 +213,17 @@ DEVELOPMENT SAN   (-AddDevelopmentSAN)
   Change the list in [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); without
   that section the built-in list above is used. A range may have at most 1024 addresses.
 
+CODE SIGNING SUBJECT   (-CodeSigningCompany)
+  -CodeSigningCompany <name>   CN = O = <name>. Empty: CN = O = the organization (-Organization or the cnf; default
+                               Agantra Inovatif OU). Alias: -CodesignCompany.
+  The subject of every code signing certificate is short, at every level (DV, OV, EV):
+      C = EE   ST = Tallinn   L = Tallinn   O = <company>   CN = <company>
+  -Country / -State / -Locality change C, ST and L. Nothing else is written: no OU, street, postal code, contact
+  fields and, at -EV, none of the EV-only fields (serialNumber, businessCategory, jurisdiction*). <company> may not be
+  longer than 64 characters. -CommonName does not apply to code signing.
+
 KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
-  -KeyType RSA|ECDSA|MLDSA   Default: Q1 RSA, Q2 ECDSA, Q3 / Q4 MLDSA. Quantum quadrants take MLDSA only.
+  -KeyType RSA|ECDSA|MLDSA   Default: quadrant 1 RSA, 2 ECDSA, 3 / 4 MLDSA. Quantum quadrants take MLDSA only.
   -KeyBits <n>               RSA 2048 | 3072 | 4096 | 8192 (default 2048; below 2048 is rejected).
   -Curve P-256|P-384|P-521   ECDSA (default P-256; smaller curves are rejected).
   -PqcAlgorithm mldsa44|65|87  ML-DSA parameter set (default mldsa65, from the configuration).
@@ -381,7 +394,11 @@ try {
         Level = $level; Quadrant = $quadrant; DnsName = $DnsName; IpAddress = $IpAddress; EmailAddress = $EmailAddress
         CommonName = $CommonName; KeyType = $KeyType; KeyBits = $KeyBits; Curve = $Curve
         PqcAlgorithm = $PqcAlgorithm; Hash = $Hash; Days = $Days; Policy = $Policy; Format = $Format
-        AddDevelopmentSan = [bool]$AddDevelopmentSAN
+        AddDevelopmentSan = [bool]$AddDevelopmentSAN; CodeSigningCompany = $CodeSigningCompany
+    }
+    if ($purposes -contains 'CodeSigning') {
+        $csDn = Get-PkiCodeSigningDn -Company $CodeSigningCompany -Level $level
+        Write-PkiLog ('Code signing subject: ' + (($csDn | ForEach-Object { '{0}={1}' -f $_[0], $_[1] }) -join ', '))
     }
     if ($AddDevelopmentSAN) {
         $devList = Get-PkiDevelopmentSan

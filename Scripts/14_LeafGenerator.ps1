@@ -11,7 +11,7 @@
 #     pki_setup.ps1                 the default EV leaves (05_LeafCertificates.ps1 calls it)
 #
 #   Level      DV | OV | EV             -> intermediate q<N>-dv | -ov | -ev
-#   Quadrant   Classic / Quantum, FIPS / non-FIPS   -> Q1 Q2 Q3 Q4
+#   Quadrant   Classic / Quantum, FIPS / non-FIPS   -> quadrant 1 2 3 4 (named Q1 Q2 in each track)
 #   Subject    DV: CN only.  OV: CN, O, OU, L, ST, C, postalCode, street + contact.
 #              EV: OV + serialNumber, businessCategory, jurisdiction*, optional D-U-N-S.
 #   Key rules  RSA >= 2048, ECDSA >= P-256, hash >= SHA-256 (anything lower is REJECTED).
@@ -24,7 +24,7 @@
 #   Dev SAN    -AddDevelopmentSAN merges the [ development_san ] list (or the built-in copy) into the SAN of TLS certificates.
 #   Output     a folder per leaf; if it exists a NEW folder with date and time is created.
 #
-# Provides : Get-PkiDevelopmentSan, Add-PkiDevelopmentSan, Expand-PkiIpRange, Resolve-PkiPurposeEku, New-PkiLeafSpec, New-PkiLeafSetSpecs, Invoke-PkiLeafSet, New-PkiLeafCertificate, Resolve-PkiLeafKey, Get-PkiLeafSan, Get-PkiLeafDn,
+# Provides : Get-PkiCodeSigningDn, Get-PkiDevelopmentSan, Add-PkiDevelopmentSan, Expand-PkiIpRange, Resolve-PkiPurposeEku, New-PkiLeafSpec, New-PkiLeafSetSpecs, Invoke-PkiLeafSet, New-PkiLeafCertificate, Resolve-PkiLeafKey, Get-PkiLeafSan, Get-PkiLeafDn,
 #            Get-PkiLeafPolicies, Write-PkiLeafFormats, ConvertTo-PkiRfc7468, Test-PkiLeafResult,
 #            Add-PkiLeafIndex, Show-PkiLeafIndex, Get-PkiOpenSslReadiness, Assert-PkiLeafOpenSslReady
 # Requires : 00-04, 06 (Get-PkiCertText, Assert-PkiSignatureDigest), 11 (Add-PkiCheck, Invoke-PkiPqcSelfTest),
@@ -297,6 +297,28 @@ function Get-PkiLeafDn {
 }
 
 # ------------------------------------------------------------
+# Subject of a CODE SIGNING certificate:  C, ST, L, O, CN   with CN = O = the company
+#   -CodeSigningCompany "Name"   CN = O = Name
+#   empty                        CN = O = the Organization (-Organization / cnf, default Agantra Inovatif OU)
+#   C, ST, L                     -Country / -State / -Locality, else the cnf, else EE / Tallinn / Tallinn
+#   Nothing else (no OU, street, contact fields, no EV-only fields): the subject of a code signing certificate stays short.
+# ------------------------------------------------------------
+function Get-PkiCodeSigningDn {
+    param([string]$Company = '', [Parameter(Mandatory)][ValidateSet('DV', 'OV', 'EV')][string]$Level)
+    $org = ConvertTo-PkiAscii (Get-PkiLeafSubjectValue 'Organization' 'O' 'Agantra Inovatif OU' $Level)
+    $name = if ([string]::IsNullOrWhiteSpace($Company)) { $org } else { ConvertTo-PkiAscii $Company.Trim() }
+    if ($name.Length -gt 64) { throw "The code signing company name is longer than 64 characters (CN and O may not be): '$name'" }
+    $pairs = [System.Collections.Generic.List[object]]::new()
+    $add = { param($k, $v) if (-not [string]::IsNullOrWhiteSpace($v)) { [void]$pairs.Add(@($k, (ConvertTo-PkiAscii $v))) } }
+    & $add 'C'  (Get-PkiLeafSubjectValue 'Country' 'C' 'EE' $Level)
+    & $add 'ST' (Get-PkiLeafSubjectValue 'State' 'ST' 'Tallinn' $Level)
+    & $add 'L'  (Get-PkiLeafSubjectValue 'Locality' 'L' 'Tallinn' $Level)
+    & $add 'O'  $name
+    & $add 'CN' $name
+    return ,$pairs
+}
+
+# ------------------------------------------------------------
 # Policies: the level OID, the cnf / PEN policies of that level, and -Policy "OID|CPS" given for this leaf
 # ------------------------------------------------------------
 function Get-PkiLeafPolicies {
@@ -451,7 +473,8 @@ function New-PkiLeafSpec {
     $ekuInfo = Get-PkiLeafEkuInfo -Eku $eku -Family $key.Family
 
     # subject, policies
-    $dn = Get-PkiLeafDn -Level $level -San $san -Eku $eku -CommonName ([string](& $get 'CommonName' ''))
+    $dn = if ($eku -contains 'CodeSigning') { Get-PkiCodeSigningDn -Company ([string](& $get 'CodeSigningCompany' '')) -Level $level }
+          else { Get-PkiLeafDn -Level $level -San $san -Eku $eku -CommonName ([string](& $get 'CommonName' '')) }
     $policies = Get-PkiLeafPolicies -Level $level -PolicyText @(& $get 'Policy' @())
 
     # validity
@@ -469,11 +492,12 @@ function New-PkiLeafSpec {
     # names of folder and files
     $cnValue = @($dn | Where-Object { $_[0] -eq 'CN' } | ForEach-Object { $_[1] }) | Select-Object -First 1
     $primary = if ($san.Dns.Count -gt 0) { $san.Dns[0] } elseif ($san.Ip.Count -gt 0) { $san.Ip[0] } elseif ($san.Email.Count -gt 0) { $san.Email[0] } elseif ($cnValue) { $cnValue } else { 'leaf' }
+    $nq = [int](Get-PkiNamingQuadrant -Ca $ca)      # the number in NAMES: 1 = non-FIPS, 2 = FIPS, in both tracks (file names of the leaf)
     $purposeAbbr = ($eku | ForEach-Object { $script:PkiPurposeProfiles[$_].Token }) -join '-'
     $purposeLong = ($eku | ForEach-Object { $_.ToLowerInvariant() }) -join '-'
     $now = Get-Date
     $tokens = @{
-        Name = (ConvertTo-PkiSafeName $(if ($Options.ContainsKey('NameOverride') -and $Options['NameOverride']) { [string]$Options['NameOverride'] } else { $primary })); Level = $level.ToLowerInvariant(); Quadrant = "q$q"; Tag = "q$q-$($key.Tag)"
+        Name = (ConvertTo-PkiSafeName $(if ($Options.ContainsKey('NameOverride') -and $Options['NameOverride']) { [string]$Options['NameOverride'] } else { $primary })); Level = $level.ToLowerInvariant(); Quadrant = "q$nq"; Tag = "q$nq-$($key.Tag)"
         Algorithm = $key.Algorithm; Track = $track.ToLowerInvariant(); Fips = $(if ($fips) { 'fips' } else { 'nonfips' })
         Purpose = $purposeAbbr; PurposeName = $purposeLong; Date = $now.ToString('yyyyMMdd'); Time = $now.ToString('HHmmss')
     }
@@ -783,7 +807,7 @@ function New-PkiLeafSetSpecs {
     foreach ($p in $Purposes) {
         $prof = $script:PkiPurposeProfiles[$p]
         $o = @{}
-        foreach ($k in 'Level', 'Quadrant', 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash', 'Days', 'Policy', 'Format', 'AddDevelopmentSan') { if ($Base.ContainsKey($k)) { $o[$k] = $Base[$k] } }
+        foreach ($k in 'Level', 'Quadrant', 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash', 'Days', 'Policy', 'Format', 'AddDevelopmentSan', 'CodeSigningCompany') { if ($Base.ContainsKey($k)) { $o[$k] = $Base[$k] } }
         $o.Eku = $(if ($prof.Contains('Eku')) { @($prof['Eku']) } else { @($p) }); $o.SetMode = $true; $o.NameOverride = $setName
         if ($prof.Web) {
             $o.DnsName = @($Base.DnsName); $o.IpAddress = @($Base.IpAddress); $o.EmailAddress = @($Base.EmailAddress)

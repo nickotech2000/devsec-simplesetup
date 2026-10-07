@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 4.9.1-phaseC      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
+ Version 4.9.2-phaseC      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.

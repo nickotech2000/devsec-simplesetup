@@ -113,7 +113,7 @@ function Show-PkiHelp {
     @'
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.9.1-phaseC
+ Version 4.9.2-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -121,7 +121,8 @@ function Show-PkiHelp {
  Manual : pki_setup-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt
  Public CA : PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : scripts\README.txt
  Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   GenerateLeafCertificate-MANUAL.txt
- Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./pki-transport.sh --help   PkiTransport-MANUAL.txt
+ Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./pki-transport.sh --help
+                      Manual: PkiTransport-MANUAL.txt
 
 REQUIREMENTS
   PowerShell 7+ and OpenSSL 4.x ONLY. OpenSSL 3.x is refused. When several OpenSSL versions are installed
@@ -145,13 +146,16 @@ HIERARCHY CREATED  (.\pki)
   |   `- Q2 Root  FIPS               ECDSA P-521  SHA-512 400 years   pathlen 1
   |        `- DV / OV / EV intermediates   ECDSA P-384 SHA-384  250 years   pathlen 0
   `- Quantum Track Root              ML-DSA-87            500 years   pathlen 2
-      |- Q3 Root  Non-FIPS           ML-DSA-87            400 years   pathlen 1
+      |- Q1 Root  Non-FIPS (no. 3)   ML-DSA-87            400 years   pathlen 1
       |    `- DV / OV / EV intermediates   ML-DSA-87       250 years   pathlen 0
-      `- Q4 Root  FIPS               ML-DSA-87            400 years   pathlen 1
+      `- Q2 Root  FIPS (no. 4)       ML-DSA-87            400 years   pathlen 1
            `- DV / OV / EV intermediates   ML-DSA-87       250 years   pathlen 0
 
-  Quadrants:  Q1 Classic Non-FIPS | Q2 Classic FIPS | Q3 Quantum Non-FIPS | Q4 Quantum FIPS
-  Default EV leaf: Q1 RSA 2048 | Q2 ECDSA P-256 | Q3, Q4 ML-DSA-65.
+  Quadrant NUMBERS (-Quadrant, folders, internal ids q1 .. q4):
+              1 Classic Non-FIPS | 2 Classic FIPS | 3 Quantum Non-FIPS | 4 Quantum FIPS
+  NAMES: in the common names and file names a quadrant is only Q1 (non-FIPS) or Q2 (FIPS), in BOTH tracks:
+              Classic Q1 / Q2 (G1)   and   PQC-PostQuantum Q1 / Q2 (G2)  = quadrants 3 / 4.   See COMMON NAMES
+  Default EV leaf: quadrant 1 RSA 2048 | 2 ECDSA P-256 | 3, 4 ML-DSA-65.
   Only the quadrants selected with -Quadrant are built; the Enterprise Root and the Track
   Roots they need are always built.
 
@@ -166,7 +170,7 @@ ROOT KEY POLICY  (enforced, not configurable)
   that does not meet this, and checks that every certificate below an ML-DSA CA is ML-DSA signed.
 
 QUANTUM TRACK  (post-quantum signatures, FIPS and non-FIPS)
-  The Quantum track uses ML-DSA at EVERY level: Track Root, Q3 / Q4 roots, intermediates and leaves.
+  The Quantum track uses ML-DSA at EVERY level: Track Root, Quantum Q1 / Q2 roots, intermediates and leaves.
   If OpenSSL cannot create an ML-DSA key the script STOPS (a silent downgrade would defeat the
   purpose). -PqcFallback creates an RSA key instead (genrsa), with a warning per key, in the summary
   (marked *) and in pki-manifest.json; such a certificate is not quantum-safe.
@@ -179,7 +183,7 @@ QUANTUM TRACK  (post-quantum signatures, FIPS and non-FIPS)
                                           (Kestrel / IIS on Windows), NOT Java 25, NOT the browsers
                                           (Chrome, Edge, Brave, Firefox, UC, QQ) today.
   So: use the Quantum leaves for OpenSSL-based services and mutual TLS between your own systems.
-  Sites that browsers or Windows servers must serve use the Classic leaves (Q1 / Q2); every browser
+  Sites that browsers or Windows servers must serve use the Classic leaves (quadrants 1 / 2); every browser
   and Windows 11 also negotiates the hybrid ML-KEM key exchange (X25519MLKEM768) with those.
   Windows 10 / Server 2022: quadrants 3, 4 are not built by default (-Quadrant 1,2,3,4 overrides).
 
@@ -191,31 +195,41 @@ VALIDITY  (from the moment of generation; each level shorter than the one above)
   The run prints every CA with its validity and expiry date when it finishes.
 
 POLICIES  (EV policy is required)
-  Every certificate carries the policy of its level so applications can tell what they hold:
-  roots EV + OV + DV, an intermediate its own level, an EV leaf EV.
+  Which CA carries what (certificatePolicies):
+    Enterprise Root, Track Roots   All issuance policies (anyPolicy 2.5.29.32.0; Windows shows "All issuance policies")
+                                   + EV 2.23.140.1.1. Nothing else: no OV, no DV, no PEN, no custom policy.
+                                   They carry no extended key usage (Windows: all application policies).
+    Quadrant Roots                 EV + OV + DV, and the PEN policies and [ custom_policies ] when set.
+    Intermediates                  their own level (EV, OV or DV) + the PEN policies of that level + custom policies.
+    Leaves                         their level + the PEN policies of that level + [ custom_policies ] + -Policy.
+  The level policies, so applications can tell what they hold:
     EV  2.23.140.1.1   OV  2.23.140.1.2.2   DV  2.23.140.1.2.1   (CA/B Forum defaults)
   Change in agantra_pki.cnf [ policy_oids ] or with -EvPolicyOid. EV, OV and DV must differ.
   A blank value falls back to the default, so EV is always present.
-  IANA Private Enterprise Number (PEN): blank until you have it. Set  IanaPen  in agantra_pki.cnf
-  [ iana_pen ] or use -IanaPen <number>. Then these are added to the certificates:
-    1.3.6.1.4.1.<PEN>.1      company policy (every certificate)
-    1.3.6.1.4.1.<PEN>.1.1    company EV     (roots, EV intermediates, EV leaves)
+  IANA Private Enterprise Number (PEN): PEN in agantra_pki.cnf [ iana_pen ], or -IanaPen <number>. It adds
+    1.3.6.1.4.1.<PEN>.1      company policy (Quadrant Roots, intermediates and ALL leaves)
+    1.3.6.1.4.1.<PEN>.1.1    company EV     (Quadrant Roots, EV intermediates, EV leaves)
     1.3.6.1.4.1.<PEN>.1.2    company OV     1.3.6.1.4.1.<PEN>.1.3   company DV
-  More policies: agantra_pki.cnf [ custom_policies ].
+  The PEN is NOT put into the Enterprise Root and the Track Roots. A PKI built before the PEN was set does not
+  have these policies: rebuild it (-Clean).
+  More policies: agantra_pki.cnf [ custom_policies ] (Quadrant Roots, intermediates, leaves).
 
 COMMON NAMES
   Enterprise Root   Agantra Inovatif Enterprise Root CA G1
   Track Root        Agantra Inovatif Enterprise Classic Root CA G1
                     Agantra Inovatif Enterprise PQC-PostQuantum Root CA G2
-  Quadrant Root     Agantra Inovatif Enterprise Classic Q1 Root CA G1        (Q2 likewise)
-                    Agantra Inovatif Enterprise PQC-PostQuantum Q3 Root CA G2  (Q4 likewise)
+  Quadrant Root     Agantra Inovatif Enterprise Classic Q1 Root CA G1            Q1 = non-FIPS   (quadrant 1)
+                    Agantra Inovatif Enterprise Classic Q2 Root CA G1            Q2 = FIPS       (quadrant 2)
+                    Agantra Inovatif Enterprise PQC-PostQuantum Q1 Root CA G2    Q1 = non-FIPS   (quadrant 3)
+                    Agantra Inovatif Enterprise PQC-PostQuantum Q2 Root CA G2    Q2 = FIPS       (quadrant 4)
   Intermediate      Agantra Inovatif <EV|OV|DV> <algorithm> <G1|G2> CA
                       e.g. Agantra Inovatif EV RSA-4096 G1 CA | ... OV ECDSA-P384 FIPS G1 CA |
                            ... DV ML-DSA-87 G2 CA | ... EV ML-DSA-87 FIPS G2 CA
   G1 = Classic track, G2 = everything in the Quantum track.
-  Every CA certificate carries the CA/B Forum policy OIDs (EV 2.23.140.1.1, OV 2.23.140.1.2.2,
-  DV 2.23.140.1.2.1; roots carry all three, an intermediate carries its own) plus every custom
-  policy of agantra_pki.cnf.
+  In NAMES (common names, file names such as agantra-q1-root-g2 in pki\publish and in the CRL / CA-issuer URLs) a
+  quadrant is only Q1 (non-FIPS) or Q2 (FIPS), in both tracks; the track word and G1 / G2 tell them apart.
+  The quadrant NUMBERS 1-4 stay in -Quadrant, in the folders and in the internal ids (q3-ev ...).
+  Preview: .\pki_setup.ps1 -ShowNames.   A PKI built before 4.9.2 has the old names and policies: rebuild it.
 
 USAGE
   .\pki_setup.ps1 -Check                      preflight: is this machine ready? (writes nothing)
@@ -247,8 +261,9 @@ LEAF CERTIFICATES  (Phase B)
   .\GenerateLeafCertificate.ps1 -Help    Manual: GenerateLeafCertificate-MANUAL.txt
 
 TRANSPORT  (Phase C)
-  .\PkiTransport.ps1 -Pack packs this PKI into a password-protected .certpacked (a zip or 7z under another name): CA certificates
-  only, or with the leafcerts, or with the whole PKI and its CA keys. On a Windows 11 25H2+ machine .\PkiTransport.ps1 -Install scans,
+  .\PkiTransport.ps1 -Pack packs this PKI into a password-protected .certpacked (a zip or 7z under another name):
+  CA certificates only, or with the leafcerts, or with the whole PKI and its CA keys. On a Windows 11 25H2+ machine
+  .\PkiTransport.ps1 -Install scans,
   unpacks and installs the trust; Unpack-PkiTransport.ps1 only unpacks; pki-transport.sh does it on Linux and macOS.
   Manual: PkiTransport-MANUAL.txt.
 
@@ -301,8 +316,8 @@ SELECTION
 ALGORITHMS BELOW THE ROOTS
   -IntermediateRsaBits <n>  Q1 intermediate RSA size: 4096 | 8192.                Default: 4096
   -IntermediateCurve <c>    Q2 intermediate curve: P-256 | P-384 | P-521.         Default: P-384
-  -PqcAlgorithm <a>         Q3 / Q4 intermediates: mldsa44 | mldsa65 | mldsa87.   Default: mldsa87
-  -PqcLeafAlgorithm <a>     Q3 / Q4 leaves: mldsa44 | mldsa65 | mldsa87.           Default: mldsa65
+  -PqcAlgorithm <a>         Quantum (quadrant 3 / 4) intermediates: mldsa44 | mldsa65 | mldsa87.   Default: mldsa87
+  -PqcLeafAlgorithm <a>     Quantum (quadrant 3 / 4) leaves: mldsa44 | mldsa65 | mldsa87.           Default: mldsa65
   -PqcFallback              If an ML-DSA key cannot be created use RSA instead (genrsa) with a
                             warning, instead of stopping. NOT quantum-safe.
   -FallbackRsaBits <n>      RSA size used by -PqcFallback: 4096 | 8192.           Default: 8192
@@ -340,8 +355,8 @@ SUBJECT OPTIONS   (apply to the CA subjects and, where relevant, to the default 
                              (+372)53194019. CA defaults come from agantra_pki.cnf.
 
 LEAF / OUTPUT OPTIONS
-  One default EV leaf per quadrant: Q1 RSA 2048 | Q2 ECDSA P-256 | Q3, Q4 ML-DSA-65.
-  -LeafSizes <int[]>   RSA sizes for the Q1 leaf: 2048 | 3072 | 4096 | 8192.     Default: 2048
+  One default EV leaf per quadrant: 1 RSA 2048 | 2 ECDSA P-256 | 3, 4 ML-DSA-65.
+  -LeafSizes <int[]>   RSA sizes for the quadrant 1 leaf: 2048 | 3072 | 4096 | 8192.     Default: 2048
                        RSA below 2048 is rejected.
   -Password <text>     PFX password (8+ characters).        Default: Abc12345!
   -LegacyPfx           Legacy PFX encryption (3DES / SHA-1) for very old software.
@@ -352,7 +367,7 @@ LEAF / OUTPUT OPTIONS
 
 WINDOWS TRUST   (elevated PowerShell; other modes need no elevation)
   -InstallTrust        Every ROOT -> LocalMachine\Root  (Trusted Root Certification Authorities):
-                         Enterprise Root, Classic / Quantum Track Roots, Q1..Q4 Quadrant Roots.
+                         Enterprise Root, Classic / Quantum Track Roots, the four Quadrant Roots.
                        Every INTERMEDIATE -> LocalMachine\CA  (Intermediate Certification Authorities):
                          all DV / OV / EV CAs.
                        Default leaf PFX files -> LocalMachine\My (ONLY the leaf is imported; the chain
@@ -414,7 +429,7 @@ OUTPUT (.\pki)
   root\root.crt/.key/.pfx                         Enterprise Root CA (public CA: external-chain.pem,
                                                   external-request.txt, cross-sign\)
   classical\root\  quantum\root\                  Track Roots
-  classical\q1\{root,dv,ov,ev}\ ... quantum\q4\{root,dv,ov,ev}\
+  classical\q1\{root,dv,ov,ev}\ ... quantum\q4\{root,dv,ov,ev}\      (folders: numbers 1-4; names: Q1 / Q2)
         <id>.crt .key .pfx .cnf <id>-chain.crt, index.txt, serial, crlnumber, issued\
   leaf\                                           default EV leaf files
   publish\                                        root.crt, ca-bundle.crt, <slug>.crt/.crl/.pem,

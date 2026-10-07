@@ -233,7 +233,7 @@ function Invoke-PkiPreflight {
                 catch { Add-PkiCheck 'FIPS provider' 'FAIL' (($_.Exception.Message -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 2) -join ' ') }
             }
             else { Add-PkiCheck 'FIPS provider' 'INFO' 'not needed (quadrants 2 and 4 not selected)' }
-            foreach ($mode in @(@{ Q = 3; Fips = $false; Name = 'ML-DSA (Q3, non-FIPS)' }, @{ Q = 4; Fips = $true; Name = 'ML-DSA (Q4, FIPS)' })) {
+            foreach ($mode in @(@{ Q = 3; Fips = $false; Name = 'ML-DSA (quadrant 3, Quantum non-FIPS)' }, @{ Q = 4; Fips = $true; Name = 'ML-DSA (quadrant 4, Quantum FIPS)' })) {
                 if ($c.Quadrants -notcontains $mode.Q) { continue }
                 if ($mode.Fips -and -not (Test-Path -LiteralPath (Get-PkiProviderConfigPath -Fips $true))) { Add-PkiCheck $mode.Name 'FAIL' 'the FIPS provider is not available, see above'; continue }
                 $pq = Invoke-PkiPqcSelfTest -Dir (Join-Path $tmp "pqtest-q$($mode.Q)") -Fips $mode.Fips

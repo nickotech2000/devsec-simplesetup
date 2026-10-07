@@ -111,9 +111,18 @@ function Test-PkiCaCertificate {
         }
     }
 
-    if (-not $extRoot) { foreach ($pol in (Get-PkiCaPolicies -Ca $Ca)) {
-        if ($t -notmatch [regex]::Escape($pol.Oid)) { throw "[$($Ca.Id)] policy $($pol.Oid) ($($pol.Label)) is missing." }
-    } }
+    if (-not $extRoot) {
+        foreach ($pol in (Get-PkiCaPolicies -Ca $Ca)) {
+            # OpenSSL prints anyPolicy (2.5.29.32.0) as "Any Policy", every other policy as its number
+            $found = if ($pol.Oid -eq $script:PkiAnyPolicyOid) { $t -match '(?i)Any Policy|2\.5\.29\.32\.0' } else { $t -match [regex]::Escape($pol.Oid) }
+            if (-not $found) { throw "[$($Ca.Id)] policy $($pol.Oid) ($($pol.Label)) is missing." }
+        }
+        if ($Ca.Kind -eq 'root' -or $Ca.Kind -eq 'track') {
+            # The Enterprise Root and the Track Roots carry All issuance policies + EV and NOTHING else.
+            foreach ($lvl in 'OV', 'DV') { if ($t -match [regex]::Escape($script:PkiPolicyOid[$lvl])) { throw "[$($Ca.Id)] carries the $lvl policy $($script:PkiPolicyOid[$lvl]): the Enterprise Root and the Track Roots carry only All issuance policies + EV." } }
+            if (-not [string]::IsNullOrWhiteSpace([string]$script:Pki.IanaPen) -and $t -match [regex]::Escape("1.3.6.1.4.1.$($script:Pki.IanaPen).")) { throw "[$($Ca.Id)] carries a PEN policy: the PEN policies start at the Quadrant Roots." }
+        }
+    }
 
     $a = Get-PkiPublicKeyPem -Path $p.Crt -Kind cert -Fips $fips
     $b = Get-PkiPublicKeyPem -Path $p.Key -Kind key -Fips $fips

@@ -172,15 +172,29 @@ function Initialize-PkiCaDatabase {
 # Certificate policies written into a CA certificate
 # ------------------------------------------------------------
 function Get-PkiCaPolicies {
+    <#
+    .SYNOPSIS
+        Certificate policies of a CA certificate.
+          Enterprise Root, Track Roots   All issuance policies (anyPolicy 2.5.29.32.0) + EV 2.23.140.1.1. Nothing else: neither
+                                         the IANA PEN policies nor [ custom_policies ] (they start one level below).
+          Quadrant Roots                 EV + OV + DV + the PEN policies (when a PEN is set) + [ custom_policies ]
+          Intermediates                  their own level + the PEN policies of that level + [ custom_policies ]
+        (Leaves: Get-PkiLeafPolicies, level + PEN of that level + custom + -Policy.)
+    #>
     param([Parameter(Mandatory)][hashtable]$Ca)
     $list = [System.Collections.Generic.List[object]]::new()
     $cps = $script:Pki.CpsUrl
+    if ($Ca.Kind -eq 'root' -or $Ca.Kind -eq 'track') {
+        [void]$list.Add([ordered]@{ Label = 'AnyPolicy'; Oid = $script:PkiAnyPolicyOid; Cps = '' })
+        [void]$list.Add([ordered]@{ Label = 'EV'; Oid = $script:PkiPolicyOid.EV; Cps = $cps })
+        return $list
+    }
     if ($Ca.Kind -eq 'intermediate') {
         [void]$list.Add([ordered]@{ Label = $Ca.Validation; Oid = $script:PkiPolicyOid[$Ca.Validation]; Cps = $cps })
         $extra = Get-PkiExtraPolicies -Level $Ca.Validation
     }
     else {
-        # roots carry all three validation levels
+        # Quadrant Roots carry all three validation levels
         [void]$list.Add([ordered]@{ Label = 'EV'; Oid = $script:PkiPolicyOid.EV; Cps = $cps })
         [void]$list.Add([ordered]@{ Label = 'OV'; Oid = $script:PkiPolicyOid.OV; Cps = '' })
         [void]$list.Add([ordered]@{ Label = 'DV'; Oid = $script:PkiPolicyOid.DV; Cps = '' })

@@ -16,8 +16,8 @@
 #   |   |- Q1 Root  Non-FIPS  RSA 8192 / SHA-512                              400 y -> q1-dv, q1-ov, q1-ev  250 y  RSA 4096
 #   |   `- Q2 Root  FIPS      ECDSA P-521 / SHA-512                           400 y -> q2-dv, q2-ov, q2-ev  250 y  ECDSA P-384
 #   `- Quantum Track Root (quantum-root)              ML-DSA-87               500 y
-#       |- Q3 Root  Non-FIPS  ML-DSA-87                                       400 y -> q3-dv, q3-ov, q3-ev  250 y  ML-DSA-87
-#       `- Q4 Root  FIPS      ML-DSA-87                                       400 y -> q4-dv, q4-ov, q4-ev  250 y  ML-DSA-87
+#       |- Quantum Q1 Root (quadrant 3, non-FIPS)  ML-DSA-87                                       400 y -> q3-dv, q3-ov, q3-ev  250 y  ML-DSA-87
+#       `- Quantum Q2 Root (quadrant 4, FIPS)      ML-DSA-87                                       400 y -> q4-dv, q4-ov, q4-ev  250 y  ML-DSA-87
 #
 # The whole Quantum track (roots, intermediates, leaves; FIPS and non-FIPS) uses the post-quantum
 # signature ML-DSA. Only the Enterprise Root, which anchors both tracks, is RSA 8192 / SHA-512.
@@ -29,7 +29,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PkiGeneratorVersion = '4.9.1-phaseC'
+$script:PkiGeneratorVersion = '4.9.2-phaseC'
 
 # ROOT KEY POLICY (enforced, not configurable)
 #   Every root-level CA (Enterprise Root, Track Roots, Quadrant Roots) is RSA 8192 with
@@ -46,6 +46,8 @@ $script:PkiRootDigest  = 'sha512'
 
 # Certificate policy OIDs. Defaults are the CA/Browser Forum OIDs; agantra_pki.cnf
 # [ policy_oids ] (and -EvPolicyOid) can replace them. The EV OID is mandatory.
+# All issuance policies (Windows: "All issuance policies", OpenSSL: "X509v3 Any Policy"): the policy of the Enterprise Root and the Track Roots.
+$script:PkiAnyPolicyOid = '2.5.29.32.0'
 $script:PkiPolicyOid = @{
     EV = '2.23.140.1.1'
     OV = '2.23.140.1.2.2'
@@ -209,7 +211,7 @@ function New-PkiCatalog {
         }
     }
 
-    # Q1 / Q3 are non-FIPS, Q2 / Q4 are FIPS. Quantum quadrants (3, 4) are ML-DSA at every level.
+    # Quadrants 1 / 3 are non-FIPS, 2 / 4 are FIPS (named Q1 / Q2 in both tracks). Quantum quadrants (3, 4) are ML-DSA at every level.
     # Root level = enforced root policy. Intermediate level = configurable (below the roots).
     $quadDefs = @(
         @{ N = 1; Track = 'Classic'; Dir = 'classical'; Parent = 'classic-root'; Fips = $false; Gen = $gC
