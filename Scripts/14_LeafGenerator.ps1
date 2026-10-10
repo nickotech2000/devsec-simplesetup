@@ -587,6 +587,13 @@ function New-PkiLeafCertificate {
     # ---- key ----
     $actual = New-PkiPrivateKey -KeyPath $key -Family $Spec.Family -Bits $Spec.Bits -Curve $Spec.Curve -Fips $fips -Label $stem -PqcAlgorithm $Spec.PqcAlg -FallbackBits $c.FallbackRsaBits
     Write-PkiLog "  key        : $($actual.Algorithm)$(if ($actual.Fallback) { '  (FALLBACK, not quantum-safe)' })"
+    [void](ConvertTo-PkiLfFile -Path $key)
+    # key pair: the public key next to the private key (PEM = SubjectPublicKeyInfo, and DER)
+    $pubPem = Join-Path $dir "$stem.pub"; $pubDer = Join-Path $dir "$stem.pub.der"
+    $kProv = Get-PkiProviderArgs -Fips $fips; $kCnf = Get-PkiProviderConfigPath -Fips $fips
+    $pubText = (Invoke-OpenSSL -ConfigPath $kCnf -Arguments (@('pkey', '-in', $key, '-pubout') + $kProv)).StdOut
+    Write-Utf8NoBom -Path $pubPem -Content (($pubText -replace "`r", '').TrimEnd() + "`n")
+    [void](Invoke-OpenSSL -ConfigPath $kCnf -Arguments (@('pkey', '-in', $key, '-pubout', '-outform', 'DER', '-out', $pubDer) + $kProv))
 
     # ---- configuration: [ req ] [ dn ] [ ext ] ----
     $san = $Spec.San
@@ -644,18 +651,19 @@ function New-PkiLeafCertificate {
     $caArgs += (Get-PkiProviderArgs -Fips $fips)
     [void](Invoke-OpenSSL -Arguments $caArgs -ConfigPath $issuerCnf)
     Assert-PkiFile -Path $crt
+    [void](ConvertTo-PkiLfFile -Path $crt)
 
     # ---- chains: full = leaf + CAs; chain = CAs only (the self-signed Enterprise Root is installed on clients) ----
     $sb = [System.Text.StringBuilder]::new()
     $chainOnly = [System.Text.StringBuilder]::new()
-    [void]$sb.Append(([System.IO.File]::ReadAllText($crt)).TrimEnd() + "`n")
+    [void]$sb.Append((([System.IO.File]::ReadAllText($crt)) -replace "`r", '').TrimEnd() + "`n")
     foreach ($anc in @($ca) + @(Get-PkiCaAncestors -Ca $ca)) {
         if ($anc.Kind -eq 'root' -and $null -eq $c.ExternalRoot) { continue }
-        $t = ([System.IO.File]::ReadAllText((Get-PkiCaPaths -Ca $anc).Crt)).TrimEnd() + "`n"
+        $t = (([System.IO.File]::ReadAllText((Get-PkiCaPaths -Ca $anc).Crt)) -replace "`r", '').TrimEnd() + "`n"
         [void]$sb.Append($t); [void]$chainOnly.Append($t)
     }
     if ($null -ne $c.ExternalRoot) {
-        foreach ($pem in (Get-PkiExternalChainIntermediates)) { [void]$sb.Append($pem.TrimEnd() + "`n"); [void]$chainOnly.Append($pem.TrimEnd() + "`n") }
+        foreach ($pem in (Get-PkiExternalChainIntermediates)) { $pl = ($pem -replace "`r", '').TrimEnd() + "`n"; [void]$sb.Append($pl); [void]$chainOnly.Append($pl) }
     }
     Write-Utf8NoBom -Path $full -Content $sb.ToString()
     Write-Utf8NoBom -Path $chainF -Content $chainOnly.ToString()
@@ -689,6 +697,8 @@ function New-PkiLeafCertificate {
         Sha1 = $fp.Sha1; Sha256 = $fp.Sha256; Actual = $actual; Md = $md; Days = $Spec.Days; NotAfter = $notAfter; Files = @()
     }
     $extra = Write-PkiLeafFormats -Spec $Spec -R $R
+    foreach ($f in @($full, $chainF, (Join-Path $dir "$stem.pem"), (Join-Path $dir "$stem.cert"))) { [void](ConvertTo-PkiLfFile -Path $f) }
+    $R.PubPem = $pubPem; $R.PubDer = $pubDer
     $R.Files = @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -notlike '*.tmp.*' } | ForEach-Object { $_.Name } | Sort-Object)
     Write-PkiLog "  thumbprint : $($fp.Sha1)" 'OK'
     return $R
@@ -723,6 +733,18 @@ function Test-PkiLeafResult {
     try { [void](Assert-PkiSignatureDigest -Text $t -Kind 'leaf' -Id $id -ExpectPqc ($ca.Actual.Family -eq 'pqc')) } catch { [void]$problems.Add($_.Exception.Message) }
     if ($R.Actual.Family -eq 'rsa' -and $R.Actual.Bits -lt 2048) { [void]$problems.Add("RSA key below 2048 bits") }
 
+    foreach ($tf in @($R.Key, $R.Crt, $R.Full, $R.Chain, $R.PubPem)) {
+        if ($tf -and (Test-Path -LiteralPath $tf)) {
+            $raw = [System.IO.File]::ReadAllBytes($tf)
+            if ($raw -contains 13) { [void]$problems.Add("$([System.IO.Path]::GetFileName($tf)) has CRLF line endings (nginx / OpenSSL 3.5+ on Linux reject them)") }
+            if ($raw.Length -ge 3 -and $raw[0] -eq 0xEF -and $raw[1] -eq 0xBB) { [void]$problems.Add("$([System.IO.Path]::GetFileName($tf)) starts with a BOM") }
+        }
+    }
+    $kHead = [System.IO.File]::ReadAllText($R.Key)
+    if ($kHead -notmatch '^-----BEGIN PRIVATE KEY-----\n') { [void]$problems.Add('the private key is not an unencrypted PKCS#8 PEM (-----BEGIN PRIVATE KEY-----)') }
+    $kc = Invoke-OpenSSL -AllowFailure -ConfigPath (Get-PkiProviderConfigPath -Fips $fips) -Arguments (@('pkey', '-in', $R.Key, '-noout', '-check') + (Get-PkiProviderArgs -Fips $fips))
+    if ($kc.ExitCode -ne 0) { [void]$problems.Add('openssl pkey -check cannot read / verify the private key') }
+    if ($R.PubPem -and (Get-PkiPublicKeyPem -Path $R.PubPem -Kind pub -Fips $fips) -ne (Get-PkiPublicKeyPem -Path $R.Crt -Kind cert -Fips $fips)) { [void]$problems.Add('the .pub public key does not match the certificate') }
     if ((Get-PkiPublicKeyPem -Path $R.Crt -Kind cert -Fips $fips) -ne (Get-PkiPublicKeyPem -Path $R.Key -Kind key -Fips $fips)) { [void]$problems.Add('the private key does not match the certificate') }
 
     # chain

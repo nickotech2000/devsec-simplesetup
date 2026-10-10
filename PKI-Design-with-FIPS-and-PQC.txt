@@ -2,7 +2,7 @@
  AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
 ====================================================================================================
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 4.9.2-phaseC                      Updated: 2026-10-05
+ Version : 4.9.3-phaseC                      Updated: 2026-10-05
  Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
            GenerateLeafCertificate.ps1, pki_reuse.ps1, transport script  (Phases B and C, not started)
  Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help   .\GenerateLeafCertificate.ps1 -Help
@@ -718,6 +718,10 @@
  10.43 DECIDED   Enterprise Root and Track Roots carry All issuance policies (anyPolicy 2.5.29.32.0, Windows: "All issuance policies") + EV 2.23.140.1.1 and nothing else, and no extended
                  key usage (Windows: all application policies). OV, DV, the PEN and custom policies start at the Quadrant Roots. (Implemented in the policy model; the documentation
                  said "every certificate" and "all roots carry EV, OV and DV": corrected in 4.9.2. Post-generation validation refuses a root that carries more.)
+ 10.46 DECIDED   Key pair per certificate: every purpose folder (serverauth, clientauth, serverauth-clientauth, codesigning, emailprotection, timestamping, ocspsigning) has
+                 its own <stem>.key (PKCS#8), <stem>.pub (public key PEM) and <stem>.pub.der. All PEM files (.key .crt .pem .cert -fullchain.crt -chain.crt .pub) are written with LF
+                 line endings and no BOM: OpenSSL on Windows writes CRLF, and OpenSSL 3.5+ on Linux (nginx on Ubuntu 26.04) then fails with "PEM_read_bio_PrivateKey() failed ...
+                 No supported data to decode". Test-PkiLeafResult checks: no CR, no BOM, PKCS#8 header, openssl pkey -check, .pub equals the certificate public key. (4.9.3)
  10.44 DECIDED   The IANA PEN (67096, or -IanaPen) goes into the Quadrant Roots, the intermediates (their level) and ALL leaves; never into the Enterprise Root or the Track Roots.
  10.45 DECIDED   Quadrant naming: Q1 = non-FIPS, Q2 = FIPS in BOTH tracks, for the Quadrant Root and Intermediate CA names and file stems (agantra-q1-ev-g2 is Quantum non-FIPS) and,
                  since 4.9.2, for the file names of the leaves. The internal numbers 1..4 (-Quadrant, ids, folders, issuer ids q3-ev ...) are NOT renamed. Names are unique through the
@@ -829,7 +833,7 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
- 4.9.2-phaseC  2026-10-06
+ 4.9.3-phaseC  2026-10-06
    + GenerateLeafCertificate.ps1 -CodeSigningCompany (alias -CodesignCompany): code signing subject C=EE, ST=Tallinn, L=Tallinn, O=CN=<company>; empty = the Organization.
    + Leaf file names use the naming quadrant (Q1 = non-FIPS, Q2 = FIPS in both tracks): a Quantum FIPS leaf is ...-q2-mldsa65.crt (was q4). Default leaves of pki_setup too.
    + Documentation and -Help corrected: PEN placement (not in the Enterprise Root and Track Roots), the policies of the roots (All issuance policies + EV), the names of the Quantum

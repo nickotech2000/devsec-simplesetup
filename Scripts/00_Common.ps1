@@ -129,6 +129,22 @@ function Write-Utf8NoBom {
     [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
 }
 
+function ConvertTo-PkiLfFile {
+    # PEM text must end its lines with LF only. OpenSSL on Windows writes text files with CRLF, and OpenSSL 3.5+ servers
+    # (nginx on Ubuntu 26.04) then refuse the private key ("PEM_read_bio_PrivateKey() failed ... No supported data to decode").
+    # Rewrites the file with LF endings, no BOM; returns $true when it changed anything.
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $start = 0; if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) { $start = 3 }
+    $out = [System.IO.MemoryStream]::new()
+    for ($i = $start; $i -lt $bytes.Length; $i++) { if ($bytes[$i] -ne 13) { $out.WriteByte($bytes[$i]) } }
+    $new = $out.ToArray()
+    if ($new.Length -eq $bytes.Length) { return $false }
+    [System.IO.File]::WriteAllBytes($Path, $new)
+    return $true
+}
+
 function Assert-PkiFile {
     param([Parameter(Mandatory)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Required file does not exist: $Path" }

@@ -27,11 +27,14 @@ function Get-PkiCertText {
 }
 
 function Get-PkiPublicKeyPem {
-    param([string]$Path, [string]$Kind, [bool]$Fips)   # Kind: cert | key
+    param([string]$Path, [string]$Kind, [bool]$Fips)   # Kind: cert | key | pub
     $prov = Get-PkiProviderArgs -Fips $Fips
     $cnf = Get-PkiProviderConfigPath -Fips $Fips
     if ($Kind -eq 'cert') {
         $r = Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('x509', '-in', $Path, '-noout', '-pubkey') + $prov)
+    }
+    elseif ($Kind -eq 'pub') {
+        $r = Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('pkey', '-pubin', '-in', $Path, '-pubout') + $prov)
     }
     else {
         $r = Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('pkey', '-in', $Path, '-pubout') + $prov)

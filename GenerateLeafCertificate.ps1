@@ -115,7 +115,7 @@ function Show-PkiLeafHelp {
     @'
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.2-phaseC
+ Version 4.9.3-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -246,7 +246,7 @@ SUBJECT   (DV: CN only.  OV: CN O OU L ST C street postalCode + contact.  EV: OV
 OUTPUT   (ALL formats in ONE go by default)
   -Format <list>       PEM .pem | DER .der | CER .cer (DER) | CERT .cert (PEM) | P7B .p7b (leaf + chain) |
                        RFC7468 .rfc7468.pem (strict PEM) | PFX .pfx | ALL.   Default ALL.
-                       ALWAYS written: <stem>.crt  .key (PKCS#8)  -fullchain.crt  -chain.crt  .cnf
+                       ALWAYS written: <stem>.crt  .key (PKCS#8)  .pub  .pub.der (public key)  -fullchain.crt  -chain.crt  .cnf
                        A FIPS leaf also gets <stem>-fips.pfx (FIPS-conformant PKCS#12).
   -OutputRoot <path>   Folder that receives the leaf folders (default <script folder>\leafcerts).
   -Password <text>     PFX password (default Abc12345!, the lab password of the PKI).    -LegacyPfx  3DES / SHA-1 PFX.

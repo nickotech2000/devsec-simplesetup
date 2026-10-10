@@ -15,7 +15,7 @@
 # Manual : PkiTransport-MANUAL.txt        Help: ./pki-transport.sh --help
 # ============================================================
 
-VERSION="4.9.2-phaseC"
+VERSION="4.9.3-phaseC"
 PREFIX_NAME="agantra-pki-"                 # every file this script puts in the system store starts with this
 OSSL_MIN_MAJOR=4; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=1
 OSSL_BUILD_VERSION="4.0.3"                 # the version --install-openssl builds
@@ -26,7 +26,7 @@ usage() {
 cat <<'EOF'
 ============================================================
  pki-transport.sh - DESTINATION script for Linux and macOS
- Version 4.9.2-phaseC
+ Version 4.9.3-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

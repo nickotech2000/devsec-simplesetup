@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.2-phaseC          2026-10-06
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.3-phaseC          2026-10-06
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: .\GenerateLeafCertificate.ps1 -Help     (the same text as section 13 of this file)
           pki_setup-MANUAL.txt                  (the PKI itself, trust, servers)
@@ -113,6 +113,9 @@
  --------  --------------------  ----------------------------------------------------  ---------------------------------
  (always)  <stem>.crt            PEM text, the certificate                             nginx, Apache, most tools
  (always)  <stem>.key            PKCS#8 PEM private key (RFC 7468 label PRIVATE KEY)   every server; keep it private
+ (always)  <stem>.key         private key, PKCS#8 PEM (-----BEGIN PRIVATE KEY-----), LF line endings, one per certificate / EKU
+ (always)  <stem>.pub         public key of that key pair, PEM (SubjectPublicKeyInfo, -----BEGIN PUBLIC KEY-----)
+ (always)  <stem>.pub.der     the same public key in DER
  (always)  <stem>-fullchain.crt  leaf + intermediate + quadrant root + track root     nginx ssl_certificate, Apache
  (always)  <stem>-chain.crt      the same without the leaf                             ssl_trusted_certificate, mTLS
  PEM       <stem>.pem            PEM text, the certificate (extension .pem)            Linux tools, OpenSSL
@@ -305,7 +308,7 @@
 ====================================================================================================
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.2-phaseC
+ Version 4.9.3-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -436,7 +439,7 @@ SUBJECT   (DV: CN only.  OV: CN O OU L ST C street postalCode + contact.  EV: OV
 OUTPUT   (ALL formats in ONE go by default)
   -Format <list>       PEM .pem | DER .der | CER .cer (DER) | CERT .cert (PEM) | P7B .p7b (leaf + chain) |
                        RFC7468 .rfc7468.pem (strict PEM) | PFX .pfx | ALL.   Default ALL.
-                       ALWAYS written: <stem>.crt  .key (PKCS#8)  -fullchain.crt  -chain.crt  .cnf
+                       ALWAYS written: <stem>.crt  .key (PKCS#8)  .pub  .pub.der (public key)  -fullchain.crt  -chain.crt  .cnf
                        A FIPS leaf also gets <stem>-fips.pfx (FIPS-conformant PKCS#12).
   -OutputRoot <path>   Folder that receives the leaf folders (default <script folder>\leafcerts).
   -Password <text>     PFX password (default Abc12345!, the lab password of the PKI).    -LegacyPfx  3DES / SHA-1 PFX.
@@ -573,3 +576,11 @@ LIMITATIONS
       -Quantum -FIPS        quadrant 4   www.example.com-ev-q2-mldsa65.crt      (before 4.9.2: q4)
  The algorithm in the name tells Classic and Quantum apart. Leaves made before 4.9.2 keep their file names. Details: pki_setup.ps1 -ShowNames.
 ====================================================================================================
+
+
+ 4.9.3  KEY PAIR FILES AND LINE ENDINGS
+   * Every certificate (every purpose folder) has its key pair: <stem>.key (private, PKCS#8) and <stem>.pub / <stem>.pub.der (public).
+   * All PEM files are LF-only, no BOM. A CRLF key makes nginx/OpenSSL 3.5+ on Linux fail with
+     "PEM_read_bio_PrivateKey() failed (SSL: error:1E08010C:DECODER routines::unsupported:No supported data to decode)".
+     Files made by older versions: on the Linux host   sed -i 's/\r$//' <stem>.key <stem>-fullchain.crt <stem>.crt
+     (and never copy PEM files with a tool that converts line endings; keep the key 640 root:www-data or 600).

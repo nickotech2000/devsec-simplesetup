@@ -125,6 +125,9 @@ function Get-PkiLeafTlsGuidance {
     & $w ('=' * 100)
     & $w "Profile : $profileText"
     & $w "Level   : $($Spec.Level)   Issuer: $($Spec.Ca.Id)   Valid until $($R.NotAfter)   Purposes: $($Spec.Eku -join ', ')"
+    & $w "Key pair: $stem.key (private, PKCS#8)  +  $stem.pub (public key, PEM)  +  $stem.pub.der (public key, DER)"
+    & $w 'Line endings: every PEM file is written with LF only (no CRLF, no BOM). OpenSSL 3.5+ on Linux (nginx on Ubuntu 26.04) refuses a key with CRLF'
+    & $w '  ("PEM_read_bio_PrivateKey() failed ... No supported data to decode"). If you edited a file on Windows:  sed -i "s/\r$//" <file>'
     if ($quantum) { & $w "Files   : $stem-fullchain.crt + $stem.key  (OpenSSL-based servers: nginx, Apache, Node.js, Python)" }
     else { & $w "Files   : $stem-fullchain.crt + $stem.key  (nginx, Apache, Node, Go, Python)    $stem.pfx  (Kestrel, IIS)" }
     & $w ''
