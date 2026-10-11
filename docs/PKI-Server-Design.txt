@@ -7,9 +7,9 @@
 1. PURPOSE AND SCOPE
    The PKI is made and operated on one machine that holds the CA private keys (Windows 11, pki_setup.ps1). What clients need at
    run time is not the CA but three read-only services, which must be reachable at the URLs written INTO every certificate:
-       CRL distribution points   http://crl-01.nextmantra.com/<ca>.crl ...       (also crl-02, crl-dev.nextmantra.internal)
-       CA issuer (AIA caIssuers) http://crt-01.nextmantra.com/<ca>.crt ...
-       OCSP (AIA ocsp)           http://ocsp.nextmantra.internal , http://ocsp.nextmantra.com
+       CRL distribution points   http://crl.nextmantra.internal/<ca>.crl           (one host, internal TLD)
+       CA issuer (AIA caIssuers) http://crt.nextmantra.internal/<ca>.crt        (one host, internal TLD)
+       OCSP (AIA ocsp)           http://ocsp.nextmantra.internal            (one host, internal TLD)
        RFC 3161 time stamping    http://tsa.nextmantra.internal , http://timestamp.nextmantra.internal   (not in certificates; used by signing tools)
    These run on an Ubuntu 24.04 / 26.04 VM ("the PKI server") with NO CA private key on it.
 

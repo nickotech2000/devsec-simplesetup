@@ -69,7 +69,7 @@ CERTIFICATE OPTIONS
 
 USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
   1  Import the .pfx into Current User > Personal (double click, or -InstallPfx). Office finds the private key there.
-  1b Word / Excel say "cannot connect to the revocation server"? Issue the certificate with -NoRevocationInfo (no CRL / OCSP URL), or make the CRL / OCSP host reachable.
+  1b Word / Excel say "cannot connect to the revocation server"? The cause is an UNKNOWN revocation status (certutil -verify -urlfetch: REVOCATION_STATUS_UNKNOWN). -NoRevocationInfo / the NoCR PKI does NOT cure it in Word 365. Issue from the normal PKI and run .\Start-PkiCrlServer.ps1 (elevated; add the printed lines to the hosts file): the CRLs are then reachable on this machine; then  certutil -urlcache * delete.
   2  The Root CA of this PKI must be trusted on the machine that OPENS the document (pki_setup.ps1 -InstallTrust, or the Root in Trusted Root Certification Authorities);
      otherwise Office shows the signature as "not trusted".
   3  Word / Excel / PowerPoint: File > Info > Protect Document > Add a Digital Signature.  PDF signing in Adobe needs the same trust on that machine.

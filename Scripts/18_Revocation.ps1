@@ -465,6 +465,10 @@ function Write-PkiServerInfo {
     [void]$d.Append("Every host below appears in a certificate of this PKI. Point ALL of them at the machine that runs pki-server.sh (A record, or one line each in the hosts file).`n")
     [void]$d.Append(('=' * 100) + "`n")
     foreach ($h in $hAll) { $role = @(); if ($hCrl.Contains($h)) { $role += 'CRL' }; if ($hAia.Contains($h)) { $role += 'CA issuer (.crt)' }; if ($hOcsp.Contains($h)) { $role += 'OCSP' }; [void]$d.Append(('{0,-40} {1}' -f $h, ($role -join ', ')) + "`n") }
+    [void]$d.Append("`nWINDOWS HOSTS FILE (Notepad as Administrator -> C:\Windows\System32\drivers\etc\hosts; replace <SERVER-IP> with the IP of the machine that runs nginx / pki-server.sh, then ipconfig /flushdns):`n")
+    foreach ($h in $hAll) { [void]$d.Append(('  {0,-16} {1}' -f '<SERVER-IP>', $h) + "`n") }
+    [void]$d.Append("`nWI-FI ROUTER / DNS SERVER: one local DNS record per name, type A, value <SERVER-IP> (the names above).`n")
+    [void]$d.Append("On the Ubuntu server  ./pki-server.sh dns  prints the same lists with the real IP and writes hosts.txt, dns-records.csv and dnsmasq.conf.`n")
     [void]$d.Append("`nThe server keeps one file per CA: <slug>.crl, <slug>.crl.pem, <slug>.crt, <slug>.pem (slug = the {ca} of the URL, see ca-list.tsv).`n")
     if ($c.NoCaRevocationInfo) { [void]$d.Append("This PKI is a NoCR PKI: its CA certificates carry no CRL / OCSP / CA-issuer URL. The hosts above are used by the LEAF certificates only.`n") }
     Write-Utf8NoBom -Path (Join-Path $dir 'DNS-RECORDS.txt') -Content $d.ToString()

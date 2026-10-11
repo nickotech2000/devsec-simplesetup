@@ -124,6 +124,7 @@ ONE SIGNER
                          and the CRL lists it), but a client that has no URL will not learn about it. Per signer in the JSON file: "noCrl", "noOcsp", "noRevocationInfo"
                          (true | false). Defaults for all: [ office365 ] NoCrl / NoOcsp in agantra_pki.cnf.
                          NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
+                         WORD 365: this alone does NOT remove "Recoverable Signature" (the revocation status stays unknown). Issue WITHOUT it from the normal PKI and run  .\Start-PkiCrlServer.ps1  (elevated): it serves the CRLs on this machine.
   -KeepCase              Names are kept as given (default for Office; [ office365 ] KeepCase).
 
 MANY SIGNERS - A JSON FILE  (JSON only; CSV is not accepted)
@@ -151,7 +152,7 @@ CERTIFICATE OPTIONS
 
 USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
   1  Import the .pfx into Current User > Personal (double click, or -InstallPfx). Office finds the private key there.
-  1b Word / Excel say "cannot connect to the revocation server"? Issue the certificate with -NoRevocationInfo (no CRL / OCSP URL), or make the CRL / OCSP host reachable.
+  1b Word / Excel say "cannot connect to the revocation server"? Making the CRL host reachable is the reliable fix: .\Start-PkiCrlServer.ps1 (this machine), or pki-server.sh (a server). -NoRevocationInfo (NoCR PKI, no CRL / OCSP URL) did NOT remove the message in Word 365 in the author's test; run  certutil -verify -urlfetch <cert>.cer  to see what fails.
   2  The Root CA of this PKI must be trusted on the machine that OPENS the document (pki_setup.ps1 -InstallTrust, or the Root in Trusted Root Certification Authorities);
      otherwise Office shows the signature as "not trusted".
   3  Word / Excel / PowerPoint: File > Info > Protect Document > Add a Digital Signature.  PDF signing in Adobe needs the same trust on that machine.

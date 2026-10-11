@@ -210,7 +210,7 @@
        find agantra-pki-server -name '*.key'   (empty);  grep -rl $'\r' agantra-pki-server   (empty);  sha256sum -c SHA256SUMS
  D6  Server (WSL Ubuntu 24.04 / 26.04, Windows hosts file edited)
        csr -> PkiRevocation.ps1 -Action SignCsr -> import-cert -> install -> ./linux/pki-server/pki-server.sh test    every line [OK]
-       Windows: curl.exe http://crl-01.nextmantra.com/agantra-q1-ev-g1.crl -o t.crl      certutil -URL <leaf.crt>      openssl ts / signtool /tr http://tsa.nextmantra.internal
+       Windows: curl.exe http://crl.nextmantra.internal/agantra-q1-ev-g1.crl -o t.crl      certutil -URL <leaf.crt>      openssl ts / signtool /tr http://tsa.nextmantra.internal
  D7  Repository
        .\Setup-GitRepo.ps1 -Check (exit 0); git clone on Linux; ./linux/pki-server/pki-server.sh --help runs without chmod; bash linux/setup-git.sh; git config core.hooksPath = .githooks
 
@@ -299,7 +299,7 @@
  [ ] Windows: certlm.msc shows the NoCR roots in Trusted Root and the intermediates in Intermediate Certification Authorities.
  [ ] .\GenerateLeafCertificate.ps1 (no parameter) uses the latest release (issuer CN with R<n>); -Release 1 uses R1; -Release 9 warns and uses the latest;
      -NoCaRevocationInfo uses the NoCR family. The same with the shell twin (--release, --no-ca-revocation-info).
- [ ] Office 365 signer with the NoCR PKI and -NoRevocationInfo: the Word signature is valid, not "Recoverable".
+ [ ] Office 365 signer with the NoCR PKI and -NoRevocationInfo: check what Word 365 shows (expected: still Recoverable, see E19). (2026-10-11: still "Recoverable" with a NoCR chain; see design 21.1.)
  [ ] .\pki_remove.ps1 -List shows every PKI and whether it is trusted in Windows.
  [ ] .\pki_remove.ps1 -Release 2 removes the trust of R2 only (R1 still validates); -DeleteFiles also deletes pki\R2.
  [ ] .\pki_setup.ps1 -RemoveTrust with two releases and no -Release stops with a message; with -Release 2 it removes R2.
@@ -331,3 +331,20 @@
  [ ] openssl pkcs12 -in leaf\*.pfx -info -nokeys shows friendlyName "Server Authentication for <CN> Sign by : <Intermediate CA CN>"; certlm.msc\Personal shows it.
  [ ] GenerateOffice365LeafCertificate.ps1 -File persons.json -NoRevocationInfo (and the other leaf scripts, SignCsr): INFO "signing with the NoCR PKI, release R<n>"; openssl x509 -issuer shows "... CA (NoCR) R<n>". Without a NoCR PKI: error naming pki_setup -NoCaRevocationInfo.
  [ ] No "-KeyBits is for RSA" and no "EV: validity limited to 397 days" lines in a default run.
+
+====================================================================================================
+ E19  Word 365 signature with a reachable CRL (4.9.5)
+====================================================================================================
+ [ ] Normal PKI, leaf WITHOUT -NoRevocationInfo (GenerateOffice365LeafCertificate.ps1 -File persons.json).
+ [ ] Elevated: .\Start-PkiCrlServer.ps1   (lists the PKIs and host names, prints the hosts-file lines, "Serving ... on port 80"); add the lines to the hosts file yourself.
+ [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified", no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404).
+ [ ] Word 365: sign a document: the Signature Details no longer say "Recoverable"; the server window shows the 200 lines.
+ [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
+
+====================================================================================================
+ E20  Internal-only names, DNS lists (4.9.5)
+====================================================================================================
+ [ ] A new PKI: every leaf / CA certificate has CRL http://crl.nextmantra.internal/<slug>.crl, OCSP http://ocsp.nextmantra.internal, CA issuer http://crt.nextmantra.internal/<slug>.crt - and no nextmantra.com URL.
+ [ ] pki\R<n>\server\DNS-RECORDS.txt lists crl / crt / ocsp .internal with hosts-file lines and router instructions (<SERVER-IP>).
+ [ ] sudo ./pki-server.sh install --source ./pki ... ends with the DNS block: hosts-file lines + router A records with the VM's IP; /etc/agantra-pki-server/dns/ holds hosts.txt, dns-records.csv, dnsmasq.conf.
+ [ ] The hosts-file lines pasted into Windows: curl.exe http://crl.nextmantra.internal/<slug>.crl works; the same with the router records (ipconfig /flushdns first).

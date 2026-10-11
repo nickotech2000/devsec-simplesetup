@@ -40,7 +40,7 @@ pki-server.sh  -  Agantra PKI SERVER KIT  (Ubuntu 24.04 / 26.04)
 
 WHAT IT DOES
   Turns one Ubuntu VM into the servers of your private PKI, on plain HTTP port 80 through nginx:
-    CRL + CA certificates   http://crl-01.nextmantra.com/<slug>.crl   (host names and file names come from the PKI: <pki>/server/)
+    CRL + CA certificates   http://crl.nextmantra.internal/<slug>.crl   (host names and file names come from the PKI: <pki>/server/)
     OCSP                    http://ocsp.nextmantra.internal           one URL for ALL your CAs (one openssl responder per CA)
     Time stamping RFC 3161  http://tsa.nextmantra.internal            openssl ts, signed with your TimeStamping certificate
   nginx comes from YOUR PPA (default ppa:nickotech2000/nicko-su-prod), OpenSSL must be 4.0 or newer (PPA package, an existing
@@ -62,7 +62,8 @@ COMMANDS
   update       the same without packages: copies the new PKI data, restarts the responders, reloads nginx
   status       services, ports, CRL expiry, the OCSP responders and the time stamp certificate
   test         end-to-end self-test: CRL download, one OCSP query per responder, one time stamp (create + verify)
-  dns          the host names and the IP to put in your router (DNS records)
+  dns          the names with the server IP: (1) lines for the Windows hosts file, (2) A records for the Wi-Fi router;
+               also saved as hosts.txt, dns-records.csv, dnsmasq.conf in /etc/agantra-pki-server/dns/ (shown after install / update)
   crl-check    warns when a CRL expires soon (also run daily by a systemd timer)
   run          starts the responders, the dispatcher and the TSA in the FOREGROUND (containers, WSL, no systemd)
   check        read-only: what is installed, OpenSSL readiness
@@ -95,7 +96,7 @@ NOTES
   * WSL / testing: add the host names to C:\Windows\System32\drivers\etc\hosts (see "dns" and docs/PKI-SERVER-MANUAL.txt); run "run" when systemd is off.
   * CRLs are made on the machine that holds the CA keys (pki_setup.ps1). After a new CRL or after issuing / revoking certificates:
     copy the pki folder again and run "update". OCSP answers come from index.txt, so they follow the same update.
-  * Certificates must carry the matching URLs: OCSP http://ocsp.nextmantra.internal, CRL http://crl-01.nextmantra.com/{ca}.crl ...
+  * Certificates must carry the matching URLs: OCSP http://ocsp.nextmantra.internal, CRL http://crl.nextmantra.internal/{ca}.crl ...
   * Details: docs/PKI-SERVER-MANUAL.txt and docs/PKI-Server-Design.txt (package root)
 EOF
 }
@@ -187,8 +188,8 @@ compute_hosts() {
     HOSTS_CRL="$(uri_hosts crl_urls; uri_hosts ca_issuer_urls)"; HOSTS_OCSP="$(uri_hosts ocsp_urls)"
   fi
   HOSTS_CRL="$(echo "$HOSTS_CRL" | sort -u | grep -v '^$')"; HOSTS_OCSP="$(echo "$HOSTS_OCSP" | sort -u | grep -v '^$')"
-  [ -n "$HOSTS_CRL" ] || HOSTS_CRL=$'crl-01.nextmantra.com\ncrl-02.nextmantra.com\ncrl-dev.nextmantra.internal\npki.nextmantra.internal'
-  [ -n "$HOSTS_OCSP" ] || HOSTS_OCSP=$'ocsp.nextmantra.internal\nocsp.nextmantra.com'
+  [ -n "$HOSTS_CRL" ] || HOSTS_CRL=$'crl.nextmantra.internal\ncrt.nextmantra.internal'
+  [ -n "$HOSTS_OCSP" ] || HOSTS_OCSP=$'ocsp.nextmantra.internal'
   HOSTS_TSA=$'tsa.nextmantra.internal\ntimestamp.nextmantra.internal'
 }
 # the PKI folder tells the server which release / family it is: keep its server\ files (additive per release)
@@ -596,11 +597,35 @@ EOF
 }
 
 do_dns() {
+  # The names the certificates and the signing tools use, with this server's IP, in the three forms people need:
+  #   1. lines for the Windows hosts file   2. records for the Wi-Fi router / DNS server   3. files with both (and a dnsmasq / Pi-hole form)
   load_saved; [ -n "$SAVED_CNF" ] && [ -z "$CNF" ] && CNF="$SAVED_CNF"; compute_hosts
-  local ip="$SERVER_IP"; [ -n "$ip" ] || ip="$(hostname -I 2>/dev/null | awk '{print $1}')"; [ -n "$ip" ] || ip="<this VM's IP>"
-  echo "DNS: point these names to $ip (router / DNS server):"
-  { echo "$HOSTS_CRL"; echo "$HOSTS_OCSP"; echo "$HOSTS_TSA"; } | sort -u | grep -v '^$' | while read -r h; do printf '  %-40s A  %s\n' "$h" "$ip"; done
-  echo "Public names (nextmantra.com) need an override on your internal DNS: they resolve to the Internet otherwise."
+  local ip="$SERVER_IP" all h dir="$ETC_DIR/dns"
+  local ips; ips="$(hostname -I 2>/dev/null | xargs)"
+  [ -n "$ip" ] || ip="$(echo "$ips" | awk '{print $1}')"; [ -n "$ip" ] || ip="<this VM's IP>"
+  all="$({ echo "$HOSTS_CRL"; echo "$HOSTS_OCSP"; echo "$HOSTS_TSA"; } | sort -u | grep -v '^$')"
+  echo
+  echo "DNS NAMES OF THIS PKI SERVER  (server IP: $ip)"
+  [ "$(echo "$ips" | wc -w)" -gt 1 ] && echo "  This machine has several addresses ($ips). Another one: ./pki-server.sh dns --server-ip <IP>"
+  echo
+  echo "1. WINDOWS HOSTS FILE  (Notepad as Administrator -> C:\\Windows\\System32\\drivers\\etc\\hosts, add these lines, then  ipconfig /flushdns):"
+  echo "$all" | while read -r h; do printf '   %-16s %s\n' "$ip" "$h"; done
+  echo
+  echo "2. WI-FI ROUTER / DNS SERVER  (add a local DNS record, type A, one per name):"
+  printf '   %-40s %-6s %s\n' "NAME" "TYPE" "VALUE"
+  echo "$all" | while read -r h; do printf '   %-40s %-6s %s\n' "$h" "A" "$ip"; done
+  echo "   All names are .internal: they never reach the Internet, so no public DNS is touched. Ports: HTTP 80 only."
+  if [ "$(id -u)" = 0 ] && [ "$DRY" != 1 ]; then
+    mkdir -p "$dir"
+    { echo "# Windows hosts file lines - server $ip"; echo "$all" | while read -r h; do printf '%-16s %s\n' "$ip" "$h"; done; } > "$dir/hosts.txt"
+    { echo "name,type,value"; echo "$all" | while read -r h; do echo "$h,A,$ip"; done; } > "$dir/dns-records.csv"
+    { echo "# dnsmasq / Pi-hole / OpenWrt (one line per name)"; echo "$all" | while read -r h; do echo "address=/$h/$ip"; done; } > "$dir/dnsmasq.conf"
+    chmod 644 "$dir"/*
+    echo
+    echo "   Saved: $dir/hosts.txt   $dir/dns-records.csv   $dir/dnsmasq.conf   (show again: ./pki-server.sh dns)"
+  fi
+  echo
+  echo "TEST FROM A CLIENT after the names are set:  curl -I http://$(echo "$HOSTS_CRL" | grep '^crl\.' | head -1)/<slug>.crl     certutil -verify -urlfetch <leaf>-fullchain.crt"
 }
 
 http_get() { curl -sS -m 10 -o "$2" -w '%{http_code}' -H "Host: $1" "http://127.0.0.1${3:-}"; }

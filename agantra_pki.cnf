@@ -279,20 +279,18 @@ OcspKeyBits  = 2048
 
 [ crl_urls ]
 
-URI.1 = http://crl-01.nextmantra.com/{ca}.crl
-URI.2 = http://crl-02.nextmantra.com/{ca}.crl
-URI.3 = http://crl-dev.nextmantra.internal/{ca}.crl
+# ONE name, the internal TLD only (no public .com name): the file name is the same as before, <slug>.crl
+URI.1 = http://crl.nextmantra.internal/{ca}.crl
 
 [ ocsp_urls ]
 
+# ONE name, the internal TLD only
 URI.1 = http://ocsp.nextmantra.internal
-URI.2 = http://ocsp.nextmantra.com
 
 [ ca_issuer_urls ]
 
-URI.1 = http://crt-01.nextmantra.com/{ca}.crt
-URI.2 = http://crt-02.nextmantra.com/{ca}.crt
-URI.3 = http://crt-dev.nextmantra.internal/{ca}.crt
+# ONE name, the internal TLD only; the file name is <slug>.crt
+URI.1 = http://crt.nextmantra.internal/{ca}.crt
 
 
 # ============================================================

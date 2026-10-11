@@ -150,6 +150,7 @@ CERTIFICATE OPTIONS
                          and the CRL lists it), but a client that has no URL will not learn about it. Per signer in the JSON file: "noCrl", "noOcsp", "noRevocationInfo"
                          (true | false). Defaults for all: [ person ] NoCrl / NoOcsp in agantra_pki.cnf.
                          NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
+                         WORD 365: this alone does NOT remove "Recoverable Signature" (the revocation status stays unknown). Issue WITHOUT it from the normal PKI and run  .\Start-PkiCrlServer.ps1  (elevated): it serves the CRLs on this machine.
   -KeepCase              Do not convert the names to capitals.
   -Password <text>       Password of the PFX (default Abc12345!; the password key of a person replaces it). CHANGE IT for real use.
   -Format <list>         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)

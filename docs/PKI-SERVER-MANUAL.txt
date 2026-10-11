@@ -6,9 +6,9 @@
 1. WHAT YOU GET
    One Ubuntu VM that serves your private PKI to the developers' machines, all on plain HTTP port 80 (revocation data must not need TLS):
 
-     CRL + CA certificates   http://crl-01.nextmantra.com/<slug>.crl , http://crl-02..., http://crl-dev.nextmantra.internal/..., crt-01 / crt-02 / crt-dev
+     CRL + CA certificates   http://crl.nextmantra.internal/<slug>.crl   (ONE host, the internal TLD only); CA issuer files: http://crt.nextmantra.internal/<slug>.crt (ONE host, internal TLD only)
                              (the host names and file names come from the PKI itself: pki\R<n>\server\ ; agantra_pki.cnf only as a fallback)
-     OCSP                    http://ocsp.nextmantra.internal   and   http://ocsp.nextmantra.com        ([ocsp_urls])
+     OCSP                    http://ocsp.nextmantra.internal   (ONE host, the internal TLD only; [ocsp_urls])
                              ONE URL for all CAs: one "openssl ocsp" responder per CA behind a small dispatcher
      Time stamping RFC 3161  http://tsa.nextmantra.internal   and   http://timestamp.nextmantra.internal
                              "openssl ts -reply" signed with your TimeStamping certificate (Authenticode /code signing, jarsigner, openssl ts)
@@ -62,16 +62,19 @@
       2  systemd: WSL needs  [boot] systemd=true  in /etc/wsl.conf (then  wsl --shutdown). Without it use  --no-systemd  and  ... pki-server.sh run.
       3  In WSL:  ./linux/pki-server/pki-server.sh dns     prints the host names. WSL's IP:  hostname -I
       4  Windows: Notepad as ADMINISTRATOR -> C:\Windows\System32\drivers\etc\hosts, add one line per name, e.g.
-              172.20.x.x   crl-01.nextmantra.com crl-02.nextmantra.com crl-dev.nextmantra.internal crt-01.nextmantra.com ocsp.nextmantra.internal tsa.nextmantra.internal
+              172.20.x.x   crl.nextmantra.internal crt.nextmantra.internal ocsp.nextmantra.internal tsa.nextmantra.internal timestamp.nextmantra.internal
          Windows 11 22H2+ with  [wsl2] networkingMode=mirrored  (in %UserProfile%\.wslconfig): use 127.0.0.1. With the default NAT mode the WSL IP changes at
          every start; localhost forwarding also reaches port 80 on 127.0.0.1. Run  ipconfig /flushdns  after editing.
-      5  Windows: curl.exe http://crl-01.nextmantra.com/agantra-q1-ev-g1.crl -o t.crl   certutil -URL <leaf.crt>   (the Windows revocation test)
+      5  Windows: curl.exe http://crl.nextmantra.internal/agantra-q1-ev-g1.crl -o t.crl   certutil -URL <leaf.crt>   (the Windows revocation test)
          openssl ocsp ... -url http://ocsp.nextmantra.internal   and the time stamp commands of chapter 7.
       6  Port 80 busy on Windows (IIS, World Wide Web Publishing Service)? Stop it, or use the WSL IP in the hosts file.
 
 5. DNS (your Wi-Fi router)
       ./pki-server.sh dns          prints the list. Create an A record for each name pointing to the VM's IP.
-   crl-01.nextmantra.com and ocsp.nextmantra.com are public names: the override exists only on your internal DNS.
+   Every name is .internal: nothing public is overridden. After  install / update  (nginx running) the script prints, with the VM's real IP:
+     1. the lines for the Windows hosts file,   2. the records for the Wi-Fi router (NAME / TYPE A / VALUE),
+     and writes /etc/agantra-pki-server/dns/hosts.txt, dns-records.csv and dnsmasq.conf (Pi-hole, OpenWrt). Show them again any time: ./pki-server.sh dns
+     Another IP than the first one of the VM:  ./pki-server.sh dns --server-ip <IP>.   Without the server: pki\R<n>\server\DNS-RECORDS.txt has the same lists with <SERVER-IP>.
 
 6. DAILY WORK
       sudo ./pki-server.sh update --source ./pki     new CRLs, new index.txt (OCSP follows at once); after every New-PkiServerPackage.ps1
@@ -89,7 +92,7 @@
                curl -H 'Content-Type: application/timestamp-query' --data-binary @q.tsq http://tsa.nextmantra.internal/ -o r.tsr
                openssl ts -verify -data file -in r.tsr -CAfile ca-bundle.crt
       Windows  signtool sign /fd sha256 /tr http://tsa.nextmantra.internal /td sha256 /f code.pfx file.exe
-      CRL      curl -O http://crl-01.nextmantra.com/agantra-q1-ev-g1.crl ; openssl crl -inform DER -in agantra-q1-ev-g1.crl -noout -text
+      CRL      curl -O http://crl.nextmantra.internal/agantra-q1-ev-g1.crl ; openssl crl -inform DER -in agantra-q1-ev-g1.crl -noout -text
 
 8. FILES ON THE SERVER
       /opt/agantra-pki-server/     pki-server.sh, pki-ocsp-dispatch.py, pki-tsa.py, ocsp-run, tsa-run, dispatch-run

@@ -48,6 +48,7 @@ Every script has `-Help` (PowerShell) or `--help` (shell). The manuals are in [`
 | Word / Excel / PDF signing | `GenerateOffice365LeafCertificate.ps1` | Document Encryption + Secure Email + Document Signing |
 | Revocation, CRL, OCSP, time stamping | `pki_remove.ps1` | list the PKIs (`-List`), remove one release (`-Release N [-DeleteFiles]`) or everything (`-All`) | `-Help` |
 | `PkiRevocation.ps1` | revoke, new CRL, responder and TSA certificates |
+| `Start-PkiCrlServer.ps1` (CRL host `crl.nextmantra.internal`, OCSP host `ocsp.nextmantra.internal`, CA issuer `crt.nextmantra.internal`; `pki-server.sh dns` prints the hosts-file lines and the router records) | Windows: serve the CRLs / CA files on this machine (hosts file + web server) so Word / Outlook can check revocation |
 | Sign the CSR of a colleague (TLS, e-mail, code signing ...) | `SignCsr.ps1` / `devkit/SignCsr.sh` | CSR in, certificate + chain out; DV (default), OV, EV; the CSR must follow the spec, errors shown in colour |
 | Sign the CSR of another department's CA | `SignExternalCa.ps1` | signed by a Classic Quadrant Root only; OV (default), DV, EV; original PKI only |
 | Move the PKI | `PkiTransport.ps1`, `Unpack-PkiTransport.ps1`, `linux/pki-transport.sh` | password-protected `.certpacked` |
