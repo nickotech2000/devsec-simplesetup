@@ -102,12 +102,16 @@ function Test-PkiCaCertificate {
         'rsa' {
             if ($t -match 'Public-Key:\s*\((?<bits>\d+) bit\)') {
                 $bits = [int]$Matches['bits']
-                $floor = if ($extRoot) { 4096 } elseif ($rootLevel) { $script:PkiRootRsaBits } else { 3072 }
+                $floor = if ($extRoot) { 4096 } elseif ($Ca.Kind -eq 'quadrant') { [int]$script:Pki.QuadrantRsaBits } elseif ($rootLevel) { $script:PkiRootRsaBits } else { 3072 }
                 if ($bits -lt $floor) { throw "[$($Ca.Id)] RSA key $bits bits is below the $floor bit minimum for this level." }
             }
         }
         'ecdsa' {
-            if ($rootLevel -and $t -notmatch 'P-521|secp521r1') { throw "[$($Ca.Id)] root-level ECDSA keys must use P-521 (the strongest NIST curve)." }
+            if ($Ca.Kind -eq 'quadrant') {
+                $qc = [string]$script:Pki.QuadrantCurve; $qpat = if ($qc -eq 'P-521') { 'P-521|secp521r1' } else { 'P-384|secp384r1|P-521|secp521r1' }
+                if ($t -notmatch $qpat) { throw "[$($Ca.Id)] a Quadrant Root ECDSA key must use $qc or stronger." }
+            }
+            elseif ($rootLevel -and $t -notmatch 'P-521|secp521r1') { throw "[$($Ca.Id)] root-level ECDSA keys must use P-521 (the strongest NIST curve)." }
         }
         'pqc' {
             if ($rootLevel -and $t -notmatch '(?i)ML-?DSA-?87') { throw "[$($Ca.Id)] root-level post-quantum keys must be ML-DSA-87 (the highest parameter set)." }

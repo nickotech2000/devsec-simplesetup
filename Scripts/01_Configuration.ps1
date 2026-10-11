@@ -13,8 +13,8 @@
 #
 #   Enterprise Root  (root)                           RSA 8192 / SHA-512     1000 y
 #   |- Classic Track Root (classic-root)              RSA 8192 / SHA-512      500 y
-#   |   |- Q1 Root  Non-FIPS  RSA 8192 / SHA-512                              400 y -> q1-dv, q1-ov, q1-ev  250 y  RSA 4096
-#   |   `- Q2 Root  FIPS      ECDSA P-521 / SHA-512                           400 y -> q2-dv, q2-ov, q2-ev  250 y  ECDSA P-384
+#   |   |- Q1 Root  Non-FIPS  RSA 4096 / SHA-384                              400 y -> q1-dv, q1-ov, q1-ev  250 y  RSA 4096
+#   |   `- Q2 Root  FIPS      ECDSA P-384 / SHA-384                           400 y -> q2-dv, q2-ov, q2-ev  250 y  ECDSA P-384
 #   `- Quantum Track Root (quantum-root)              ML-DSA-87               500 y
 #       |- Quantum Q1 Root (quadrant 3, non-FIPS)  ML-DSA-87                                       400 y -> q3-dv, q3-ov, q3-ev  250 y  ML-DSA-87
 #       `- Quantum Q2 Root (quadrant 4, FIPS)      ML-DSA-87                                       400 y -> q4-dv, q4-ov, q4-ev  250 y  ML-DSA-87
@@ -29,7 +29,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PkiGeneratorVersion = '4.9.3-phaseC'
+$script:PkiGeneratorVersion = '4.9.4-phaseC'
 
 # ROOT KEY POLICY (enforced, not configurable)
 #   Every root-level CA (Enterprise Root, Track Roots, Quadrant Roots) is RSA 8192 with
@@ -43,6 +43,13 @@ $script:PkiRootRsaBits = 8192
 $script:PkiRootCurve   = 'P-521'
 $script:PkiRootPqc     = 'mldsa87'
 $script:PkiRootDigest  = 'sha512'
+# QUADRANT ROOTS (Classic Q1 / Q2) have their own policy (4.9.4): equal strength (about 150-190 bits) with another algorithm, SHA-384.
+#     Q1 (non-FIPS)  RSA 4096 / SHA-384          Q2 (FIPS)  ECDSA P-384 / SHA-384          (Quantum Q3 / Q4: ML-DSA-87, unchanged)
+# The defaults are written here; agantra_pki.cnf [ pki_settings ] QuadrantRsaBits (4096 | 8192) and QuadrantCurve (P-384 | P-521) can raise them
+# (-QuadrantRsaBits / -QuadrantCurve). The Enterprise Root and the Track Roots stay RSA 8192 / SHA-512.
+$script:PkiQuadRsaBits = 4096
+$script:PkiQuadCurve   = 'P-384'
+$script:PkiQuadDigest  = 'sha384'
 
 # Certificate policy OIDs. Defaults are the CA/Browser Forum OIDs; agantra_pki.cnf
 # [ policy_oids ] (and -EvPolicyOid) can replace them. The EV OID is mandatory.
@@ -182,6 +189,8 @@ function New-PkiCatalog {
     $gE = $nm.GenEnterprise; $gC = $nm.GenClassic; $gQ = $nm.GenQuantum
     $rsaRoot = @{ Family = 'rsa';   Bits = $script:PkiRootRsaBits; Curve = $null;                 PqcAlg = $null }
     $ecRoot  = @{ Family = 'ecdsa'; Bits = 0;                      Curve = $script:PkiRootCurve;  PqcAlg = $null }
+    $q1Root  = @{ Family = 'rsa';   Bits = $cfg.QuadrantRsaBits;   Curve = $null;                 PqcAlg = $null }
+    $q2Root  = @{ Family = 'ecdsa'; Bits = 0;                      Curve = $cfg.QuadrantCurve;    PqcAlg = $null }
     $pqRoot  = @{ Family = 'pqc';   Bits = 0;                      Curve = $null;                 PqcAlg = $script:PkiRootPqc }
 
     & $addCa @{
@@ -215,9 +224,9 @@ function New-PkiCatalog {
     # Root level = enforced root policy. Intermediate level = configurable (below the roots).
     $quadDefs = @(
         @{ N = 1; Track = 'Classic'; Dir = 'classical'; Parent = 'classic-root'; Fips = $false; Gen = $gC
-           Root = $rsaRoot; Int = @{ Family = 'rsa';   Bits = $cfg.IntermediateRsaBits; Curve = $null; PqcAlg = $null } }
+           Root = $q1Root; Int = @{ Family = 'rsa';   Bits = $cfg.IntermediateRsaBits; Curve = $null; PqcAlg = $null } }
         @{ N = 2; Track = 'Classic'; Dir = 'classical'; Parent = 'classic-root'; Fips = $true;  Gen = $gC
-           Root = $ecRoot;  Int = @{ Family = 'ecdsa'; Bits = 0; Curve = $cfg.IntermediateCurve; PqcAlg = $null } }
+           Root = $q2Root;  Int = @{ Family = 'ecdsa'; Bits = 0; Curve = $cfg.IntermediateCurve; PqcAlg = $null } }
         @{ N = 3; Track = 'Quantum'; Dir = 'quantum';   Parent = 'quantum-root'; Fips = $false; Gen = $gQ
            Root = $pqRoot;  Int = @{ Family = 'pqc';   Bits = 0; Curve = $null; PqcAlg = $cfg.PqcAlgorithm } }
         @{ N = 4; Track = 'Quantum'; Dir = 'quantum';   Parent = 'quantum-root'; Fips = $true;  Gen = $gQ
@@ -239,7 +248,7 @@ function New-PkiCatalog {
                 Id = "$qid-$vl"; Kind = 'intermediate'; Parent = "$qid-root"
                 RelDir = "$($q.Dir)\$qid\$vl"; Track = $q.Track; Quadrant = $q.N; Fips = $q.Fips
                 Family = $q.Int.Family; Bits = $q.Int.Bits; Curve = $q.Int.Curve; PqcAlg = $q.Int.PqcAlg; FallbackBits = $cfg.FallbackRsaBits
-                Years = $cfg.IntYears; PathLen = 0; Validation = $v; Gen = $q.Gen; Ou = $cfg.OuIntermediate
+                Years = $cfg.IntYears; PathLen = $cfg.IntermediatePathLen; Validation = $v; Gen = $q.Gen; Ou = $cfg.OuIntermediate
             }
         }
     }
@@ -375,6 +384,9 @@ function Initialize-PkiConfiguration {
 
         # algorithms
         IntermediateRsaBits = [int](& $opt 'IntermediateRsaBits' 'IntermediateRsaBits' 4096)
+        IntermediatePathLen = [int](& $opt 'IntermediatePathLen' 'IntermediatePathLen' 0)
+        QuadrantRsaBits     = [int](& $opt 'QuadrantRsaBits' 'QuadrantRsaBits' $script:PkiQuadRsaBits)
+        QuadrantCurve       = [string](& $opt 'QuadrantCurve' 'QuadrantCurve' $script:PkiQuadCurve)
         PqcAlgorithm        = [string](& $opt 'PqcAlgorithm' 'PqcAlgorithm' 'mldsa87')
         PqcLeafAlgorithm    = [string](& $opt 'PqcLeafAlgorithm' 'PqcLeafAlgorithm' 'mldsa65')
         FallbackRsaBits     = [int](& $opt 'FallbackRsaBits' 'FallbackRsaBits' 8192)
@@ -497,6 +509,9 @@ function Test-PkiConfiguration {
     $errors = [System.Collections.Generic.List[string]]::new()
 
     # Root-level keys are fixed by policy ($script:PkiRootRsaBits / $script:PkiRootCurve), so only the levels below the roots are checked here (roots: RSA 8192 / ECDSA P-521 / ML-DSA-87).
+    if ($c.IntermediatePathLen -notin 0, 1) { [void]$errors.Add("IntermediatePathLen must be 0 or 1 (got $($c.IntermediatePathLen)).") }
+    if ($c.QuadrantRsaBits -notin 4096, 8192) { [void]$errors.Add("QuadrantRsaBits must be 4096 or 8192 (got $($c.QuadrantRsaBits)).") }
+    if ($c.QuadrantCurve -notin 'P-384', 'P-521') { [void]$errors.Add("QuadrantCurve must be P-384 or P-521 (got $($c.QuadrantCurve)).") }
     if ($c.IntermediateRsaBits -notin 4096, 8192) { [void]$errors.Add("IntermediateRsaBits must be 4096 or 8192 (got $($c.IntermediateRsaBits)).") }
     if ($c.PqcAlgorithm -notmatch '^(?i)ml-?dsa-?(44|65|87)$') { [void]$errors.Add("PqcAlgorithm must be mldsa44, mldsa65 or mldsa87 (got $($c.PqcAlgorithm)).") }
     if ($c.PqcLeafAlgorithm -notmatch '^(?i)ml-?dsa-?(44|65|87)$') { [void]$errors.Add("PqcLeafAlgorithm must be mldsa44, mldsa65 or mldsa87 (got $($c.PqcLeafAlgorithm)).") }

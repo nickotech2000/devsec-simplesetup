@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.3-phaseC     2026-10-06
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.4-phaseC     2026-10-11
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt,
@@ -213,3 +213,21 @@
        Windows: curl.exe http://crl-01.nextmantra.com/agantra-q1-ev-g1.crl -o t.crl      certutil -URL <leaf.crt>      openssl ts / signtool /tr http://tsa.nextmantra.internal
  D7  Repository
        .\Setup-GitRepo.ps1 -Check (exit 0); git clone on Linux; ./linux/pki-server/pki-server.sh --help runs without chmod; bash linux/setup-git.sh; git config core.hooksPath = .githooks
+
+====================================================================================================
+ PHASE E  -  QUADRANT ROOT POLICY, EXTERNAL CA SIGNING, PERSON CERTIFICATES      (4.9.4, 2026-10-11)
+====================================================================================================
+ E1  Quadrant roots
+       openssl x509 -in pki\classical\q1\root\q1-root.crt -noout -text | findstr /C:"Public-Key" /C:"Signature Algorithm"     expect Q1: 4096 bit; Q2: secp384r1 / ecdsa-with-SHA384 on the intermediates
+       Intermediates and leaves unchanged (Q1 RSA 4096 SHA-256, Q2 P-384 SHA-384)
+ E2  Sign an external CA (default signer q1-root)
+       .\SignExternalCa.ps1 -Csr partner.csr -Name partner       folder external-ca\partner_<date>\ with .csr .crt -fullchain.crt -chain.crt root.crt README.txt ca-info.json
+       openssl verify -x509_strict -CAfile pki\publish\root.crt -untrusted external-ca\partner_*\partner-chain.crt <leaf of his CA>
+       RSA 3072 or ECDSA P-256 CSR is refused; SHA-1 CSR is refused; -SignWith Intermediate stops (pathlen 0) unless IntermediatePathLen = 1
+       .\PkiRevocation.ps1 -Action Revoke ...   works for the external CA certificate (serial in ca-info.json)
+ E3  Person certificates
+       .\GeneratePersonLeafCertificate.ps1 -IdCode 37605030299 -GivenName Mari-Liis -Surname Männik
+       openssl x509 -in <crt> -noout -subject -ext subjectAltName,keyUsage,extendedKeyUsage    serialNumber=PNOEE-..., givenName, surname, CN=SURNAME,GIVEN,ID, C=EE; SAN email only;
+       Digital Signature + Key Agreement; Email Protection + Client Authentication.  openssl verify -purpose smimesign passes.
+       .\GeneratePersonLeafCertificate.ps1 -File persons.csv       one folder per person; a wrong check digit or a duplicate stops everything before anything is issued
+       -QcStatements: qcStatements has QcType eSign, NO QcCompliance (not a qualified certificate)

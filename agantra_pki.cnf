@@ -41,10 +41,12 @@
 # Algorithms:
 #   ROOT KEYS ARE FIXED BY POLICY and cannot be changed here:
 #       Enterprise Root, Track Roots, Quadrant Roots
-#         RSA      8192 bit    SHA-512     Enterprise Root, Classic Track Root, Q1
-#         ECDSA    P-521       SHA-512     Q2  (Classic FIPS)
+#         RSA      8192 bit    SHA-512     Enterprise Root, Classic Track Root
+#         RSA      4096 bit    SHA-384     Classic Q1 Root  (QuadrantRsaBits 4096 | 8192)
+#         ECDSA    P-384       SHA-384     Classic Q2 Root, FIPS, equal strength to Q1  (QuadrantCurve P-384 | P-521)
 #         ML-DSA   ML-DSA-87   no digest   Quantum Track Root, Quantum Q1 (non-FIPS), Quantum Q2 (FIPS)
 #   Below the roots (changeable):
+#       IntermediatePathLen   0 (default) | 1: pathLenConstraint of the intermediates. 1 lets an intermediate sign another private CA.
 #       IntermediateRsaBits   RSA size of the Q1 intermediates (4096 | 8192).
 #       IntermediateCurve     EC curve of the Q2 intermediates (P-256 | P-384 | P-521).
 #       PqcAlgorithm          ML-DSA parameter set of the Quantum (quadrant 3 / 4) intermediates (mldsa44 | 65 | 87).
@@ -57,12 +59,15 @@
 #   Windows TLS (Schannel) and the browsers do not accept them for HTTPS yet.
 #
 # Digests (signature on the CA certificates):
-#   Every root-level CA     SHA-512 (RSA / ECDSA); ML-DSA signs without a digest
+#   Enterprise + Track Roots SHA-512; Quadrant Roots SHA-384 (they sign the intermediates); ML-DSA signs without a digest
 #   Intermediates + leaves  SHA-256 (RSA), SHA-384 (EC), none (ML-DSA)
 # ============================================================
 
 [ pki_settings ]
 
+IntermediatePathLen = 0
+QuadrantRsaBits     = 4096
+QuadrantCurve       = P-384
 IntermediateRsaBits = 4096
 IntermediateCurve   = P-384
 PqcAlgorithm        = mldsa87
@@ -361,6 +366,26 @@ businessCategory                = Private Organization
 jurisdictionCountryName         = EE
 jurisdictionStateOrProvinceName = Tallinn
 DUNS                            =
+
+
+# ============================================================
+# [ person ]  defaults of GeneratePersonLeafCertificate.ps1 (a parameter or a file column wins)
+#   EmailDomain         e-mail = <id code>@<EmailDomain> when none is given
+#   Days                validity in days (730 = 2 years)
+#   Level               DV | OV | EV (issuing intermediate)
+#   CommonNameFormat    {Surname} {Given} {IdCode}; the CN is upper case, max 64 characters
+#   Country, IdType     C= and the semantics identifier prefix (PNO personal number | PAS passport | IDC identity card | TIN tax number)
+#   KeyType, Curve      ECDSA P-384 (default) or RSA (KeyBits 3072 minimum advised)
+# ============================================================
+[ person ]
+EmailDomain      = eesti.ee
+Days             = 730
+Level            = OV
+CommonNameFormat = {Surname},{Given},{IdCode}
+Country          = EE
+IdType           = PNO
+KeyType          = ECDSA
+Curve            = P-384
 
 
 # ============================================================

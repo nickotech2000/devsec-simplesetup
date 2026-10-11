@@ -401,6 +401,7 @@ function Get-PkiIssueMd {
     param([string]$Kind, [string]$Family)
     if ($Family -eq 'pqc') { return 'default' }          # ML-DSA is a pure signature: no external digest
     if ($Kind -in 'root', 'track') { return 'sha512' }
+    if ($Kind -eq 'quadrant') { return $script:PkiQuadDigest }     # Quadrant Roots sign the intermediates with SHA-384
     if ($Family -eq 'ecdsa') { return 'sha384' }
     return 'sha256'
 }
@@ -418,7 +419,8 @@ function Get-PkiOwnMd {
     # Digest of a CA's own CSR (proof of possession). Root-level CAs: SHA-512.
     param([string]$Kind, [string]$Family)
     if ($Family -eq 'pqc') { return 'default' }
-    if ($Kind -in 'root', 'track', 'quadrant') { return 'sha512' }
+    if ($Kind -in 'root', 'track') { return 'sha512' }
+    if ($Kind -eq 'quadrant') { return $script:PkiQuadDigest }
     if ($Family -eq 'ecdsa') { return 'sha384' }
     return 'sha256'
 }

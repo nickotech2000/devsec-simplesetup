@@ -47,6 +47,8 @@ $script:PkiModuleCatalog = @(
     @{ File = '15_LeafGuidance.ps1';         Sets = 'All', 'Library';          Purpose = 'conversion script and TLS guidance written next to a leaf' }
     @{ File = '16_CertPack.ps1';             Sets = 'All', 'Library', 'Transport'; Purpose = 'password-protected archives (.certpacked): AES-256 zip engine, 7-Zip' }
     @{ File = '18_Revocation.ps1';           Sets = 'All', 'Library';          Purpose = 'CRL, revocation, OCSP responder and time stamp certificates, revocation information' }
+    @{ File = '20_PersonLeaf.ps1';           Sets = 'All', 'Library';          Purpose = 'person (natural person) leaf certificates: subject, e-mail SAN, id code check, file import' }
+    @{ File = '19_ExternalCaSigning.ps1';    Sets = 'All', 'Library';          Purpose = 'sign the CSR of another private CA with our intermediate or Quadrant Root' }
     @{ File = '17_Transport.ps1';            Sets = 'All', 'Library', 'Transport'; Purpose = 'Phase C: pack, unpack, scans, Windows trust install' }
 )
 

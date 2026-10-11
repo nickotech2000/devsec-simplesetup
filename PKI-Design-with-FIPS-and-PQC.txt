@@ -2,7 +2,7 @@
  AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
 ====================================================================================================
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 4.9.3-phaseC                      Updated: 2026-10-05
+ Version : 4.9.4-phaseC                      Updated: 2026-10-11
  Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
            GenerateLeafCertificate.ps1, pki_reuse.ps1, transport script  (Phases B and C, not started)
  Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help   .\GenerateLeafCertificate.ps1 -Help
@@ -116,8 +116,10 @@
 
         Algorithm   Root key                  Digest    Used for
         ----------  ------------------------  --------  ------------------------------------------
-        RSA         8192 bit                  SHA-512   Enterprise Root, Classic Track Root, Q1 root
-        ECDSA       P-521 (secp521r1)         SHA-512   Q2 root (Classic FIPS)
+        RSA         8192 bit                  SHA-512   Enterprise Root, Classic Track Root
+        RSA         4096 bit (4.9.4)          SHA-384   Q1 root (Classic non-FIPS; -QuadrantRsaBits 4096|8192)
+        ECDSA       P-384 (4.9.4)             SHA-384   Q2 root (Classic FIPS; -QuadrantCurve P-384|P-521)
+        ECDSA       P-521 (secp521r1)         SHA-512   Enterprise/Track roots when not RSA (none today)
         ML-DSA      ML-DSA-87 (NIST level 5)  none      Quantum Track Root, Quantum Q1 root, Quantum Q2 root
 
       * Why 8192: it is also the largest RSA size Chrome (BoringSSL) accepts. 16384 would fail.
@@ -743,6 +745,28 @@
                  safety net. .gitignore keeps pki\, leafcerts\, keys and packages out of GitHub.
  10.55 DECIDED   The OCSP dispatcher routes by the issuer key hash in the request (OpenSSL 4 answers "unknown", status successful, for a certificate of another CA, so "first
                  successful answer" picked the wrong responder in the test). Separate server design: PKI-Server-Design.txt.
+
+ 10.56 DECIDED   (4.9.4) Classic Quadrant Roots have their own key policy: Q1 root RSA 4096 / SHA-384, Q2 root ECDSA P-384 / SHA-384 (equal strength, about 150 bits vs 192).
+                 Configurable up to RSA 8192 / P-521 (QuadrantRsaBits, QuadrantCurve); the validator enforces the chosen value as the floor. The Quantum Q3/Q4 roots stay ML-DSA-87.
+                 Quadrant roots sign their intermediates with SHA-384; the quadrant root certificate itself is signed by its parent Track Root (SHA-512). Intermediates and leaves: no change.
+ 10.57 DECIDED   (4.9.4) IntermediatePathLen (0 default | 1, -IntermediatePathLen): 0 = intermediates sign leaves only (unchanged behaviour). 1 lets an intermediate sign a CA; this
+                 changes the intermediate certificate, so it is off by default and only for a new build.
+ 10.58 DECIDED   (4.9.4) SignExternalCa.ps1 signs the CSR of another private CA. Default signer: the Classic non-FIPS Quadrant Root (q1-root), because the intermediates are pathlen 0
+                 and cannot issue a CA certificate; -SignWith Intermediate -Ca <id> works only with IntermediatePathLen 1 (otherwise stops, -Force overrides at your own risk).
+                 Minimum strength of the external CA key: RSA 4096, ECDSA P-384, ML-DSA-65 (equal strength); CSR signature SHA-256 or stronger, never SHA-1 / MD5; a CSR with the name of one
+                 of our CAs is refused. Issued through "openssl ca" from the signer database (index.txt: revocable with PkiRevocation.ps1 Revoke, listed in the CRL and OCSP).
+                 Certificate: CA:TRUE critical, pathlen 0 (default; limited to signer pathlen - 1), keyUsage keyCertSign + cRLSign, policies of -Level (default OV), CDP/AIA of the signer,
+                 optional critical nameConstraints (-PermitDns, -PermitEmail), validity default 1825 days and never beyond the signer. Result in external-ca\<name>_<date-time>\:
+                 <name>.csr, <name>.crt, <name>-fullchain.crt (his CA + our chain), <name>-chain.crt, root.crt, our-ca-bundle.crt, ca-info.json, README.txt; one new folder per signing.
+                 No CA private key of ours leaves the machine; the external CA keeps its own key.
+ 10.59 DECIDED   (4.9.4) GeneratePersonLeafCertificate.ps1 issues person e-mail certificates in the form of a national ID-card certificate: Subject serialNumber (ETSI semantics
+                 identifier <IdType><Country>-<IdCode>, e.g. PNOEE-37605030299), givenName, surname, CN "SURNAME,GIVENNAME,IDCODE" (upper case, max 64), C; SAN rfc822 only (default
+                 <idcode>@eesti.ee); keyUsage digitalSignature + keyAgreement (RSA: keyEncipherment instead; -NonRepudiation adds contentCommitment); EKU clientAuth + emailProtection;
+                 default key ECDSA P-384, 730 days, level OV, Quadrant 1. Input: parameters (one person) or -File CSV/JSON (many; one certificate and one folder each, leafcerts\persons\
+                 <id>-<surname>-<given>\). All entries are validated before anything is issued (Estonian check digit, duplicates, lengths); -ValidateOnly, -ExampleFile.
+                 -QcStatements adds a qcStatements extension with QcType eSign only. It never adds QcCompliance: this is a private CA, the certificate is NOT a qualified certificate and
+                 has no legal effect of one. The PFX password defaults to Abc12345! (change it with -Password). Names keep their real characters in the certificate (UTF-8, Männik);
+                 only the folder name is ASCII.
  10.46 DECIDED   Key pair per certificate: every purpose folder (serverauth, clientauth, serverauth-clientauth, codesigning, emailprotection, timestamping, ocspsigning) has
                  its own <stem>.key (PKCS#8), <stem>.pub (public key PEM) and <stem>.pub.der. All PEM files (.key .crt .pem .cert -fullchain.crt -chain.crt .pub) are written with LF
                  line endings and no BOM: OpenSSL on Windows writes CRLF, and OpenSSL 3.5+ on Linux (nginx on Ubuntu 26.04) then fails with "PEM_read_bio_PrivateKey() failed ...
@@ -858,6 +882,11 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
+ 4.9.4-phaseC  2026-10-11
+   + Quadrant roots: Q1 RSA 4096 / SHA-384, Q2 ECDSA P-384 / SHA-384 (QuadrantRsaBits, QuadrantCurve); intermediates and leaves unchanged (10.56). IntermediatePathLen option (10.57).
+   + SignExternalCa.ps1 (+ module 19): sign the CSR of another private CA, default signer q1-root, minimum RSA 4096 / P-384 / ML-DSA-65, one folder per CA (10.58).
+   + GeneratePersonLeafCertificate.ps1 (+ module 20): ID-card style person e-mail certificates from parameters or a CSV / JSON file (10.59). [ person ] in agantra_pki.cnf.
+   + GenerateLeafCertificate core: options KeyUsage, PersonDn, ExtraExt, ExtraConfig (used by the person script).
  4.9.3-phaseC  2026-10-06
    + GenerateLeafCertificate.ps1 -CodeSigningCompany (alias -CodesignCompany): code signing subject C=EE, ST=Tallinn, L=Tallinn, O=CN=<company>; empty = the Organization.
    + Leaf file names use the naming quadrant (Q1 = non-FIPS, Q2 = FIPS in both tracks): a Quantum FIPS leaf is ...-q2-mldsa65.crt (was q4). Default leaves of pki_setup too.

@@ -1,7 +1,7 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 4.9.3-phaseC          2026-10-05
+ Agantra Inovatif Enterprise PKI generator          Version 4.9.4-phaseC          2026-10-05
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PKI-Design-with-FIPS-and-PQC.txt (design, diagrams, limitations)
           PUBLIC-CA-ENTERPRISE-ROOT.txt        (Enterprise Root signed by DigiCert / GlobalSign / Sectigo)
@@ -635,7 +635,7 @@
 ====================================================================================================
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.9.3-phaseC
+ Version 4.9.4-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -666,9 +666,9 @@ REQUIREMENTS
 HIERARCHY CREATED  (.\pki)
   Enterprise Root CA                 RSA 8192  SHA-512   1000 years   pathlen 3
   |- Classic Track Root              RSA 8192  SHA-512    500 years   pathlen 2
-  |   |- Q1 Root  Non-FIPS           RSA 8192  SHA-512    400 years   pathlen 1
+  |   |- Q1 Root  Non-FIPS           RSA 4096  SHA-384    400 years   pathlen 1
   |   |    `- DV / OV / EV intermediates   RSA 4096 SHA-256    250 years   pathlen 0
-  |   `- Q2 Root  FIPS               ECDSA P-521  SHA-512 400 years   pathlen 1
+  |   `- Q2 Root  FIPS               ECDSA P-384  SHA-384 400 years   pathlen 1
   |        `- DV / OV / EV intermediates   ECDSA P-384 SHA-384  250 years   pathlen 0
   `- Quantum Track Root              ML-DSA-87            500 years   pathlen 2
       |- Q1 Root  Non-FIPS (no. 3)   ML-DSA-87            400 years   pathlen 1
@@ -850,6 +850,9 @@ SELECTION
 ALGORITHMS BELOW THE ROOTS
   -IntermediateRsaBits <n>  Q1 intermediate RSA size: 4096 | 8192.                Default: 4096
   -IntermediateCurve <c>    Q2 intermediate curve: P-256 | P-384 | P-521.         Default: P-384
+  -QuadrantRsaBits <n>      Q1 ROOT RSA size: 4096 | 8192 (4.9.4).                Default: 4096 (SHA-384)
+  -QuadrantCurve <c>        Q2 ROOT curve: P-384 | P-521 (4.9.4).                 Default: P-384 (SHA-384)
+  -IntermediatePathLen <n>  0 | 1. 1 lets an intermediate sign a CA.              Default: 0
   -PqcAlgorithm <a>         Quantum (quadrant 3 / 4) intermediates: mldsa44 | mldsa65 | mldsa87.   Default: mldsa87
   -PqcLeafAlgorithm <a>     Quantum (quadrant 3 / 4) leaves: mldsa44 | mldsa65 | mldsa87.           Default: mldsa65
   -PqcFallback              If an ML-DSA key cannot be created use RSA instead (genrsa) with a
@@ -995,3 +998,11 @@ LIMITATIONS  (details: PKI-Design-with-FIPS-and-PQC.txt, section 9)
   * pki_reuse.ps1 and GenerateLeafCertificate.ps1 still target the old single-root layout until
     Phases B and C.
 ====================================================================================================
+
+
+NEW IN 4.9.4  -  SEPARATE SCRIPTS
+  SignExternalCa.ps1                  signs the CSR of another private CA (default signer: Classic non-FIPS Quadrant Root).
+                                      Manual: SignExternalCa-MANUAL.txt        Design 10.58
+  GeneratePersonLeafCertificate.ps1   person e-mail certificates like a national ID card (one by parameters, many from a CSV / JSON file).
+                                      Manual: GeneratePersonLeafCertificate-MANUAL.txt        Design 10.59
+  Revoke an externally signed CA: PkiRevocation.ps1 -Revoke (the serial is in external-ca\<name>_...\ca-info.json).

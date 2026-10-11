@@ -1,0 +1,58 @@
+============================================================
+ GeneratePersonLeafCertificate.ps1 - certificates of PERSONS (e-mail + client authentication)
+ Version 4.9.4-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : GeneratePersonLeafCertificate-MANUAL.txt     Design : PKI-Design-with-FIPS-and-PQC.txt (10.59)
+ Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.
+
+WHAT IT MAKES   (the form of a national ID card certificate; NOT a qualified certificate)
+  Subject      serialNumber = PNOEE-<id code>      givenName = NICKO SATRIA      surname = UTAMA      CN = UTAMA,NICKO SATRIA,<id code>      C = EE
+               (this order; UTF-8, õ ä ö ü are kept; names in capitals unless -KeepCase)
+  SAN          e-mail <id code>@eesti.ee, or the address you give (rfc822Name only; no DNS, no IP)
+  EKU          Client Authentication + Secure E-mail (emailProtection)
+  Key usage    critical: digitalSignature + keyAgreement (ECDSA) | keyEncipherment (RSA) | digitalSignature (ML-DSA); -NonRepudiation adds nonRepudiation
+  Key          ECDSA P-384 (Quadrant 1 and 2); ML-DSA in Quadrants 3 and 4.   Valid 730 days by default.
+  Policies     the level policy (OV default) + PEN + -Policy; CRL / OCSP / CA issuer URLs of the issuing CA (q1-ov by default)
+  Output       leafcerts\persons\<id>-<SURNAME>-<GIVEN>\  every format (PEM DER CER CERT P7B RFC7468 PFX), key + public key, chain, leaf-info.json,
+               person-info.json, and one persons-batch-<date>.csv summary per run (no passwords in it).
+
+ONE PERSON
+  .\GeneratePersonLeafCertificate.ps1 -IdCode 37605030299 -GivenName "Mari-Liis" -Surname "Männik" [-Email mari@example.ee]
+  -IdCode <text>         National identification number. Estonia (-Country EE, -IdType PNO): 11 digits, the check digit is verified (-NoIdCheck skips it).
+  -GivenName / -Surname  Several given names are allowed ("NICKO SATRIA").
+  -Email <address>       Default <id code>@<EmailDomain>.   -EmailDomain <domain>  default eesti.ee  ([ person ] EmailDomain).
+  -Country <CC>          Two letters, default EE.       -IdType PNO|PAS|IDC|TIN  personal number (default), passport, identity card, tax number
+                         -> serialNumber "<IdType><Country>-<IdCode>" (ETSI EN 319 412-1 semantics identifier).   -SerialNumber replaces it as it is.
+  -CommonName <text>     Replaces the CN.  -CommonNameFormat "{Surname},{Given},{IdCode}"  tokens {Surname} {Given} {IdCode} {Country} {SurnameFirst}; max 64 characters.
+
+MANY PERSONS - A FILE
+  .\GeneratePersonLeafCertificate.ps1 -File .\persons.csv           -ValidateOnly   checks the file and shows the table, issues nothing
+  .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.csv    writes persons.csv and persons.json as examples and stops
+  CSV  (comma, semicolon, tab or |; first line = column names; # = comment) / JSON ([ {..}, {..} ] or { "persons": [ ... ] }) / plain text in CSV form.
+  Columns (any spelling: given_name, First Name ...):  IdCode, GivenName, Surname  (required);  Email, Country, IdType, Days, Password, Level, KeyType,
+  KeyBits, Curve, CommonName, SerialNumber, Name (folder), Policy  (optional; empty = the default / the command line value).
+  Every entry is checked BEFORE anything is written: one error = nothing is issued and every error is listed with its line. A person is then issued
+  on its own; a failure removes that person's folder and the run goes on (-StopOnError stops at the first failure). Exit 1 when one failed.
+
+CERTIFICATE OPTIONS
+  -Level DV|OV|EV        Issuing level (default OV: q1-ov). A person has no organization in the subject; EV is limited to 398 days.
+  -Quadrant 1|2|3|4      1 Classic non-FIPS (default), 2 Classic FIPS, 3 Quantum non-FIPS, 4 Quantum FIPS.
+  -KeyType RSA|ECDSA|MLDSA  -KeyBits  -Curve  -PqcAlgorithm  -Hash   as in GenerateLeafCertificate.ps1 (rules: RSA >= 2048, P-256+, SHA-256+).
+  -Days <n>              Validity (default 730, [ person ] Days; cut to what the issuer has left).
+  -Policy <oid|oid=cps>  Extra certificate policies.   -CpsUrl <url>
+  -NonRepudiation        Adds nonRepudiation (content commitment) to the key usage.
+  -QcStatements          Adds the qcStatements extension with QcType eSign (ETSI 0.4.0.1862.1.6.1) like the ID card. It is NOT QcCompliance: this PKI is
+                         private and does not issue qualified certificates. Use it only where an application wants to see the extension.
+  -KeepCase              Do not convert the names to capitals.
+  -Password <text>       Password of the PFX (default Abc12345!; the Password column of a file replaces it per person). CHANGE IT for real use.
+  -Format <list>         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)
+  -OutputRoot <path>     Default leafcerts\persons.
+  -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then stop.
+  -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
+
+DEFAULTS IN agantra_pki.cnf   [ person ]   EmailDomain  Days  Level  CommonNameFormat  Country  IdType  KeyType  Curve
+EXIT CODES   0 ok   1 an error or a failed person
+============================================================

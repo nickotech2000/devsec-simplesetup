@@ -481,9 +481,13 @@ function New-PkiLeafSpec {
     $h = Resolve-PkiLeafHash -Ca $ca -Hash (& $get 'Hash' '')
     foreach ($n in $h.Notes) { [void]$notes.Add($n) }
     $ekuInfo = Get-PkiLeafEkuInfo -Eku $eku -Family $key.Family
+    # a person certificate (GeneratePersonLeafCertificate.ps1) fixes its own key usage, subject, extra extensions and config sections
+    $kuFixed = $false
+    if ($Options.ContainsKey('KeyUsage') -and $Options['KeyUsage']) { $ekuInfo = [ordered]@{ Ekus = $ekuInfo.Ekus; KeyUsage = [string]$Options['KeyUsage']; Extra = @($ekuInfo.Extra) }; $kuFixed = $true }
 
     # subject, policies
-    $dn = if ($eku -contains 'CodeSigning') { Get-PkiCodeSigningDn -Company ([string](& $get 'CodeSigningCompany' '')) -Level $level }
+    $dn = if ($Options.ContainsKey('PersonDn') -and $Options['PersonDn']) { $Options['PersonDn'] }
+          elseif ($eku -contains 'CodeSigning') { Get-PkiCodeSigningDn -Company ([string](& $get 'CodeSigningCompany' '')) -Level $level }
           else { Get-PkiLeafDn -Level $level -San $san -Eku $eku -CommonName ([string](& $get 'CommonName' '')) }
     $policies = Get-PkiLeafPolicies -Level $level -PolicyText @(& $get 'Policy' @())
     $tsaOid = ''
@@ -528,7 +532,8 @@ function New-PkiLeafSpec {
     return @{
         Level = $level; Quadrant = $q; Track = $track; Fips = $fips; Ca = $ca
         Family = $key.Family; Bits = $key.Bits; Curve = $key.Curve; PqcAlg = $key.PqcAlg; KeyAlgorithm = $key.Algorithm; Tag = $tokens.Tag
-        Md = $h.Md; Eku = $eku; EkuOpenSsl = $ekuInfo.Ekus; KeyUsage = $ekuInfo.KeyUsage; ExtraExt = @($ekuInfo.Extra)
+        Md = $h.Md; Eku = $eku; EkuOpenSsl = $ekuInfo.Ekus; KeyUsage = $ekuInfo.KeyUsage; KeyUsageFixed = $kuFixed
+        ExtraExt = (@($ekuInfo.Extra) + @(& $get 'ExtraExt' @())); ExtraConfig = @(& $get 'ExtraConfig' @())
         San = $san; DnPairs = $dn; Policies = $policies; Days = $days
         Primary = $primary; Folder = $names.Folder; PurposeFolder = $names.PurposeFolder; SetMode = $setMode; Stem = $stem; OutputFolder = $names.OutputFolder; UniqueSuffix = $names.UniqueSuffix
         Formats = @($fm); Notes = $notes; Tokens = $tokens
@@ -632,10 +637,11 @@ function New-PkiLeafCertificate {
     $i = 0; foreach ($m in $san.Email) { $i++; [void]$L.Add("email.$i = $(ConvertTo-PkiConfValue $m)") }
     [void]$L.Add('')
     $ku = $Spec.KeyUsage
-    if ($actual.Family -ne $Spec.Family) {
+    if ($actual.Family -ne $Spec.Family -and -not [bool]$Spec['KeyUsageFixed']) {
         # PQC fallback produced RSA: key usage for RSA
         $ku = Get-PkiLeafEkuInfo -Eku $Spec.Eku -Family $actual.Family | ForEach-Object { $_.KeyUsage }
     }
+    if ($Spec.ContainsKey('ExtraConfig')) { foreach ($x in @($Spec.ExtraConfig)) { [void]$L.Add([string]$x) } }
     [void]$L.Add('[ ext ]')
     [void]$L.Add('basicConstraints = critical,CA:false')
     [void]$L.Add("keyUsage = $ku")

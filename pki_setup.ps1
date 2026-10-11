@@ -32,6 +32,9 @@ param(
     [ValidateSet(1, 2, 3, 4)][int[]]$Quadrant = @(1, 2, 3, 4),
 
     # ---- algorithms ----
+    [ValidateSet(0, 1)][int]$IntermediatePathLen = 0,
+    [ValidateSet(4096, 8192)][int]$QuadrantRsaBits = 4096,
+    [ValidateSet('P-384', 'P-521')][string]$QuadrantCurve = 'P-384',
     [ValidateSet(4096, 8192)][int]$IntermediateRsaBits = 4096,
     [ValidateSet('P-256', 'P-384', 'P-521')][string]$IntermediateCurve = 'P-384',
     [ValidatePattern('^(?i)ml-?dsa-?(44|65|87)$')][string]$PqcAlgorithm = 'mldsa87',
@@ -120,7 +123,7 @@ function Show-PkiHelp {
     @'
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.9.3-phaseC
+ Version 4.9.4-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -151,9 +154,9 @@ REQUIREMENTS
 HIERARCHY CREATED  (.\pki)
   Enterprise Root CA                 RSA 8192  SHA-512   1000 years   pathlen 3
   |- Classic Track Root              RSA 8192  SHA-512    500 years   pathlen 2
-  |   |- Q1 Root  Non-FIPS           RSA 8192  SHA-512    400 years   pathlen 1
+  |   |- Q1 Root  Non-FIPS           RSA 4096  SHA-384    400 years   pathlen 1
   |   |    `- DV / OV / EV intermediates   RSA 4096 SHA-256    250 years   pathlen 0
-  |   `- Q2 Root  FIPS               ECDSA P-521  SHA-512 400 years   pathlen 1
+  |   `- Q2 Root  FIPS               ECDSA P-384  SHA-384 400 years   pathlen 1
   |        `- DV / OV / EV intermediates   ECDSA P-384 SHA-384  250 years   pathlen 0
   `- Quantum Track Root              ML-DSA-87            500 years   pathlen 2
       |- Q1 Root  Non-FIPS (no. 3)   ML-DSA-87            400 years   pathlen 1
@@ -170,7 +173,8 @@ HIERARCHY CREATED  (.\pki)
   Roots they need are always built.
 
 ROOT KEY POLICY  (enforced, not configurable)
-  Every root-level CA (Enterprise Root, Track Roots, Quadrant Roots) is RSA 8192 with SHA-512.
+  The Enterprise Root and the Track Roots are RSA 8192 with SHA-512. The Classic QUADRANT ROOTS (4.9.4) have equal strength with another
+  algorithm: Q1 RSA 4096 / SHA-384, Q2 ECDSA P-384 / SHA-384 (-QuadrantRsaBits 8192, -QuadrantCurve P-521 raise them). Quantum Q3 / Q4: ML-DSA-87.
   Where the algorithm is not RSA, the strongest key and the largest digest it offers are used:
       RSA      8192 bit           SHA-512   (8192 is also the largest size Chrome accepts)
       ECDSA    P-521              SHA-512   (largest NIST curve; Classic FIPS quadrant)
@@ -331,6 +335,10 @@ SELECTION
   -Quadrant <1..4>     Quadrants to build.   Default: 1,2,3,4 (Windows 10: 1,2, see QUANTUM TRACK)
 
 ALGORITHMS BELOW THE ROOTS
+  -IntermediatePathLen <n>  pathLenConstraint of the DV / OV / EV intermediates: 0 (default, they issue end-entity
+                            certificates only) | 1 (an intermediate may then sign another private CA: SignExternalCa.ps1).
+  -QuadrantRsaBits <n>      Q1 ROOT RSA size: 4096 | 8192 (signs with SHA-384).    Default: 4096
+  -QuadrantCurve <c>        Q2 ROOT curve: P-384 | P-521 (signs with SHA-384).     Default: P-384
   -IntermediateRsaBits <n>  Q1 intermediate RSA size: 4096 | 8192.                Default: 4096
   -IntermediateCurve <c>    Q2 intermediate curve: P-256 | P-384 | P-521.         Default: P-384
   -PqcAlgorithm <a>         Quantum (quadrant 3 / 4) intermediates: mldsa44 | mldsa65 | mldsa87.   Default: mldsa87

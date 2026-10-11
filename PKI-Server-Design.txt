@@ -1,5 +1,5 @@
 ====================================================================================================================================
- Agantra Inovatif Enterprise PKI  -  DESIGN OF THE PKI SERVER (CRL, OCSP, RFC 3161 time stamping)         Version 4.9.3-phaseC 2026-10-11
+ Agantra Inovatif Enterprise PKI  -  DESIGN OF THE PKI SERVER (CRL, OCSP, RFC 3161 time stamping)         Version 4.9.4-phaseC 2026-10-11
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Companion documents: linux/pki-server/PKI-SERVER-MANUAL.txt (how to use it), PkiRevocation-MANUAL.txt (CA side), PKI-Design-with-FIPS-and-PQC.txt
 ====================================================================================================================================
@@ -69,7 +69,8 @@
 
 4. LIFE CYCLE
    Issue a certificate        CA machine; index.txt changes; "package + update" on the server -> OCSP knows it at once.
-   Revoke                     PkiRevocation.ps1 -Action Revoke (index.txt + new CRL); package + update.
+   Revoke                     PkiRevocation.ps1 -Action Revoke (index.txt + new CRL); package + update. Also for CA certificates signed by SignExternalCa.ps1
+                              and person certificates (GeneratePersonLeafCertificate.ps1): they are in the same CA database, so the CRL and OCSP cover them.
    CRL near expiry            PkiRevocation.ps1 -Action NewCrl; package + update. The server warns at 14 days (crl-check timer).
    Responder / TSA renewal    PkiRevocation.ps1 -Action NewOcsp|NewTsa -Replace (lab), or new csr -> SignCsr -> import-cert (recommended).
    Change of URLs / hosts     agantra_pki.cnf, pki_setup, then new certificates carry the new URLs; the server reads the hosts from the same file.

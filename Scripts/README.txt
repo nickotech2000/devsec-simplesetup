@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 4.9.3-phaseC      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
+ Version 4.9.4-phaseC      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -90,6 +90,8 @@
                                Find-PkiCompanionScript, Install-PkiSevenZip
  18_Revocation.ps1            CRL / OCSP responder / time stamping: Update-PkiCrl, Revoke-PkiCertificate,   00, 01, 03, 04, 14
                                New-PkiServiceCertificate, Invoke-PkiSignServiceCsr, Write-PkiRevocationInfo
+ 19_ExternalCaSigning.ps1    Sign the CSR of an external private CA (openssl ca, name constraints, chain folder)    00, 01, 02, 03, 04
+ 20_PersonLeaf.ps1             Person certificates: records (CSV/JSON), Estonian id check, DN, key usage, qcStatements   00, 01, 14
  17_Transport.ps1              Phase C: scans (Windows 11 25H2+, OpenSSL 4.0.1+), 00, 02, 07, 09, 16
                                password policy, package plan / pack / open /
                                export, Windows trust install, chain proof, kit,
@@ -178,6 +180,9 @@
  Validity, intermediate algorithms, subject, URLs, SAN  agantra_pki.cnf
  The shape of the PKI (which CAs exist, their keys)     01_Configuration.ps1  (New-PkiCatalog)
  Root key policy (RSA 8192 / P-521 / ML-DSA-87)         01_Configuration.ps1  (constants at the top)
+ Quadrant root key (Q1 RSA 4096, Q2 P-384, SHA-384)     agantra_pki.cnf [ pki_settings ] QuadrantRsaBits / QuadrantCurve
+ Sign another private CA's CSR                          SignExternalCa.ps1 + 19_ExternalCaSigning.ps1
+ Person (ID-card style) e-mail certificates             GeneratePersonLeafCertificate.ps1 + 20_PersonLeaf.ps1, agantra_pki.cnf [ person ]
  OpenSSL commands for CAs                               03_RuntimeConfig.ps1, 04_CertificateAuthority.ps1
  What counts as valid                                   06_Validation.ps1
  Windows store behaviour                                07_TrustStore.ps1

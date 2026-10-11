@@ -28,14 +28,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$script:Version = '4.9.3-phaseC'
+$script:Version = '4.9.4-phaseC'
 $root = $PSScriptRoot
 
 function Show-PackageHelp {
     @'
 ============================================================
  New-PkiServerPackage.ps1 - the PKI + the Linux scripts as ONE zip for Ubuntu 24.04 / 26.04
- Version 4.9.3-phaseC
+ Version 4.9.4-phaseC
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
@@ -93,7 +93,7 @@ function Write-Msg { param([string]$Text, [string]$Level = 'INFO') $c = switch (
 # ---------------------------------------------------------------- rules
 $binaryExt = @('.crl', '.der', '.p12', '.pfx', '.zip', '.certpacked', '.tsr', '.tsq', '.gz', '.7z', '.png', '.jpg')
 $unixExec = @('.sh', '.py')
-$skipDirs = @('issued', 'leafcerts', 'private', 'backup', 'backups', 'transport', 'logs', 'tmp', '.git')
+$skipDirs = @('issued', 'leafcerts', 'external-ca', 'private', 'backup', 'backups', 'transport', 'logs', 'tmp', '.git')
 $skipExt = @('.key', '.pfx', '.p12', '.csr', '.old', '.tmp', '.bak', '.certpacked', '.zip', '.7z', '.log')
 $utf8 = [System.Text.UTF8Encoding]::new($false)
 $items = [System.Collections.Generic.List[object]]::new()

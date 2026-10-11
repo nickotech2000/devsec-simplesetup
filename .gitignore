@@ -13,3 +13,4 @@ pki-phaseA*.zip
 *.tmp
 *.old
 *:Zone.Identifier
+external-ca/
