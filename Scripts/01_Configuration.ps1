@@ -379,6 +379,9 @@ function Initialize-PkiConfiguration {
     # ---- which PKI: -PkiRoot, else release / variant (pki\R1, pki\R2, pki\NoCR-R1 ...) ----
     $reqRelease = if ($Bound.Contains('Release') -and [int]$Bound['Release'] -gt 0) { [int]$Bound['Release'] } else { 0 }
     $reqNoCr = ($Bound.Contains('NoCaRevocationInfo') -and [bool]$Bound['NoCaRevocationInfo'])
+    # A leaf without CRL / OCSP (-NoRevocationInfo on the leaf scripts and SignCsr) is signed by the NoCR family: CA certificates without revocation URLs, latest release (or -Release).
+    $impliedNoCr = (-not $reqNoCr -and $RootMode -eq 'Use' -and $Bound.Contains('NoRevocationInfo') -and [bool]$Bound['NoRevocationInfo'] -and -not ($Bound.Contains('PkiRoot') -and -not [string]::IsNullOrWhiteSpace([string]$Bound['PkiRoot'])))
+    if ($impliedNoCr) { $reqNoCr = $true }
     $newRelease = ($Bound.Contains('NewRelease') -and [bool]$Bound['NewRelease'])
     $noCr = $reqNoCr; $release = if ($reqRelease -gt 0) { $reqRelease } else { 1 }
     if ($Bound.Contains('PkiRoot') -and -not [string]::IsNullOrWhiteSpace([string]$Bound['PkiRoot'])) {
@@ -388,8 +391,21 @@ function Initialize-PkiConfiguration {
         if ($null -ne $fi -and $RootMode -ne 'Generate') { $noCr = $fi.NoCr; $release = $fi.Release }
     }
     else {
-        $choice = Resolve-PkiRootChoice -ScriptRoot $ScriptRoot -NoCr $reqNoCr -NoCrExplicit $reqNoCr -Release $reqRelease -NewRelease $newRelease -Mode $RootMode
+        # A plain build (also with -InstallTrust): no release asked = the next free release; -Release <n> that exists (folder or Windows store) = stop.
+        $otherAction = @('Clean', 'Check', 'Unblock', 'ShowNames', 'EnterpriseRootCsr', 'ImportEnterpriseRoot', 'RemoveAllTrust', 'RemoveTrust', 'Verify', 'ReinstallTrust', 'CrossSignCsr', 'ImportCrossCert') | Where-Object { & $flag $_ }
+        $plainBuild = ($RootMode -eq 'Generate' -and @($otherAction).Count -eq 0)
+        $choice = Resolve-PkiRootChoice -ScriptRoot $ScriptRoot -NoCr $reqNoCr -NoCrExplicit $reqNoCr -Release $reqRelease -NewRelease $newRelease -Mode $RootMode `
+            -AutoNew $plainBuild -CheckStore ($plainBuild -and $IsWindows)
         $pkiRoot = $choice.Path; $noCr = [bool]$choice.NoCr; $release = [int]$choice.Release
+        if ($impliedNoCr) {
+            if (-not $choice.Exists) { throw "-NoRevocationInfo signs with the NoCR PKI (CA certificates without CRL / OCSP URLs), and none exists here.`nBuild it first:  .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust     (or leave out -NoRevocationInfo to sign with the normal PKI)" }
+            Write-PkiLog "-NoRevocationInfo: signing with the NoCR PKI, release R$($choice.Release) ($($choice.Name)), not the normal PKI." 'INFO'
+        }
+        if ($plainBuild -and $reqRelease -gt 0 -and -not $newRelease -and ([bool]$choice.FolderExists -or [bool]$choice.StoreExists)) {
+            $where = @(); if ($choice.FolderExists) { $where += "the folder $($choice.Path)" }; if ($choice.StoreExists) { $where += 'the Windows certificate store (LocalMachine Root / CA)' }
+            throw ("$(if ($noCr) { 'NoCR ' })R$release already exists: $($where -join ' and ').`nNothing was created. Use another number, leave out -Release (the next free release is taken), or replace it:  -Clean -Release $release   Remove it:  .\pki_remove.ps1 -Release $release$(if ($noCr) { ' -NoCaRevocationInfo' })")
+        }
+        if ($choice.PSObject.Properties['AutoNew'] -and $choice.AutoNew) { Write-PkiLog "A PKI of this variant already exists: building the next release, R$release (like -NewRelease). Replace one instead: -Clean -Release <n>." 'INFO' }
     }
 
     $winBuild = Get-PkiWindowsBuild

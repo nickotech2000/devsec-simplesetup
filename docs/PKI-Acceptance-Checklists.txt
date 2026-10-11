@@ -319,3 +319,15 @@
  [ ] ./Install-DevEnvironment.sh --check --only openssl,nginx on Ubuntu 26.04 shows OpenSSL 3.5.x READY (ML-DSA PASS); on 24.04 OpenSSL 3.0.x READY with NOTE lines.
  [ ] ./Install-DevEnvironment.sh --yes --only nginx adds ppa:nickotech2000/nicko-su-prod and installs nicko-su-nginx (NOT TESTED by the author: check nginx -v says 1.31.6).
  [ ] ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa installs nicko-su-openssl4 and the readiness check passes (NOT TESTED by the author).
+
+====================================================================================================
+ E18  Release guard, trust messages, PFX friendly name (4.9.5)
+====================================================================================================
+ [ ] .\pki_setup.ps1 -InstallTrust twice: the second run builds R2 (INFO "building the next release, R2"), not an error.
+ [ ] .\pki_setup.ps1 -Release 2 when pki\R2 exists: "R2 already exists: the folder ...", nothing created. Delete the folder pki\R2 but keep the Windows
+     certificates: the same message names "the Windows certificate store". -Clean -Release 2 replaces it.
+ [ ] .\pki_remove.ps1 -All prints CA names (not the long subject) and thumbprints; afterwards pki_setup -InstallTrust gives R1 and NO warning.
+ [ ] Trust report: other releases are the INFO "OTHER releases"; leftovers of the old names are an INFO list with CA names, never a WARN.
+ [ ] openssl pkcs12 -in leaf\*.pfx -info -nokeys shows friendlyName "Server Authentication for <CN> Sign by : <Intermediate CA CN>"; certlm.msc\Personal shows it.
+ [ ] GenerateOffice365LeafCertificate.ps1 -File persons.json -NoRevocationInfo (and the other leaf scripts, SignCsr): INFO "signing with the NoCR PKI, release R<n>"; openssl x509 -issuer shows "... CA (NoCR) R<n>". Without a NoCR PKI: error naming pki_setup -NoCaRevocationInfo.
+ [ ] No "-KeyBits is for RSA" and no "EV: validity limited to 397 days" lines in a default run.

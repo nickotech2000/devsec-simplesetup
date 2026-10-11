@@ -271,9 +271,14 @@ function Get-PkiStorePlacement {
             $isOther = $false
             if ($subj -match '(?:^|, )CN=(?<cn>[^,]+)') {
                 $cn = $Matches['cn']
-                if ($cn -match '^(?<base>.+?)(?<nocr> \(NoCR\))?(?: R(?<rel>\d+))?$' -and $Matches['base'] -match '(CA G\d+|G\d+ CA)$') {
-                    $rel = if ($Matches['rel']) { [int]$Matches['rel'] } else { 1 }
-                    $isOther = ($rel -ne $curRel -or ($Matches['nocr'] -ne '') -ne $curNoCr)
+                $item['CommonName'] = $cn
+                if ($cn -match '^(?<base>.+?)(?<nocr> \(NoCR\))?(?: R(?<rel>\d+))?$') {
+                    # Copy the groups first: the next -match overwrites $Matches.
+                    $gBase = [string]$Matches['base']; $gRel = [string]$Matches['rel']; $gNoCr = [string]$Matches['nocr']
+                    if ($gBase -match '(CA G\d+|G\d+ CA)$') {
+                        $rel = if ($gRel) { [int]$gRel } else { 1 }
+                        $isOther = ($rel -ne $curRel -or ($gNoCr -ne '') -ne $curNoCr)
+                    }
                 }
             }
             if ($isOther) { [void]$r.Other.Add($item) } else { [void]$r.Stale.Add($item) }
@@ -330,9 +335,9 @@ function Write-PkiTrustStoreReport {
     foreach ($w in $r.WrongStore) { Write-PkiLog "  WRONG STORE : $($w.Name) is $($w.Detail)" 'ERROR' }
     foreach ($m in $r.Missing) { Write-PkiLog "  NOT INSTALLED: $($m.Name) (belongs in $($m.Expected))" 'ERROR' }
     if ($r.Stale.Count -gt 0) {
-        Write-PkiLog "$($r.Stale.Count) certificate(s) with this PKI's name are in the stores but are NOT part of this PKI (an older generation, or another PKI with the same name):" 'WARN'
-        foreach ($t in $r.Stale) { Write-PkiLog "  LocalMachine\$($t.Store) : $($t.Subject.Split(',')[0..1] -join ',')   [$($t.Sha1.Substring(0, 12))...]" 'WARN' }
-        Write-PkiLog '  They are left alone. Remove them with  .\pki_remove.ps1 -All  (this also deletes the folder pki) or in certlm.msc.' 'WARN'
+        Write-PkiLog "$($r.Stale.Count) certificate(s) with this PKI's name carry this PKI's identity (phone / e-mail) but are not a release of the current naming - leftovers of an earlier version (old 'Enterprise' / 'Inovatif' / 'PostQuantum' names) or certificates made by hand. They do no harm:" 'INFO'
+        foreach ($t in $r.Stale) { Write-PkiLog "  LocalMachine\$($t.Store) : $(if ($t.CommonName) { $t.CommonName } else { $t.Subject })   [$($t.Sha1.Substring(0, 12))...]" 'INFO' }
+        Write-PkiLog '  They are left alone. Remove them with  .\pki_remove.ps1 -All  (this also deletes the folder pki) or in certlm.msc.' 'INFO'
     }
     if ($r.Contains('Other') -and $r.Other.Count -gt 0) {
         Write-PkiLog "$($r.Other.Count) CA certificate(s) of OTHER releases / variants of this PKI are installed as well (normal). List and remove them: .\pki_remove.ps1 -List" 'INFO'
@@ -446,7 +451,7 @@ function Remove-PkiCertificatesWhere {
                 try {
                     $store.Remove($cert)
                     $removed++
-                    Write-PkiLog "  removed from $name : $($cert.Subject)" 'OK'
+                    Write-PkiLog "  removed from $name : $(Get-PkiCertDisplayName -Certificate $cert)   [$($cert.Thumbprint.Substring(0, 12))...]" 'OK'
                 }
                 catch { Write-PkiLog "  already gone or not removable from $name, ignored: $($cert.Subject) ($($_.Exception.Message.Split("`n")[0]))" 'INFO' }
             }
@@ -484,10 +489,41 @@ function Get-PkiCaNameInfo {
     $prefix = 'Agantra'
     if ($null -ne (Get-Variable -Name Pki -Scope Script -ErrorAction SilentlyContinue) -and $script:Pki.Contains('Naming') -and $script:Pki.Naming) { $prefix = [string]$script:Pki.Naming.Prefix }
     if (-not $cn.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+    if ($cn.StartsWith("$prefix Inovatif", [StringComparison]::OrdinalIgnoreCase)) { return $null }   # names of the generation before 4.9.5: never a current release
     if ($cn -notmatch '^(?<base>.+?)(?<nocr> \(NoCR\))?(?: R(?<rel>\d+))?$') { return $null }
-    if ($Matches['base'] -notmatch '(CA G\d+|G\d+ CA)$') { return $null }
-    $rel = if ($Matches['rel']) { [int]$Matches['rel'] } else { 1 }
-    return [pscustomobject]@{ Release = $rel; NoCr = ($Matches['nocr'] -ne ''); CommonName = $cn }
+    $gBase = [string]$Matches['base']; $gRel = [string]$Matches['rel']; $gNoCr = [string]$Matches['nocr']
+    if ($gBase -notmatch '(CA G\d+|G\d+ CA)$') { return $null }
+    $rel = if ($gRel) { [int]$gRel } else { 1 }
+    return [pscustomobject]@{ Release = $rel; NoCr = ($gNoCr -ne ''); CommonName = $cn }
+}
+
+function Get-PkiCertDisplayName {
+    # The common name (the subject of a leaf is long: phone, e-mail, jurisdiction ...).
+    param([Parameter(Mandatory)]$Certificate)
+    $cn = $Certificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+    if ([string]::IsNullOrWhiteSpace($cn)) { return [string]$Certificate.Subject }
+    return $cn
+}
+
+function Get-PkiStoreReleases {
+    # Releases / variants of this PKI that have CA certificates in LocalMachine Root or CA (read from the common names). Empty off Windows or when a store cannot be read.
+    $out = [System.Collections.Generic.List[object]]::new()
+    if (-not $IsWindows) { return @() }
+    foreach ($name in 'Root', 'CA') {
+        try {
+            $st = [System.Security.Cryptography.X509Certificates.X509Store]::new($name, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+            $st.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::OpenExistingOnly)
+            try {
+                foreach ($c in $st.Certificates) {
+                    $i = Get-PkiCaNameInfo -Certificate $c
+                    if ($null -ne $i) { $out.Add([pscustomobject]@{ Release = $i.Release; NoCr = $i.NoCr; Store = $name }) }
+                }
+            }
+            finally { $st.Close() }
+        }
+        catch { }
+    }
+    return @($out)
 }
 
 function Remove-PkiTrustByRelease {

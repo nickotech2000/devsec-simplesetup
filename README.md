@@ -95,7 +95,7 @@ Certificates made from a copy are development certificates: they are not in the 
 
 All PKIs live in `pki/`, one subfolder each: `pki/R1`, `pki/R2`, `pki/NoCR-R1` ... (an old flat `pki/` counts as R1).
 
-- `pki_setup.ps1 -NewRelease` builds the next release (a new Enterprise Root and everything below it). Names get a suffix: `… Root CA G1`, `… Root CA G1 R2`, `… Root CA G1 (NoCR) R2`. Leaf names do not change.
+- `pki_setup.ps1 -NewRelease` builds the next release (a new Enterprise Root and everything below it). Names get a suffix: `… Root CA G1`, `… Root CA G1 R2`, `… Root CA G1 (NoCR) R2`. Leaf names do not change. Running `pki_setup.ps1 -InstallTrust` again builds the next free release by itself; `-Release 8` stops with "R8 already exists" when the folder `pki\R8` or the Windows store already has it (`-Clean -Release 8` replaces). `-NoRevocationInfo` on the leaf scripts signs with the NoCR PKI (latest NoCR release). Every leaf PFX has the friendly name `<Primary EKU> for <CN> Sign by : <Intermediate CA CN>`.
 - `pki_setup.ps1 -NoCaRevocationInfo` builds a separate family whose **CA certificates** have no CRL / OCSP / CA Issuers URL (leaves keep theirs; use `-NoRevocationInfo` on the leaf generators to drop them too). Remove the trust of the normal PKI and install this one.
 - Every generator (`.ps1` and `.sh`) uses the **latest** release by default; `-Release N` (`--release N`) picks one, a release that no longer exists falls back to the latest with a warning. `-NoCaRevocationInfo` (`--no-ca-revocation-info`) selects the NoCR family.
 - `pki_remove.ps1 -List | -Release N [-DeleteFiles] | -All` removes the Windows trust and the files of one release or of everything.

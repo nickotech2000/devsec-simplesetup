@@ -146,7 +146,8 @@ function New-PkiServiceCertificate {
     if ($Kind -eq 'Ocsp') {
         if ($null -eq $Ca -or $Ca.Kind -ne 'intermediate') { throw 'An OCSP responder certificate is made for an intermediate CA (q1-ev, q1-ov, q1-dv, q2-...).' }
         $o.Level = $Ca.Validation; $o.Quadrant = [int]$Ca.Quadrant
-        $o.KeyBits = $(if ($KeyBits -gt 0) { $KeyBits } else { [int]$c.OcspKeyBits })
+        if ($KeyBits -gt 0) { $o.KeyBits = $KeyBits }
+        elseif ([int]$Ca.Quadrant -eq 1 -and -not $KeyType) { $o.KeyBits = [int]$c.OcspKeyBits }     # RSA only: ECDSA (Q2) and ML-DSA (Q3 / Q4) have no key size
     }
     else {
         $o.Level = $Level.ToUpperInvariant(); $o.Quadrant = 1      # the quadrant of a time stamping certificate comes from [ timestamp ] / -TimestampQuadrant

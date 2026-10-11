@@ -263,9 +263,14 @@ RELEASES AND THE NoCR VARIANT
                        own revocation settings (use -NoRevocationInfo on the leaf generators to drop them too).
                        The NoCR family is a SEPARATE set of roots: remove the trust of the normal PKI and install this
                        one (.\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust). Leaves of the other family do not chain to it.
-  -Release N           Release number (1-99) to build / verify / reinstall / remove. Default: 1 when building.
+  -Release N           Release number (1-99) to build / verify / reinstall / remove.
+                       Building with -Release N: if R<N> already exists - as the folder pki\R<N> OR as CA certificates
+                       in the Windows store (LocalMachine Root / CA) - nothing is created and the script says "R<N> already
+                       exists". To replace it on purpose: -Clean -Release N.
   -NewRelease          Build the next release (latest + 1) of the family: a new Enterprise Root and everything below it.
                        Existing releases are not touched, so old leaf certificates keep working.
+                       This is also the DEFAULT: running pki_setup (with or without -InstallTrust) again, without -Release
+                       and without -Clean, builds the next free release. The number counts folders and Windows certificates.
   Names: release 1 has no suffix; from release 2 every CA name ends in " R2", " R3" ...; NoCR adds " (NoCR)":
       Agantra Root CA G1            (R1)
       Agantra Root CA G1 R2         (release 2)
@@ -289,7 +294,8 @@ USAGE
   .\pki_setup.ps1 -Verify                     re-validate an existing PKI (and show Windows trust)
   .\pki_setup.ps1 -Unblock                     unblock all scripts and PKI files, list lock holders
   .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust   NoCR PKI (CA certificates without CRL / OCSP / AIA)
-  .\pki_setup.ps1 -NewRelease -InstallTrust    release R2 (R3 ...) beside the existing ones
+  .\pki_setup.ps1 -InstallTrust                run again: the next free release (R2, R3 ...) beside the existing ones
+  .\pki_setup.ps1 -Release 8 -InstallTrust     R8; stops with "R8 already exists" when the folder or the Windows store has it
   .\pki_setup.ps1 -RemoveTrust -Release 2      remove the trust of release 2 (add -NoCaRevocationInfo for NoCR)
   .\pki_setup.ps1 -RemoveAllTrust              remove EVERY release and variant from Windows
                                                AND delete the .\pki folder with all contents

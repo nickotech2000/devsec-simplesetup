@@ -899,6 +899,11 @@
  10.80 DECIDED   (4.9.5) Install-DevEnvironment.sh: OpenSSL comes from the distribution by default (--openssl-source system: 3.0.0 or newer accepted; Ubuntu 26.04 3.5.x has ML-DSA / ML-KEM, 24.04 3.0.x does
                  not - reported as NOTE, not failure), OpenSSL 4 from the author's PPA (--openssl-source ppa, nicko-su-openssl4) or from source (build); nginx only from the PPA (nicko-su-nginx, Ubuntu only,
                  an existing other nginx is never replaced). The scripts that really need OpenSSL 4 (pki-transport.sh chain proof, pki-server.sh --build-openssl) ask for --openssl-source build.
+ 10.82 DECIDED   (4.9.5) Release guard: a plain build (also -InstallTrust) with no -Release and no -Clean takes the next free release (= -NewRelease); the number counts the pki\ folders and the CA certificates in LocalMachine Root / CA (Get-PkiStoreReleases, by common name). -Release N with N already present (folder or store) stops: 'R<N> already exists' (-Clean -Release N replaces). Not applied to -Clean, -Check, -Verify, -Unblock, -ShowNames, -ReinstallTrust, -RemoveTrust, -EnterpriseRootCsr, -ImportEnterpriseRoot, cross-sign. Names starting 'Agantra Inovatif' are old-generation, never a release. Stale certificates are an INFO list (CA name shown), not a WARN. pki_remove prints CN + thumbprint.
+ 10.83 DECIDED   (4.9.5) Leaf PFX friendly name: '<Primary EKU> for <CN> Sign by : <Intermediate CA CN>' (Spec.FriendlyName; also in convert-formats.ps1).
+ 10.85 DECIDED   (4.9.5) -NoRevocationInfo on GenerateLeafCertificate / GenerateOffice365LeafCertificate / GeneratePersonLeafCertificate / SignCsr selects the NoCR family (implied -NoCaRevocationInfo, latest NoCR release or -Release N) in Initialize-PkiConfiguration (Use mode only, not with -PkiRoot): a leaf without CRL / OCSP is signed by an intermediate whose own certificate has none. No NoCR PKI = error with the pki_setup command. A per-person NoRevocationInfo inside a JSON file does not switch the PKI (one batch = one PKI): use the command-line switch.
+ 10.84 FIXED     (4.9.5) The release guard (10.82) read choice.AutoNew on the result of every mode; only Generate has it, so GenerateLeafCertificate / GeneratePersonLeafCertificate / GenerateOffice365LeafCertificate stopped with 'property AutoNew cannot be found'. Read through PSObject.Properties now; every script that loads the configuration was run after the fix.
+ 10.81 FIXED     (4.9.5) Trust report: the regex groups (release / NoCR) were lost by a second -match, so other releases were listed as 'NOT part of this PKI'; the list now shows the CA name. OCSP key size is applied to Q1 (RSA) only (no ECDSA warning); a default TSA/OCSP validity above the EV maximum is capped silently; plan line wording.
 
 ====================================================================================================
  11  REQUIREMENT TRACKER
@@ -1008,6 +1013,8 @@
     + Install-DevEnvironment.sh: --openssl-source system (default) | ppa | build, nginx component from ppa:nickotech2000/nicko-su-prod, --ppa, --nginx-package (10.80).
   4.9.5-phaseC  2026-10-11  (shorter CA names)
     + CA common names: Prefix 'Agantra' (was 'Agantra Inovatif'), no word 'Enterprise' in the root names, QuantumLabel 'PQC' (was 'PQC-PostQuantum') (10.77). Slugs and the subject O unchanged.
+    + Release guard (-Release N exists => stop; default NewRelease), PFX friendly name (10.82, 10.83).
+    + Fixes: trust report Stale/Other classification and CN display, OCSP -KeyBits warning for ECDSA, TSA 397-day note, plan line (10.81).
   4.9.5-phaseC  2026-10-11  (releases and NoCR)
     + pki_setup.ps1 -NoCaRevocationInfo (CA certificates without CDP / OCSP / caIssuers), -NewRelease, -Release N; every PKI inside pki\ (R1, R2, NoCR-R1 ...); module 01c_Releases.ps1 (10.76, section 21).
     + CA names / slugs: " R2" suffix from release 2, " (NoCR)" for the NoCR family; the Quantum word becomes PQC when a name would pass 64 characters.

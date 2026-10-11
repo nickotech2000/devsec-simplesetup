@@ -516,7 +516,10 @@ function New-PkiLeafSpec {
     if ($days -le 0 -and ($eku -contains 'OcspSigning')) { $days = [int]$c.OcspDays }
     if ($days -le 0) { $days = Get-PkiLeafDays -Level $level }
     if ($level -eq 'EV' -and $days -gt 397) {
-        if ($null -ne $tsaSet -or ($eku -contains 'OcspSigning')) { [void]$notes.Add("EV: validity limited to 397 days (the TSA / OCSP default was $days)"); $days = 397 }
+        if ($null -ne $tsaSet -or ($eku -contains 'OcspSigning')) {
+            if ([int](& $get 'Days' 0) -gt 0) { [void]$notes.Add("EV: validity limited to 397 days (asked $days)") }     # a default is capped silently
+            $days = 397
+        }
         else { throw "An EV certificate may not be valid longer than 397 days (asked $days)." }
     }
     $room = Get-PkiIssuerRemainingDays -IssuerId $ca.Id
@@ -534,6 +537,11 @@ function New-PkiLeafSpec {
     $purposeAbbr = ($eku | ForEach-Object { if ($script:PkiPurposeProfiles.Contains($_)) { $script:PkiPurposeProfiles[$_].Token } else { $_.ToLowerInvariant() } }) -join '-'
     $purposeLong = ($eku | ForEach-Object { $_.ToLowerInvariant() }) -join '-'
     if ($eku -contains 'EmailProtection') { $purposeAbbr = 'email'; $purposeLong = 'emailprotection' }     # S/MIME (+ clientAuth): the short names stay
+    # Friendly name of the PFX (shown in certlm.msc / the Windows import): "<Primary EKU> for <CN> Sign by : <Intermediate CA CN>"
+    $ekuLabels = @{ ServerAuth = 'Server Authentication'; ClientAuth = 'Client Authentication'; CodeSigning = 'Code Signing'; EmailProtection = 'Secure Email'; TimeStamping = 'Time Stamping'; OcspSigning = 'OCSP Signing' }
+    $firstEku = [string](@($eku) | Select-Object -First 1)
+    $ekuText = if ($ekuLabels.ContainsKey($firstEku)) { $ekuLabels[$firstEku] } elseif ($firstEku) { $firstEku } else { 'Certificate' }
+    $friendly = "$ekuText for $(if ($cnValue) { $cnValue } else { $primary }) Sign by : $(Get-PkiCaCommonName -Ca $ca)"
     $now = Get-Date
     $tokens = @{
         Name = (ConvertTo-PkiSafeName $(if ($Options.ContainsKey('NameOverride') -and $Options['NameOverride']) { [string]$Options['NameOverride'] } else { $primary })); Level = $level.ToLowerInvariant(); Quadrant = "q$nq"; Tag = "q$nq-$($key.Tag)"
@@ -550,7 +558,7 @@ function New-PkiLeafSpec {
         Md = $h.Md; Eku = $eku; EkuOpenSsl = $ekuInfo.Ekus; KeyUsage = $ekuInfo.KeyUsage; KeyUsageFixed = $kuFixed
         ExtraExt = (@($ekuInfo.Extra) + @(& $get 'ExtraExt' @())); ExtraConfig = @(& $get 'ExtraConfig' @())
         San = $san; DnPairs = $dn; Policies = $policies; Days = $days
-        Primary = $primary; Folder = $names.Folder; PurposeFolder = $names.PurposeFolder; SetMode = $setMode; Stem = $stem; OutputFolder = $names.OutputFolder; UniqueSuffix = $names.UniqueSuffix
+        Primary = $primary; FriendlyName = $friendly; Folder = $names.Folder; PurposeFolder = $names.PurposeFolder; SetMode = $setMode; Stem = $stem; OutputFolder = $names.OutputFolder; UniqueSuffix = $names.UniqueSuffix
         Formats = @($fm); Notes = $notes; Tokens = $tokens
         NoCrl = [bool](& $get 'NoCrl' $false); NoOcsp = [bool](& $get 'NoOcsp' $false)
         DevSan = $devSan; EvSanOverride = $evSanOverride; TimestampPolicyOid = $tsaOid
@@ -716,10 +724,10 @@ function New-PkiLeafCertificate {
     # ---- PFX (normal container; FIPS leaves also get a FIPS-conformant one) ----
     $pfxOk = $false; $pfxFipsOk = $false
     if ($Spec.Formats -contains 'PFX') {
-        try { [void](New-PkiPfxFile -KeyPath $key -CertPath $crt -PfxPath $pfx -ChainPath $chainF -Name $Spec.Primary -Legacy:$c.LegacyPfx); $pfxOk = $true }
+        try { [void](New-PkiPfxFile -KeyPath $key -CertPath $crt -PfxPath $pfx -ChainPath $chainF -Name $Spec.FriendlyName -Legacy:$c.LegacyPfx); $pfxOk = $true }
         catch { Write-PkiLog "PFX for $stem was not created: $($_.Exception.Message.Split("`n")[0])" 'WARN' }
         if ($fips) {
-            try { [void](New-PkiPfxFile -KeyPath $key -CertPath $crt -PfxPath $pfxFips -ChainPath $chainF -Name $Spec.Primary -FipsContainer); $pfxFipsOk = $true }
+            try { [void](New-PkiPfxFile -KeyPath $key -CertPath $crt -PfxPath $pfxFips -ChainPath $chainF -Name $Spec.FriendlyName -FipsContainer); $pfxFipsOk = $true }
             catch { Write-PkiLog "FIPS-conformant PFX for $stem was not created: $($_.Exception.Message.Split("`n")[0])" 'WARN' }
         }
     }

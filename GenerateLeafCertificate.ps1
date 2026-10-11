@@ -220,6 +220,7 @@ REVOCATION INFORMATION   (4.9.5)
   -NoRevocationInfo  both. The CA issuer URL (caIssuers) stays. Use it for development / Office / offline systems that say "cannot connect
                      to the revocation server". Such a certificate cannot be checked or revoked by CRL / OCSP; leaf-info.json records
                      revocationInfo {crlDistributionPoints, ocsp}.   Same switches: GeneratePersonLeafCertificate.ps1, GenerateOffice365LeafCertificate.ps1.
+                     NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
 
 NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
@@ -290,6 +291,9 @@ OUTPUT   (ALL formats in ONE go by default)
                        A FIPS leaf also gets <stem>-fips.pfx (FIPS-conformant PKCS#12).
   -OutputRoot <path>   Folder that receives the leaf folders (default <script folder>\leafcerts).
   -Password <text>     PFX password (default Abc12345!, the lab password of the PKI).    -LegacyPfx  3DES / SHA-1 PFX.
+                       Friendly name inside every leaf PFX (shown in certlm.msc after the import):
+                       "<Primary EKU> for <CN> Sign by : <Intermediate CA CN>", for example
+                       "Server Authentication for nextmantra.com Sign by : Agantra EV RSA-4096 G1 CA".
   -NoGuidance          Do not write convert-formats.ps1 and tls-guidance.txt.
   -InstallPfx          Windows: also import the leaf PFX files into LocalMachine\My (elevated). Only the leaf.
   Written in every purpose folder (unless -NoGuidance):

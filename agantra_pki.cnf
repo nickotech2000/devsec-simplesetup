@@ -130,6 +130,9 @@ CpsUrlEv         = https://nextmantra.com/security/certs/ev-cps.pdf
 # GenQuantum     = G2
 # NoCrLabel         = (NoCR)       added to every CA name of the NoCR family (pki_setup -NoCaRevocationInfo)
 # ReleaseLabel      = R{N}         added from release 2 (pki_setup -NewRelease / -Release 2): Root CA G1 R2
+#   Release numbers: pki_setup without -Release / -Clean builds the next free release (R2, R3 ...); the number counts the pki\ folders AND
+#   the CA certificates in the Windows store. -Release N that already exists (folder or store) stops with "R<N> already exists".
+#   Leaf PFX friendly name (fixed): "<Primary EKU> for <CN> Sign by : <Intermediate CA CN>".
 # QuantumLabelShort = PQC          replaces QuantumLabel in ALL names when a name would exceed 64 characters
 
 # EnterpriseRoot      = {Prefix} Root CA {Gen}

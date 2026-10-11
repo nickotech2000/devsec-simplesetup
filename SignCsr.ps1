@@ -117,6 +117,7 @@ OPTIONS
   -OutFolder <path>        Where the per-request folders go (default: .\csr-signed next to the pki folder).
   -Policy <oid|cps ...>    Extra policy "OID|CPS-URL" for this certificate.
   -NoCrl -NoOcsp -NoRevocationInfo   leave the CRL distribution point and / or the OCSP URL out of the certificate.
+                                     NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
   -Check                   Only check the request and print the report; sign nothing.
   -Strict                  Warnings count as errors.
   -NoColor                 Plain text (also when the environment variable NO_COLOR is set).

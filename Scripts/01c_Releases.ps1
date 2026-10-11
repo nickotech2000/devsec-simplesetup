@@ -115,20 +115,31 @@ function Resolve-PkiRootChoice {
         [bool]$NoCrExplicit = $false,
         [int]$Release = 0,
         [bool]$NewRelease = $false,
+        [bool]$AutoNew = $false,           # Generate: no release asked and none of -Clean ...: take the next free number when this variant already exists
+        [bool]$CheckStore = $false,        # Generate: the Windows certificate stores count as "existing" too
         [ValidateSet('Use', 'Exact', 'Strict', 'Generate')][string]$Mode = 'Use'
     )
     $all = @(Get-PkiInstalledPkis -ScriptRoot $ScriptRoot)
 
     if ($Mode -eq 'Generate') {
+        # Which release numbers are taken: the folders pki\R<n> / pki\NoCR-R<n> AND (on Windows) the CA certificates in LocalMachine Root / CA.
+        $folderRels = @($all | Where-Object { $_.NoCr -eq $NoCr } | ForEach-Object { [int]$_.Release })
+        $storeRels = @()
+        if ($CheckStore) {
+            try { $storeRels = @(Get-PkiStoreReleases | Where-Object { $_.NoCr -eq $NoCr } | ForEach-Object { [int]$_.Release }) } catch { $storeRels = @() }
+        }
+        $known = @($folderRels + $storeRels | Sort-Object -Unique)
         $rel = if ($Release -gt 0) { $Release } else { 1 }
-        if ($NewRelease) {
-            $fam = @($all | Where-Object { $_.NoCr -eq $NoCr })
-            $rel = if ($fam.Count -gt 0) { ([int](($fam | Measure-Object -Property Release -Maximum).Maximum)) + 1 } else { 1 }
+        $auto = $false
+        if ($NewRelease -or ($AutoNew -and $Release -le 0 -and $known.Count -gt 0)) {
+            $rel = if ($known.Count -gt 0) { ([int](($known | Measure-Object -Maximum).Maximum)) + 1 } else { 1 }
+            $auto = (-not $NewRelease)
         }
         $old = $all | Where-Object { $_.Name -eq 'pki (old layout)' -and $_.NoCr -eq $NoCr -and $_.Release -eq $rel } | Select-Object -First 1
-        if ($null -ne $old -and -not $NewRelease) { return [pscustomobject]@{ Path = $old.Path; Name = $old.Name; Release = $rel; NoCr = $NoCr; Exists = $true; Fallback = $false } }
+        if ($null -ne $old -and -not $NewRelease) { return [pscustomobject]@{ Path = $old.Path; Name = $old.Name; Release = $rel; NoCr = $NoCr; Exists = $true; FolderExists = $true; StoreExists = ($storeRels -contains $rel); AutoNew = $auto; Fallback = $false } }
         $p = Join-Path (Get-PkiContainer -ScriptRoot $ScriptRoot) (Get-PkiFolderName -NoCr $NoCr -Release $rel)
-        return [pscustomobject]@{ Path = $p; Name = (Split-Path -Leaf $p); Release = $rel; NoCr = $NoCr; Exists = (Test-Path -LiteralPath $p); Fallback = $false }
+        $fe = (Test-Path -LiteralPath $p)
+        return [pscustomobject]@{ Path = $p; Name = (Split-Path -Leaf $p); Release = $rel; NoCr = $NoCr; Exists = $fe; FolderExists = $fe; StoreExists = ($storeRels -contains $rel); AutoNew = $auto; Fallback = $false }
     }
 
     # the family

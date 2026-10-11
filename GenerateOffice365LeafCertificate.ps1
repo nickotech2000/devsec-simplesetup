@@ -123,6 +123,7 @@ ONE SIGNER
                          it accepts the certificate until it expires. The certificate is still recorded in the CA database (PkiRevocation.ps1 can still revoke it
                          and the CRL lists it), but a client that has no URL will not learn about it. Per signer in the JSON file: "noCrl", "noOcsp", "noRevocationInfo"
                          (true | false). Defaults for all: [ office365 ] NoCrl / NoOcsp in agantra_pki.cnf.
+                         NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
   -KeepCase              Names are kept as given (default for Office; [ office365 ] KeepCase).
 
 MANY SIGNERS - A JSON FILE  (JSON only; CSV is not accepted)
