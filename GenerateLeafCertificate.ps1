@@ -65,6 +65,11 @@ param(
 
     # ---- validity and policies ----
     [ValidateRange(1, 36500)][int]$Days,
+    # ---- time stamping: Classic non-FIPS (Quadrant 1) by default; the parameters prepare another one ----
+    [ValidateSet(1, 2, 3, 4)][int]$TimestampQuadrant,
+    [string]$TimestampPolicyOid,
+    [ValidateRange(1, 36500)][int]$TimestampDays,
+    [ValidateRange(1, 3650)][int]$OcspDays,
     [string[]]$Policy,
     [string]$CpsUrl,
 
@@ -130,7 +135,7 @@ WHAT IT DOES
       ServerAuth        TLS server only                 CodeSigning      code signing (Authenticode and others)
       ClientAuth        TLS client only (mutual TLS)    TimeStamping     RFC 3161 time stamping (critical, alone)
       ServerClientAuth  TLS server AND client in ONE    OcspSigning      OCSP responder (with the no-check extension)
-      EmailProtection   S/MIME
+      EmailProtection   S/MIME (EKU emailProtection + clientAuth, so the same certificate also logs in to mutual TLS / VPN / 802.1X)
   Every certificate has its own purpose, its own key and its own folder. The three TLS certificates carry the same
   names but are three separate certificates: one for servers (serverAuth), one for clients (clientAuth) and one that
   is both (serverAuth + clientAuth, for a service that is server and client, for example mutual TLS between services).
@@ -184,9 +189,21 @@ PURPOSES
   Names per purpose in a set:
       ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com
                                allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is given.
-      EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address.
+      EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address. EVERY e-mail
+                               certificate carries the extended key usages emailProtection AND clientAuth.
       CodeSigning              no SAN; its own short subject (see CODE SIGNING SUBJECT).
       TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Time Stamping | OCSP Responder".
+
+TIME STAMPING CERTIFICATE (RFC 3161)
+  No special certificate type is needed: the TimeStamping leaf of this script IS the time stamp server certificate (EKU timeStamping,
+  critical, the only purpose). Defaults: Quadrant 1 = Classic, non-FIPS (never quantum unless you ask), RSA, valid 1825 days,
+  certificate policy OID <your PEN arc>.1.4 (1.3.6.1.4.1.67096.1.4) added next to the CA's DV/OV/EV policy.
+  -TimestampQuadrant 1|2|3|4   1 Classic non-FIPS (default)  2 Classic FIPS  3 Quantum non-FIPS  4 Quantum FIPS (prepared for the future;
+                               the PKI server kit signs RSA / ECDSA only)
+  -TimestampPolicyOid <oid>    the TSA policy OID (also written to tsa.cnf default_policy by the server kit)
+  -TimestampDays <n>           validity of the time stamp certificate     -OcspDays <n>   validity of OCSP responder certificates
+  Config: [ timestamp ] Quadrant / PolicyOid / Days in agantra_pki.cnf.  Keys of the OCSP / TSA certificates can also be made on the
+  server (pki-server.sh csr) and signed with PkiRevocation.ps1 -Action SignCsr.
 
 NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
@@ -405,6 +422,11 @@ try {
         Write-PkiLog "-AddDevelopmentSAN: $($devList.Dns.Count) DNS names, $($devList.Ip.Count) IP addresses and $($devList.Email.Count) e-mail addresses ($($devList.Source)) are added to the SAN of the TLS certificates (S/MIME: the e-mail addresses only; code signing, time stamping and OCSP carry no SAN)." 'WARN'
         if ($level -eq 'EV') { Write-PkiLog 'EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are deliberately NOT applied. The subject, the EV policy and the 398-day limit stay. For development only; no public CA would issue this.' 'WARN' }
     }
+    if ($purposes -contains 'TimeStamping') {
+        $ts = Get-PkiTimestampSettings
+        Write-PkiLog ("Time stamping certificate: Quadrant {0} ({1}{2}), policy OID {3}, valid {4} days (Classic non-FIPS is the default; -TimestampQuadrant, -TimestampPolicyOid, -TimestampDays change it)." -f $ts.Quadrant, $(if ($ts.Quadrant -in 3, 4) { 'Quantum' } else { 'Classic' }), $(if ($ts.Quadrant -in 2, 4) { ' FIPS' } else { ' non-FIPS' }), $(if ($ts.PolicyOid) { $ts.PolicyOid + $(if ($ts.Derived) { ' (from your IANA PEN)' }) } else { '(none: set one)' }), $ts.Days)
+        if ($ts.Quadrant -in 3, 4) { Write-PkiLog 'A quantum time stamping certificate cannot be used by the PKI server kit yet (openssl ts signs with RSA / ECDSA).' 'WARN' }
+    }
     $items = [System.Collections.Generic.List[hashtable]]::new()
     $setFolder = $null
     $setName = ''
@@ -486,7 +508,8 @@ try {
     }
     Write-Host ''
     Write-Host '  Files in every purpose folder:'
-    Write-Host ('      ' + (($items[0].Result.Files | Where-Object { $_ -notlike '*-chain.crt' -and $_ -notlike '*-fullchain.crt' -and $_ -notlike '*.cnf' }) -join '   '))
+    Write-Host ('      ' + (($items[0].Result.Files | ForEach-Object { $_.Replace($items[0].Result.Stem, '<name>') }) -join '   '))
+    Write-Host '      (<name> = the certificate name of that folder: the key <name>.key and the public key <name>.pub are in EVERY purpose folder)'
     Write-Host ''
     Write-PkiLog "$($items.Count) certificate(s) ready in $($setFolder.Path)" 'OK'
     if (-not $NoGuidance) { Write-PkiLog 'convert-formats.ps1 (every format) in each folder; tls-guidance.txt for ServerAuth / ClientAuth.' 'INFO' }

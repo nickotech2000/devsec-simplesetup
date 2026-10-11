@@ -189,6 +189,40 @@ PenPolicyArc  = 1
 
 
 # ============================================================
+# TIME STAMPING (RFC 3161)  -  the Time Stamping certificate of GenerateLeafCertificate.ps1
+#
+# The certificate is the normal leaf of purpose TimeStamping: extended key usage timeStamping, CRITICAL and alone (RFC 3161
+# section 2.3). No special CA or profile is needed.
+#   Quadrant    1 = Classic non-FIPS (default). 2 = Classic FIPS. 3 / 4 = Quantum (prepared; the PKI server kit does not sign
+#               time stamps with ML-DSA yet). The other purposes of a leaf set keep the quadrant you chose with -Quantum / -FIPS.
+#   PolicyOid   the time stamp policy OID: written into the TSA certificate and used by the time stamp server (tsa policy).
+#               Blank: <PEN arc>.4  =  1.3.6.1.4.1.<PEN>.<PenPolicyArc>.4  (needs the IANA PEN above).
+#   Days        validity of the TSA certificate. Longer than a TLS leaf (a time stamp must stay verifiable for years).
+# Command line: -TimestampQuadrant -TimestampPolicyOid -TimestampDays
+# ============================================================
+
+[ timestamp ]
+
+Quadrant   = 1
+PolicyOid  =
+Days       = 1825
+
+
+# ============================================================
+# REVOCATION: CRL and OCSP responder certificates (PkiRevocation.ps1, pki_setup.ps1)
+#   CrlDays     validity of a CRL ("next update"). Make a new CRL before it ends: PkiRevocation.ps1 -Action NewCrl.
+#   OcspDays    validity of an OCSP responder certificate.
+#   OcspKeyBits RSA key size of an OCSP responder certificate.
+# ============================================================
+
+[ revocation ]
+
+CrlDays      = 365
+OcspDays     = 365
+OcspKeyBits  = 2048
+
+
+# ============================================================
 # CUSTOM CERTIFICATE POLICIES  (optional)
 #
 # Every policy listed here is written where the PEN policies go: every Quadrant Root,

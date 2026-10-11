@@ -1,0 +1,83 @@
+====================================================================================================================================
+ Agantra Inovatif Enterprise PKI  -  DESIGN OF THE PKI SERVER (CRL, OCSP, RFC 3161 time stamping)         Version 4.9.3-phaseC 2026-10-11
+ Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Companion documents: linux/pki-server/PKI-SERVER-MANUAL.txt (how to use it), PkiRevocation-MANUAL.txt (CA side), PKI-Design-with-FIPS-and-PQC.txt
+====================================================================================================================================
+
+1. PURPOSE AND SCOPE
+   The PKI is made and operated on one machine that holds the CA private keys (Windows 11, pki_setup.ps1). What clients need at
+   run time is not the CA but three read-only services, which must be reachable at the URLs written INTO every certificate:
+       CRL distribution points   http://crl-01.nextmantra.com/<ca>.crl ...       (also crl-02, crl-dev.nextmantra.internal)
+       CA issuer (AIA caIssuers) http://crt-01.nextmantra.com/<ca>.crt ...
+       OCSP (AIA ocsp)           http://ocsp.nextmantra.internal , http://ocsp.nextmantra.com
+       RFC 3161 time stamping    http://tsa.nextmantra.internal , http://timestamp.nextmantra.internal   (not in certificates; used by signing tools)
+   These run on an Ubuntu 24.04 / 26.04 VM ("the PKI server") with NO CA private key on it.
+
+2. DESIGN DECISIONS
+   D1  Plain HTTP on port 80. Revocation data must be fetchable without TLS (a client that needs TLS to check a certificate that is needed
+       for TLS would loop). Integrity comes from the CRL / OCSP / time stamp signatures.
+   D2  nginx (the user's PPA build nicko-su-nginx) serves static files: CRLs (DER, application/pkix-crl), CA certificates, ca-bundle.crt,
+       root.crt. It also reverse-proxies OCSP and TSA requests to local helper processes. Nothing else is exposed.
+   D3  OCSP by "openssl ocsp -port" - one responder process per issuing CA (ports 25001 up), because an OCSP responder answers for ONE CA key.
+       One URL for all CAs: pki-ocsp-dispatch.py (127.0.0.1:2559) reads the issuer key hash out of the request and asks the matching
+       responder. (OpenSSL 4 answers "unknown" for a certificate of another CA instead of "unauthorized", so "ask them all and take the
+       first answer" is wrong; the routing is by hash, the old behaviour stays as the fallback.)
+   D4  The status source is the CA's index.txt (copied by New-PkiServerPackage.ps1 / update). The OCSP copy gets the serial in the subject
+       column (OpenSSL refuses duplicate subjects of valid entries). The responder re-reads the file when it changes.
+   D5  Time stamping by "openssl ts -reply" behind pki-tsa.py (127.0.0.1:2560, RFC 3161 over HTTP, application/timestamp-query).
+       tsa.cnf: signer = the TimeStamping certificate, default_policy = the policy OID, digests sha256/384/512, ess_cert_id_chain = no,
+       chain = TSA issuer .. root. The clock is the VM clock (chrony / systemd-timesyncd).
+   D6  The time stamp certificate is NOT a special certificate type. It is the normal leaf of GenerateLeafCertificate.ps1 with the
+       purpose TimeStamping: EKU timeStamping, CRITICAL and the only EKU (RFC 3161 section 2.3), keyUsage digitalSignature, no SAN.
+       What makes it a TSA certificate is the purpose alone. Defaults of this PKI:
+         * Quadrant 1 = Classic, non-FIPS, RSA. A time stamp must be verifiable by every tool in the world (Authenticode, jarsigner,
+           openssl ts, Adobe); none of them verifies ML-DSA time stamps today, so the default is NEVER quantum.
+         * The parameters for the future exist and are tested at generation level: -TimestampQuadrant 1|2|3|4 (1 Classic non-FIPS, 2 Classic FIPS,
+           3 Quantum non-FIPS, 4 Quantum FIPS), [ timestamp ] Quadrant in agantra_pki.cnf. The server kit signs with RSA / ECDSA only and
+           warns when it meets an ML-DSA TSA key.
+         * Long validity (default 1825 days, -TimestampDays / [ timestamp ] Days): a signature with a time stamp must stay verifiable for
+           years, and the time stamp certificate must have been valid at the time of stamping (ETSI EN 319 421 uses up to 5+ years).
+         * Policy OID: <PEN arc>.1.4 = 1.3.6.1.4.1.67096.1.4 (my choice, free to change: -TimestampPolicyOid or [ timestamp ] PolicyOid).
+           It is written as an extra certificate policy of the TSA certificate (next to the CA's DV/OV/EV policy) and as default_policy
+           of tsa.cnf, so the policy in every time stamp token is the one in the certificate. Arc map: .1 EV, .1.2 OV, .1.3 DV, .1.4 time stamping.
+   D7  The OCSP responder certificate is a leaf with the OCSP Signing EKU and the id-pkix-ocsp-nocheck extension, issued by the CA it answers for
+       (a delegated responder, RFC 6960 4.2.2.2) - one per intermediate, validity 365 days (OcspDays) so a stolen responder key has a short life.
+   D8  KEYS. The CA keys never leave the CA machine. For the OCSP and TSA keys there are two ways:
+         A (recommended, default of the package) the SERVER makes the key and a CSR (pki-server.sh csr); the CA machine signs the CSR
+           (PkiRevocation.ps1 -Action SignCsr); the server imports the certificate (pki-server.sh import-cert). No private key travels.
+         B (lab) the CA machine makes the certificates (pki_setup.ps1 / PkiRevocation.ps1 NewOcsp / NewTsa) and the keys are copied with
+           New-PkiServerPackage.ps1 -IncludeServiceKeys, or by --ocsp-leaf / --tsa-leaf folders.
+   D9  Package for Linux. New-PkiServerPackage.ps1 writes a zip (and .tar.gz) with: the linux/ scripts, the PKI WITHOUT any key
+       (whitelist of public files; *.key, *.pfx, *.p12, private\, issued\, leafcerts\, .csr, .old are never packed), the documents, a SHA256SUMS
+       and a manifest. All text is LF without BOM (OpenSSL 3.5+ and nginx reject CRLF PEM / keys). The zip carries "version made by =
+       Unix" and mode 755 for .sh / .py, so unzip restores the execute bit. The finished zip is opened again and scanned for private keys
+       (PEM body after the BEGIN line), for key files and for any CR; one hit deletes the package (exit 5).
+   D10 Repository. All shell scripts live in the same repository as the PowerShell PKI scripts, in linux/ (kit: linux/pki-server/).
+       Windows git cannot store the execute bit by itself, so: Setup-GitRepo.ps1 writes mode 100755 into the index (git update-index --chmod=+x),
+       sets core.hooksPath=.githooks, and renames a tracked folder "Scripts" to "scripts" (Linux is case sensitive). .gitattributes keeps
+       everything LF. Hooks: pre-commit (gives staged .sh / .py the execute bit, refuses CRLF, BOM, private keys), post-checkout / post-merge /
+       post-rewrite (chmod on Linux). Hooks are not copied by "git clone", hence linux/setup-git.sh (one command after a clone) and
+       linux/fix-permissions.sh (safety net, also for zips and /mnt/c). The index mode is what makes a clone runnable at once.
+       pki\, leafcerts\, *.key are in .gitignore: a PKI is never committed.
+
+3. COMPONENTS AND PORTS
+       client --80--> nginx --static--> /srv/agantra-pki/www (CRL, CA certificates)
+                        |--proxy--> pki-ocsp-dispatch.py 127.0.0.1:2559 --> openssl ocsp 0.0.0.0:25001.. (one per CA)  [firewall these ports]
+                        `--proxy--> pki-tsa.py            127.0.0.1:2560 --> openssl ts -reply
+   systemd: agantra-ocsp-<ca>.service, agantra-ocsp-dispatch.service, agantra-tsa.service, agantra-pki.target, agantra-crl-check.timer (daily).
+   Service user pki-server (no login). Keys 640 root:pki-server in /etc/agantra-pki-server/keys; sandboxing: NoNewPrivileges, ProtectSystem=strict.
+
+4. LIFE CYCLE
+   Issue a certificate        CA machine; index.txt changes; "package + update" on the server -> OCSP knows it at once.
+   Revoke                     PkiRevocation.ps1 -Action Revoke (index.txt + new CRL); package + update.
+   CRL near expiry            PkiRevocation.ps1 -Action NewCrl; package + update. The server warns at 14 days (crl-check timer).
+   Responder / TSA renewal    PkiRevocation.ps1 -Action NewOcsp|NewTsa -Replace (lab), or new csr -> SignCsr -> import-cert (recommended).
+   Change of URLs / hosts     agantra_pki.cnf, pki_setup, then new certificates carry the new URLs; the server reads the hosts from the same file.
+
+5. KNOWN LIMITS
+   * openssl ocsp is a simple responder (no HA, answers signed per request, valid 1 day); fine for a private PKI.
+   * The TSA is RSA / ECDSA only. ML-DSA time stamps need tools that do not exist yet.
+   * Tested with OpenSSL 4.0.3 on Ubuntu without systemd and without the PPA packages. NOT yet tested here: apt install from the PPA,
+     systemd units started, WSL with the Windows hosts file. First run on the VM: ./pki-server.sh check, install, test.
+   * The Windows PKI keeps working without the server; the server never signs a certificate.
+====================================================================================================================================

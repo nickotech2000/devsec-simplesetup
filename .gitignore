@@ -1,4 +1,15 @@
-/pki
-/leafcerts/
-/transport/
+# NEVER commit a PKI: private keys, generated certificates, packages
+pki/
+leafcerts/
+*.key
+*.pfx
+*.p12
+*.csr
 *.certpacked
+agantra-pki-server-*.zip
+agantra-pki-server-*.tar.gz
+pki-phaseA*.zip
+*.log
+*.tmp
+*.old
+*:Zone.Identifier

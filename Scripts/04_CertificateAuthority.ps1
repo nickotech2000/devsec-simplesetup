@@ -229,7 +229,7 @@ function Publish-PkiCaFiles {
         Copy-Item -LiteralPath $p.CrlPem -Destination (Join-Path $pub "$($ca.Slug).crl.pem") -Force
     }
 
-    Write-Utf8NoBom -Path (Join-Path $pub 'ca-bundle.crt') -Content $bundle.ToString()
+    Write-Utf8NoBom -Path (Join-Path $pub 'ca-bundle.crt') -Content (($bundle.ToString()) -replace "`r", '')
 
     $rootCrt = (Get-PkiCaPaths -Ca (Get-PkiCa -Id 'root')).Crt
     Copy-Item -LiteralPath $rootCrt -Destination (Join-Path $pub 'root.crt') -Force
@@ -248,12 +248,13 @@ ca-bundle.crt     Every CA certificate (PEM): root, track roots, quadrant roots,
 <slug>.crl.pem    CRL, PEM
 <slug>.pem        CA certificate, PEM
 
-The CRL expires after 365 days. Renew it before then, per CA:
-  openssl ca -gencrl -config <ca dir>\<id>.cnf -out <id>.crl.pem   (add -provider default, or the FIPS flags)
+The CRL expires after CrlDays days (default 365). Renew it before then:  .\PkiRevocation.ps1 -Action NewCrl   (status: -Action Status)
 
 Lab OCSP responder for one CA (example, Q1 EV intermediate):
   openssl ocsp -index pki\classical\q1\ev\index.txt -port 2560 -rsigner <responder.crt> -rkey <responder.key> -CA pki\classical\q1\ev\q1-ev.crt
 "@
     Write-Utf8NoBom -Path (Join-Path $pub 'README.txt') -Content $readme
+    # PEM text with LF only (OpenSSL on Windows writes CRLF; Linux servers want LF)
+    foreach ($f in (Get-ChildItem -LiteralPath $pub -File | Where-Object { $_.Name -like '*.pem' -or $_.Name -in 'root.crt', 'ca-bundle.crt', 'external-chain.pem' })) { [void](ConvertTo-PkiLfFile -Path $f.FullName) }
     Write-PkiLog "Published CRLs and CA files to $pub" 'OK'
 }

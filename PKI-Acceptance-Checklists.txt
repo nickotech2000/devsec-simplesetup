@@ -152,19 +152,19 @@
         Intermediate / Root
   C8    any pwsh 7: .\Unpack-PkiTransport.ps1 -Package ... -Extract roots     files only; no certificate store changed
   C9    Windows: .\PkiTransport.ps1 -RemoveTrust -Package ...        the CAs are gone from the stores
-  C10   Ubuntu 26: sudo ./pki-transport.sh --package ... --yes       7 files agantra-pki-* in
+  C10   Ubuntu 26: sudo ./linux/pki-transport.sh --package ... --yes       7 files agantra-pki-* in
         /usr/local/share/ca-certificates, "verify against
                                                                      the system store"
   C11   CentOS Stream 10, Rocky 10, RHEL 9, Oracle Linux 10: the same 7-Zip is installed (EPEL) or give --7z; anchors in
                                                                      /etc/pki/ca-trust/source/anchors, update-ca-trust
                                                                          run
   C12   SLES 16, openSUSE Tumbleweed: the same                       anchors in /etc/pki/trust/anchors
-  C13   macOS M2 and M4: sudo ./pki-transport.sh --package ... --yes the roots are in the System keychain; report which
+  C13   macOS M2 and M4: sudo ./linux/pki-transport.sh --package ... --yes the roots are in the System keychain; report which
         certificates macOS refused
   C14   one Linux and one Mac without OpenSSL 4: --install-openssl   OpenSSL 4.0.3 built (several minutes), checksum
         matched, the scan passes
   C15   a wrong password (any script)                               refused, nothing written (shell exit code 5)
-  C16   ./pki-transport.sh --package ... --remove-trust              the files agantra-pki-* are gone; the store is
+  C16   ./linux/pki-transport.sh --package ... --remove-trust              the files agantra-pki-* are gone; the store is
         rebuilt
 
  Report back: C4, C6, C7 (and certlm.msc), C10 to C14, and anything that fails.
@@ -181,13 +181,35 @@
   D3    Windows 11: run it again                                     nothing is reinstalled; exit code 0
   D4    Windows 11: .\Install-DevEnvironment.ps1 -Unblock            counts of unblocked / unlocked items
   D5    Windows 11 kit: .\PkiTransport.ps1 -Install ... -InstallMissing on a machine WITHOUT OpenSSL 4     it installs OpenSSL, scans again, goes on
-  D6    Ubuntu 26: sudo ./Install-DevEnvironment.sh --yes --only openssl,7zip      7-Zip installed; OpenSSL 4 built (minutes to over an hour),
+  D6    Ubuntu 26: sudo ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip      7-Zip installed; OpenSSL 4 built (minutes to over an hour),
                                                                      five checks PASS, link /usr/local/bin/openssl4; the system openssl unchanged
   D7    CentOS Stream 10 / Rocky 10 / RHEL 9 / Oracle 10: the same     7-Zip from EPEL (or report), OpenSSL built
   D8    SLES 16 / openSUSE Tumbleweed: the same                      7zip / p7zip, OpenSSL built
-  D9    macOS M2 and M4: ./Install-DevEnvironment.sh --yes --only openssl,7zip   Xcode tools present; sevenzip by brew; OpenSSL built; five checks
-  D10   any: ./Install-DevEnvironment.sh --check --only openssl      READY (exit 0) after D6 to D9; NOT READY (exit 4) before
-  D11   any Linux / macOS: ./Install-DevEnvironment.sh --unblock     files writable and executable; macOS: no quarantine mark
+  D9    macOS M2 and M4: ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip   Xcode tools present; sevenzip by brew; OpenSSL built; five checks
+  D10   any: ./linux/Install-DevEnvironment.sh --check --only openssl      READY (exit 0) after D6 to D9; NOT READY (exit 4) before
+  D11   any Linux / macOS: ./linux/Install-DevEnvironment.sh --unblock     files writable and executable; macOS: no quarantine mark
 
  Report back: D2 (the readiness table), D5, D6 to D9 (how long the build took), and anything that fails.
 ====================================================================================================
+
+====================================================================================================
+ PHASE D  -  REVOCATION, TIME STAMPING, LINUX SERVER, REPOSITORY      (4.9.3, 2026-10-11)
+====================================================================================================
+ D1  E-mail certificate has two EKUs
+       .\GenerateLeafCertificate.ps1 -DV -Purpose EmailProtection -EmailAddress you@example.com
+       openssl x509 -in <crt> -noout -ext extendedKeyUsage      expect: E-mail Protection, TLS Web Client Authentication
+ D2  CRL / OCSP information
+       .\pki_setup.ps1 -ClassicPKI ...      pki\ocsp\<ca>\, pki\tsa\<ca>\, pki\revocation-info.json, pki\REVOCATION-INFO.txt exist; .\PkiRevocation.ps1 shows days left
+ D3  Edit
+       .\PkiRevocation.ps1 -Action NewOcsp -Ca q1-ev -Replace -OcspDays 180      the old files are in old-<date>\; Revoke + NewCrl change index.txt and the CRL number
+ D4  Time stamping certificate
+       openssl x509 -in pki\tsa\q1-ev\q1-ev-tsa.crt -noout -ext extendedKeyUsage,certificatePolicies
+       expect: Time Stamping marked critical and alone; policy 1.3.6.1.4.1.67096.1.4 beside the EV policy; RSA, Classic, non-FIPS; valid ~1825 days
+ D5  Package for Ubuntu
+       .\New-PkiServerPackage.ps1 -Tar       "Checked: no private key, no CR ..."; in WSL: unzip -Z <zip> shows -rwxr-xr-x for the .sh files
+       find agantra-pki-server -name '*.key'   (empty);  grep -rl $'\r' agantra-pki-server   (empty);  sha256sum -c SHA256SUMS
+ D6  Server (WSL Ubuntu 24.04 / 26.04, Windows hosts file edited)
+       csr -> PkiRevocation.ps1 -Action SignCsr -> import-cert -> install -> ./linux/pki-server/pki-server.sh test    every line [OK]
+       Windows: curl.exe http://crl-01.nextmantra.com/agantra-q1-ev-g1.crl -o t.crl      certutil -URL <leaf.crt>      openssl ts / signtool /tr http://tsa.nextmantra.internal
+ D7  Repository
+       .\Setup-GitRepo.ps1 -Check (exit 0); git clone on Linux; ./linux/pki-server/pki-server.sh --help runs without chmod; bash linux/setup-git.sh; git config core.hooksPath = .githooks

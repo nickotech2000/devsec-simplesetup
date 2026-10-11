@@ -89,7 +89,13 @@ function Invoke-PkiGeneration {
     if (-not $script:Pki.SkipLeaf) {
         Invoke-PkiStep -Name 'Generate default EV leaf certificates' -Action { New-AllLeafCertificates }
     }
+    if (-not $script:Pki.SkipRevocation) {
+        Invoke-PkiStep -Name 'OCSP responder certificates and time stamping certificate' -Action { [void](New-PkiRevocationServiceSet) }
+    }
     Invoke-PkiStep -Name 'Publish CRL and CA issuer files' -Action { Publish-PkiCaFiles }
+    if (-not $script:Pki.SkipRevocation) {
+        Invoke-PkiStep -Name 'Write revocation information (CRL dates, URLs, OCSP, time stamping)' -Action { [void](Write-PkiRevocationInfo) }
+    }
     Invoke-PkiStep -Name 'Validate keys, certificates, PFX and chains' -Action { Test-AllPkiArtifacts }
     if ($script:Pki.InstallTrust) {
         Invoke-PkiStep -Name 'Install PKI into LocalMachine certificate stores' -Action { Install-PkiTrust }

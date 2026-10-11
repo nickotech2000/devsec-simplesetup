@@ -1,0 +1,32 @@
+# Agantra Inovatif PKI repository - line endings and file types
+# Everything that is text is stored AND checked out with LF (OpenSSL 3.5+ / nginx on Linux reject CRLF keys and PEM; bash rejects CRLF scripts).
+*                 text=auto eol=lf
+*.sh              text eol=lf
+*.py              text eol=lf
+*.ps1             text eol=lf
+*.psm1            text eol=lf
+*.txt             text eol=lf
+*.cnf             text eol=lf
+*.json            text eol=lf
+*.md              text eol=lf
+*.crt             text eol=lf
+*.pem             text eol=lf
+*.pub             text eol=lf
+*.csr             text eol=lf
+*.key             text eol=lf
+*.githooks/*      text eol=lf
+.githooks/*       text eol=lf
+index.txt*        text eol=lf
+serial*           text eol=lf
+crlnumber*        text eol=lf
+# binary
+*.crl             binary
+*.der             binary
+*.pfx             binary
+*.p12             binary
+*.zip             binary
+*.gz              binary
+*.7z              binary
+*.certpacked      binary
+*.tsr             binary
+*.tsq             binary

@@ -77,6 +77,13 @@ param(
     [string]$Password = 'Abc12345!',
     [switch]$LegacyPfx,
     [switch]$SkipLeaf,
+    # ---- revocation: CRL, OCSP responder certificates, time stamping certificate (made with the PKI unless -SkipRevocation) ----
+    [switch]$SkipRevocation,
+    [ValidateRange(1, 3650)][int]$CrlDays,
+    [ValidateRange(1, 3650)][int]$OcspDays,
+    [ValidateSet(1, 2, 3, 4)][int]$TimestampQuadrant,
+    [string]$TimestampPolicyOid,
+    [ValidateRange(1, 36500)][int]$TimestampDays,
 
     # ---- Windows trust (elevated PowerShell) ----
     [switch]$InstallTrust,
@@ -121,8 +128,11 @@ function Show-PkiHelp {
  Manual : pki_setup-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt
  Public CA : PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : scripts\README.txt
  Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   GenerateLeafCertificate-MANUAL.txt
- Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./pki-transport.sh --help
+ Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./linux/pki-transport.sh --help
                       Manual: PkiTransport-MANUAL.txt
+ CRL / OCSP / time stamping: PkiRevocation.ps1 -Help   Manual: PkiRevocation-MANUAL.txt
+ Ubuntu server (CRL, OCSP, TSA): New-PkiServerPackage.ps1 -Help   linux/pki-server/pki-server.sh --help   Design: PKI-Server-Design.txt
+ Git (private repository): Setup-GitRepo.ps1 -Help   (execute bit, hooks, LF)
 
 REQUIREMENTS
   PowerShell 7+ and OpenSSL 4.x ONLY. OpenSSL 3.x is refused. When several OpenSSL versions are installed
@@ -260,6 +270,13 @@ LEAF CERTIFICATES  (Phase B)
   same -Unblock. Names of the folders and files: agantra_pki.cnf [ leaf_names ].
   .\GenerateLeafCertificate.ps1 -Help    Manual: GenerateLeafCertificate-MANUAL.txt
 
+CRL, OCSP AND TIME STAMPING INFORMATION  (made with the PKI unless -SkipRevocation)
+  After the CAs: one OCSP responder certificate per Classic intermediate (pki\ocsp\<ca>\), the time stamping certificate (pki\tsa\<ca>\; Classic
+  non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\publish\ and pki\revocation-info.json + REVOCATION-INFO.txt.
+  -CrlDays N  -OcspDays N  -TimestampQuadrant 1|2|3|4  -TimestampPolicyOid <oid>  -TimestampDays N  -SkipRevocation.
+  Show / edit / renew / revoke later: .\PkiRevocation.ps1 -Help.   E-mail leaf certificates carry emailProtection AND clientAuth.
+  Server: .\New-PkiServerPackage.ps1 makes a zip of the Linux scripts and the PKI WITHOUT private keys for Ubuntu 24.04 / 26.04.
+
 TRANSPORT  (Phase C)
   .\PkiTransport.ps1 -Pack packs this PKI into a password-protected .certpacked (a zip or 7z under another name):
   CA certificates only, or with the leafcerts, or with the whole PKI and its CA keys. On a Windows 11 25H2+ machine
@@ -361,6 +378,13 @@ LEAF / OUTPUT OPTIONS
   -Password <text>     PFX password (8+ characters).        Default: Abc12345!
   -LegacyPfx           Legacy PFX encryption (3DES / SHA-1) for very old software.
   -SkipLeaf            Build the CAs only.
+  -SkipRevocation      Do not make the OCSP responder certificates (pki\ocsp\), the time stamping certificate (pki\tsa\) and
+                       pki\revocation-info.json. Without it they are made with the PKI (Classic CAs; one TSA certificate,
+                       Classic non-FIPS Quadrant 1, policy OID <PEN arc>.4, 1825 days). Edit / renew them: PkiRevocation.ps1.
+  -CrlDays N           Validity of the CRLs (default 365; agantra_pki.cnf [ revocation ] CrlDays).
+  -OcspDays N          Validity of an OCSP responder certificate (default 365).
+  -TimestampQuadrant 1|2|3|4   Quadrant of the time stamping certificate (default 1 = Classic non-FIPS; the rest is prepared).
+  -TimestampPolicyOid <oid>    Time stamp policy OID (default <PEN arc>.4, [ timestamp ] PolicyOid).   -TimestampDays N   Its validity (1825).
   Leaf files in .\pki\leaf: <name>.crt .key -fullchain.crt .pfx (+ -fips.pfx for FIPS leaves:
                        FIPS-conformant container; Windows imports the normal .pfx)
   GenerateLeafCertificate.ps1 (Phase B) issues every other kind of leaf.

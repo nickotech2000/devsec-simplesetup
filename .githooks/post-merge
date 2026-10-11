@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# post-checkout / post-merge / post-rewrite: makes the scripts executable in the working tree (clone, checkout, pull, rebase)
+top="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+git ls-files -z -- '*.sh' '*.py' | while IFS= read -r -d '' f; do [ -f "$top/$f" ] && [ ! -x "$top/$f" ] && chmod 755 "$top/$f"; done
+exit 0

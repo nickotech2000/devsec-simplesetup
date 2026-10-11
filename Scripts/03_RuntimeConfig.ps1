@@ -295,7 +295,7 @@ function Write-PkiCaConfig {
     [void]$L.Add('crlnumber       = $dir/crlnumber')
     [void]$L.Add("default_md      = $issueMd")
     [void]$L.Add('default_days    = 397')
-    [void]$L.Add('default_crl_days = 365')
+    [void]$L.Add("default_crl_days = $([int]$script:Pki.CrlDays)")
     [void]$L.Add('policy          = policy_any')
     [void]$L.Add('unique_subject  = no')
     [void]$L.Add('copy_extensions = none')

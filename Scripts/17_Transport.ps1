@@ -577,7 +577,11 @@ function Write-PkiTransportKit {
     $scripts = Join-Path $KitDirectory 'scripts'
     Ensure-PkiDirectory -Path $scripts
     $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt'
-    foreach ($f in $top) { if (Test-Path -LiteralPath (Join-Path $Root $f)) { Copy-Item -LiteralPath (Join-Path $Root $f) -Destination $KitDirectory -Force } }
+    foreach ($f in $top) {
+        # the shell scripts are in <root>/linux/; the kit is flat
+        $src = @((Join-Path $Root $f), (Join-Path (Join-Path $Root 'linux') $f)) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        if ($src) { Copy-Item -LiteralPath $src -Destination $KitDirectory -Force }
+    }
     foreach ($f in 'PkiModules.ps1', '00_Common.ps1', '02_OpenSSL.ps1', '07_TrustStore.ps1', '09_Administrator.ps1', '16_CertPack.ps1', '17_Transport.ps1') {
         $src = Join-Path (Join-Path $Root 'scripts') $f
         if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination $scripts -Force } else { throw "Kit: $src is missing." }

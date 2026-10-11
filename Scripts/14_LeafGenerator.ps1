@@ -47,7 +47,7 @@ $script:PkiPurposeProfiles = [ordered]@{
     ClientAuth      = @{ Token = 'client';    Label = 'TLS client';    Web = $true }
     ServerClientAuth = @{ Token = 'server-client'; Label = 'TLS server + client'; Web = $true; Eku = @('ServerAuth', 'ClientAuth') }
     CodeSigning     = @{ Token = 'codesign';  Label = 'Code signing';  Web = $false; CnRole = 'Code Signing' }
-    EmailProtection = @{ Token = 'email';     Label = 'S/MIME';        Web = $false }
+    EmailProtection = @{ Token = 'email';     Label = 'S/MIME + TLS client'; Web = $false; Eku = @('EmailProtection', 'ClientAuth') }
     TimeStamping    = @{ Token = 'timestamp'; Label = 'Time stamping'; Web = $false; CnRole = 'Time Stamping' }
     OcspSigning     = @{ Token = 'ocsp';      Label = 'OCSP signing';  Web = $false; CnRole = 'OCSP Responder' }
 }
@@ -243,8 +243,9 @@ function Get-PkiLeafDn {
     )
     $c = $script:Pki
     $org = ConvertTo-PkiAscii (Get-PkiLeafSubjectValue 'Organization' 'O' 'Agantra Inovatif OU' $Level)
-    $hasWeb = (@($Eku) -contains 'ServerAuth') -or (@($Eku) -contains 'ClientAuth')
     $hasMail = (@($Eku) -contains 'EmailProtection')
+    # an S/MIME certificate also carries clientAuth (mail clients, VPN and 802.1X use it) but it is not a web certificate: no DNS names
+    $hasWeb = (@($Eku) -contains 'ServerAuth') -or ((@($Eku) -contains 'ClientAuth') -and -not $hasMail)
     $namesGiven = $San.Given -or $c.Bound.Contains('Domain')
 
     # common name
@@ -439,8 +440,17 @@ function New-PkiLeafSpec {
 
     $level = ([string](& $get 'Level' 'EV')).ToUpperInvariant()
     $q = [int](& $get 'Quadrant' 1)
+    # TIME STAMPING is Classic non-FIPS (Quadrant 1) unless -TimestampQuadrant / [ timestamp ] Quadrant says otherwise (a quantum or FIPS TSA is prepared, not default)
+    $tsaSet = $null
+    if (@(& $get 'Eku' @()) -contains 'TimeStamping') {
+        $tsaSet = Get-PkiTimestampSettings
+        $baseQ = $q; $q = [int]$tsaSet.Quadrant
+        $sameTrack = (($q -in 3, 4) -eq ($baseQ -in 3, 4))
+        if ($q -ne $baseQ) { Write-PkiLog "Time stamping: Quadrant $q ($(if ($q -in 3, 4) { 'Quantum' } else { 'Classic' })$(if ($q -in 2, 4) { ' FIPS' } else { ' non-FIPS' })) instead of the Quadrant $baseQ of the other purposes (-TimestampQuadrant changes it)." }
+        if (-not $sameTrack) { foreach ($k in 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash') { if ($Options.ContainsKey($k)) { $Options = $Options.Clone(); $Options.Remove($k) } } }
+    }
     $ca = Get-PkiCa -Id ("q$q-" + $level.ToLowerInvariant())
-    if ($null -eq $ca.Actual) { throw "CA '$($ca.Id)' is not loaded (Import-PkiExisting first)." }
+    if ($null -eq $ca.Actual) { throw "CA '$($ca.Id)' is not loaded (Import-PkiExisting first).$(if ($null -ne $tsaSet) { " The time stamping certificate needs Quadrant $q (Classic non-FIPS is the default): build it, or choose another with -TimestampQuadrant." })" }
     $fips = [bool]$ca.Fips
     $track = if ($q -in 3, 4) { 'Quantum' } else { 'Classic' }
     $eku = @(& $get 'Eku' @('ServerAuth', 'ClientAuth'))
@@ -448,7 +458,7 @@ function New-PkiLeafSpec {
 
     # names
     $dnsIn = @(& $get 'DnsName' @()); $ipIn = @(& $get 'IpAddress' @()); $mailIn = @(& $get 'EmailAddress' @())
-    $webPurpose = ($eku -contains 'ServerAuth') -or ($eku -contains 'ClientAuth')
+    $webPurpose = ($eku -contains 'ServerAuth') -or (($eku -contains 'ClientAuth') -and ($eku -notcontains 'EmailProtection'))
     if (($dnsIn.Count + $ipIn.Count + $mailIn.Count) -eq 0 -and -not $webPurpose) {
         # code signing / S/MIME only: the default web names of [ leaf_san ] do not belong in such a certificate
         $san = [ordered]@{ Dns = @(); Ip = @(); Email = @(); Given = $false }
@@ -476,11 +486,20 @@ function New-PkiLeafSpec {
     $dn = if ($eku -contains 'CodeSigning') { Get-PkiCodeSigningDn -Company ([string](& $get 'CodeSigningCompany' '')) -Level $level }
           else { Get-PkiLeafDn -Level $level -San $san -Eku $eku -CommonName ([string](& $get 'CommonName' '')) }
     $policies = Get-PkiLeafPolicies -Level $level -PolicyText @(& $get 'Policy' @())
+    $tsaOid = ''
+    if ($null -ne $tsaSet) {
+        $tsaOid = [string]$tsaSet.PolicyOid
+        if ($tsaOid -eq '') { [void]$notes.Add('no time stamp policy OID: set -TimestampPolicyOid (or [ timestamp ] PolicyOid, or the IANA PEN) - the time stamp server needs one') }
+        elseif (-not ($policies | Where-Object { $_.Oid -eq $tsaOid })) { $policies = @($policies) + @([ordered]@{ Label = 'TSA'; Oid = $tsaOid; Cps = '' }) }
+    }
 
     # validity
     $days = [int](& $get 'Days' 0)
+    # a time stamp must stay verifiable long after it was made: the TSA certificate lives longer than a TLS certificate (private PKI, no 398-day rule)
+    if ($days -le 0 -and $null -ne $tsaSet) { $days = [int]$tsaSet.Days }
+    if ($days -le 0 -and ($eku -contains 'OcspSigning')) { $days = [int]$c.OcspDays }
     if ($days -le 0) { $days = Get-PkiLeafDays -Level $level }
-    if ($level -eq 'EV' -and $days -gt 398) { throw "An EV leaf certificate may not be valid longer than 398 days (asked $days)." }
+    if ($level -eq 'EV' -and $days -gt 398 -and $eku -notcontains 'TimeStamping' -and $eku -notcontains 'OcspSigning') { throw "An EV leaf certificate may not be valid longer than 398 days (asked $days)." }
     $room = Get-PkiIssuerRemainingDays -IssuerId $ca.Id
     if ($null -ne $room -and $days -gt $room) { [void]$notes.Add("validity limited by the issuer: $days -> $room days"); $days = $room }
     if ($days -lt 1) { throw "The issuer $($ca.Id) has expired or ends within a day: no leaf can be issued." }
@@ -495,6 +514,7 @@ function New-PkiLeafSpec {
     $nq = [int](Get-PkiNamingQuadrant -Ca $ca)      # the number in NAMES: 1 = non-FIPS, 2 = FIPS, in both tracks (file names of the leaf)
     $purposeAbbr = ($eku | ForEach-Object { $script:PkiPurposeProfiles[$_].Token }) -join '-'
     $purposeLong = ($eku | ForEach-Object { $_.ToLowerInvariant() }) -join '-'
+    if ($eku -contains 'EmailProtection') { $purposeAbbr = 'email'; $purposeLong = 'emailprotection' }     # S/MIME (+ clientAuth): the short names stay
     $now = Get-Date
     $tokens = @{
         Name = (ConvertTo-PkiSafeName $(if ($Options.ContainsKey('NameOverride') -and $Options['NameOverride']) { [string]$Options['NameOverride'] } else { $primary })); Level = $level.ToLowerInvariant(); Quadrant = "q$nq"; Tag = "q$nq-$($key.Tag)"
@@ -512,7 +532,7 @@ function New-PkiLeafSpec {
         San = $san; DnPairs = $dn; Policies = $policies; Days = $days
         Primary = $primary; Folder = $names.Folder; PurposeFolder = $names.PurposeFolder; SetMode = $setMode; Stem = $stem; OutputFolder = $names.OutputFolder; UniqueSuffix = $names.UniqueSuffix
         Formats = @($fm); Notes = $notes; Tokens = $tokens
-        DevSan = $devSan; EvSanOverride = $evSanOverride
+        DevSan = $devSan; EvSanOverride = $evSanOverride; TimestampPolicyOid = $tsaOid
         OutDir = $null; Extras = $true
     }
 }
@@ -750,7 +770,7 @@ function Test-PkiLeafResult {
     # chain
     $anchor = Get-PkiTrustAnchor
     $args = @('verify'); if ($anchor.RootIsAnchor) { $args += '-x509_strict' }
-    $purpose = if ($Spec.Eku -contains 'ServerAuth') { 'sslserver' } elseif ($Spec.Eku -contains 'ClientAuth') { 'sslclient' } elseif ($Spec.Eku -contains 'EmailProtection') { 'smimesign' } elseif ($Spec.Eku -contains 'TimeStamping') { 'timestampsign' } elseif ($Spec.Eku -contains 'OcspSigning') { 'ocsphelper' } else { $null }
+    $purpose = if ($Spec.Eku -contains 'EmailProtection') { 'smimesign' } elseif ($Spec.Eku -contains 'ServerAuth') { 'sslserver' } elseif ($Spec.Eku -contains 'ClientAuth') { 'sslclient' } elseif ($Spec.Eku -contains 'EmailProtection') { 'smimesign' } elseif ($Spec.Eku -contains 'TimeStamping') { 'timestampsign' } elseif ($Spec.Eku -contains 'OcspSigning') { 'ocsphelper' } else { $null }
     if ($purpose) { $args += @('-purpose', $purpose) }
     $args += @('-CAfile', $anchor.Anchor)
     $tmp = Join-Path $R.Dir "$($R.Stem).untrusted.tmp.pem"
@@ -794,7 +814,7 @@ function Test-PkiLeafResult {
 
     # policies the leaf asserts but the issuing CA does not carry
     $issuerText = Get-PkiCertText -Path (Get-PkiCaPaths -Ca $ca).Crt -Fips ([bool]$ca.Fips)
-    $unsupported = @($Spec.Policies | Where-Object { $issuerText -notmatch [regex]::Escape($_.Oid) })
+    $unsupported = @($Spec.Policies | Where-Object { $_.Label -ne 'TSA' -and $issuerText -notmatch [regex]::Escape($_.Oid) })
     if ($problems.Count -gt 0) { throw ("The leaf certificate failed validation [$id]:`n  - " + ($problems -join "`n  - ")) }
     return [ordered]@{ UnsupportedPolicies = @($unsupported | ForEach-Object { $_.Oid }) }
 }
@@ -899,7 +919,7 @@ function Add-PkiLeafIndex {
         folder = $FolderName; set = $Set; path = $R.Dir; stem = $R.Stem; level = $Spec.Level; quadrant = $Spec.Quadrant; track = $Spec.Track; fips = $Spec.Fips
         issuer = $Spec.Ca.Id; keyAlgorithm = $R.Actual.Algorithm; signatureDigest = $R.Md; purposes = @($Spec.Eku)
         dns = @($Spec.San.Dns); ip = @($Spec.San.Ip); email = @($Spec.San.Email); developmentSan = [bool]$Spec.DevSan; evSanOverride = [bool]$Spec.EvSanOverride
-        days = $R.Days; notAfter = $R.NotAfter
+        days = $R.Days; notAfter = $R.NotAfter; timestampPolicyOid = [string]$Spec.TimestampPolicyOid
         sha1 = $R.Sha1; sha256 = $R.Sha256; formats = @($Spec.Formats); files = @($R.Files)
         createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "GenerateLeafCertificate.ps1 $($script:PkiGeneratorVersion)"
         openssl = $script:Pki.OpenSslVersion

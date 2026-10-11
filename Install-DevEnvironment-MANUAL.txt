@@ -72,9 +72,9 @@
  4  CHECK FIRST: -Check / --check
 ====================================================================================================
 
-     .\Install-DevEnvironment.ps1 -Check            ./Install-DevEnvironment.sh --check
+     .\Install-DevEnvironment.ps1 -Check            ./linux/Install-DevEnvironment.sh --check
  Lists every component (found or missing) and the OpenSSL readiness, installs nothing, needs no elevation. Exit 0 = OpenSSL ready, 4 = not ready.
- With --only: ./Install-DevEnvironment.sh --check --only openssl,7zip
+ With --only: ./linux/Install-DevEnvironment.sh --check --only openssl,7zip
 ====================================================================================================
  5  UNBLOCK AND UNLOCK
 ====================================================================================================
@@ -119,13 +119,13 @@
  8  RECIPES (COPY AND PASTE)
 ====================================================================================================
 
- What does this machine have?                         .\Install-DevEnvironment.ps1 -Check             ./Install-DevEnvironment.sh --check
- Just what the PKI scripts need                       .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip  sudo ./Install-DevEnvironment.sh --yes --only openssl,7zip
- Everything except PHP and Go                        .\Install-DevEnvironment.ps1 -SkipPHP -SkipGo    sudo ./Install-DevEnvironment.sh --yes --skip php,go
- OpenSSL on a machine with several cores              sudo ./Install-DevEnvironment.sh --yes --only openssl --openssl-jobs 8
- OpenSSL somewhere else                               sudo ./Install-DevEnvironment.sh --yes --only openssl --openssl-prefix /opt/ssl4
- See what would run                                   ./Install-DevEnvironment.sh --dry-run --yes --only openssl,7zip
- Unblock and unlock                                   .\Install-DevEnvironment.ps1 -Unblock           ./Install-DevEnvironment.sh --unblock
+ What does this machine have?                         .\Install-DevEnvironment.ps1 -Check             ./linux/Install-DevEnvironment.sh --check
+ Just what the PKI scripts need                       .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip  sudo ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip
+ Everything except PHP and Go                        .\Install-DevEnvironment.ps1 -SkipPHP -SkipGo    sudo ./linux/Install-DevEnvironment.sh --yes --skip php,go
+ OpenSSL on a machine with several cores              sudo ./linux/Install-DevEnvironment.sh --yes --only openssl --openssl-jobs 8
+ OpenSSL somewhere else                               sudo ./linux/Install-DevEnvironment.sh --yes --only openssl --openssl-prefix /opt/ssl4
+ See what would run                                   ./linux/Install-DevEnvironment.sh --dry-run --yes --only openssl,7zip
+ Unblock and unlock                                   .\Install-DevEnvironment.ps1 -Unblock           ./linux/Install-DevEnvironment.sh --unblock
 ====================================================================================================
  9  TROUBLESHOOTING
 ====================================================================================================
@@ -220,12 +220,12 @@ WHAT IT DOES
     git python go node php dotnet pwsh     developer tools (distribution packages; pwsh from the PowerShell GitHub release)
 
 USAGE
-  ./Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; changes nothing
-  ./Install-DevEnvironment.sh --yes                        install everything that is missing
-  ./Install-DevEnvironment.sh --yes --only openssl,7zip    only these (what the PKI scripts need)
-  ./Install-DevEnvironment.sh --yes --skip php,dotnet      everything except these
-  ./Install-DevEnvironment.sh --dry-run --only openssl     show the commands, run nothing
-  ./Install-DevEnvironment.sh --unblock                    UNBLOCK + UNLOCK this folder, then stop
+  ./linux/Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; changes nothing
+  ./linux/Install-DevEnvironment.sh --yes                        install everything that is missing
+  ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip    only these (what the PKI scripts need)
+  ./linux/Install-DevEnvironment.sh --yes --skip php,dotnet      everything except these
+  ./linux/Install-DevEnvironment.sh --dry-run --only openssl     show the commands, run nothing
+  ./linux/Install-DevEnvironment.sh --unblock                    UNBLOCK + UNLOCK this folder, then stop
 
 OPTIONS
   --only LIST            Comma-separated components (above). Default: all.      --skip LIST   All except these.

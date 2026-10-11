@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# pre-commit: (1) every staged *.sh / *.py gets the execute bit in the index (so a clone on Linux can run it),
+#             (2) refuses CRLF or a BOM in staged shell / python / config files, (3) refuses private keys.
+# Install:  pwsh ./Setup-GitRepo.ps1     or     git config core.hooksPath .githooks     (linux/setup-git.sh does the same on Linux)
+fail=0
+while IFS= read -r f; do
+  case "$f" in
+    *.sh|*.py) git update-index --chmod=+x -- "$f" 2>/dev/null ;;
+  esac
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+while IFS= read -r f; do
+  case "$f" in
+    *.sh|*.py|*.cnf|*.json|*.pem|*.crt|*.pub|.githooks/*)
+      blob="$(git show ":$f" 2>/dev/null)" || continue
+      if printf '%s' "$blob" | grep -q $'\r'; then echo "pre-commit: CRLF in $f (convert: sed -i 's/\\r\$//' $f)"; fail=1; fi
+      if [ "$(printf '%s' "$blob" | head -c3 | od -An -tx1 | tr -d ' ')" = efbbbf ]; then echo "pre-commit: BOM in $f"; fail=1; fi ;;
+  esac
+  case "$f" in
+    *.key|*.pfx|*.p12) echo "pre-commit: private key file refused: $f"; fail=1 ;;
+    *) if git show ":$f" 2>/dev/null | head -c 200000 | grep -Pzaq -- '-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{40,}'; then echo "pre-commit: PRIVATE KEY text in $f - refused"; fail=1; fi ;;
+  esac
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+[ "$fail" = 0 ] || { echo "pre-commit: commit refused."; exit 1; }
+exit 0

@@ -88,6 +88,8 @@
  16_CertPack.ps1               .certpacked archives: AES-256 zip engine (.NET),   00
                                ZipCrypto, 7-Zip wrappers, archive type detection,
                                Find-PkiCompanionScript, Install-PkiSevenZip
+ 18_Revocation.ps1            CRL / OCSP responder / time stamping: Update-PkiCrl, Revoke-PkiCertificate,   00, 01, 03, 04, 14
+                               New-PkiServiceCertificate, Invoke-PkiSignServiceCsr, Write-PkiRevocationInfo
  17_Transport.ps1              Phase C: scans (Windows 11 25H2+, OpenSSL 4.0.1+), 00, 02, 07, 09, 16
                                password policy, package plan / pack / open /
                                export, Windows trust install, chain proof, kit,

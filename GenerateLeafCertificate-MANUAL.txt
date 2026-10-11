@@ -79,11 +79,13 @@
  CodeSigning      Code signing.   EKU codeSigning (1.3.6.1.5.5.7.3.3).
                   Key usage digitalSignature.   SAN: none.   Subject: C=EE, ST=Tallinn, L=Tallinn, O=<company>, CN=<company>
                   (-CodeSigningCompany; empty = the organization, default Agantra Inovatif OU). Section 16.
- EmailProtection  S/MIME.   EKU emailProtection (1.3.6.1.5.5.7.3.4).
+ EmailProtection  S/MIME.   EKU emailProtection (1.3.6.1.5.5.7.3.4) AND clientAuth (1.3.6.1.5.5.7.3.2) - every e-mail certificate.
                   Key usage digitalSignature, nonRepudiation (+ keyEncipherment for RSA).
                   SAN: e-mail address.   CN: the e-mail address.
  TimeStamping     RFC 3161 time stamping.   EKU timeStamping (1.3.6.1.5.5.7.3.8), CRITICAL and the only purpose.
                   Key usage digitalSignature.   SAN: none.   CN: "<company> Time Stamping".
+                  Default: Quadrant 1 (Classic, non-FIPS), 1825 days, policy OID 1.3.6.1.4.1.67096.1.4 (-TimestampQuadrant,
+                  -TimestampPolicyOid, -TimestampDays). Not a special certificate type: this IS the TSA certificate.
  OcspSigning      OCSP responder.   EKU OCSPSigning (1.3.6.1.5.5.7.3.9) + no-check extension (1.3.6.1.5.5.7.48.1.5).
                   Key usage digitalSignature.   SAN: none.   CN: "<company> OCSP Responder".
 
@@ -323,7 +325,7 @@ WHAT IT DOES
       ServerAuth        TLS server only                 CodeSigning      code signing (Authenticode and others)
       ClientAuth        TLS client only (mutual TLS)    TimeStamping     RFC 3161 time stamping (critical, alone)
       ServerClientAuth  TLS server AND client in ONE    OcspSigning      OCSP responder (with the no-check extension)
-      EmailProtection   S/MIME
+      EmailProtection   S/MIME (EKU emailProtection + clientAuth, so the same certificate also logs in to mutual TLS / VPN / 802.1X)
   Every certificate has its own purpose, its own key and its own folder. The three TLS certificates carry the same
   names but are three separate certificates: one for servers (serverAuth), one for clients (clientAuth) and one that
   is both (serverAuth + clientAuth, for a service that is server and client, for example mutual TLS between services).
@@ -377,9 +379,21 @@ PURPOSES
   Names per purpose in a set:
       ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary, wildcard *.example.com
                                allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is given.
-      EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address.
+      EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the e-mail address. EVERY e-mail
+                               certificate carries the extended key usages emailProtection AND clientAuth.
       CodeSigning              no SAN; its own short subject (see CODE SIGNING SUBJECT).
       TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Time Stamping | OCSP Responder".
+
+TIME STAMPING CERTIFICATE (RFC 3161)
+  No special certificate type is needed: the TimeStamping leaf of this script IS the time stamp server certificate (EKU timeStamping,
+  critical, the only purpose). Defaults: Quadrant 1 = Classic, non-FIPS (never quantum unless you ask), RSA, valid 1825 days,
+  certificate policy OID <your PEN arc>.1.4 (1.3.6.1.4.1.67096.1.4) added next to the CA's DV/OV/EV policy.
+  -TimestampQuadrant 1|2|3|4   1 Classic non-FIPS (default)  2 Classic FIPS  3 Quantum non-FIPS  4 Quantum FIPS (prepared for the future;
+                               the PKI server kit signs RSA / ECDSA only)
+  -TimestampPolicyOid <oid>    the TSA policy OID (also written to tsa.cnf default_policy by the server kit)
+  -TimestampDays <n>           validity of the time stamp certificate     -OcspDays <n>   validity of OCSP responder certificates
+  Config: [ timestamp ] Quadrant / PolicyOid / Days in agantra_pki.cnf.  Keys of the OCSP / TSA certificates can also be made on the
+  server (pki-server.sh csr) and signed with PkiRevocation.ps1 -Action SignCsr.
 
 NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>

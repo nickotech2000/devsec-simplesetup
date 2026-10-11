@@ -718,6 +718,31 @@
  10.43 DECIDED   Enterprise Root and Track Roots carry All issuance policies (anyPolicy 2.5.29.32.0, Windows: "All issuance policies") + EV 2.23.140.1.1 and nothing else, and no extended
                  key usage (Windows: all application policies). OV, DV, the PEN and custom policies start at the Quadrant Roots. (Implemented in the policy model; the documentation
                  said "every certificate" and "all roots carry EV, OV and DV": corrected in 4.9.2. Post-generation validation refuses a root that carries more.)
+ 10.47 DECIDED   PKI server kit (linux/pki-server/, 1.1.0; moved from pki-server-kit\): Ubuntu 24.04 / 26.04, nginx from the owner's PPA (ppa:nickotech2000/nicko-su-prod, overridable) and OpenSSL 4.x. CRL and CA
+                 certificates are static files; OCSP is one "openssl ocsp" responder per CA behind a dispatcher (one URL for all CAs); RFC 3161 time stamping is "openssl ts -reply" behind a small
+                 python service. No CA private key is copied to the server; the OCSP-signing and time-stamping certificates are made with GenerateLeafCertificate.ps1. Manual: PKI-SERVER-MANUAL.txt.
+ 10.48 DECIDED   E-mail certificates carry TWO extended key usages: emailProtection AND clientAuth (every e-mail leaf; the same certificate then also authenticates to mutual TLS, VPN,
+                 802.1X). Key usage unchanged (digitalSignature, nonRepudiation, + keyEncipherment for RSA). The S/MIME validation (openssl smimesign) is run first; the TLS-name
+                 rules (SAN with DNS/IP) do not apply to the e-mail certificate - its SAN stays the e-mail address.
+ 10.49 DECIDED   CRL and OCSP information are produced by pki_setup.ps1 itself (scripts/18_Revocation.ps1, steps after the CAs): per Classic intermediate an OCSP responder certificate
+                 (pki\ocsp\<ca>\, EKU OCSP Signing + ocsp-nocheck, issued by the CA it answers for, 365 days), the time stamping certificate (pki\tsa\<ca>\), the CRLs with the
+                 configured validity (CrlDays 365) and pki\revocation-info.json / REVOCATION-INFO.txt. -SkipRevocation leaves it out. Settings: agantra_pki.cnf [ revocation ].
+ 10.50 DECIDED   Editing = re-issuing: PkiRevocation.ps1 (Status, Info, NewCrl, Revoke, NewOcsp, NewTsa, SignCsr). A certificate or CRL is never patched; -Replace archives the old
+                 files to old-<date>\ and -RevokeOld revokes the superseded certificate. Manual: PkiRevocation-MANUAL.txt.
+ 10.51 DECIDED   Time stamping certificate = the normal TimeStamping leaf (no special type): EKU timeStamping, critical and alone; Classic non-FIPS Quadrant 1 by default, never quantum
+                 by default (no verifier in the field handles ML-DSA time stamps), 1825 days, RSA. Parameters for the future exist: -TimestampQuadrant 1-4, -TimestampPolicyOid,
+                 -TimestampDays, agantra_pki.cnf [ timestamp ]. If the chosen quadrant is quantum, the key options of the classic default are dropped and a warning says that the server
+                 kit cannot sign with it. The 398-day cap of EV leaves does not apply to TimeStamping / OcspSigning.
+ 10.52 DECIDED   Time stamp policy OID default 1.3.6.1.4.1.67096.1.4 (arc .1 EV, .1.2 OV, .1.3 DV, .1.4 time stamping; the owner's PEN 67096). It is an extra certificate policy of the
+                 TSA certificate and the default_policy of the server's tsa.cnf (taken from the certificate unless --tsa-policy). Changeable: [ timestamp ] PolicyOid.
+ 10.53 DECIDED   Linux package: New-PkiServerPackage.ps1 builds a zip (+ .tar.gz) with the linux/ scripts and the PKI WITHOUT any private key, all text LF without BOM, .sh / .py mode
+                 755 (zip "made by Unix"), SHA256SUMS, manifest; whitelist + a scan of the finished package for private keys, key files and CR (any hit deletes the package).
+                 -IncludeServiceKeys (lab) adds the OCSP / TSA keys only, never a CA key. Preferred: keys made on the server (pki-server.sh csr -> SignCsr -> import-cert).
+ 10.54 DECIDED   One repository for PowerShell and shell: shell scripts live in linux/. Setup-GitRepo.ps1 puts mode 100755 into the git index, enables .githooks (pre-commit,
+                 post-checkout, post-merge, post-rewrite), fixes Scripts -> scripts, and .gitattributes keeps LF. linux/setup-git.sh and linux/fix-permissions.sh are the Linux-side
+                 safety net. .gitignore keeps pki\, leafcerts\, keys and packages out of GitHub.
+ 10.55 DECIDED   The OCSP dispatcher routes by the issuer key hash in the request (OpenSSL 4 answers "unknown", status successful, for a certificate of another CA, so "first
+                 successful answer" picked the wrong responder in the test). Separate server design: PKI-Server-Design.txt.
  10.46 DECIDED   Key pair per certificate: every purpose folder (serverauth, clientauth, serverauth-clientauth, codesigning, emailprotection, timestamping, ocspsigning) has
                  its own <stem>.key (PKCS#8), <stem>.pub (public key PEM) and <stem>.pub.der. All PEM files (.key .crt .pem .cert -fullchain.crt -chain.crt .pub) are written with LF
                  line endings and no BOM: OpenSSL on Windows writes CRLF, and OpenSSL 3.5+ on Linux (nginx on Ubuntu 26.04) then fails with "PEM_read_bio_PrivateKey() failed ...

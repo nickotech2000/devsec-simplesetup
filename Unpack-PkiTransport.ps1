@@ -184,7 +184,7 @@ try {
     foreach ($g in ($written | ForEach-Object { ($_ -split '/')[0] + $(if (($_ -split '/').Count -gt 2) { '/' + ($_ -split '/')[1] } else { '' }) } | Group-Object | Sort-Object Name)) { Write-Host ("  {0,-26} {1} file(s)" -f $g.Name, $g.Count) }
     Write-Host ''
     Write-PkiLog "$($written.Count) file(s) written. Nothing was installed." 'OK'
-    if ($written -match '^(ca|ca/)' ) { Write-PkiLog 'To trust the PKI: Windows 11 25H2+  .\PkiTransport.ps1 -Install -Package <file>   Linux / macOS  ./pki-transport.sh --package <file>' 'INFO' }
+    if ($written -match '^(ca|ca/)' ) { Write-PkiLog 'To trust the PKI: Windows 11 25H2+  .\PkiTransport.ps1 -Install -Package <file>   Linux / macOS  ./linux/pki-transport.sh --package <file>' 'INFO' }
     exit 0
 }
 catch {

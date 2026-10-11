@@ -293,7 +293,7 @@ try {
             Write-Host ("  Kit         : {0}   ({1} files: the transport scripts, Install-DevEnvironment.ps1 / .sh, the modules, the manuals)" -f $kitDir, $kf.Count)
         }
         Write-Host ''
-        Write-PkiLog 'Next: copy the .certpacked (and the kit) to the destination.  Windows 11 25H2+: .\PkiTransport.ps1 -Install -Package <file>   Linux / macOS: ./pki-transport.sh --package <file>' 'INFO'
+        Write-PkiLog 'Next: copy the .certpacked (and the kit) to the destination.  Windows 11 25H2+: .\PkiTransport.ps1 -Install -Package <file>   Linux / macOS: ./linux/pki-transport.sh --package <file>' 'INFO'
         exit 0
     }
 
@@ -302,7 +302,7 @@ try {
     $script:Pki.ScriptRoot = $script:ScriptRoot
 
     if (($Install -or $RemoveTrust) -and -not $IsWindows) {
-        Write-PkiLog 'PkiTransport.ps1 -Install installs into the Windows stores. On Linux and macOS use ./pki-transport.sh.' 'ERROR'
+        Write-PkiLog 'PkiTransport.ps1 -Install installs into the Windows stores. On Linux and macOS use ./linux/pki-transport.sh.' 'ERROR'
         exit 3
     }
 

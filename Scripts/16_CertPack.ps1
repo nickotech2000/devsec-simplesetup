@@ -502,7 +502,8 @@ function Find-PkiCompanionScript {
     foreach ($r in @($(if ($null -ne $script:Pki -and $script:Pki.Contains('ScriptRoot')) { $script:Pki.ScriptRoot }), $PSScriptRoot, (Split-Path -Parent $PSScriptRoot))) {
         if ($r) { [void]$roots.Add($r); [void]$roots.Add((Split-Path -Parent $r)) }
     }
-    foreach ($r in $roots) { if ($r) { $p = Join-Path $r $Name; if (Test-Path -LiteralPath $p -PathType Leaf) { return (Resolve-Path -LiteralPath $p).Path } } }
+    # the shell scripts live in <root>/linux/ (a flat transport kit keeps them next to the PowerShell scripts)
+    foreach ($r in $roots) { if ($r) { foreach ($sub in @('', 'linux')) { $p = Join-Path (Join-Path $r $sub) $Name; if (Test-Path -LiteralPath $p -PathType Leaf) { return (Resolve-Path -LiteralPath $p).Path } } } }
     return $null
 }
 

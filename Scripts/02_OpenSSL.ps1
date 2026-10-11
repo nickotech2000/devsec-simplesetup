@@ -95,7 +95,7 @@ HOW TO FIX (Windows)
     return $head + @"
 HOW TO FIX
   Run the bootstrap: it builds OpenSSL 4 as a FULL build (FIPS module, ML-DSA, ML-KEM) and proves it:
-      ./Install-DevEnvironment.sh --yes --only openssl        (minutes on several cores, over an hour on one core)
+      ./linux/Install-DevEnvironment.sh --yes --only openssl        (minutes on several cores, over an hour on one core)
   Then pass it:  -OpenSslPath <prefix>/bin/openssl  -FipsModuleConfig <prefix>/ssl/fipsmodule.cnf
   (On Windows: Install-DevEnvironment.ps1 -Only OpenSSL.)
 "@

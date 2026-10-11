@@ -441,8 +441,9 @@
 ====================================================================================================
  10  MAINTENANCE
 ====================================================================================================
- CRL        valid 365 days. Renew per CA before it expires (command in pki\publish\README.txt):
-              openssl ca -gencrl -config <ca folder>\<id>.cnf -out <id>.crl.pem  <provider flags>
+ CRL        valid 365 days (-CrlDays). Renew per CA before it expires:  .\PkiRevocation.ps1 -Action NewCrl   (status: .\PkiRevocation.ps1;
+            revoke: -Action Revoke; OCSP / time stamping certificates: -Action NewOcsp / NewTsa; manual: PkiRevocation-MANUAL.txt).
+            The old command still works: openssl ca -gencrl -config <ca folder>\<id>.cnf -out <id>.crl.pem  <provider flags>
  Publish    copy the files of pki\publish to the hosts named in agantra_pki.cnf ([ crl_urls ],
             [ ca_issuer_urls ]). Windows reports "revocation server offline" for client
             certificates until one URL answers.
@@ -619,7 +620,12 @@
 
  This manual is for pki_setup.ps1 only. The other scripts have their own manuals:
      GenerateLeafCertificate.ps1   leaf certificates (every purpose, every format)      GenerateLeafCertificate-MANUAL.txt
-     PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh    carry the PKI to other machines    PkiTransport-MANUAL.txt
+     PkiTransport.ps1, Unpack-PkiTransport.ps1, linux/pki-transport.sh    carry the PKI to other machines    PkiTransport-MANUAL.txt
+     PkiRevocation.ps1             CRL, revocation, OCSP responder and time stamping certificates   PkiRevocation-MANUAL.txt
+     New-PkiServerPackage.ps1      zip of the Linux scripts + the PKI without private keys          linux/pki-server/PKI-SERVER-MANUAL.txt
+                                                                                                    PKI-Server-Design.txt
+     Setup-GitRepo.ps1             execute bit, hooks and LF for the private GitHub repository      (Setup-GitRepo.ps1 -Help)
+     linux/                        all shell scripts (Install-DevEnvironment.sh, pki-transport.sh, pki-server/, fix-permissions.sh, setup-git.sh)
  Install-DevEnvironment.ps1 / .sh (the developer bootstrap)   Install-DevEnvironment-MANUAL.txt
  The design (hierarchy, rules, limits, decisions) is in PKI-Design-with-FIPS-and-PQC.txt; what to run on your machines to accept each
  phase is in PKI-Acceptance-Checklists.txt.
@@ -637,8 +643,11 @@
  Manual : pki_setup-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt
  Public CA : PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : scripts\README.txt
  Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   GenerateLeafCertificate-MANUAL.txt
- Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./pki-transport.sh --help
+ Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./linux/pki-transport.sh --help
                       Manual: PkiTransport-MANUAL.txt
+ CRL / OCSP / time stamping: PkiRevocation.ps1 -Help   Manual: PkiRevocation-MANUAL.txt
+ Ubuntu server (CRL, OCSP, TSA): New-PkiServerPackage.ps1 -Help   linux/pki-server/pki-server.sh --help   Design: PKI-Server-Design.txt
+ Git (private repository): Setup-GitRepo.ps1 -Help   (execute bit, hooks, LF)
 
 REQUIREMENTS
   PowerShell 7+ and OpenSSL 4.x ONLY. OpenSSL 3.x is refused. When several OpenSSL versions are installed
@@ -775,6 +784,15 @@ LEAF CERTIFICATES  (Phase B)
   Install-DevEnvironment.ps1), never overwrites a folder (a new one with the date and time is created) and has the
   same -Unblock. Names of the folders and files: agantra_pki.cnf [ leaf_names ].
   .\GenerateLeafCertificate.ps1 -Help    Manual: GenerateLeafCertificate-MANUAL.txt
+
+CRL, OCSP AND TIME STAMPING INFORMATION  (4.9.3)
+  pki_setup.ps1 now also makes, after the CAs and before the last publish: the OCSP responder certificates (pki\ocsp\<ca>\), the time stamping
+  certificate (pki\tsa\<ca>\) and the CRLs, and writes pki\revocation-info.json and pki\REVOCATION-INFO.txt (URLs, CRL numbers and dates,
+  responders). Options: -SkipRevocation, -CrlDays, -OcspDays, -TimestampQuadrant (default 1 = Classic non-FIPS), -TimestampPolicyOid (default
+  <PEN arc>.1.4), -TimestampDays (default 1825). The same values live in agantra_pki.cnf [ revocation ] and [ timestamp ]. To show or edit
+  afterwards: PkiRevocation.ps1 (manual: PkiRevocation-MANUAL.txt). E-mail leaf certificates carry emailProtection and clientAuth.
+  The Ubuntu server for CRL / OCSP / time stamping: New-PkiServerPackage.ps1, linux/pki-server/PKI-SERVER-MANUAL.txt, PKI-Server-Design.txt.
+  Repository: Setup-GitRepo.ps1 (execute bit, hooks, LF).
 
 TRANSPORT  (Phase C)
   .\PkiTransport.ps1 -Pack packs this PKI into a password-protected .certpacked (a zip or 7z under another name):

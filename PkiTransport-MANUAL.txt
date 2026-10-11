@@ -90,9 +90,9 @@
  DESTINATION, any OS with PowerShell 7, unpack only:
      .\Unpack-PkiTransport.ps1 -Package ..\name.certpacked -Extract roots
  DESTINATION, Linux or macOS:
-     sudo ./pki-transport.sh --package name.certpacked --yes            unpack the CAs, install the roots in the system
+     sudo ./linux/pki-transport.sh --package name.certpacked --yes            unpack the CAs, install the roots in the system
          store
-     ./pki-transport.sh --package name.certpacked --no-trust --extract fullchain      unpack everything, install nothing
+     ./linux/pki-transport.sh --package name.certpacked --no-trust --extract fullchain      unpack everything, install nothing
 ====================================================================================================
  4  PACK (THE SOURCE MACHINE)
 ====================================================================================================
@@ -159,7 +159,7 @@
  7  LINUX AND MACOS: pki-transport.sh
 ====================================================================================================
 
- ./pki-transport.sh --package <file> [options]   Every option: section 15. Written for bash 3.2 (macOS) and newer.
+ ./linux/pki-transport.sh --package <file> [options]   Every option: section 15. Written for bash 3.2 (macOS) and newer.
  It does only this: scan, prepare, unpack, install the CA certificates in the system store, prove the chains, nothing
      else.
 
@@ -238,10 +238,10 @@
 ====================================================================================================
 
  Trust only, to all Linux and Mac dev VMs        .\PkiTransport.ps1 -Pack -GeneratePassword -Kit       then on each:
-                                                 sudo ./pki-transport.sh --package <file> --yes
+                                                 sudo ./linux/pki-transport.sh --package <file> --yes
  A service identity for one VM                   .\PkiTransport.ps1 -Pack -IncludeLeafCerts -LeafName api.example.com
                                                  -GeneratePassword
-                                                 ./pki-transport.sh --package <file> --extract ca,leafcerts --leaf 'api*' --no-trust
+                                                 ./linux/pki-transport.sh --package <file> --extract ca,leafcerts --leaf 'api*' --no-trust
  A build VM that issues certificates             .\PkiTransport.ps1 -Pack -IncludeCaKeys -IncludeLeafCerts
                                                  -GeneratePassword
                                                  .\Unpack-PkiTransport.ps1 -Package <file> -Extract pki -Destination D:\pki-build
@@ -250,10 +250,10 @@
  No 7-Zip anywhere, CA certificates only         .\PkiTransport.ps1 -Pack -ZipEncryption ZipCrypto -GeneratePassword
                                                  (then unzip -P works)
  Take the CAs out again                          .\PkiTransport.ps1 -RemoveTrust -Package <file>        or        sudo
-                                                 ./pki-transport.sh --package <file> --remove-trust
+                                                 ./linux/pki-transport.sh --package <file> --remove-trust
  Look inside without writing                     .\Unpack-PkiTransport.ps1 -Package <file> -List        or
-                                                 ./pki-transport.sh --package <file> --list
- Image build (Dockerfile, VM template)           ./pki-transport.sh --package <file> --destdir /target --yes     then
+                                                 ./linux/pki-transport.sh --package <file> --list
+ Image build (Dockerfile, VM template)           ./linux/pki-transport.sh --package <file> --destdir /target --yes     then
                                                  run update-ca-certificates in the image
 ====================================================================================================
  11  TROUBLESHOOTING
@@ -480,7 +480,7 @@ LIMITATIONS
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiTransport-MANUAL.txt     Help: ./pki-transport.sh --help
+ Manual : PkiTransport-MANUAL.txt     Help: ./linux/pki-transport.sh --help
 
 WHAT IT DOES  (and nothing else)
   1. SCAN         the platform, privileges, OpenSSL 4.0.1+, the certificate-store tools, an archive tool.
@@ -493,16 +493,16 @@ WHAT IT DOES  (and nothing else)
                   chains verify against it.
 
 USAGE
-  ./pki-transport.sh --package dev.certpacked                         unpack the CA certificates, install the roots
-  ./pki-transport.sh --package dev.certpacked --no-trust              unpack only
-  ./pki-transport.sh --package dev.certpacked --extract roots         only the roots
-  ./pki-transport.sh --package dev.certpacked --extract intermediates only the DV / OV / EV CAs
-  ./pki-transport.sh --package dev.certpacked --extract ca,leafcerts  CAs and the leaf certificates
-  ./pki-transport.sh --package dev.certpacked --extract fullchain     everything the package holds
-  ./pki-transport.sh --package dev.certpacked --extract leafcerts --leaf 'www*' --no-trust
-  ./pki-transport.sh --package dev.certpacked --list                  what is inside; nothing written
-  ./pki-transport.sh --check                                          the scan only
-  ./pki-transport.sh --package dev.certpacked --remove-trust          take the package's CAs out of the store
+  ./linux/pki-transport.sh --package dev.certpacked                         unpack the CA certificates, install the roots
+  ./linux/pki-transport.sh --package dev.certpacked --no-trust              unpack only
+  ./linux/pki-transport.sh --package dev.certpacked --extract roots         only the roots
+  ./linux/pki-transport.sh --package dev.certpacked --extract intermediates only the DV / OV / EV CAs
+  ./linux/pki-transport.sh --package dev.certpacked --extract ca,leafcerts  CAs and the leaf certificates
+  ./linux/pki-transport.sh --package dev.certpacked --extract fullchain     everything the package holds
+  ./linux/pki-transport.sh --package dev.certpacked --extract leafcerts --leaf 'www*' --no-trust
+  ./linux/pki-transport.sh --package dev.certpacked --list                  what is inside; nothing written
+  ./linux/pki-transport.sh --check                                          the scan only
+  ./linux/pki-transport.sh --package dev.certpacked --remove-trust          take the package's CAs out of the store
 
 OPTIONS
   --package FILE        The .certpacked.                                          (also: the first plain argument)

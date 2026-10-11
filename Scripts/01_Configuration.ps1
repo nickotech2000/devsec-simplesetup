@@ -278,6 +278,15 @@ function Get-PkiExtraPolicies {
     return $list
 }
 
+function Get-PkiTimestampSettings {
+    # Quadrant (default 1 = Classic non-FIPS), policy OID (-TimestampPolicyOid > [ timestamp ] PolicyOid > <PEN arc>.4), validity days.
+    $c = $script:Pki
+    $oid = [string]$c.TimestampPolicyOid
+    $derived = $false
+    if ([string]::IsNullOrWhiteSpace($oid) -and -not [string]::IsNullOrWhiteSpace([string]$c.IanaPen)) { $oid = "1.3.6.1.4.1.$($c.IanaPen).$($c.PenArc).4"; $derived = $true }
+    return [ordered]@{ Quadrant = [int]$c.TimestampQuadrant; PolicyOid = $oid; Derived = $derived; Days = [int]$c.TimestampDays }
+}
+
 function Get-PkiLeafDays {
     # EV: LeafDays (397). OV: OvLeafYears (3 years). DV: DvLeafYears (5 years).
     param([Parameter(Mandatory)][ValidateSet('EV', 'OV', 'DV')][string]$Level)
@@ -383,6 +392,14 @@ function Initialize-PkiConfiguration {
         DvLeafYears   = [int](& $opt 'DvLeafYears' 'DvLeafYears' 5)
         IanaPen       = ([string]$(if ($Bound.Contains('IanaPen')) { $Bound['IanaPen'] } else { Get-PkiIniValue -Ini $ini -Section 'iana_pen' -Key 'PEN' -Default '' })).Trim()
         PenArc        = ([string](Get-PkiIniValue -Ini $ini -Section 'iana_pen' -Key 'PenPolicyArc' -Default '1')).Trim()
+        # time stamping (RFC 3161): classic non-FIPS by default (Quadrant 1), the parameters allow another quadrant later
+        TimestampQuadrant  = [int]$(if ($Bound.Contains('TimestampQuadrant')) { $Bound['TimestampQuadrant'] } else { Get-PkiIniValue -Ini $ini -Section 'timestamp' -Key 'Quadrant' -Default '1' })
+        TimestampPolicyOid = ([string]$(if ($Bound.Contains('TimestampPolicyOid')) { $Bound['TimestampPolicyOid'] } else { Get-PkiIniValue -Ini $ini -Section 'timestamp' -Key 'PolicyOid' -Default '' })).Trim()
+        TimestampDays      = [int]$(if ($Bound.Contains('TimestampDays')) { $Bound['TimestampDays'] } else { Get-PkiIniValue -Ini $ini -Section 'timestamp' -Key 'Days' -Default '1825' })
+        # revocation: CRL validity and the OCSP responder certificates
+        CrlDays            = [int]$(if ($Bound.Contains('CrlDays')) { $Bound['CrlDays'] } else { Get-PkiIniValue -Ini $ini -Section 'revocation' -Key 'CrlDays' -Default '365' })
+        OcspDays           = [int]$(if ($Bound.Contains('OcspDays')) { $Bound['OcspDays'] } else { Get-PkiIniValue -Ini $ini -Section 'revocation' -Key 'OcspDays' -Default '365' })
+        OcspKeyBits        = [int](Get-PkiIniValue -Ini $ini -Section 'revocation' -Key 'OcspKeyBits' -Default '2048')
         LeafSizes     = $leafSizes
 
         # layer names
@@ -429,6 +446,7 @@ function Initialize-PkiConfiguration {
         RemoveTrust   = (& $flag 'RemoveTrust')
         RemoveAllTrust = (& $flag 'RemoveAllTrust')
         SkipLeaf      = (& $flag 'SkipLeaf')
+        SkipRevocation = (& $flag 'SkipRevocation')
         UnblockOnly   = (& $flag 'Unblock')
         ShowNamesOnly = (& $flag 'ShowNames')
         ReinstallTrust = (& $flag 'ReinstallTrust')
@@ -500,6 +518,11 @@ function Test-PkiConfiguration {
     if ($script:PkiPolicyOid.EV -eq $script:PkiPolicyOid.OV -or $script:PkiPolicyOid.EV -eq $script:PkiPolicyOid.DV -or $script:PkiPolicyOid.OV -eq $script:PkiPolicyOid.DV) { [void]$errors.Add('The EV, OV and DV policy OIDs must be different from each other.') }
     if (-not [string]::IsNullOrWhiteSpace($c.IanaPen) -and $c.IanaPen -notmatch '^[1-9]\d{0,9}$') { [void]$errors.Add("IanaPen must be your IANA Private Enterprise Number (a positive integer), got '$($c.IanaPen)'.") }
     if ($c.PenArc -notmatch '^\d+$') { [void]$errors.Add("PenPolicyArc must be a number (got '$($c.PenArc)').") }
+    if ($c.TimestampQuadrant -notin 1, 2, 3, 4) { [void]$errors.Add("TimestampQuadrant must be 1, 2, 3 or 4 (got '$($c.TimestampQuadrant)').") }
+    if (-not [string]::IsNullOrWhiteSpace($c.TimestampPolicyOid) -and $c.TimestampPolicyOid -notmatch '^[0-2](\.(0|[1-9]\d*))+$') { [void]$errors.Add("TimestampPolicyOid '$($c.TimestampPolicyOid)' is not a valid OID.") }
+    if ($c.TimestampDays -lt 1 -or $c.TimestampDays -gt 36500) { [void]$errors.Add("TimestampDays must be 1..36500 (got $($c.TimestampDays)).") }
+    if ($c.CrlDays -lt 1 -or $c.CrlDays -gt 3650) { [void]$errors.Add("CrlDays must be 1..3650 (got $($c.CrlDays)).") }
+    if ($c.OcspDays -lt 1 -or $c.OcspDays -gt 3650) { [void]$errors.Add("OcspDays must be 1..3650 (got $($c.OcspDays)).") }
     foreach ($s in $c.LeafSizes) {
         if ($s -lt 2048) { [void]$errors.Add("RSA leaf key size $s is rejected: minimum is 2048.") }
     }
