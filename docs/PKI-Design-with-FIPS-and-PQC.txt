@@ -28,6 +28,7 @@
                                                15  Leaf certificate generator (Phase B)
                                                16  PHASE B ACCEPTANCE CHECKLIST (moved)
                                                17  Transport design (Phase C)
+                                               21  Releases, the NoCR variant, removal (4.9.5)
                                                18  Developer bootstrap design (Install-DevEnvironment.ps1 / .sh)
                                                19  DevKit design (PkiTransport.ps1 -DevKit, 4.9.5)
                                                20  CSR signing design (SignCsr.ps1 / .sh, SignExternalCa.ps1, 4.9.5)
@@ -872,6 +873,15 @@
                  only pathlen 0 / 1 is offered tell me: the signed level has to move (document, section 5).
 
 
+ 10.76 DECIDED   (4.9.5) Releases and the NoCR variant. (a) Layout: pki\R<n>, pki\NoCR-R<n>; an old flat pki\ is R1 (or the release / variant of its manifest). (b) Two families
+                 (normal, NoCR) are separate sets of roots; inside a family each release has its own Enterprise Root, Track, Quadrant and intermediate CAs; leaf names are unchanged.
+                 (c) NoCR only removes CDP, OCSP and caIssuers from CA certificates (the ones a program fetches while building the chain); leaves keep their own revocation
+                 settings, because the leaf generators already have -NoRevocationInfo. (d) R1 has no suffix, so old PKIs and all existing URLs stay valid; R2+ gets " R2", NoCR " (NoCR)".
+                 The word "Enterprise" stays in the names as before. (e) Resolution: Use (signing scripts: requested release, else latest; a missing release falls back with a WARN),
+                 Exact (-Verify, -ReinstallTrust), Strict (-RemoveTrust, pki_remove: several releases and no -Release = error), Generate (pki_setup: the folder of variant+release,
+                 -NewRelease = latest + 1). (f) A common name is limited to 64 characters: the PQC short label applies to the whole PKI when any name would be longer, so the
+                 names of one PKI stay consistent. (g) A DevKit / server package holds one PKI.
+
 ====================================================================================================
  11  REQUIREMENT TRACKER
 ====================================================================================================
@@ -973,6 +983,12 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
+  4.9.5-phaseC  2026-10-11  (releases and NoCR)
+    + pki_setup.ps1 -NoCaRevocationInfo (CA certificates without CDP / OCSP / caIssuers), -NewRelease, -Release N; every PKI inside pki\ (R1, R2, NoCR-R1 ...); module 01c_Releases.ps1 (10.76, section 21).
+    + CA names / slugs: " R2" suffix from release 2, " (NoCR)" for the NoCR family; the Quantum word becomes PQC when a name would pass 64 characters.
+    + All generators (.ps1 and .sh), SignCsr, SignExternalCa, PkiRevocation, PkiTransport, New-PkiServerPackage: -Release / --release, -NoCaRevocationInfo / --no-ca-revocation-info; default = latest release, missing release = latest + warning.
+    + pki_remove.ps1 (-List, -Release, -DeleteFiles, -All); pki_setup -RemoveTrust works per release, -RemoveAllTrust removes every release and variant and the pki folder.
+    + csr-signed\ and external-ca\ are next to the scripts, not inside pki\ (pki\ can be deleted without losing them).
  4.9.5-phaseC  2026-10-11
    + SignCsr.ps1 / SignCsr.sh (+ module 22_CsrSigning.ps1, devkit\lib\pki-csr.py): sign the CSR of another department with an intermediate CA, default DV, parameters for level / quadrant / purpose,
      the request checked against the PKI spec with a colour report (10.72, section 20). Also in the DevKit (all intermediate keys of the kit).
@@ -1387,3 +1403,86 @@
    q2-root, name constraints, missing OU, small key, the name of our own CA, EV -Days 500, Quantum quadrant refused.
    NOT RUN: Windows (certreq requests, the Windows-made zip), macOS, other Linux distributions.
 ====================================================================================================
+
+====================================================================================================
+ 21  RELEASES, THE NoCR VARIANT AND REMOVAL  (4.9.5; scripts\01c_Releases.ps1, 01b_CaNaming.ps1, 08_Cleanup.ps1, 07_TrustStore.ps1, pki_remove.ps1)
+====================================================================================================
+
+ 21.1 Why
+   * NoCR: a program that builds the chain online (Word / Office XAdES signatures: "Recoverable Signature - the signer's certificate can't be verified")
+     fails or waits when the CRL / OCSP / caIssuers URL of a CA certificate is not reachable. A PKI whose CA certificates carry no such URL can not fail that way.
+   * Releases: a new Enterprise Root (and Track, Quadrant, intermediates) can be introduced without breaking the old one; each release is removed on its own.
+
+ 21.2 Layout, names, slugs
+   Every PKI lives inside the folder pki\ next to the scripts, one subfolder each:
+
+    pki\R1         release 1, CA certificates WITH CRL / OCSP / CA Issuers information   (normal family)
+    pki\R2         release 2 (a new Enterprise Root and everything below it)
+    pki\NoCR-R1    release 1 of the NoCR family: CA certificates WITHOUT that information
+    pki\NoCR-R2    release 2 of the NoCR family
+
+  A PKI made by an older version sits directly in pki\ (pki\root, pki\classical ...). It counts as R1 and keeps working.
+
+  NAMES.  Release 1 has no suffix. From release 2 every CA common name ends in " R2", " R3" ... The NoCR family adds " (NoCR)":
+      Agantra Inovatif Enterprise Root CA G1               R1, with revocation information
+      Agantra Inovatif Enterprise Root CA G1 R2            release 2
+      Agantra Inovatif Enterprise Root CA G1 (NoCR)        NoCR, release 1
+      Agantra Inovatif Enterprise Root CA G1 (NoCR) R2     NoCR, release 2
+  The Track Roots, Quadrant Roots and intermediates follow the same rule, the file names and URL slugs get -nocr / -r2
+  (agantra-q1-ov-g1-nocr-r2). Leaf certificates are not renamed. A common name is limited to 64 characters: when one would be longer
+  (a Quantum Q-root with "(NoCR) R2"), the word PQC-PostQuantum becomes PQC in ALL names of that PKI (agantra_pki.cnf [ ca_names ]
+  QuantumLabelShort). The words are configurable: NoCrLabel, ReleaseLabel. Preview: .\pki_setup.ps1 -ShowNames -NoCaRevocationInfo -NewRelease.
+
+  WHAT -NoCaRevocationInfo DOES.  The Enterprise Root, Track Roots, Quadrant Roots and intermediates are made WITHOUT crlDistributionPoints,
+  authorityInfoAccess OCSP and caIssuers. Programs that check the CA certificates online (Word / Office signatures, some code-signing
+  tools) then never wait for an unreachable CA URL. Leaf certificates keep their own revocation settings: add -NoRevocationInfo to the leaf
+  generators when the leaf must not carry them either. The NoCR family is a SEPARATE set of roots (different keys): leaves of the normal
+  family do not chain to it. To switch: remove the trust of the normal PKI, build / install the NoCR one, issue the leaves again.
+
+  BUILD
+    .\pki_setup.ps1 -InstallTrust                            R1
+    .\pki_setup.ps1 -NewRelease -InstallTrust                R2 (latest + 1), the old releases stay and keep working
+    .\pki_setup.ps1 -Release 3                               exactly R3 (an existing R3 is an error unless -Clean)
+    .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust        NoCR-R1;  with -NewRelease: NoCR-R2 ...
+
+  WHICH RELEASE DO THE OTHER SCRIPTS USE?
+    GenerateLeafCertificate / GeneratePersonLeafCertificate / GenerateOffice365LeafCertificate / SignCsr / SignExternalCa /
+    PkiRevocation / PkiTransport / New-PkiServerPackage and the shell twins (--release N, --no-ca-revocation-info):
+      (nothing)             the LATEST release of the normal family (when only a NoCR family exists, that one)
+      -Release N            release N; when N does not exist (deleted) the LATEST release is used and a warning says so. Never an error.
+      -NoCaRevocationInfo   the NoCR family
+      -PkiRoot <folder>     exactly that folder, nothing else
+    Administration (-Verify, -ReinstallTrust, -RemoveTrust) takes the release exactly; with several releases installed -RemoveTrust
+    needs -Release N, so nothing is removed by accident.
+
+  REMOVE
+    .\pki_remove.ps1 -List                      what is installed (release, variant, folder, CAs, expiry, trusted in Windows?)
+    .\pki_remove.ps1 -Release 2                 trust of R2 out of Windows (Root, Intermediate, Personal), files stay
+    .\pki_remove.ps1 -Release 2 -DeleteFiles    and delete pki\R2
+    .\pki_remove.ps1 -Release 1 -NoCaRevocationInfo -DeleteFiles      the NoCR release
+    .\pki_remove.ps1 -All                       EVERY release and BOTH families: trust out of Windows and the whole pki\ folder deleted
+    .\pki_setup.ps1 -RemoveTrust -Release 2     same trust removal as pki_remove (by thumbprint and by CA name)
+    .\pki_setup.ps1 -RemoveAllTrust             same as pki_remove -All
+  The removal asks for a yes (-Yes skips it). Windows needs an Administrator PowerShell for the stores; on Linux only the files are removed.
+
+  LIMITS.  A DevKit and a server package hold ONE PKI (the latest release unless -Release / -NoCaRevocationInfo says otherwise): the
+  names and slugs of the kit come from it. The server can hold the CRL and CA files of several releases side by side (they have
+  different file names); OCSP and the time stamp service serve the release that was installed LAST. Leaf certificates of an older
+  release stay valid until their CA is removed or revoked: new leaves use the latest release.
+
+ 21.3 Modules
+   01c_Releases.ps1   Get-PkiContainer, Get-PkiFolderName, Get-PkiFolderInfo (manifest, else folder name), Get-PkiInstalledPkis, Resolve-PkiRootChoice (modes above).
+   01_Configuration   Initialize-PkiConfiguration -RootMode; $script:Pki.Release / NoCaRevocationInfo / PkiContainer.
+   01b_CaNaming       Get-PkiNameSuffix, Get-PkiCaNameBase, Get-PkiQuantumLabelInUse; slug + -nocr / -rN; [ ca_names ] NoCrLabel, ReleaseLabel, QuantumLabelShort.
+   03_RuntimeConfig   Write-PkiCaConfig leaves out the CDP / AIA sections when NoCaRevocationInfo (CA certificates only).
+   06_Validation      pki-manifest.json: release, noCaRevocationInfo, variant, pkiLabel, naming.quantumLabelInUse / nameSuffix.
+   07_TrustStore      Remove-PkiTrustByRelease (by thumbprint of the PKI folder AND by the CA-name pattern of that release / variant), Get-PkiCaNameInfo.
+   08_Cleanup         Test-PkiFolderIsSafeToDelete accepts pki, pki\R<n>, pki\NoCR-R<n> only; Remove-PkiOutput -Whole deletes the container.
+   shell              devkit\lib\pki-lib.sh pki_scan / pki_select_pki: the same family / latest / fallback rules from the manifests; the kit holds one PKI (pki\ flat).
+
+ 21.4 Tests run (Ubuntu 24.04, PowerShell 7.5, OpenSSL 4.0.3)
+   RUN: fresh builds R1, R2 (-NewRelease), NoCR-R1, NoCR-R2 (Classic and Q1-Q4); the NoCR certificates have no CDP / AIA, the normal ones do; -ShowNames for NoCR-R3 (PQC rule);
+   generators default / -Release 1 / -Release 9 (warning, latest) / -NoCaRevocationInfo in PowerShell and in the shell (issuer CN and CRL URL slug checked);
+   -Clean -Release 2; pki_remove -List / -Release 1 -DeleteFiles / NoCR -DeleteFiles / -All; -RemoveTrust with two releases (error asking for -Release); DevKit from R2: install,
+   devkit.env (PKI_RELEASE), GenerateLeafCertificate.sh issues from "... CA R2", no root / OCSP / TSA key in the kit.
+   NOT RUN: Windows (real certificate-store installation and removal, pki_remove on Windows, the Word signature result with a NoCR PKI), macOS.

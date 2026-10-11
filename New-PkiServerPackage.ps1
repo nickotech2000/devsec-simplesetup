@@ -17,6 +17,8 @@
 #>
 param(
     [string]$PkiRoot,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NoCaRevocationInfo,
     [string]$Output,
     [string]$RootName = 'agantra-pki-server',
     [switch]$IncludeServiceKeys,
@@ -59,10 +61,15 @@ NEVER IN THE PACKAGE
   stamp certificates found in pki\ocsp and pki\tsa (never a CA key).
 
 USAGE
-  .\New-PkiServerPackage.ps1 [-PkiRoot <folder>] [-Output <file.zip>] [-RootName <name>] [-IncludeServiceKeys] [-NoPki] [-Tar] [-Force]
+  .\New-PkiServerPackage.ps1 [-PkiRoot <folder>] [-Release <n>] [-NoCaRevocationInfo] [-Output <file.zip>] [-RootName <name>] [-IncludeServiceKeys] [-NoPki] [-Tar] [-Force]
 
 PARAMETERS
-  -PkiRoot <folder>      the PKI made by pki_setup.ps1 (default: .\pki next to this script)
+  -PkiRoot <folder>      one PKI folder made by pki_setup.ps1 (default: the latest release in .\pki\ next to this script)
+  -Release <n>           the release to pack (R1, R2 ...). Default: the LATEST. A release that no longer exists = the latest, with a warning.
+  -NoCaRevocationInfo    pack the NoCR family (pki\NoCR-R<n>). Default: the normal family (the NoCR one when it is the only one).
+                         ONE PKI per package (inside the zip it is always pki\). The CRL and CA files of several releases can all be installed
+                         on one server (the file stems differ: ...-r2, ...-nocr); the OCSP responders and the time stamp server serve the
+                         release of the package that was installed LAST.
   -Output <file.zip>     default: .\agantra-pki-server-<yyyyMMdd-HHmmss>.zip next to this script
   -RootName <name>       the folder inside the zip (default agantra-pki-server)
   -IncludeServiceKeys    lab only: include the OCSP / TSA private keys (see above)
@@ -141,7 +148,18 @@ function Add-File { param([string]$Path, [string]$Name, [bool]$AllowKey = $false
 }
 
 # ---------------------------------------------------------------- inputs
-$pkiDir = if ($PkiRoot) { $PkiRoot } else { Join-Path $root 'pki' }
+$pkiDir = $PkiRoot
+if (-not $pkiDir) {
+    $rel01c = Join-Path $root 'scripts\01c_Releases.ps1'
+    if (Test-Path -LiteralPath $rel01c) {
+        if (-not (Get-Command Write-PkiLog -ErrorAction SilentlyContinue)) { function Write-PkiLog { param([string]$Message, [string]$Level = 'INFO') Write-Msg $Message $Level } }
+        . $rel01c
+        $choice = Resolve-PkiRootChoice -ScriptRoot $root -NoCr ([bool]$NoCaRevocationInfo) -NoCrExplicit ([bool]$NoCaRevocationInfo) -Release $(if ($Release) { $Release } else { 0 }) -Mode Use
+        $pkiDir = $choice.Path
+        if ($choice.Exists) { Write-Msg "PKI: release R$($choice.Release)$(if ($choice.NoCr) { ' (NoCR)' })  $pkiDir" 'INFO' }
+    }
+    else { $pkiDir = Join-Path $root 'pki' }
+}
 if (-not $NoPki -and -not (Test-Path -LiteralPath (Join-Path $pkiDir 'publish') -PathType Container)) {
     Write-Msg "PKI folder not found or no publish\ inside: $pkiDir  (-PkiRoot <folder>, or -NoPki)" 'ERROR'; exit 4
 }

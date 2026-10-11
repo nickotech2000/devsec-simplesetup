@@ -97,6 +97,12 @@
       /srv/agantra-pki/www/        everything published (CRLs, CA certificates, ca-bundle.crt, root.crt, index.html)
       /etc/nginx/sites-available/agantra-pki-server.conf    systemd: agantra-ocsp-<ca>, agantra-ocsp-dispatch, agantra-tsa, agantra-crl-check.timer
 
+8A. RELEASES (R2, R3) AND THE NoCR PKI
+  One server package holds ONE PKI: New-PkiServerPackage.ps1 takes the latest release (-Release N, -NoCaRevocationInfo choose another, -PkiRoot a folder).
+  CRL and CA files have different names per release (agantra-q1-ov-g1.crl, agantra-q1-ov-g1-r2.crl), so installing the packages of several releases one
+  after the other keeps the files of all of them in /srv/agantra-pki/www. OCSP and the time stamp service serve the release that was installed LAST.
+  A NoCR PKI has no CRL / OCSP URL in its CA certificates; the server is then only needed for the leaf certificates that carry those URLs.
+
 9. LIMITS AND SECURITY NOTES (read them)
    * The OCSP dispatcher chooses the responder by the issuer key hash of the request (OpenSSL 4 answers 'unknown' for a foreign CA's certificate).
    * The time stamp certificate is the normal TimeStamping leaf (critical, alone), Classic non-FIPS by default; see PKI-Server-Design.txt D6.

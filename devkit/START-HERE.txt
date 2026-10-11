@@ -71,3 +71,7 @@ THE PASSWORD of the package comes from the person who sent you this kit, by anot
   * -NoCrl / -NoOcsp / -NoRevocationInfo (--no-crl / --no-ocsp / --no-revocation-info) leave the revocation URLs out: use them when
     Word / Excel / a tool says "cannot connect to the revocation server".
   * Trouble? docs\DevKit-MANUAL.txt has the list of messages and what to do.
+
+RELEASE OF THIS KIT
+  The kit holds ONE PKI (see PKI_RELEASE / PKI_VARIANT in devkit.env). The generators use it automatically; --release / -Release and
+  --no-ca-revocation-info / -NoCaRevocationInfo are only needed when the PKI folder holds several. A PKI made with NoCR has CA certificates without CRL / OCSP URLs.

@@ -371,6 +371,8 @@ PACK  (source)
                          needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
   -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
+  -Release <n>  -NoCaRevocationInfo   WHICH PKI of .\pki\ is packed (-Pack, -DevKit): release R<n>, else the LATEST; the NoCR family with the switch.
+                       ONE PKI per package: the kit of release 2 holds R2 only. A release that no longer exists = the latest, with a warning.
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
   ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains (one fullchain file per intermediate), ca\publish,
   certpack.json, certpack.tsv, SHA256SUMS, README.txt. Every file has its SHA-256 listed.
@@ -631,3 +633,11 @@ LIMITATIONS
    * The scope line shows "keys of the ISSUING (intermediate) CAs only (no root key)" for such a package (PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh).
    * -Kit writes the manuals to a docs\ folder (the manuals moved to docs\ in 4.9.5).
 ====================================================================================================
+
+====================================================================================================
+ 19  RELEASES AND THE NoCR VARIANT  (4.9.5)
+====================================================================================================
+  -Pack, -DevKit, -List and -RemoveTrust work on ONE PKI: the latest release by default; -Release N picks one (a missing release falls back to the latest with a
+  warning), -NoCaRevocationInfo the NoCR family, -PkiRoot a folder. Inside the package the PKI is always the folder pki/ (no R2 in the path), so the destination
+  scripts need no change. devkit.env holds PKI_RELEASE and PKI_VARIANT; the shell scripts derive the name suffix (-r2, -nocr) from the manifest.
+  A kit holds one PKI: build one kit per release. See pki_setup-MANUAL.txt section 18.

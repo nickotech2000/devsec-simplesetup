@@ -38,6 +38,7 @@ OPTIONS
   --level OV|EV (--ev)  --quadrant 1|2 (--fips)  --key-type rsa|ecdsa  --key-bits N  --curve P-256|P-384|P-521  --hash sha256|sha384|sha512  --days N
   --no-crl  --no-ocsp  --no-revocation-info     leave the CRL / OCSP information out of every certificate
   --no-dns-from-email  --out DIR (default ./leafcerts)  --pfx-password TEXT  --openssl FILE  --help  --version
+  --release N (default: the LATEST release of the PKI)  --no-ca-revocation-info (the NoCR family)
 Output: leafcerts/persons/<folder>/  (.crt .key .pub .pfx -chain -fullchain person-info.json) and a batch summary (.tsv).
 EOF
 }

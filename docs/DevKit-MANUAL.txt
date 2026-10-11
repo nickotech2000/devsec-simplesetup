@@ -49,7 +49,10 @@
 
    Options   -Out <file>   -GeneratePassword | -PackagePassword <t> | PKI_TRANSPORT_PASSWORD   -ArchiveFormat zip|7z (the .certpacked inside)
              -KitArchiveFormat zip|7z (the outer file)   -DevKitNoKeys   -Comment <text>   -SevenZipPath <exe>   -InstallMissing   -NoVerify
-   The kit is built from the CURRENT configuration (agantra_pki.cnf and the pki folder): policies, CPS URLs, the PEN and High Assurance OIDs, the CRL / OCSP /
+   ONE PKI per kit: the latest release (-Release N, -NoCaRevocationInfo or -PkiRoot choose another). Inside the kit it is always pki\ and devkit.env holds
+  PKI_RELEASE / PKI_VARIANT; the shell generators add the suffix (-r2, -nocr) to the CA names themselves. Make one kit per release. A NoCR kit issues from CAs
+  without CRL / OCSP URLs (the leaves keep theirs unless --no-revocation-info). See pki_setup-MANUAL.txt section 18.
+  The kit is built from the CURRENT configuration (agantra_pki.cnf and the pki folder): policies, CPS URLs, the PEN and High Assurance OIDs, the CRL / OCSP /
    CA-issuer URL templates, the subject, the development SAN and the person / Office defaults are written to devkit.env. Build the kit again when any of
    them changes. The kit holds the version of the scripts it was built with.
 
@@ -360,6 +363,8 @@ REVOCATION INFORMATION
 OUTPUT
   --out DIR                default ./leafcerts          --pfx-password TEXT   default Abc12345! (the lab password)
   --openssl FILE           use this openssl             --help, -h   this text      --version
+  --release N              the release of the PKI (R1, R2 ...). Default: the LATEST. A deleted release = the latest, with a warning.
+  --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the normal family.
 
 Each folder: <name>.crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json. Every certificate is verified against the
 roots (chain, and no CRL / OCSP when you asked for none) before the script reports it. Serial numbers are random 128-bit.
@@ -392,6 +397,7 @@ OPTIONS
   --level OV|EV (--ev)  --quadrant 1|2 (--fips)  --key-type rsa|ecdsa  --key-bits N  --curve P-256|P-384|P-521  --hash sha256|sha384|sha512  --days N
   --no-crl  --no-ocsp  --no-revocation-info     leave the CRL / OCSP information out of every certificate
   --no-dns-from-email  --out DIR (default ./leafcerts)  --pfx-password TEXT  --openssl FILE  --help  --version
+  --release N (default: the LATEST release of the PKI)  --no-ca-revocation-info (the NoCR family)
 Output: leafcerts/persons/<folder>/  (.crt .key .pub .pfx -chain -fullchain person-info.json) and a batch summary (.tsv).
 
  ---- GenerateOffice365LeafCertificate.sh --help ------------------------------------------------
@@ -420,6 +426,7 @@ OPTIONS
   --level OV|EV (--ev)  --quadrant 1|2 (--fips)  --key-type rsa|ecdsa  --key-bits N  --curve P-256|P-384|P-521  --hash sha256|sha384|sha512  --days N
   --no-crl  --no-ocsp  --no-revocation-info     use these when Word / Excel say "cannot connect to the revocation server"
   --out DIR (default ./leafcerts)  --pfx-password TEXT  --openssl FILE  --help  --version
+  --release N (default: the LATEST release of the PKI)  --no-ca-revocation-info (the NoCR family)
 
  ---- SignCsr.sh --help -------------------------------------------------------------------------
 ============================================================
@@ -471,6 +478,8 @@ OPTIONS
   --check                  only check the request, sign nothing             --strict      warnings count as errors
   --no-color               plain text (also NO_COLOR=1)                     --list        list the earlier requests
   --openssl FILE           the openssl to use                               --pki-home DIR   the PKI home (DevKit folder, or the project folder)
+  --release N              the release of the PKI (R1, R2 ...). Default: the LATEST. A deleted release = the latest, with a warning.
+  --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the normal family.
   --help, -h               this text                                        --version
 EXAMPLES
   ./SignCsr.sh --csr web01.csr                                   DV, Classic non-FIPS (q1-dv), TLS server

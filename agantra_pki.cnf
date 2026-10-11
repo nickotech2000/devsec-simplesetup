@@ -128,6 +128,9 @@ CpsUrlEv         = https://nextmantra.com/security/certs/ev-cps.pdf
 # GenEnterprise  = G1
 # GenClassic     = G1
 # GenQuantum     = G2
+# NoCrLabel         = (NoCR)       added to every CA name of the NoCR family (pki_setup -NoCaRevocationInfo)
+# ReleaseLabel      = R{N}         added from release 2 (pki_setup -NewRelease / -Release 2): Root CA G1 R2
+# QuantumLabelShort = PQC          replaces QuantumLabel in ALL names when a name would exceed 64 characters
 
 # EnterpriseRoot      = {Prefix} Enterprise Root CA {Gen}
 # ClassicTrackRoot    = {Prefix} Enterprise Classic Root CA {Gen}

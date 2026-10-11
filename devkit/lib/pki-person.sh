@@ -15,6 +15,7 @@ person_main() {
       --key-type) KEYTYPE="$(pki_lc "$2")"; shift ;; --key-bits) KEYBITS="$2"; shift ;; --curve) CURVE="$(pki_uc "$2")"; shift ;;
       --hash) HASH="$(pki_lc "$2")"; shift ;; --days) DAYS="$2"; shift ;;
       --no-crl) NOCRL=1 ;; --no-ocsp) NOOCSP=1 ;; --no-revocation-info) NOCRL=1; NOOCSP=1 ;;
+      --release) PKI_WANT_REL="$2"; shift ;; --no-ca-revocation-info) PKI_WANT_NOCR=1 ;;
       --out) OUT="$2"; shift ;; --pfx-password) PFXPW="$2"; shift ;; --openssl) OSSL="$2"; shift ;;
       --qc-statements) QCS=1 ;; --non-repudiation) NONREP=1 ;; --check-estonian-id) CHECKEE=1 ;;
       --no-dns-from-email) DNSFLAG="--no-dns-from-email" ;; --dns-from-email) DNSFLAG="--dns-from-email" ;;

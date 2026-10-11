@@ -338,7 +338,9 @@ function Write-PkiCaConfig {
     $parent = if ($null -ne $Ca.Parent) { Get-PkiCa -Id $Ca.Parent } else { $null }
     $policyRefs = Add-PkiPolicySections -Lines $L -Policies (Get-PkiCaPolicies -Ca $Ca) -Prefix 'cp'
     $loc = @{ Crl = $false; Aia = $false }
-    if ($null -ne $parent) { $loc = Add-PkiLocationSections -Lines $L -IssuerSlug $parent.Slug -Prefix 'loc' }
+    # -NoCaRevocationInfo (PKI variant NoCR): the CA certificates carry no CRL distribution point, no OCSP and no CA Issuers URL.
+    # Windows / Office then have nothing to download for the CA certificates (no "revocation server offline" for a PKI without a server).
+    if ($null -ne $parent -and -not [bool]$script:Pki.NoCaRevocationInfo) { $loc = Add-PkiLocationSections -Lines $L -IssuerSlug $parent.Slug -Prefix 'loc' }
 
     [void]$L.Add('[ ext ]')
     [void]$L.Add("basicConstraints = critical,CA:true,pathlen:$($Ca.PathLen)")

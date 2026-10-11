@@ -288,3 +288,20 @@
  E14 Documentation folder and README
        dir docs\*.txt   all manuals, PKI-Design..., PKI-Acceptance-Checklists, PKI-Server-Design, PUBLIC-CA-ENTERPRISE-ROOT, scripts-README, linux-README, PKI-SERVER-MANUAL, DevKit-MANUAL
        .\<script>.ps1 -Help | findstr docs\     the Manual / Design lines name docs\...        README.md renders on GitHub
+
+====================================================================================================
+ E16  Releases, NoCR and removal (4.9.5)  - run on your machines; Windows parts were NOT tested by the author
+====================================================================================================
+ [ ] .\pki_setup.ps1 -ShowNames -NewRelease -NoCaRevocationInfo   prints names ending " (NoCR) R<n>", none longer than 64 characters.
+ [ ] .\pki_setup.ps1 -NewRelease -ClassicPKI    creates pki\R2 beside pki\R1; R1 is untouched; the Enterprise Root CN ends with " R2".
+ [ ] .\pki_setup.ps1 -NoCaRevocationInfo -ClassicPKI -InstallTrust   (admin): pki\NoCR-R1; openssl x509 -text on an intermediate shows NO CRL Distribution Points
+     and NO Authority Information Access; the same check on a normal-family intermediate shows them.
+ [ ] Windows: certlm.msc shows the NoCR roots in Trusted Root and the intermediates in Intermediate Certification Authorities.
+ [ ] .\GenerateLeafCertificate.ps1 (no parameter) uses the latest release (issuer CN with R<n>); -Release 1 uses R1; -Release 9 warns and uses the latest;
+     -NoCaRevocationInfo uses the NoCR family. The same with the shell twin (--release, --no-ca-revocation-info).
+ [ ] Office 365 signer with the NoCR PKI and -NoRevocationInfo: the Word signature is valid, not "Recoverable".
+ [ ] .\pki_remove.ps1 -List shows every PKI and whether it is trusted in Windows.
+ [ ] .\pki_remove.ps1 -Release 2 removes the trust of R2 only (R1 still validates); -DeleteFiles also deletes pki\R2.
+ [ ] .\pki_setup.ps1 -RemoveTrust with two releases and no -Release stops with a message; with -Release 2 it removes R2.
+ [ ] .\pki_remove.ps1 -All (or pki_setup.ps1 -RemoveAllTrust) removes every Agantra / NextMantra certificate from Windows and deletes the pki folder.
+ [ ] A DevKit made from a release: devkit.env has PKI_RELEASE; ./GenerateLeafCertificate.sh issues from the CA of that release.

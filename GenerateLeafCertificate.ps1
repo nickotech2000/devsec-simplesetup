@@ -115,6 +115,8 @@ param(
     # ---- environment ----
     [string]$ConfigFile,
     [string]$PkiRoot,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NoCaRevocationInfo,
     [string]$OpenSslPath,
     [string]$FipsModuleConfig
 )
@@ -309,7 +311,11 @@ INFORMATION, UNBLOCK AND UNLOCK
                        (A script that is blocked the very first time needs once:
                         Get-ChildItem -Path . -Recurse -File | Unblock-File )
   -ConfigFile <path>   Configuration file (default agantra_pki.cnf next to the script).
-  -PkiRoot <path>      The PKI folder (default .\pki).
+  -PkiRoot <path>      The PKI folder (default: the latest release in .\pki\).
+  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
+                       (deleted) is not an error: the latest release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
   -OpenSslPath <path>  Use this openssl (4.x).        -FipsModuleConfig <path>   fipsmodule.cnf of the FIPS module.
   -Verbose             Show every OpenSSL command.    -Help   This text.
 

@@ -28,6 +28,7 @@ function Write-PkiPlan {
         Write-PkiLog "Windows 11 / Server 2025 (build $($c.WindowsBuild)): ML-DSA certificates can be stored and validated$(if ($c.WindowsBuild -lt 26100) { ' (needs 24H2 / build 26100 or newer: update Windows)' }); hybrid ML-KEM TLS in Schannel."
     }
     Write-PkiLog "Configuration : $($c.ConfigPath)"
+    Write-PkiLog "PKI           : release R$([int]$c.Release)$(if ($c.NoCaRevocationInfo) { ', variant NoCR (-NoCaRevocationInfo): CA certificates carry NO CRL / OCSP / CA Issuers URL' } else { ', CA certificates with revocation information' })   CA names end in '$((Get-PkiNameSuffix).Trim())'$(if (-not (Get-PkiNameSuffix)) { '(release 1: no suffix)' })"
     Write-PkiLog "Output        : $($c.PkiRoot)"
     Write-PkiLog "Quadrants     : $($c.Quadrants -join ', ')   (1 Classic Non-FIPS, 2 Classic FIPS, 3 Quantum Non-FIPS, 4 Quantum FIPS)"
     Write-PkiLog "Validity      : Enterprise Root $($c.RootYears) years | Track Root $($c.TrackYears) years | Quadrant Root $($c.QuadrantYears) years | Intermediate $($c.IntYears) years | Leaf $($c.LeafDays) days"
@@ -165,8 +166,8 @@ function Invoke-PkiMain {
     }
     if ($script:Pki.RemoveAllTrust) {
         Invoke-PkiStep -Name 'Remove all matching PKI trust' -Action { Remove-AllTrust }
-        # -RemoveAllTrust also deletes the PKI folder: all contents and the folder itself.
-        Invoke-PkiStep -Name 'Delete the PKI folder and its contents' -Action { Remove-PkiOutput }
+        # -RemoveAllTrust also deletes the folder pki: EVERY release and variant in it, all contents and the folder itself.
+        Invoke-PkiStep -Name 'Delete the folder pki with every release and variant' -Action { Remove-PkiOutput -Path $script:Pki.PkiContainer -Whole }
         Stop-PkiTelemetryQuietly
         return
     }

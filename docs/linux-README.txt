@@ -16,3 +16,5 @@ After "git clone" (the index holds mode 100755, so the scripts run at once):
 Windows side: Setup-GitRepo.ps1 (execute bit in the index, hooks, LF), New-PkiServerPackage.ps1 (zip for Ubuntu), PkiRevocation.ps1.
 Design: PKI-Server-Design.txt (this folder: docs\). Since 4.9.5 all documentation text files are in docs\; the README of the project is README.md.
 The DevKit (PkiTransport.ps1 -DevKit) carries pki-transport.sh and Install-DevEnvironment.sh to the developers; its Ubuntu scripts (Install-PkiTrust.sh, Generate*.sh) are in devkit\ of the project.
+
+Releases: the shell generators use the latest release in pki/ (or the one in devkit.env); --release N picks one, --no-ca-revocation-info the NoCR family. See pki_setup-MANUAL.txt section 18.

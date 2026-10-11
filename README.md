@@ -46,7 +46,8 @@ Every script has `-Help` (PowerShell) or `--help` (shell). The manuals are in [`
 | TLS, client, code signing, S/MIME, time stamping, OCSP certificates | `GenerateLeafCertificate.ps1` | one folder per purpose: `.crt .key .pub .pfx .p7b .der` + chains |
 | Certificates of people (any ID, JSON file) | `GeneratePersonLeafCertificate.ps1` | ID-card style subject, e-mail + DNS in the SAN, ECDSA P-384 / SHA-512 |
 | Word / Excel / PDF signing | `GenerateOffice365LeafCertificate.ps1` | Document Encryption + Secure Email + Document Signing |
-| Revocation, CRL, OCSP, time stamping | `PkiRevocation.ps1` | revoke, new CRL, responder and TSA certificates |
+| Revocation, CRL, OCSP, time stamping | `pki_remove.ps1` | list the PKIs (`-List`), remove one release (`-Release N [-DeleteFiles]`) or everything (`-All`) | `-Help` |
+| `PkiRevocation.ps1` | revoke, new CRL, responder and TSA certificates |
 | Sign the CSR of a colleague (TLS, e-mail, code signing ...) | `SignCsr.ps1` / `devkit/SignCsr.sh` | CSR in, certificate + chain out; DV (default), OV, EV; the CSR must follow the spec, errors shown in colour |
 | Sign the CSR of another department's CA | `SignExternalCa.ps1` | signed by a Classic Quadrant Root only; OV (default), DV, EV; original PKI only |
 | Move the PKI | `PkiTransport.ps1`, `Unpack-PkiTransport.ps1`, `linux/pki-transport.sh` | password-protected `.certpacked` |
@@ -57,7 +58,7 @@ Every script has `-Help` (PowerShell) or `--help` (shell). The manuals are in [`
 
 | Script | Purpose | Manual |
 |---|---|---|
-| `pki_setup.ps1` | build, verify, trust, clean the PKI (`agantra_pki.cnf` holds the settings) | `docs/pki_setup-MANUAL.txt` |
+| `pki_setup.ps1` | build, verify, trust, clean the PKI (`agantra_pki.cnf` holds the settings); `-NoCaRevocationInfo`, `-NewRelease`, `-Release N` | `docs/pki_setup-MANUAL.txt` |
 | `GenerateLeafCertificate.ps1` | leaf certificates; `-NoCrl -NoOcsp -NoRevocationInfo`, `-AddDevelopmentSAN` | `docs/GenerateLeafCertificate-MANUAL.txt` |
 | `GeneratePersonLeafCertificate.ps1` | persons from `persons.json` (`isGenerate` per person) | `docs/GeneratePersonLeafCertificate-MANUAL.txt` |
 | `GenerateOffice365LeafCertificate.ps1` | Office signers from `office365.json` | `docs/GenerateOffice365LeafCertificate-MANUAL.txt` |
@@ -89,6 +90,16 @@ Inside: the `.certpacked` (AES-256), the installers, the generators (`.ps1` and 
 examples, manuals and `START-HERE.txt`.
 **Keys:** the package carries the private keys of the *issuing* (intermediate) CAs only — never a root key. Each copy gets its own random serial counter.
 Certificates made from a copy are development certificates: they are not in the master CRL / OCSP. Read [`docs/DevKit-MANUAL.txt`](docs/DevKit-MANUAL.txt) before you send a kit.
+
+## Releases and the NoCR variant
+
+All PKIs live in `pki/`, one subfolder each: `pki/R1`, `pki/R2`, `pki/NoCR-R1` ... (an old flat `pki/` counts as R1).
+
+- `pki_setup.ps1 -NewRelease` builds the next release (a new Enterprise Root and everything below it). Names get a suffix: `… Root CA G1`, `… Root CA G1 R2`, `… Root CA G1 (NoCR) R2`. Leaf names do not change.
+- `pki_setup.ps1 -NoCaRevocationInfo` builds a separate family whose **CA certificates** have no CRL / OCSP / CA Issuers URL (leaves keep theirs; use `-NoRevocationInfo` on the leaf generators to drop them too). Remove the trust of the normal PKI and install this one.
+- Every generator (`.ps1` and `.sh`) uses the **latest** release by default; `-Release N` (`--release N`) picks one, a release that no longer exists falls back to the latest with a warning. `-NoCaRevocationInfo` (`--no-ca-revocation-info`) selects the NoCR family.
+- `pki_remove.ps1 -List | -Release N [-DeleteFiles] | -All` removes the Windows trust and the files of one release or of everything.
+- A DevKit or server package holds one PKI. Details: `docs/pki_setup-MANUAL.txt` section 18, `docs/PKI-Design-with-FIPS-and-PQC.txt` section 21.
 
 ## Hierarchy at a glance
 
@@ -129,7 +140,7 @@ docs/                      every manual, the design, the checklists (see below)
 .githooks/ .gitattributes .gitignore
 ```
 
-Created at run time and never committed: `pki/`, `leafcerts/`, `external-ca/`, `transport/`.
+Created at run time and never committed (`pki/R1`, `pki/R2`, `pki/NoCR-R1` ... one subfolder per PKI): `pki/`, `leafcerts/`, `external-ca/`, `transport/`.
 
 ## Documentation
 

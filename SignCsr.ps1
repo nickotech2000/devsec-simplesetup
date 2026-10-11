@@ -47,6 +47,8 @@ param(
     [switch]$Verbose,
     [string]$ConfigFile,
     [string]$PkiRoot,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NoCaRevocationInfo,
     [string]$OpenSslPath,
     [string]$FipsModuleConfig
 )
@@ -122,6 +124,10 @@ OPTIONS
   -WriteShellEnv           Write devkit.env next to this script, so that devkit\SignCsr.sh can sign on this PKI too (Linux / WSL), and stop.
   -Unblock                 UNBLOCK and UNLOCK the script folder and the pki folder, then stop.
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.   -Help   this text.
+  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
+                       (deleted) is not an error: the latest release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
 
 HIS SIDE (he makes the key and the request himself and keeps the key)
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out web01.key
@@ -160,7 +166,7 @@ try {
     Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:([bool]$Verbose)
     $c = $script:Pki
     if ($Unblock) { [void](Invoke-PkiUnblockUnlock -Path @($script:ScriptRoot, $c.PkiRoot)); exit 0 }
-    $outRoot = if ($OutFolder) { $OutFolder } else { Join-Path (Split-Path -Parent $c.PkiRoot) 'csr-signed' }
+    $outRoot = if ($OutFolder) { $OutFolder } else { Join-Path $c.ScriptRoot 'csr-signed' }
     if ($List) {
         $tsv = Join-Path $outRoot 'signed-csr.tsv'
         if (Test-Path -LiteralPath $tsv) { Get-Content -LiteralPath $tsv | ForEach-Object { Write-Host $_ } } else { Write-PkiLog "No request was signed yet ($outRoot)." 'INFO' }

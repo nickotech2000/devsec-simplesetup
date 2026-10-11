@@ -48,6 +48,10 @@ function Import-PkiExisting {
     }
 
     $c.Quadrants = @($m['quadrants'] | ForEach-Object { [int]$_ })
+    # release and variant of THIS PKI come from its manifest (names and file stems depend on them); an older manifest = release 1, normal
+    $c.Release = $(if ($m.ContainsKey('release') -and [int]$m['release'] -gt 0) { [int]$m['release'] } else { $c.Release })
+    $c.NoCaRevocationInfo = $(if ($m.ContainsKey('noCaRevocationInfo')) { [bool]$m['noCaRevocationInfo'] } else { [bool]$c.NoCaRevocationInfo })
+    if ($c.Contains('QuantumLabelInUse')) { $c.Remove('QuantumLabelInUse') }
     $c.Catalog = New-PkiCatalog
     if (-not $SkipProviders) { Initialize-PkiProviderConfigs }
 

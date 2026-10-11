@@ -244,7 +244,10 @@ function Get-PkiStorePlacement {
     $r = [ordered]@{
         Ok = [System.Collections.Generic.List[object]]::new(); Missing = [System.Collections.Generic.List[object]]::new()
         WrongStore = [System.Collections.Generic.List[object]]::new(); Stale = [System.Collections.Generic.List[object]]::new()
+        Other = [System.Collections.Generic.List[object]]::new()      # CAs of ANOTHER release / variant of this PKI (pki\R2, pki\NoCR-R1 ...): normal, not stale
     }
+    $curRel = 1; $curNoCr = $false
+    if ($null -ne (Get-Variable -Name Pki -Scope Script -ErrorAction SilentlyContinue) -and $script:Pki.Contains('Release')) { $curRel = [int]$script:Pki.Release; $curNoCr = [bool]$script:Pki.NoCaRevocationInfo }
     $known = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($c in @($Current)) {
         $id = & $get $c 'Id'; $name = & $get $c 'Name'; $sha = & $get $c 'Sha1'; $exp = & $get $c 'Expected'
@@ -262,7 +265,18 @@ function Get-PkiStorePlacement {
     foreach ($st in 'Root', 'CA') {
         foreach ($e in @($Stores[$st])) {
             $sha = & $get $e 'Sha1'
-            if (-not $known.Contains($sha)) { [void]$r.Stale.Add([ordered]@{ Store = $st; Subject = (& $get $e 'Subject'); Sha1 = $sha }) }
+            if ($known.Contains($sha)) { continue }
+            $subj = [string](& $get $e 'Subject')
+            $item = [ordered]@{ Store = $st; Subject = $subj; Sha1 = $sha }
+            $isOther = $false
+            if ($subj -match '(?:^|, )CN=(?<cn>[^,]+)') {
+                $cn = $Matches['cn']
+                if ($cn -match '^(?<base>.+?)(?<nocr> \(NoCR\))?(?: R(?<rel>\d+))?$' -and $Matches['base'] -match '(CA G\d+|G\d+ CA)$') {
+                    $rel = if ($Matches['rel']) { [int]$Matches['rel'] } else { 1 }
+                    $isOther = ($rel -ne $curRel -or ($Matches['nocr'] -ne '') -ne $curNoCr)
+                }
+            }
+            if ($isOther) { [void]$r.Other.Add($item) } else { [void]$r.Stale.Add($item) }
         }
     }
     return $r
@@ -316,9 +330,12 @@ function Write-PkiTrustStoreReport {
     foreach ($w in $r.WrongStore) { Write-PkiLog "  WRONG STORE : $($w.Name) is $($w.Detail)" 'ERROR' }
     foreach ($m in $r.Missing) { Write-PkiLog "  NOT INSTALLED: $($m.Name) (belongs in $($m.Expected))" 'ERROR' }
     if ($r.Stale.Count -gt 0) {
-        Write-PkiLog "$($r.Stale.Count) certificate(s) with this PKI's name are in the stores but are NOT part of the PKI in .\pki (an older generation):" 'WARN'
+        Write-PkiLog "$($r.Stale.Count) certificate(s) with this PKI's name are in the stores but are NOT part of this PKI (an older generation, or another PKI with the same name):" 'WARN'
         foreach ($t in $r.Stale) { Write-PkiLog "  LocalMachine\$($t.Store) : $($t.Subject.Split(',')[0..1] -join ',')   [$($t.Sha1.Substring(0, 12))...]" 'WARN' }
-        Write-PkiLog '  They are left alone. Remove them with  .\pki_setup.ps1 -RemoveAllTrust  (this also deletes .\pki) or in certlm.msc.' 'WARN'
+        Write-PkiLog '  They are left alone. Remove them with  .\pki_remove.ps1 -All  (this also deletes the folder pki) or in certlm.msc.' 'WARN'
+    }
+    if ($r.Contains('Other') -and $r.Other.Count -gt 0) {
+        Write-PkiLog "$($r.Other.Count) CA certificate(s) of OTHER releases / variants of this PKI are installed as well (normal). List and remove them: .\pki_remove.ps1 -List" 'INFO'
     }
     return ($r.WrongStore.Count -eq 0 -and $r.Missing.Count -eq 0)
 }
@@ -456,6 +473,35 @@ function Get-PkiFolderThumbprints {
     return $set
 }
 
+function Get-PkiCaNameInfo {
+    # Release and variant of a CA certificate of this PKI, read from its common name:
+    #   "... Root CA G1"                       -> release 1, normal
+    #   "... DV RSA-4096 G1 CA (NoCR) R2"      -> release 2, NoCR
+    # $null when the certificate is not one of our CAs (a leaf, another company's CA).
+    param([Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate)
+    $cn = $Certificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+    if ([string]::IsNullOrWhiteSpace($cn)) { return $null }
+    $prefix = 'Agantra Inovatif'
+    if ($null -ne (Get-Variable -Name Pki -Scope Script -ErrorAction SilentlyContinue) -and $script:Pki.Contains('Naming') -and $script:Pki.Naming) { $prefix = [string]$script:Pki.Naming.Prefix }
+    if (-not $cn.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+    if ($cn -notmatch '^(?<base>.+?)(?<nocr> \(NoCR\))?(?: R(?<rel>\d+))?$') { return $null }
+    if ($Matches['base'] -notmatch '(CA G\d+|G\d+ CA)$') { return $null }
+    $rel = if ($Matches['rel']) { [int]$Matches['rel'] } else { 1 }
+    return [pscustomobject]@{ Release = $rel; NoCr = ($Matches['nocr'] -ne ''); CommonName = $cn }
+}
+
+function Remove-PkiTrustByRelease {
+    # Removes the CA certificates of ONE release / variant from Root and CA (matched by common name), whether or not its folder still exists.
+    # -Release 0 with -AllReleases = every release of the variant.
+    param([int]$Release = 1, [bool]$NoCr = $false, [switch]$AllReleases)
+    $n = Remove-PkiCertificatesWhere -Stores @('Root', 'CA') -Predicate {
+        param($c)
+        $i = Get-PkiCaNameInfo -Certificate $c
+        return ($null -ne $i -and $i.NoCr -eq $NoCr -and ($AllReleases -or $i.Release -eq $Release))
+    }
+    return $n
+}
+
 function Remove-CurrentTrust {
     # Removes the certificates of the PKI in .\pki, matched by SHA-1 thumbprint.
     $thumbs = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -488,8 +534,11 @@ function Remove-CurrentTrust {
     }
     Write-PkiLog "Looking for $($thumbs.Count) certificate thumbprint(s) in LocalMachine Root, CA and My ..."
     $n = Remove-PkiCertificatesWhere -Predicate { param($c) $thumbs.Contains($c.Thumbprint) }
+    # and the CAs of the same release / variant by name (the folder may have lost files, or the CAs came from another copy of this PKI)
+    $rel = [int]$script:Pki.Release; $noCr = [bool]$script:Pki.NoCaRevocationInfo
+    $n += Remove-PkiTrustByRelease -Release $rel -NoCr $noCr
     if ($n -eq 0) { Write-PkiLog 'None of them is installed (already removed, or never installed). Use -RemoveAllTrust to remove by name instead.' 'INFO' }
-    Write-PkiLog "Removed $n certificate(s) of the PKI in $($script:Pki.PkiRoot)." 'OK'
+    Write-PkiLog "Removed $n certificate(s) of the PKI $(if ($noCr) { 'NoCR ' })R$rel ($($script:Pki.PkiRoot))." 'OK'
 }
 
 function Remove-AllTrust {

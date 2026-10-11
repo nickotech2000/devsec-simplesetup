@@ -217,7 +217,7 @@ function Test-PkiLeaf {
 function Test-PkiOutputBeforeGeneration {
     $rootCrt = Join-Path $script:Pki.PkiRoot 'root\root.crt'
     if (Test-Path -LiteralPath $rootCrt) {
-        throw "A PKI already exists in $($script:Pki.PkiRoot).`nUse -Clean to remove it first (and its Windows trust), or pki_reuse.ps1 to adopt it."
+        throw "A PKI already exists in $($script:Pki.PkiRoot).`nA new release next to it:  -NewRelease  (or -Release <n>).   Replace this one:  -Clean  (removes its Windows trust and files first).   Remove releases:  .\pki_remove.ps1 -List"
     }
 }
 
@@ -231,6 +231,10 @@ function Write-PkiManifest {
         providers = [ordered]@{ nonFips = 'default'; fips = 'fips+base'; engineApi = 'not used'; oqsprovider = 'not used' }
         configFile = $c.ConfigPath
         mode = $(if ($c.ClassicPki) { 'ClassicPKI' } else { 'Full' })
+        release = [int]$c.Release
+        noCaRevocationInfo = [bool]$c.NoCaRevocationInfo
+        variant = $(if ($c.NoCaRevocationInfo) { 'NoCR' } else { 'normal' })
+        pkiLabel = $(if ($c.NoCaRevocationInfo) { "NoCR R$([int]$c.Release)" } else { "R$([int]$c.Release)" })
         quadrants = @($c.Quadrants)
         enterpriseRoot = [ordered]@{
             externallySigned = ($null -ne $c.ExternalRoot)
@@ -240,7 +244,7 @@ function Write-PkiManifest {
             chain = $(if ($null -ne $c.ExternalRoot) { $c.ExternalRoot.Chain } else { $null })
             crossCertificates = @()
         }
-        naming = [ordered]@{ prefix = $c.Naming.Prefix; quantumLabel = $c.Naming.QuantumLabel; templates = $c.Naming.Templates }
+        naming = [ordered]@{ prefix = $c.Naming.Prefix; quantumLabel = $c.Naming.QuantumLabel; quantumLabelInUse = (Get-PkiQuantumLabelInUse); nameSuffix = (Get-PkiNameSuffix); templates = $c.Naming.Templates }
         rsaPss = $c.RsaPss
         pqcAlgorithmRequested = $c.PqcAlgorithm
         pqcLeafAlgorithm = $c.PqcLeafAlgorithm

@@ -75,6 +75,8 @@ param(
     # ---- environment ----
     [string]$ConfigFile,
     [string]$PkiRoot,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NoCaRevocationInfo,
     [string]$OpenSslPath,
 
     # ---- information, unblock / unlock ----
@@ -139,6 +141,8 @@ PACK  (source)
                          needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
   -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
+  -Release <n>  -NoCaRevocationInfo   WHICH PKI of .\pki\ is packed (-Pack, -DevKit): release R<n>, else the LATEST; the NoCR family with the switch.
+                       ONE PKI per package: the kit of release 2 holds R2 only. A release that no longer exists = the latest, with a warning.
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
   ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains (one fullchain file per intermediate), ca\publish,
   certpack.json, certpack.tsv, SHA256SUMS, README.txt. Every file has its SHA-256 listed.
@@ -276,6 +280,7 @@ try {
         Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:([bool]$Verbose)
         $c = $script:Pki
         [void](Import-PkiExisting -SkipProviders)
+        Write-PkiLog "PKI of the kit: release R$([int]$c.Release)$(if ($c.NoCaRevocationInfo) { ' (NoCR: CA certificates without revocation information)' })  $($c.PkiRoot)" 'INFO'
         $leafRoot = Get-PkiLeafRoot
         if ($ArchiveFormat -eq '7z' -or $KitArchiveFormat -eq '7z') {
             if (-not (Find-PkiSevenZip -Explicit $SevenZipPath)) {

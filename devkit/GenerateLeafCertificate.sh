@@ -60,6 +60,8 @@ REVOCATION INFORMATION
 OUTPUT
   --out DIR                default ./leafcerts          --pfx-password TEXT   default Abc12345! (the lab password)
   --openssl FILE           use this openssl             --help, -h   this text      --version
+  --release N              the release of the PKI (R1, R2 ...). Default: the LATEST. A deleted release = the latest, with a warning.
+  --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the normal family.
 
 Each folder: <name>.crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json. Every certificate is verified against the
 roots (chain, and no CRL / OCSP when you asked for none) before the script reports it. Serial numbers are random 128-bit.
@@ -79,6 +81,7 @@ while [ $# -gt 0 ]; do
     --key-type) KEYTYPE="$(pki_lc "$2")"; shift ;; --key-bits) KEYBITS="$2"; shift ;; --curve) CURVE="$(pki_uc "$2")"; shift ;; --hash) HASH="$(pki_lc "$2")"; shift ;;
     --days) DAYS="$2"; shift ;;
     --no-crl) NOCRL=1 ;; --no-ocsp) NOOCSP=1 ;; --no-revocation-info) NOCRL=1; NOOCSP=1 ;;
+    --release) PKI_WANT_REL="$2"; shift ;; --no-ca-revocation-info) PKI_WANT_NOCR=1 ;;
     --out) OUT="$2"; shift ;; --pfx-password) PFXPW="$2"; shift ;; --openssl) OSSL="$2"; shift ;;
     --version) echo "GenerateLeafCertificate.sh $VERSION"; exit 0 ;;
     --help|-h) usage; exit 0 ;;

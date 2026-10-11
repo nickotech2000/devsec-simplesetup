@@ -62,6 +62,9 @@ $script:PkiNamingDefaults = [ordered]@{
     Prefix        = 'Agantra Inovatif'
     QuantumLabel  = 'PQC-PostQuantum'
     SlugPrefix    = 'agantra'
+    NoCrLabel     = '(NoCR)'          # added to every CA name of a PKI made with -NoCaRevocationInfo
+    ReleaseLabel  = 'R{N}'            # added from release 2 on:  R2, R3 ...   ({N} = the release number)
+    QuantumLabelShort = 'PQC'         # replaces QuantumLabel in ALL names of a PKI when a name would be longer than 64 characters (NoCR + R2 ...)
     GenEnterprise = 'G1'
     GenClassic    = 'G1'
     GenQuantum    = 'G2'
@@ -82,6 +85,7 @@ function Get-PkiNamingConfig {
     $d = $script:PkiNamingDefaults
     $n = [ordered]@{
         Prefix = $d.Prefix; QuantumLabel = $d.QuantumLabel; SlugPrefix = $d.SlugPrefix
+        NoCrLabel = $d.NoCrLabel; ReleaseLabel = $d.ReleaseLabel; QuantumLabelShort = $d.QuantumLabelShort
         GenEnterprise = $d.GenEnterprise; GenClassic = $d.GenClassic; GenQuantum = $d.GenQuantum
         Templates = [ordered]@{}
     }
@@ -93,7 +97,7 @@ function Get-PkiNamingConfig {
     $legacy = Get-PkiIniValue -Ini $ini -Section 'pki_settings' -Key 'QuantumLabel' -Default ''
     if ($legacy -ne '') { $n.QuantumLabel = $legacy }
 
-    foreach ($k in 'Prefix', 'QuantumLabel', 'SlugPrefix', 'GenEnterprise', 'GenClassic', 'GenQuantum') {
+    foreach ($k in 'Prefix', 'QuantumLabel', 'SlugPrefix', 'NoCrLabel', 'ReleaseLabel', 'QuantumLabelShort', 'GenEnterprise', 'GenClassic', 'GenQuantum') {
         $v = Get-PkiIniValue -Ini $ini -Section 'ca_names' -Key $k -Default ''
         if ($v -ne '') { $n[$k] = $v }
     }
@@ -101,7 +105,7 @@ function Get-PkiNamingConfig {
         $v = Get-PkiIniValue -Ini $ini -Section 'ca_names' -Key $k -Default ''
         if ($v -ne '') { $n.Templates[$k] = $v }
     }
-    foreach ($k in 'Prefix', 'QuantumLabel') { $n[$k] = ConvertTo-PkiAscii $n[$k] }
+    foreach ($k in 'Prefix', 'QuantumLabel', 'QuantumLabelShort', 'NoCrLabel') { $n[$k] = ConvertTo-PkiAscii $n[$k] }
     return $n
 }
 
@@ -142,8 +146,19 @@ function Get-PkiNamingQuadrant {
     if ($Ca.Fips) { return 2 } else { return 1 }
 }
 
-function Get-PkiCaCommonName {
-    param([Parameter(Mandatory)][hashtable]$Ca)
+function Get-PkiNameSuffix {
+    # " (NoCR) R2" - what the variant and the release add to every CA name. Release 1 of the normal PKI adds nothing.
+    $c = $script:Pki; $n = $c.Naming
+    $parts = [System.Collections.Generic.List[string]]::new()
+    if ($c.Contains('NoCaRevocationInfo') -and [bool]$c.NoCaRevocationInfo) { [void]$parts.Add([string]$n.NoCrLabel) }
+    if ($c.Contains('Release') -and [int]$c.Release -gt 1) { [void]$parts.Add((([string]$n.ReleaseLabel) -replace '\{N\}', [string][int]$c.Release)) }
+    if ($parts.Count -eq 0) { return '' }
+    return (' ' + ($parts -join ' '))
+}
+
+function Get-PkiCaNameBase {
+    # the name from the template, WITHOUT suffix, with the given quantum label
+    param([Parameter(Mandatory)][hashtable]$Ca, [Parameter(Mandatory)][string]$QuantumLabel)
     $n = $script:Pki.Naming
     $key = switch ($Ca.Kind) {
         'root'         { 'EnterpriseRoot' }
@@ -152,19 +167,44 @@ function Get-PkiCaCommonName {
         'intermediate' { 'Intermediate' }
     }
     $tokens = @{
-        Prefix = $n.Prefix; QuantumLabel = $n.QuantumLabel; Gen = $Ca.Gen
+        Prefix = $n.Prefix; QuantumLabel = $QuantumLabel; Gen = $Ca.Gen
         N = [string](Get-PkiNamingQuadrant -Ca $Ca); Level = [string]$Ca.Validation
         Algorithm = (Get-PkiAlgorithmLabel -Ca $Ca); Track = $Ca.Track; Id = $Ca.Id
     }
     return (ConvertTo-PkiAscii (Expand-PkiNameTemplate -Template $n.Templates[$key] -Tokens $tokens))
 }
 
+function Get-PkiQuantumLabelInUse {
+    # The Quantum label of THIS PKI. A common name may have 64 characters at most: when the suffix (NoCR, R2 ...) makes one longer,
+    # the short label (PQC) is used in ALL names of the PKI, so that they stay alike.
+    $c = $script:Pki; $n = $c.Naming
+    if ($c.Contains('QuantumLabelInUse') -and $c.QuantumLabelInUse) { return [string]$c.QuantumLabelInUse }
+    $label = [string]$n.QuantumLabel
+    if ($null -ne $c.Catalog -and $n.QuantumLabelShort -and $n.QuantumLabelShort -ne $n.QuantumLabel) {
+        $suffix = Get-PkiNameSuffix
+        foreach ($ca in $c.Catalog) {
+            try { if ((Get-PkiCaNameBase -Ca $ca -QuantumLabel $n.QuantumLabel).Length + $suffix.Length -gt 64) { $label = [string]$n.QuantumLabelShort; break } } catch { }
+        }
+        $c['QuantumLabelInUse'] = $label
+    }
+    return $label
+}
+
+function Get-PkiCaCommonName {
+    param([Parameter(Mandatory)][hashtable]$Ca)
+    return ((Get-PkiCaNameBase -Ca $Ca -QuantumLabel (Get-PkiQuantumLabelInUse)) + (Get-PkiNameSuffix))
+}
+
 function Get-PkiCaSlug {
-    # File-name stem: agantra-q1-ev-g1, agantra-enterprise-root-g1 ...
+    # File-name stem: agantra-q1-ev-g1, agantra-enterprise-root-g1 ...   (NoCR: ...-g1-nocr, release 2: ...-g1-r2, both: ...-g1-nocr-r2)
     param([Parameter(Mandatory)][hashtable]$Ca)
     $name = if ($Ca.Kind -eq 'root') { 'enterprise-root' } else { $Ca.Id }
     if ([int]$Ca.Quadrant -gt 0) { $name = $name -replace '^q\d+', ('q' + (Get-PkiNamingQuadrant -Ca $Ca)) }    # q3-ev -> q1-ev, q4-ev -> q2-ev (the generation tells the tracks apart)
-    return "$($script:Pki.Naming.SlugPrefix)-$name-$($Ca.Gen.ToLowerInvariant())".ToLowerInvariant()
+    $slug = "$($script:Pki.Naming.SlugPrefix)-$name-$($Ca.Gen.ToLowerInvariant())".ToLowerInvariant()
+    # the variant and the release are part of the file stem (CRL / CA-issuer URLs): all PKIs can be served by one server
+    if ($script:Pki.Contains('NoCaRevocationInfo') -and [bool]$script:Pki.NoCaRevocationInfo) { $slug += '-nocr' }
+    if ($script:Pki.Contains('Release') -and [int]$script:Pki.Release -gt 1) { $slug += "-r$([int]$script:Pki.Release)" }
+    return $slug
 }
 
 function Test-PkiNaming {
@@ -192,7 +232,8 @@ function Show-PkiCaNames {
     $n = $script:Pki.Naming
     Write-Host ''
     Write-Host 'CA NAMING  (defaults: scripts\01b_CaNaming.ps1, overrides: agantra_pki.cnf [ ca_names ])' -ForegroundColor Cyan
-    Write-Host "Prefix '$($n.Prefix)'   QuantumLabel '$($n.QuantumLabel)'   SlugPrefix '$($n.SlugPrefix)'   Generations $($n.GenEnterprise) / $($n.GenClassic) / $($n.GenQuantum)"
+    Write-Host "Prefix '$($n.Prefix)'   QuantumLabel '$($n.QuantumLabel)' (short '$($n.QuantumLabelShort)')   SlugPrefix '$($n.SlugPrefix)'   Generations $($n.GenEnterprise) / $($n.GenClassic) / $($n.GenQuantum)"
+    Write-Host "PKI shown     : release R$([int]$script:Pki.Release)$(if ($script:Pki.NoCaRevocationInfo) { ', variant NoCR' })   suffix '$((Get-PkiNameSuffix).Trim())'   (NoCrLabel '$($n.NoCrLabel)', ReleaseLabel '$($n.ReleaseLabel)')   Quantum label in use: '$(Get-PkiQuantumLabelInUse)'   folder: $($script:Pki.PkiRoot)"
     Write-Host ''
     Write-Host 'TEMPLATES' -ForegroundColor Cyan
     foreach ($k in $n.Templates.Keys) { Write-Host ('  {0,-20} {1}' -f $k, $n.Templates[$k]) }

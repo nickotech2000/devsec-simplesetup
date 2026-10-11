@@ -35,6 +35,8 @@ param(
     [switch]$Verbose,
     [string]$ConfigFile,
     [string]$PkiRoot,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NoCaRevocationInfo,
     [string]$OpenSslPath,
     [string]$FipsModuleConfig
 )
@@ -101,6 +103,10 @@ OPTIONS
   -List                  List the earlier requests (folders, signer, serial, dates) and stop.
   -Unblock               UNBLOCK and UNLOCK the script folder and the pki folder, then stop.
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.   -Help   this text.
+  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
+                       (deleted) is not an error: the latest release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
 
 THE OTHER SIDE (he makes the key and the CSR himself, for example)
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out dept-ca.key
@@ -133,7 +139,7 @@ try {
     Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:([bool]$Verbose)
     $c = $script:Pki
     if ($Unblock) { [void](Invoke-PkiUnblockUnlock -Path @($script:ScriptRoot, $c.PkiRoot)); exit 0 }
-    $outRoot = if ($OutFolder) { $OutFolder } else { Join-Path (Split-Path -Parent $c.PkiRoot) 'external-ca' }
+    $outRoot = if ($OutFolder) { $OutFolder } else { Join-Path $c.ScriptRoot 'external-ca' }
     if ($List) {
         $rows = foreach ($f in @(Get-ChildItem -LiteralPath $outRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
             $j = Join-Path $f.FullName 'ca-info.json'

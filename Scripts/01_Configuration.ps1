@@ -340,7 +340,10 @@ function Initialize-PkiConfiguration {
     param(
         [Parameter(Mandatory)][string]$ScriptRoot,
         [Parameter(Mandatory)][System.Collections.IDictionary]$Bound,
-        [switch]$VerboseOutput
+        [switch]$VerboseOutput,
+        # which PKI folder (pki\R1, pki\R2, pki\NoCR-R1 ...): Use (default; signing, issuing, packing: the requested release, else the latest),
+        # Exact / Strict (administration), Generate (pki_setup builds a new one). See scripts\01c_Releases.ps1.
+        [ValidateSet('Use', 'Exact', 'Strict', 'Generate')][string]$RootMode = 'Use'
     )
 
     # PSBoundParametersDictionary has ContainsKey only; use a plain hashtable.
@@ -373,10 +376,20 @@ function Initialize-PkiConfiguration {
     }
     $flag = { param([string]$Name) return ($Bound.Contains($Name) -and [bool]$Bound[$Name]) }
 
-    $pkiRoot = Join-Path $ScriptRoot 'pki'
+    # ---- which PKI: -PkiRoot, else release / variant (pki\R1, pki\R2, pki\NoCR-R1 ...) ----
+    $reqRelease = if ($Bound.Contains('Release') -and [int]$Bound['Release'] -gt 0) { [int]$Bound['Release'] } else { 0 }
+    $reqNoCr = ($Bound.Contains('NoCaRevocationInfo') -and [bool]$Bound['NoCaRevocationInfo'])
+    $newRelease = ($Bound.Contains('NewRelease') -and [bool]$Bound['NewRelease'])
+    $noCr = $reqNoCr; $release = if ($reqRelease -gt 0) { $reqRelease } else { 1 }
     if ($Bound.Contains('PkiRoot') -and -not [string]::IsNullOrWhiteSpace([string]$Bound['PkiRoot'])) {
         $pkiRoot = [string]$Bound['PkiRoot']
         if (-not [System.IO.Path]::IsPathRooted($pkiRoot)) { $pkiRoot = Join-Path (Get-Location).Path $pkiRoot }
+        $fi = Get-PkiFolderInfo -Path $pkiRoot
+        if ($null -ne $fi -and $RootMode -ne 'Generate') { $noCr = $fi.NoCr; $release = $fi.Release }
+    }
+    else {
+        $choice = Resolve-PkiRootChoice -ScriptRoot $ScriptRoot -NoCr $reqNoCr -NoCrExplicit $reqNoCr -Release $reqRelease -NewRelease $newRelease -Mode $RootMode
+        $pkiRoot = $choice.Path; $noCr = [bool]$choice.NoCr; $release = [int]$choice.Release
     }
 
     $winBuild = Get-PkiWindowsBuild
@@ -399,6 +412,9 @@ function Initialize-PkiConfiguration {
         ConfigPath = $configPath
         Ini        = $ini
         PkiRoot    = $pkiRoot
+        Release    = $release
+        NoCaRevocationInfo = $noCr
+        PkiContainer = (Get-PkiContainer -ScriptRoot $ScriptRoot)
         PublishDir = Join-Path $pkiRoot 'publish'
         LeafDir    = Join-Path $pkiRoot 'leaf'
         VerboseOutput = [bool]$VerboseOutput

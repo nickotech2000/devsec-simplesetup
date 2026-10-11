@@ -56,6 +56,11 @@
  01b_CaNaming.ps1              NAMING of all CAs and of the LEAF folders / files: 00, 01
                                templates, tokens, Get-PkiCaCommonName, Get-PkiCaSlug,
                                Test-PkiNaming, Get-PkiLeafNames, New-PkiUniqueFolder
+ 01c_Releases.ps1              RELEASES and the NoCR variant: Get-PkiContainer,       00
+                               Get-PkiFolderName, Get-PkiFolderInfo,
+                               Get-PkiInstalledPkis, Resolve-PkiRootChoice
+                               (Use | Exact | Strict | Generate). Every PKI is in
+                               pki\R<n> or pki\NoCR-R<n>.
  02_OpenSSL.ps1                Find-OpenSSL (newest 4.x of all candidates),     00, 01
                                Initialize-OpenSSL (4.x gate, advice that names
                                Install-DevEnvironment.ps1), Invoke-OpenSSL (always
@@ -180,6 +185,7 @@
  6  WHERE TO CHANGE WHAT
 ====================================================================================================
  CA names, prefix, generation labels, file-name stems   agantra_pki.cnf [ ca_names ]  or  01b_CaNaming.ps1
+NoCR / release words, PQC short label                  agantra_pki.cnf [ ca_names ] NoCrLabel, ReleaseLabel, QuantumLabelShort
  Validity, intermediate algorithms, subject, URLs, SAN  agantra_pki.cnf
  The shape of the PKI (which CAs exist, their keys)     01_Configuration.ps1  (New-PkiCatalog)
  Root key policy (RSA 8192 / P-521 / ML-DSA-87)         01_Configuration.ps1  (constants at the top)

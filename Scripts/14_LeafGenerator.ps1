@@ -941,7 +941,7 @@ function Add-PkiLeafIndex {
     }
     $entry = [ordered]@{
         folder = $FolderName; set = $Set; path = $R.Dir; stem = $R.Stem; level = $Spec.Level; quadrant = $Spec.Quadrant; track = $Spec.Track; fips = $Spec.Fips
-        issuer = $Spec.Ca.Id; keyAlgorithm = $R.Actual.Algorithm; signatureDigest = $R.Md; purposes = @($Spec.Eku)
+        issuer = $Spec.Ca.Id; issuerCommonName = (Get-PkiCaCommonName -Ca $Spec.Ca); pkiRelease = [int]$script:Pki.Release; pkiVariant = $(if ($script:Pki.NoCaRevocationInfo) { 'NoCR' } else { 'normal' }); keyAlgorithm = $R.Actual.Algorithm; signatureDigest = $R.Md; purposes = @($Spec.Eku)
         dns = @($Spec.San.Dns); ip = @($Spec.San.Ip); email = @($Spec.San.Email); developmentSan = [bool]$Spec.DevSan; revocationInfo = [ordered]@{ crlDistributionPoints = (-not [bool]$Spec['NoCrl']); ocsp = (-not [bool]$Spec['NoOcsp']) }; evSanOverride = [bool]$Spec.EvSanOverride
         days = $R.Days; notAfter = $R.NotAfter; timestampPolicyOid = [string]$Spec.TimestampPolicyOid
         sha1 = $R.Sha1; sha256 = $R.Sha256; formats = @($Spec.Formats); files = @($R.Files)

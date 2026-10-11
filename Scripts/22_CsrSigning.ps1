@@ -418,7 +418,7 @@ function Invoke-PkiSignCsr {
     $cnValue = @($info.Subject | Where-Object { $_[0] -ceq 'CN' } | ForEach-Object { $_[1] }) | Select-Object -First 1
     if (-not $Name) { $Name = if ($cnValue) { $cnValue } else { 'csr' } }
     $safe = (($Name -replace '^\*\.', 'wildcard.' -replace '[^A-Za-z0-9._-]+', '-').Trim('-.')); if (-not $safe) { $safe = 'csr' }
-    if (-not $OutRoot) { $OutRoot = Join-Path (Split-Path -Parent $c.PkiRoot) 'csr-signed' }
+    if (-not $OutRoot) { $OutRoot = Join-Path $c.ScriptRoot 'csr-signed' }
     $dir = Join-Path $OutRoot ("{0}_{1}" -f $safe, (Get-Date -Format 'yyyyMMdd-HHmmss'))
     [void][System.IO.Directory]::CreateDirectory($dir)
     $csrOut = Join-Path $dir "$safe.csr"; $crt = Join-Path $dir "$safe.crt"
@@ -494,7 +494,7 @@ function Invoke-PkiSignCsr {
     $finalSubject = if ($ct -match '(?m)^subject=(.+)$') { $Matches[1].Trim() } else { '' }
     $keyDesc = Get-PkiKeyDescription -Csr $info
     $infoJ = [ordered]@{
-        name = $safe; level = $Level; quadrant = $Quadrant; track = $track; fips = $fips; purpose = $Purpose; issuer = $ca.Id; issuerCommonName = $ca["CommonName"]
+        name = $safe; level = $Level; quadrant = $Quadrant; track = $track; fips = $fips; purpose = $Purpose; issuer = $ca.Id; issuerCommonName = $ca["CommonName"]; pkiRelease = [int]$c.Release; pkiVariant = $(if ($c.NoCaRevocationInfo) { 'NoCR' } else { 'normal' })
         subject = $finalSubject; key = $keyDesc; san = $names; days = $days; notAfter = $end; serial = $serial; sha256 = $fp; signatureDigest = $md
         policies = @($policies | ForEach-Object { $_.Oid }); crlDistributionPoint = [bool]$loc.Crl; ocspUrl = [bool](-not $NoOcsp -and $c.OcspUrls.Count -gt 0)
         openSslVerify = $chainOk; warnings = @($r.Findings | Where-Object { $_.Severity -eq 'WARN' } | ForEach-Object { $_.Message })

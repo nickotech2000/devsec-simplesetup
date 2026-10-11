@@ -103,6 +103,11 @@ param(
     # ---- Classic PKI only ----
     [switch]$ClassicPKI,
 
+    # ---- releases and the NoCR variant (every PKI lives in pki\R1, pki\R2, pki\NoCR-R1 ...) ----
+    [switch]$NoCaRevocationInfo,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NewRelease,
+
     # ---- Enterprise Root signed by a public CA (see docs\PUBLIC-CA-ENTERPRISE-ROOT.txt) ----
     [ValidateSet('DigiCert', 'GlobalSign', 'Sectigo', 'Other')][string]$ExternalCa,
     [switch]$EnterpriseRootCsr,
@@ -153,7 +158,7 @@ REQUIREMENTS
   The script runs on Windows 10/11, Linux and macOS. Certificate-store installation
   (-InstallTrust and the Remove options) is Windows only; other systems: see the manual.
 
-HIERARCHY CREATED  (.\pki)
+HIERARCHY CREATED  (.\pki\R1 ; every PKI lives in its own subfolder of .\pki, see RELEASES AND THE NoCR VARIANT)
   Enterprise Root CA                 RSA 8192  SHA-512   1000 years   pathlen 3
   |- Classic Track Root              RSA 8192  SHA-512    500 years   pathlen 2
   |   |- Q1 Root  Non-FIPS           RSA 4096  SHA-384    400 years   pathlen 1
@@ -247,6 +252,29 @@ COMMON NAMES
   The quadrant NUMBERS 1-4 stay in -Quadrant, in the folders and in the internal ids (q3-ev ...).
   Preview: .\pki_setup.ps1 -ShowNames.   A PKI built before 4.9.2 has the old names and policies: rebuild it.
 
+RELEASES AND THE NoCR VARIANT
+  Every PKI is inside the folder .\pki, one subfolder each:
+      pki\R1  pki\R2 ...            normal PKI: CA certificates WITH CRL / OCSP / CA Issuers information
+      pki\NoCR-R1  pki\NoCR-R2 ...  NoCR PKI: CA certificates WITHOUT that information (-NoCaRevocationInfo)
+  A PKI made by an older version sits directly in .\pki and counts as R1 (it keeps working).
+  -NoCaRevocationInfo  Build the NoCR family: the Enterprise Root, Track Roots, Quadrant Roots and intermediates carry
+                       no CDP, no OCSP and no caIssuers. Needed by programs that fail on an unreachable CA
+                       revocation URL (for example a "recoverable" signature in Office). Leaf certificates keep their
+                       own revocation settings (use -NoRevocationInfo on the leaf generators to drop them too).
+                       The NoCR family is a SEPARATE set of roots: remove the trust of the normal PKI and install this
+                       one (.\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust). Leaves of the other family do not chain to it.
+  -Release N           Release number (1-99) to build / verify / reinstall / remove. Default: 1 when building.
+  -NewRelease          Build the next release (latest + 1) of the family: a new Enterprise Root and everything below it.
+                       Existing releases are not touched, so old leaf certificates keep working.
+  Names: release 1 has no suffix; from release 2 every CA name ends in " R2", " R3" ...; NoCR adds " (NoCR)":
+      Agantra Inovatif Enterprise Root CA G1            (R1)
+      Agantra Inovatif Enterprise Root CA G1 R2         (release 2)
+      Agantra Inovatif Enterprise Root CA G1 (NoCR) R2  (NoCR, release 2)
+  Track Roots, Quadrant Roots and intermediates follow; file names and URL slugs get -nocr / -r2 (agantra-q1-ov-g1-nocr-r2).
+  A name longer than 64 characters (Quantum Q-roots) uses "PQC" instead of the Quantum word automatically.
+  Leaf names are not changed. The other scripts use the LATEST release by default; -Release N picks one, and a release
+  that no longer exists falls back to the latest with a warning. Remove a release: .\pki_remove.ps1 -Help.
+
 USAGE
   .\pki_setup.ps1 -Check                      preflight: is this machine ready? (writes nothing)
   .\pki_setup.ps1 -ShowNames                  show the names of all CAs that would be created
@@ -260,9 +288,12 @@ USAGE
   .\pki_setup.ps1 -OpenSslPath 'C:\Program Files\OpenSSL\bin\openssl.exe'
   .\pki_setup.ps1 -Verify                     re-validate an existing PKI (and show Windows trust)
   .\pki_setup.ps1 -Unblock                     unblock all scripts and PKI files, list lock holders
-  .\pki_setup.ps1 -RemoveTrust                 remove this PKI from Windows
-  .\pki_setup.ps1 -RemoveAllTrust              remove every Agantra / NextMantra certificate
+  .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust   NoCR PKI (CA certificates without CRL / OCSP / AIA)
+  .\pki_setup.ps1 -NewRelease -InstallTrust    release R2 (R3 ...) beside the existing ones
+  .\pki_setup.ps1 -RemoveTrust -Release 2      remove the trust of release 2 (add -NoCaRevocationInfo for NoCR)
+  .\pki_setup.ps1 -RemoveAllTrust              remove EVERY release and variant from Windows
                                                AND delete the .\pki folder with all contents
+  .\pki_remove.ps1 -List                       list the installed PKIs (see its -Help)
   .\pki_setup.ps1 -Verbose                     show every OpenSSL command
   .\pki_setup.ps1 -Help
 
@@ -278,7 +309,7 @@ LEAF CERTIFICATES  (Phase B)
 
 CRL, OCSP AND TIME STAMPING INFORMATION  (made with the PKI unless -SkipRevocation)
   After the CAs: one OCSP responder certificate per Classic intermediate (pki\ocsp\<ca>\), the time stamping certificate (pki\tsa\<ca>\; Classic
-  non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\publish\ and pki\revocation-info.json + REVOCATION-INFO.txt.
+  non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\R<n>\publish\ and pki\R<n>\revocation-info.json + REVOCATION-INFO.txt.
   -CrlDays N  -OcspDays N  -TimestampQuadrant 1|2|3|4  -TimestampPolicyOid <oid>  -TimestampDays N  -SkipRevocation.
   Show / edit / renew / revoke later: .\PkiRevocation.ps1 -Help.   E-mail leaf certificates carry emailProtection AND clientAuth.
   Server: .\New-PkiServerPackage.ps1 makes a zip of the Linux scripts and the PKI WITHOUT private keys for Ubuntu 24.04 / 26.04.
@@ -326,7 +357,7 @@ CONFIGURATION FILE   (agantra_pki.cnf replaces ev_pki.cnf)
                        Holds validity, intermediate algorithms, CA subject, CRL / OCSP /
                        CA Issuers URLs ({ca} = issuing CA), SAN set, leaf subject fields,
                        custom policies and the CA names ([ ca_names ]).
-  -PkiRoot <path>      Output folder.                       Default: .\pki
+  -PkiRoot <path>      Output folder of ONE PKI.            Default: .\pki\R<release> (NoCR: .\pki\NoCR-R<release>)
   -OpenSslPath <path>  openssl.exe to use (must be 4.x).    Default: PATH, then common folders
   -FipsModuleConfig <path>
                        fipsmodule.cnf made by "openssl fipsinstall". Required when quadrant
@@ -396,7 +427,7 @@ LEAF / OUTPUT OPTIONS
   -OcspDays N          Validity of an OCSP responder certificate (default 365).
   -TimestampQuadrant 1|2|3|4   Quadrant of the time stamping certificate (default 1 = Classic non-FIPS; the rest is prepared).
   -TimestampPolicyOid <oid>    Time stamp policy OID (default <PEN arc>.4, [ timestamp ] PolicyOid).   -TimestampDays N   Its validity (1825).
-  Leaf files in .\pki\leaf: <name>.crt .key -fullchain.crt .pfx (+ -fips.pfx for FIPS leaves:
+  Leaf files in .\pki\R<n>\leaf: <name>.crt .key -fullchain.crt .pfx (+ -fips.pfx for FIPS leaves:
                        FIPS-conformant container; Windows imports the normal .pfx)
   GenerateLeafCertificate.ps1 (Phase B) issues every other kind of leaf.
 
@@ -417,16 +448,17 @@ WINDOWS TRUST   (elevated PowerShell; other modes need no elevation)
                        Server 2025. Each certificate is installed with .NET, then certutil.exe if
                        needed, and checked by thumbprint. A CA certificate that cannot be installed
                        stops the run with an error; a leaf PFX Windows cannot import is a warning.
-  -ReinstallTrust      Install the PKI that ALREADY EXISTS in .\pki into the Windows stores again, without
+  -ReinstallTrust      Install the PKI (-Release N, else the latest) that ALREADY EXISTS in .\pki into the Windows stores again, without
                        regenerating anything and without OpenSSL: puts roots in Trusted Root, intermediates
                        in Intermediate, moves certificates found in the wrong store. Use it after an update
                        or when -Verify reports certificates in the wrong store.
-  -Clean               Remove this PKI's trust and the .\pki folder first.
-  -RemoveTrust         Remove only this PKI (by thumbprint) from Root, CA and My.
-                       The files stay on disk.
+  -Clean               Remove this PKI's trust (this release / variant only) and its folder first.
+  -RemoveTrust         Remove only this PKI (one release / variant, by thumbprint and by CA name) from Root, CA and My.
+                       Several releases installed: -Release N is required (-NoCaRevocationInfo for NoCR). Files stay on disk.
+                       Also: .\pki_remove.ps1 -Release N [-DeleteFiles].
   -RemoveAllTrust      Remove EVERY certificate whose subject or issuer contains
                        'Agantra Inovatif' or 'NextMantra' from Root, CA and My, then delete
-                       the .\pki folder: all contents and the folder itself.
+                       the .\pki folder: ALL releases and BOTH variants, all contents and the folder itself.
   Certificates that are already gone from the stores are ignored and the run continues.
   Linux, macOS, FreeBSD and the browsers' own stores: install pki\root\root.crt as described
   in docs\pki_setup-MANUAL.txt.
@@ -460,7 +492,7 @@ CHECK / VERIFY  (read-only; nothing in the PKI folder or the stores is changed)
 OTHER
   -Verbose             Show OpenSSL commands.        -Help   This help.
 
-OUTPUT (.\pki)
+OUTPUT (.\pki\R<n>  or  .\pki\NoCR-R<n>)
   root\root.crt/.key/.pfx                         Enterprise Root CA (public CA: external-chain.pem,
                                                   external-request.txt, cross-sign\)
   classical\root\  quantum\root\                  Track Roots
@@ -485,7 +517,7 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   * RSA 8192 CA keys are slow to sign and verify; P-521 CA keys are validated by all listed
     platforms, but some TLS stacks restrict P-521 for TLS handshakes (leaves are P-256).
   * UC Browser and QQ Browser are not verified: they may use their own certificate store.
-  * The CRL / OCSP / CA Issuers URLs help only when the files in .\pki\publish are served there.
+  * The CRL / OCSP / CA Issuers URLs help only when the files in .\pki\R<n>\publish are served there.
   * Windows: -Verify asks the Windows chain engine itself whether it accepts every leaf chain. ML-DSA
     chains need Windows 11 24H2+ / Server 2025; the result on your machine is the proof.
   * OpenSSL 4.0 is a short-support release (about May 2027); the OpenSSL 3.5 LTS runs to 2030.
@@ -535,7 +567,12 @@ try {
     $PkiModuleSet = 'All'
     . (Join-Path $script:ScriptRoot 'scripts/PkiModules.ps1')
 
-    Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:($VerbosePreference -eq 'Continue')
+    # which PKI folder: building a PKI = (variant, release) exactly; -RemoveTrust must name the release when several exist;
+    # the other administration modes take the requested release or the latest
+    $rootMode = if ($RemoveTrust) { 'Strict' }
+                elseif ($Verify -or $ReinstallTrust -or $CrossSignCsr -or $ImportCrossCert) { 'Exact' }
+                else { 'Generate' }
+    Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:($VerbosePreference -eq 'Continue') -RootMode $rootMode
     Invoke-PkiMain
     exit 0
 }

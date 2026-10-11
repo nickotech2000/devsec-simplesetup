@@ -105,7 +105,7 @@ function Invoke-PkiSignExternalCa {
     # --- the output folder ---
     if (-not $Name) { $Name = if ($subject -match 'CN\s*=\s*(?<cn>[^,/]+)') { $Matches['cn'].Trim() } else { 'external-ca' } }
     $safe = (($Name -replace '[^A-Za-z0-9._-]+', '-').Trim('-.')); if (-not $safe) { $safe = 'external-ca' }
-    if (-not $OutRoot) { $OutRoot = Join-Path (Split-Path -Parent $c.PkiRoot) 'external-ca' }
+    if (-not $OutRoot) { $OutRoot = Join-Path $c.ScriptRoot 'external-ca' }
     $dir = Join-Path $OutRoot ("{0}_{1}" -f $safe, (Get-Date -Format 'yyyyMMdd-HHmmss'))
     [void][System.IO.Directory]::CreateDirectory($dir)
     $csrOut = Join-Path $dir "$safe.csr"; $crt = Join-Path $dir "$safe.crt"
@@ -116,7 +116,8 @@ function Invoke-PkiSignExternalCa {
     $L = [System.Collections.Generic.List[string]]::new()
     foreach ($h in (Get-PkiProviderConfigHeader -Fips ([bool]$Signer.Fips))) { [void]$L.Add($h) }
     $refs = Add-PkiPolicySections -Lines $L -Policies $policies -Prefix 'lp'
-    $loc = Add-PkiLocationSections -Lines $L -IssuerSlug $Signer.Slug -Prefix 'll'
+    # a NoCR PKI (-NoCaRevocationInfo) gives its CA certificates no CRL / OCSP / CA Issuers URL: the department CA gets none either
+    $loc = if ([bool]$script:Pki.NoCaRevocationInfo) { @{ Crl = $false; Aia = $false } } else { Add-PkiLocationSections -Lines $L -IssuerSlug $Signer.Slug -Prefix 'll' }
     $nc = @()
     foreach ($d in $PermitDns) { if ($d) { $nc += "permitted;DNS:$d" } }
     foreach ($m in $PermitEmail) { if ($m) { $nc += "permitted;email:$m" } }

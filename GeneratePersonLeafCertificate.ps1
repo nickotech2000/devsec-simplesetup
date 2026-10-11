@@ -68,6 +68,8 @@ param(
     [switch]$Verbose,
     [string]$ConfigFile,
     [string]$PkiRoot,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NoCaRevocationInfo,
     [string]$OpenSslPath,
     [string]$FipsModuleConfig
 )
@@ -153,6 +155,10 @@ CERTIFICATE OPTIONS
   -OutputRoot <path>     Default leafcerts\persons.
   -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then stop.
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
+  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
+                       (deleted) is not an error: the latest release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
 
 DEFAULTS IN agantra_pki.cnf   [ person ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  Curve  DnsFromEmail  NoCrl  NoOcsp
 EXIT CODES   0 ok   1 an error or a failed person

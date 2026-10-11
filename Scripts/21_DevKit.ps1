@@ -69,6 +69,8 @@ function Write-PkiDevKitEnv {
     [void]$L.Add("TSA_DAYS=$($ts.Days)")
     [void]$L.Add("TSA_POLICY_OID=$(& $q ([string]$ts.PolicyOid))")
     [void]$L.Add("RSA_PSS=$(if ($c.RsaPss) { 1 } else { 0 })")
+    [void]$L.Add("PKI_RELEASE=$([int]$c.Release)")
+    [void]$L.Add("PKI_VARIANT=$(& $q $(if ($c.NoCaRevocationInfo) { 'NoCR' } else { 'normal' }))")
     [void]$L.Add("OCSP_DAYS=$([int]$c.OcspDays)")
     foreach ($pair in @(@('PERSON_', (Get-PkiPersonSettings)), @('OFFICE_', (Get-PkiOfficeSettings)))) {
         $pre = $pair[0]; $s = $pair[1]
@@ -86,7 +88,8 @@ function Write-PkiDevKitEnv {
         $fam = if ($null -ne $ca.Actual) { [string]$ca.Actual.Family } else { 'rsa' }
         $md = Get-PkiIssueMd -Kind 'intermediate' -Family $fam
         [void]$ids.Add($ca.Id)
-        [void]$L.Add("CA_$($ca.Id -replace '-', '_')=$(& $q "$base|$($ca.Slug)|$fam|$md")")
+        $slugBase = $ca.Slug -replace '(-nocr)?(-r\d+)?$', ''      # the shell adds -nocr / -rN itself, from the manifest of the PKI folder it picks
+        [void]$L.Add("CA_$($ca.Id -replace '-', '_')=$(& $q "$base|$slugBase|$fam|$md")")
     }
     [void]$L.Add("CA_IDS=$(& $q ($ids -join ' '))")
     Write-Utf8NoBom -Path $Path -Content (($L -join "`n") + "`n")

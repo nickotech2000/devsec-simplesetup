@@ -22,24 +22,50 @@ function Write-PkiFolderMarker {
 }
 
 function Test-PkiFolderIsSafeToDelete {
+    # pki (the container, or an old flat PKI) or pki\R1, pki\R2, pki\NoCR-R1 ... that holds a PKI of this generator
     param([Parameter(Mandatory)][string]$Path)
     $full = [System.IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
     $leaf = Split-Path -Leaf $full
-    if ($leaf -ne 'pki') { return $false }
     $parent = Split-Path -Parent $full
     if ([string]::IsNullOrWhiteSpace($parent)) { return $false }          # drive root
     if ($full.Length -lt 8) { return $false }
+    $nameOk = ($leaf -eq 'pki') -or (($leaf -match '^(?i)(NoCR-)?R\d+$') -and ((Split-Path -Leaf $parent) -eq 'pki'))
+    if (-not $nameOk) { return $false }
     # telemetry.json is NOT accepted as a marker: a refused run writes it into any folder.
     return ((Test-Path -LiteralPath (Join-Path $full $script:PkiFolderMarker)) -or
             (Test-Path -LiteralPath (Join-Path $full 'pki-manifest.json')) -or
             (Test-Path -LiteralPath (Join-Path $full 'root' 'root.crt')))
 }
 
+function Test-PkiFolderIsContainer {
+    # <script folder>\pki that holds release subfolders (R1, R2, NoCR-R1 ...)
+    param([Parameter(Mandatory)][string]$Path)
+    $full = [System.IO.Path]::GetFullPath($Path).TrimEnd('\', '/')
+    if ((Split-Path -Leaf $full) -ne 'pki') { return $false }
+    return (@(Get-ChildItem -LiteralPath $full -Directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^(?i)(NoCR-)?R\d+$' }).Count -gt 0)
+}
+
 function Remove-PkiOutput {
-    $dir = [System.IO.Path]::GetFullPath($script:Pki.PkiRoot).TrimEnd('\', '/')
+    # -Whole: the folder pki with EVERY release and variant in it (-RemoveAllTrust, pki_remove -All)
+    param([string]$Path, [switch]$Whole)
+    $dir = [System.IO.Path]::GetFullPath($(if ($Path) { $Path } else { $script:Pki.PkiRoot })).TrimEnd('\', '/')
     if (-not (Test-Path -LiteralPath $dir)) { Write-PkiLog "Nothing to clean: $dir does not exist."; return }
-    if (-not (Test-PkiFolderIsSafeToDelete -Path $dir)) {
-        throw "Refusing to delete '$dir': it is not a folder named 'pki' that contains a PKI created by this generator."
+    $safe = if ($Whole) {
+        ((Split-Path -Leaf $dir) -eq 'pki') -and ($dir.Length -ge 8) -and ((@(Get-PkiInstalledPkis -ScriptRoot (Split-Path -Parent $dir)).Count -gt 0) -or (Test-Path -LiteralPath (Join-Path $dir $script:PkiFolderMarker)) -or (Test-PkiFolderIsContainer -Path $dir))
+    } else { Test-PkiFolderIsSafeToDelete -Path $dir }
+    if (-not $safe) {
+        throw "Refusing to delete '$dir': it is not the folder pki, pki\R<n> or pki\NoCR-R<n> that contains a PKI created by this generator."
+    }
+
+    # An OLD flat PKI in pki\ that sits beside release folders (pki\R2 ...): remove only the flat PKI, never the releases.
+    if (-not $Whole -and (Test-PkiFolderIsContainer -Path $dir)) {
+        Write-PkiLog "pki\ holds release folders: only the old flat PKI in it is removed, pki\R* and pki\NoCR-R* stay." 'INFO'
+        foreach ($item in (Get-ChildItem -LiteralPath $dir -Force)) {
+            if ($item.PSIsContainer -and $item.Name -match '^(?i)(NoCR-)?R\d+$') { continue }
+            try { Remove-Item -LiteralPath $item.FullName -Recurse -Force } catch { Write-PkiLog "Could not remove $($item.FullName): $($_.Exception.Message.Split("`n")[0])" 'WARN' }
+        }
+        Write-PkiLog "Removed the old flat PKI in $dir" 'OK'
+        return
     }
 
     # Safe now: leave a marker first so an interrupted clean can be repeated.
@@ -106,6 +132,13 @@ function Assert-GenerationModeIsSafe {
     if (@($trustModes).Count -gt 1) { throw 'Use only one of -RemoveTrust and -RemoveAllTrust.' }
     if (($c.RemoveTrust -or $c.RemoveAllTrust) -and ($c.InstallTrust -or $c.Clean)) {
         throw '-RemoveTrust / -RemoveAllTrust cannot be combined with -InstallTrust or -Clean.'
+    }
+    if ($c.Bound.Contains('NewRelease') -and [bool]$c.Bound['NewRelease']) {
+        if ($c.Bound.Contains('Release')) { throw '-NewRelease and -Release cannot be combined: -NewRelease takes the next free release number.' }
+        if ($c.Clean -or $c.RemoveTrust -or $c.RemoveAllTrust -or $c.ReinstallTrust -or $c.VerifyOnly -or $c.CheckOnly -or $c.UnblockOnly) { throw '-NewRelease builds a new PKI next to the others; it cannot be combined with -Clean, -RemoveTrust, -RemoveAllTrust, -ReinstallTrust, -Verify, -Check or -Unblock.' }
+    }
+    if ($c.RemoveAllTrust -and ($c.Bound.Contains('Release') -or ($c.Bound.Contains('NoCaRevocationInfo') -and [bool]$c.Bound['NoCaRevocationInfo']))) {
+        throw '-RemoveAllTrust removes EVERY release and variant; -Release / -NoCaRevocationInfo are not allowed with it. For one release use -RemoveTrust -Release <n> [-NoCaRevocationInfo], or pki_remove.ps1.'
     }
     $readOnlyModes = @($c.UnblockOnly, $c.CheckOnly, $c.VerifyOnly, $c.ShowNamesOnly) | Where-Object { $_ }
     if (@($readOnlyModes).Count -gt 1) { throw 'Use only one of -Unblock, -Check, -Verify and -ShowNames.' }

@@ -31,6 +31,7 @@ $script:PkiModuleCatalog = @(
     @{ File = '00_Common.ps1';               Sets = 'All', 'Library', 'Trust', 'Transport'; Purpose = 'logging, steps, telemetry, PEM helpers, minimal context' }
     @{ File = '01_Configuration.ps1';        Sets = 'All', 'Library';          Purpose = 'configuration, CA catalog (the hierarchy), policies' }
     @{ File = '01b_CaNaming.ps1';            Sets = 'All', 'Library';          Purpose = 'names of all roots and intermediates' }
+    @{ File = '01c_Releases.ps1';            Sets = 'All', 'Library';          Purpose = 'releases (R2, R3 ...) and the NoCR variant: PKI folders, which PKI a script uses' }
     @{ File = '02_OpenSSL.ps1';              Sets = 'All', 'Library', 'Transport'; Purpose = 'OpenSSL 4 gate, providers, keys' }
     @{ File = '03_RuntimeConfig.ps1';        Sets = 'All', 'Library';          Purpose = 'OpenSSL configuration files, policies, DN' }
     @{ File = '04_CertificateAuthority.ps1'; Sets = 'All', 'Library';          Purpose = 'builds the CAs, CRLs, publish files' }

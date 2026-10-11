@@ -60,15 +60,73 @@ pki_rand_serial() {
   printf '%x%s' $(( (0x${h:0:1} % 7) + 1 )) "${h:1}"
 }
 
+# ---------------------------------------------------------------- which PKI: releases (R2, R3 ...) and the NoCR variant
+# The PKIs are folders:  pki/R1  pki/R2  pki/NoCR-R1  pki/NoCR-R2 ...   A PKI of an older version (and the PKI of a DevKit) sits directly in pki/
+# (release and variant are then read from its pki-manifest.json; no entry = release 1, normal).
+# The scripts offer   --release N   and   --no-ca-revocation-info   (PKI_WANT_REL, PKI_WANT_NOCR).  Default: the LATEST release of the
+# normal family (the NoCR family when only that exists). A release that does not exist any more (deleted) is NOT an error: the latest is used, with a warning.
+PKI_WANT_REL=""; PKI_WANT_NOCR=""
+PKI_DIR=""; PKI_REL=1; PKI_NOCR=0; PKI_SLUG_SUFFIX=""
+
+pki_manifest_field() {   # <manifest.json> <key>  ->  value (empty when the key is missing)
+  grep -o "\"$2\": *[^,}]*" "$1" 2>/dev/null | head -1 | sed 's/^[^:]*: *//; s/[" ]//g'
+}
+
+pki_scan() {   # one line per PKI:  path|release|nocr(0/1)
+  local d n rel nocr v
+  for d in "$PKI_KIT_DIR/pki" "$PKI_KIT_DIR"/pki/R[0-9]* "$PKI_KIT_DIR"/pki/NoCR-R[0-9]*; do
+    [ -d "$d" ] || continue
+    [ -f "$d/pki-manifest.json" ] || [ -f "$d/root/root.crt" ] || continue
+    n="$(basename "$d")"; rel=1; nocr=0
+    case "$n" in NoCR-R[0-9]*) nocr=1; rel="${n#NoCR-R}" ;; R[0-9]*) rel="${n#R}" ;; esac
+    if [ -f "$d/pki-manifest.json" ]; then
+      v="$(pki_manifest_field "$d/pki-manifest.json" release)"; [ -n "$v" ] && rel="$v"
+      v="$(pki_manifest_field "$d/pki-manifest.json" noCaRevocationInfo)"
+      [ "$v" = true ] && nocr=1; [ "$v" = false ] && nocr=0
+    fi
+    printf '%s|%s|%s\n' "$d" "$rel" "$nocr"
+  done
+}
+
+pki_select_pki() {
+  [ -n "$PKI_DIR" ] && return 0
+  local all fam want_nocr=0 line best="" bestrel=-1 hit="" d r n nn
+  all="$(pki_scan)"
+  [ -n "$all" ] || pki_die "No PKI found in $PKI_KIT_DIR/pki. Run Install-PkiTrust (.ps1 on Windows, .sh on Linux) first: it unpacks the .certpacked."
+  if [ "$PKI_WANT_NOCR" = 1 ]; then want_nocr=1
+  elif ! printf '%s\n' "$all" | grep -q '|0$'; then want_nocr=1; pki_info "Only a NoCR PKI exists here: using it."; fi
+  fam="$(printf '%s\n' "$all" | grep "|$want_nocr\$" || true)"
+  [ -n "$fam" ] || pki_die "No $([ $want_nocr = 1 ] && echo NoCR || echo normal) PKI found in $PKI_KIT_DIR/pki."
+  while IFS='|' read -r d r n; do
+    [ -z "$d" ] && continue
+    if [ "$r" -gt "$bestrel" ]; then bestrel="$r"; best="$d"; fi
+    [ -n "$PKI_WANT_REL" ] && [ "$r" = "$PKI_WANT_REL" ] && hit="$d"
+  done <<EOF
+$fam
+EOF
+  if [ -n "$PKI_WANT_REL" ] && [ -z "$hit" ]; then
+    pki_warn "Release R$PKI_WANT_REL does not exist here (deleted?). Using the latest release, R$bestrel."
+  fi
+  PKI_DIR="${hit:-$best}"
+  PKI_REL="$(printf '%s\n' "$fam" | grep -F "$PKI_DIR|" | head -1 | cut -d'|' -f2)"
+  PKI_NOCR="$want_nocr"
+  PKI_SLUG_SUFFIX=""
+  [ "$PKI_NOCR" = 1 ] && PKI_SLUG_SUFFIX="-nocr"
+  [ "$PKI_REL" -gt 1 ] && PKI_SLUG_SUFFIX="$PKI_SLUG_SUFFIX-r$PKI_REL"
+  PKI_LABEL="$([ "$PKI_NOCR" = 1 ] && printf 'NoCR ')R$PKI_REL"
+}
+
 # ---------------------------------------------------------------- the issuing CA
 # pki_ca_info <q1|q2> <ov|ev|dv>  -> CA_BASE (path prefix without extension), CA_SLUG, CA_FAMILY, CA_MD, CA_KEY, CA_CRT, CA_CHAIN
+#   (and PKI_DIR / PKI_REL / PKI_LABEL: the PKI that was chosen, see above)
 pki_ca_info() {
   local id="${1}-${2}" var rec
+  pki_select_pki
   var="CA_$(printf '%s' "$id" | tr '-' '_')"
   rec="${!var:-}"
   [ -n "$rec" ] || pki_die "This PKI has no CA '$id' (devkit.env lists: $CA_IDS)."
-  CA_BASE="$PKI_KIT_DIR/pki/$(printf '%s' "$rec" | cut -d'|' -f1)"
-  CA_SLUG="$(printf '%s' "$rec" | cut -d'|' -f2)"
+  CA_BASE="$PKI_DIR/$(printf '%s' "$rec" | cut -d'|' -f1)"
+  CA_SLUG="$(printf '%s' "$rec" | cut -d'|' -f2)$PKI_SLUG_SUFFIX"
   CA_FAMILY="$(printf '%s' "$rec" | cut -d'|' -f3)"
   CA_MD="$(printf '%s' "$rec" | cut -d'|' -f4)"
   CA_KEY="$CA_BASE.key"; CA_CRT="$CA_BASE.crt"; CA_CHAIN="${CA_BASE}-chain.crt"

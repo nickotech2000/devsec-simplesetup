@@ -62,6 +62,8 @@ OPTIONS
   --check                  only check the request, sign nothing             --strict      warnings count as errors
   --no-color               plain text (also NO_COLOR=1)                     --list        list the earlier requests
   --openssl FILE           the openssl to use                               --pki-home DIR   the PKI home (DevKit folder, or the project folder)
+  --release N              the release of the PKI (R1, R2 ...). Default: the LATEST. A deleted release = the latest, with a warning.
+  --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the normal family.
   --help, -h               this text                                        --version
 EXAMPLES
   ./SignCsr.sh --csr web01.csr                                   DV, Classic non-FIPS (q1-dv), TLS server
@@ -85,6 +87,7 @@ while [ $# -gt 0 ]; do
     --purpose) PURPOSE="$2"; shift ;; --days) DAYS="$2"; shift ;; --name) NAME="$2"; shift ;; --out) OUT="$2"; shift ;; --policy) POLICY="$POLICY $2"; shift ;;
     --no-crl) NOCRL=1 ;; --no-ocsp) NOOCSP=1 ;; --no-revocation-info) NOCRL=1; NOOCSP=1 ;;
     --check) CHECK=1 ;; --strict) STRICT=1 ;; --no-color) NOCOLOR=1 ;; --list) LIST=1 ;;
+    --release) PKI_WANT_REL="$2"; shift ;; --no-ca-revocation-info) PKI_WANT_NOCR=1 ;;
     --openssl) OSSL="$2"; shift ;; --pki-home) export PKI_HOME="$2"; shift ;;
     --version) echo "SignCsr.sh $VERSION"; exit 0 ;; --help|-h) usage; exit 0 ;;
     *) pki_die "unknown option '$1'. See ./SignCsr.sh --help" ;;
@@ -212,7 +215,7 @@ fi
 cat "$CRT" "$CA_CHAIN" > "$DIR/$SAFE-fullchain.crt"
 cp "$CA_CHAIN" "$DIR/$SAFE-chain.crt"
 ROOTS="$PKI_KIT_DIR/ca/ca-bundle-roots.crt"
-[ -f "$ROOTS" ] || ROOTS="$PKI_KIT_DIR/pki/root/root.crt"       # the original PKI has no ca/ folder
+[ -f "$ROOTS" ] || ROOTS="$PKI_DIR/root/root.crt"       # the original PKI has no ca/ folder
 [ -f "$ROOTS" ] && cp "$ROOTS" "$DIR/root.crt"
 if [ -f "$ROOTS" ]; then cat "$CA_CHAIN" "$ROOTS" > "$DIR/our-ca-bundle.crt"; else cp "$CA_CHAIN" "$DIR/our-ca-bundle.crt"; fi
 "$OPENSSL" x509 -in "$CRT" -outform DER -out "$DIR/$SAFE.cer" 2>/dev/null

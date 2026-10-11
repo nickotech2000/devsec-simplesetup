@@ -45,6 +45,8 @@ param(
     [switch]$Verbose,
     [string]$ConfigFile,
     [string]$PkiRoot,
+    [ValidateRange(1, 99)][int]$Release,
+    [switch]$NoCaRevocationInfo,
     [string]$OpenSslPath,
     [string]$FipsModuleConfig
 )
@@ -66,7 +68,7 @@ function Show-PkiRevocationHelp {
 
 WHAT IT DOES
   pki_setup.ps1 already makes, with the PKI:   one OCSP responder certificate per Classic intermediate CA  (pki\ocsp\<ca>\),
-  one time stamping certificate (pki\tsa\<ca>\), the CRLs (pki\publish\) and pki\revocation-info.json / REVOCATION-INFO.txt.
+  one time stamping certificate (pki\R<n>\tsa\<ca>\), the CRLs (pki\R<n>\publish\) and pki\R<n>\revocation-info.json / REVOCATION-INFO.txt.
   This script SHOWS them and lets you EDIT them. A certificate cannot be edited: "edit" = change a value and issue it again
   (-Replace archives the old one to old-<date>\), and for a CRL = make a new CRL (new number, new validity).
 
@@ -96,7 +98,11 @@ OPTIONS
   -Ca <ids>             CA id(s): q1-ev, q1-ov, q1-dv, q2-ev ... (intermediates) or any CA for -Action NewCrl.
   -OcspDays N           Validity of an OCSP responder certificate (default 365, [ revocation ] OcspDays).
   -Unblock              UNBLOCK and UNLOCK the script folder and the pki folder, children and recursive, then stop.
-  -ConfigFile <path>    agantra_pki.cnf (default next to the script).    -PkiRoot <path>   The PKI folder (default .\pki).
+  -ConfigFile <path>    agantra_pki.cnf (default next to the script).    -PkiRoot <path>   The PKI folder (default: the latest release in .\pki\).
+  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
+                       (deleted) is not an error: the latest release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
   -OpenSslPath <path>   openssl 4.x.   -FipsModuleConfig <path>   fipsmodule.cnf.   -Verbose   Every OpenSSL command.   -Help   This text.
 
 AFTER A CHANGE
