@@ -11,6 +11,8 @@
 #   EKU       clientAuth + emailProtection      Key usage  digitalSignature + keyAgreement (EC) | keyEncipherment (RSA)
 #   Key       Classic only (RSA / ECDSA P-384 default); Quadrant 1 non-FIPS by default, Quadrant 2 FIPS on request; level OV (EV on request, never DV)
 #   Input     one JSON file with many persons ("isGenerate": true | false per person)   (optional) qcStatements: QcType eSign, never QcCompliance
+# The same module serves GenerateOffice365LeafCertificate.ps1 (Profile office365: EKU emailProtection + documentEncryption + documentSigning,
+# key usage digitalSignature + nonRepudiation + keyEncipherment | keyAgreement, ID optional, folder leafcerts\office365).
 # Used by GeneratePersonLeafCertificate.ps1 through New-PkiLeafSpec / New-PkiLeafCertificate (module 14).
 # Depends on: 00, 01, 01b, 03, 14
 # ============================================================
@@ -116,16 +118,17 @@ function ConvertTo-PkiPersonEntry {
         $nm = (@($r['GivenName'], $r['Surname']) | Where-Object { $_ }) -join ' '
         return [ordered]@{ Line = $line; Skip = $true; Label = "$nm ($($r['IdCode']))"; IdCode = [string]$r['IdCode']; SerialNumber = [string]$r['SerialNumber']; Email = [string]$r['Email'] }
     }
-    foreach ($req in 'IdCode', 'GivenName', 'Surname', 'Email') { if (-not ($r.Contains($req) -and "$($r[$req])" -ne '') -and -not ($Defaults.ContainsKey($req) -and "$($Defaults[$req])" -ne '')) { throw "${where}: $req is missing." } }
+    $idReq = if ($Defaults.ContainsKey('IdRequired')) { [bool]$Defaults['IdRequired'] } else { $true }
+    foreach ($req in @('IdCode', 'GivenName', 'Surname', 'Email') | Where-Object { $_ -ne 'IdCode' -or $idReq }) { if (-not ($r.Contains($req) -and "$($r[$req])" -ne '') -and -not ($Defaults.ContainsKey($req) -and "$($Defaults[$req])" -ne '')) { throw "${where}: $req is missing." } }
     $idCode = ([string](& $get 'IdCode' '')).Trim()
     $country = ([string](& $get 'Country' 'EE')).Trim().ToUpperInvariant()
     $idType = ([string](& $get 'IdType' '')).Trim().ToUpperInvariant()
     $given = ([string](& $get 'GivenName' '')).Trim() -replace '\s+', ' '
     $sur = ([string](& $get 'Surname' '')).Trim() -replace '\s+', ' '
-    $label = "$sur $given ($idCode)"
+    $label = if ($idCode -ne '') { "$sur $given ($idCode)" } else { "$sur $given" }
     if ($country -notmatch '^[A-Z]{2}$') { throw "${where} [$label]: Country must be a two-letter ISO code (EE, ID, FI ...), got '$country'." }
     if ($idType -ne '' -and $idType -notmatch '^[A-Z0-9]{2,6}$') { throw "${where} [$label]: IdType is a short code of 2 to 6 letters / digits (PNO, PAS, IDC, TIN, NIK, DL ...), got '$idType'." }
-    if ($idCode -notmatch '^[A-Za-z0-9][A-Za-z0-9 ._/:+()\-]{0,62}[A-Za-z0-9]$') { throw "${where} [$label]: the ID '$idCode' must be 2 to 64 characters: letters, digits and . _ / : + ( ) - (not at the ends)." }
+    if ($idCode -ne '' -and $idCode -notmatch '^[A-Za-z0-9][A-Za-z0-9 ._/:+()\-]{0,62}[A-Za-z0-9]$') { throw "${where} [$label]: the ID '$idCode' must be 2 to 64 characters: letters, digits and . _ / : + ( ) - (not at the ends)." }
     if ([bool]$Defaults['CheckEstonianId'] -and $country -eq 'EE' -and -not (Test-PkiEstonianIdCode -Code $idCode)) {
         throw "${where} [$label]: '$idCode' is not a valid Estonian personal code (11 digits with check digit)."
     }
@@ -150,7 +153,7 @@ function ConvertTo-PkiPersonEntry {
     $upper = { param($x) if ($keep) { $x } else { $x.ToUpperInvariant() } }
     $serialNumber = ([string](& $get 'SerialNumber' '')).Trim()
     if ($serialNumber -eq '') { $serialNumber = ([string]$Defaults['SerialNumberFormat']).Replace('{IdType}', $idType).Replace('{Country}', $country).Replace('{IdCode}', $idCode) }
-    if ($serialNumber.Length -lt 1 -or $serialNumber.Length -gt 64) { throw "${where} [$label]: the serial number '$serialNumber' must be 1 to 64 characters (X.520)." }
+    if ($serialNumber.Length -gt 64 -or ($serialNumber.Length -lt 1 -and $idCode -ne '')) { throw "${where} [$label]: the serial number '$serialNumber' must be 1 to 64 characters (X.520)." }
     $cn = ([string](& $get 'CommonName' '')).Trim()
     if ($cn -eq '') {
         $fmt = [string]$Defaults['CommonNameFormat']
@@ -161,7 +164,7 @@ function ConvertTo-PkiPersonEntry {
     $folder = ([string](& $get 'Name' '')).Trim()
     if ($folder -eq '') {
         # file-system name only: strip diacritics (Männik -> Mannik); the certificate keeps the real characters
-        $fs = ("$idCode-$sur-$given").Normalize([Text.NormalizationForm]::FormD)
+        $fs = $(if ($idCode -ne '') { "$idCode-$sur-$given" } else { "$sur-$given" }).Normalize([Text.NormalizationForm]::FormD)
         $fs = (($fs.ToCharArray() | Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' }) -join '').Normalize([Text.NormalizationForm]::FormC)
         $fs = $fs -replace 'ß','ss' -replace 'ø','o' -replace 'Ø','O' -replace 'æ','ae' -replace 'Æ','AE' -replace 'đ','d' -replace 'ł','l' -replace 'Ł','L'
         $folder = ($fs -replace '[^A-Za-z0-9._-]+', '-').Trim('-', '.')
@@ -181,7 +184,7 @@ function Get-PkiPersonDn {
     # Same order as the national ID card:  serialNumber, givenName, surname, CN, C   (UTF-8, no transliteration: õ ä ö ü stay)
     param([Parameter(Mandatory)]$Entry)
     $pairs = [System.Collections.Generic.List[object]]::new()
-    [void]$pairs.Add(@('serialNumber', $Entry.SerialNumber))
+    if ($Entry.SerialNumber) { [void]$pairs.Add(@('serialNumber', $Entry.SerialNumber)) }
     [void]$pairs.Add(@('givenName', $Entry.GivenName))
     [void]$pairs.Add(@('surname', $Entry.Surname))
     [void]$pairs.Add(@('CN', $Entry.CommonName))
@@ -206,11 +209,12 @@ function New-PkiPersonOptions {
     param([Parameter(Mandatory)]$Entry, [Parameter(Mandatory)][hashtable]$Common)
     $kt = if ($Entry.KeyType) { $Entry.KeyType } else { [string]$Common.KeyType }
     $family = if ($kt.ToUpperInvariant() -eq 'RSA') { 'rsa' } else { 'ecdsa' }
+    $office = ($Common.ContainsKey('Profile') -and [string]$Common['Profile'] -eq 'office365')
     $o = @{
-        Level = $Entry.Level; Quadrant = [int]$Entry.Quadrant; Eku = @('EmailProtection', 'ClientAuth'); EmailAddress = @($Entry.Email); DnsName = @($Entry.Dns)
+        Level = $Entry.Level; Quadrant = [int]$Entry.Quadrant; Eku = $(if ($office) { @('EmailProtection', 'DocumentEncryption') + $(if (-not $Common.ContainsKey('DocumentSigning') -or [bool]$Common['DocumentSigning']) { @('DocumentSigning') } else { @() }) } else { @('EmailProtection', 'ClientAuth') }); EmailAddress = @($Entry.Email); DnsName = @($Entry.Dns)
         PersonDn = (Get-PkiPersonDn -Entry $Entry); CommonName = $Entry.CommonName
-        KeyUsage = (Get-PkiPersonKeyUsage -Family $family -NonRepudiation:([bool]$Common.NonRepudiation))
-        KeyType = $kt; KeyBits = $Entry.KeyBits; Curve = $(if ($Entry.Curve) { $Entry.Curve } elseif ($family -eq 'ecdsa') { [string]$Common.Curve } else { '' })
+        KeyUsage = (Get-PkiPersonKeyUsage -Family $family -NonRepudiation:([bool]$Common.NonRepudiation -or $office))
+        KeyType = $kt; KeyBits = $(if ($family -eq 'rsa') { $Entry.KeyBits } else { 0 }); Curve = $(if ($Entry.Curve) { $Entry.Curve } elseif ($family -eq 'ecdsa') { [string]$Common.Curve } else { '' })
         Hash = $Common.Hash; Days = $(if ($Entry.Days -gt 0) { $Entry.Days } else { [int]$Common.Days })
         Policy = @(@($Common.Policy) + @($Entry.Policy) | Where-Object { $_ }); Format = $Common.Format; NameOverride = $Entry.Name
     }
@@ -223,11 +227,11 @@ function New-PkiPersonOptions {
 
 function Test-PkiPersonResult {
     # what is specific to a person certificate, read back from the finished certificate
-    param([Parameter(Mandatory)]$Entry, [Parameter(Mandatory)][hashtable]$Spec, [Parameter(Mandatory)][hashtable]$R, [switch]$QcStatements)
+    param([Parameter(Mandatory)]$Entry, [Parameter(Mandatory)][hashtable]$Spec, [Parameter(Mandatory)][hashtable]$R, [switch]$QcStatements, [string]$Profile = 'person', [bool]$DocumentSigning = $true)
     $t = Get-PkiCertText -Path $R.Crt -Fips ([bool]$Spec.Fips)
     $p = [System.Collections.Generic.List[string]]::new()
     $subj = if ($t -match '(?m)^\s*Subject:\s*(?<s>.+)$') { $Matches['s'] } else { '' }
-    if ($subj -notmatch '(?i)serialNumber\s*=\s*' + [regex]::Escape($Entry.SerialNumber)) { [void]$p.Add("subject serialNumber $($Entry.SerialNumber) missing") }
+    if ($Entry.SerialNumber -and $subj -notmatch '(?i)serialNumber\s*=\s*' + [regex]::Escape($Entry.SerialNumber)) { [void]$p.Add("subject serialNumber $($Entry.SerialNumber) missing") }
     if ($subj -notmatch '(?i)(givenName|GN)\s*=') { [void]$p.Add('subject givenName missing') }
     if ($subj -notmatch '(?i)(surname|SN)\s*=') { [void]$p.Add('subject surname missing') }
     if ($subj -notmatch '(?i)\bC\s*=\s*' + [regex]::Escape($Entry.Country)) { [void]$p.Add("subject C=$($Entry.Country) missing") }
@@ -235,7 +239,13 @@ function Test-PkiPersonResult {
     foreach ($d in @($Entry.Dns)) { if ($t -notmatch '(?i)DNS:' + [regex]::Escape($d) + '(,|\s|$)') { [void]$p.Add("SAN DNS:$d missing") } }
     if (@($Entry.Dns).Count -eq 0 -and $t -match 'DNS:') { [void]$p.Add('unexpected DNS name in the SAN') }
     if ($t -match 'IP Address:') { [void]$p.Add('a person certificate must not carry an IP address') }
-    if ($t -notmatch 'TLS Web Client Authentication') { [void]$p.Add('clientAuth missing') }
+    if ($Profile -ne 'office365' -and $t -notmatch 'TLS Web Client Authentication') { [void]$p.Add('clientAuth missing') }
+    if ($Profile -eq 'office365') {
+        if ($t -notmatch '1\.3\.6\.1\.4\.1\.311\.80\.1|Document Encryption') { [void]$p.Add('documentEncryption (1.3.6.1.4.1.311.80.1) missing') }
+        if ($DocumentSigning -and $t -notmatch '1\.3\.6\.1\.4\.1\.311\.10\.3\.12|Document Signing') { [void]$p.Add('documentSigning (1.3.6.1.4.1.311.10.3.12) missing') }
+        if ($t -notmatch '(?s)Key Usage:.*?Digital Signature') { [void]$p.Add('keyUsage digitalSignature missing') }
+        if ($t -notmatch '(?s)Key Usage:[^\n]*\n[^\n]*(Non Repudiation|Content Commitment)') { [void]$p.Add('keyUsage nonRepudiation (contentCommitment) missing') }
+    }
     if ($t -notmatch 'E-mail Protection') { [void]$p.Add('emailProtection missing') }
     if ($t -match 'TLS Web Server Authentication') { [void]$p.Add('serverAuth must not be in a person certificate') }
     if ($QcStatements -and $t -notmatch '(?i)qcStatements|1\.3\.6\.1\.5\.5\.7\.1\.3|0\.4\.0\.1862|id-etsi-qcs-QcType|ETSI') { [void]$p.Add('qcStatements missing') }
@@ -267,6 +277,55 @@ function Write-PkiPersonExample {
     { "isGenerate": false, "idCode": "AB1234567",        "idType": "DL",  "serialNumber": "AB1234567",        "givenName": "Jaan",      "surname": "Tamm",     "email": "jaan.tamm@example.ee", "country": "EE", "days": 1095 },
     { "isGenerate": true,  "idCode": "XP1234567",        "idType": "PAS", "serialNumber": "XP1234567",        "givenName": "Anna",      "surname": "Virtanen", "email": "anna.virtanen@example.fi", "country": "FI", "level": "EV" },
     { "isGenerate": false, "idCode": "D1234567890",      "idType": "DL",  "serialNumber": "D1234567890",      "givenName": "John",      "surname": "Smith",    "email": "john.smith@example.com", "country": "US", "quadrant": 2 }
+  ]
+}
+'@
+    Write-Utf8NoBom -Path $full -Content ($json.Replace("`r", '') + "`n")
+    return @($full)
+}
+
+function Get-PkiOfficeSettings {
+    # agantra_pki.cnf [ office365 ]; every value can be replaced on the command line / in the JSON file
+    $c = $script:Pki
+    $g = { param($k, $d) Get-PkiIniValue -Ini $c.Ini -Section 'office365' -Key $k -Default $d }
+    return [ordered]@{
+        Days = [int](& $g 'Days' '730')
+        Level = [string](& $g 'Level' 'OV')
+        CommonNameFormat = [string](& $g 'CommonNameFormat' '{Given} {Surname}')
+        SerialNumberFormat = [string](& $g 'SerialNumberFormat' '{IdCode}')
+        Country = [string](& $g 'Country' 'EE')
+        KeyType = [string](& $g 'KeyType' 'RSA')
+        KeyBits = [int](& $g 'KeyBits' '4096')
+        Curve = [string](& $g 'Curve' 'P-384')
+        DnsFromEmail = ([string](& $g 'DnsFromEmail' 'false')).Trim().ToLowerInvariant() -in 'true', 'yes', '1', 'on'
+        KeepCase = ([string](& $g 'KeepCase' 'true')).Trim().ToLowerInvariant() -notin 'false', 'no', '0', 'off'
+    }
+}
+
+function Write-PkiOfficeExample {
+    # JSON only. Five made-up people; "isGenerate" switches a person on or off.
+    param([Parameter(Mandatory)][string]$Path)
+    $full = [System.IO.Path]::GetFullPath($Path)
+    if ([System.IO.Path]::GetExtension($full) -ne '.json') { $full = [System.IO.Path]::ChangeExtension($full, '.json') }
+    [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $full))
+    $json = @'
+{
+  "_readme": [
+    "Signers for GenerateOffice365LeafCertificate.ps1 -File office365.json   (JSON only; keys that start with _ are comments).",
+    "isGenerate: true = issue the certificate, false = skip this person (default true).",
+    "email: the SAN rfc822Name (the address of the Microsoft 365 account). givenName + surname: the name Office shows next to the signature (CN = 'Given Surname').",
+    "idCode / serialNumber: optional. Any identifier (staff number, national ID, passport ...); it goes into the subject serialNumber.",
+    "country: ISO 3166 two letters, default EE.   level: OV (default) or EV, never DV.   quadrant: 1 = Classic non-FIPS (default), 2 = Classic FIPS.",
+    "Optional per person: days, keyType (RSA|ECDSA), keyBits, curve, commonName, password, name (folder), policy, dnsFromEmail.",
+    "Office needs RSA >= 2048 (RSA 4096 is the default here) or ECDSA >= P-256, and SHA-2. ECDSA cannot do key encipherment: use RSA when the certificate must also ENCRYPT documents.",
+    "All five people below are made up."
+  ],
+  "persons": [
+    { "isGenerate": true,  "givenName": "Budi",      "surname": "Santoso",  "email": "budi.santoso@example.co.id", "country": "ID", "idCode": "STAFF-0001", "serialNumber": "STAFF-0001" },
+    { "isGenerate": true,  "givenName": "Mari-Liis", "surname": "Männik",   "email": "mari-liis.mannik@example.ee" },
+    { "isGenerate": false, "givenName": "Jaan",      "surname": "Tamm",     "email": "jaan.tamm@example.ee", "days": 1095 },
+    { "isGenerate": true,  "givenName": "Anna",      "surname": "Virtanen", "email": "anna.virtanen@example.fi", "country": "FI", "level": "EV", "keyType": "ECDSA" },
+    { "isGenerate": false, "givenName": "John",      "surname": "Smith",    "email": "john.smith@example.com", "country": "US", "quadrant": 2 }
   ]
 }
 '@

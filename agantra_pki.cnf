@@ -397,5 +397,23 @@ DnsFromEmail       = true
 
 
 # ============================================================
+# [ office365 ]  defaults of GenerateOffice365LeafCertificate.ps1 (Microsoft Office / 365 document signing; a parameter or a JSON key wins)
+#   Days / Level / Country / DnsFromEmail / SerialNumberFormat   as in [ person ]   (Level OV or EV, never DV)
+#   CommonNameFormat    {Given} {Surname} {SurnameFirst} {IdCode} {Country}; names are kept as given (KeepCase = true)
+#   KeyType, KeyBits    RSA 4096 (default; Office minimum RSA 2048) or ECDSA (Curve P-384; minimum P-256). Hash: SHA-2 only.
+# ============================================================
+[ office365 ]
+Days               = 730
+Level              = OV
+CommonNameFormat   = {Given} {Surname}
+SerialNumberFormat = {IdCode}
+Country            = EE
+KeyType            = RSA
+KeyBits            = 4096
+Curve              = P-384
+DnsFromEmail       = false
+KeepCase           = true
+
+# ============================================================
 # END OF CONFIGURATION
 # ============================================================

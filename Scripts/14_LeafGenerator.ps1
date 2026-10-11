@@ -40,6 +40,9 @@ $script:PkiEkuMap = [ordered]@{
     EmailProtection = 'emailProtection'
     TimeStamping    = 'timeStamping'
     OcspSigning     = 'OCSPSigning'
+    # Microsoft Office / document purposes (GenerateOffice365LeafCertificate.ps1; not in the purpose sets of GenerateLeafCertificate.ps1)
+    DocumentSigning    = '1.3.6.1.4.1.311.10.3.12'     # szOID_KP_DOCUMENT_SIGNING (Microsoft Office document signature)
+    DocumentEncryption = '1.3.6.1.4.1.311.80.1'        # szOID_KP_DOCUMENT_ENCRYPTION
 }
 # The purposes of a SET (one certificate each). Order = order of generation.
 $script:PkiPurposeProfiles = [ordered]@{
@@ -419,6 +422,7 @@ function Get-PkiLeafEkuInfo {
     $ku = [System.Collections.Generic.List[string]]::new()
     [void]$ku.Add('digitalSignature')
     if ($Eku -contains 'EmailProtection') { [void]$ku.Add('nonRepudiation') }
+    if ($Family -eq 'ecdsa' -and $Eku -contains 'EmailProtection') { [void]$ku.Add('keyAgreement') }     # S/MIME encryption with ECDH
     if ($Family -eq 'rsa' -and ($Eku -contains 'ServerAuth' -or $Eku -contains 'EmailProtection')) { [void]$ku.Add('keyEncipherment') }
     $ekus = ($names -join ',')
     if ($critical) { $ekus = 'critical,' + $ekus }
@@ -475,10 +479,18 @@ function New-PkiLeafSpec {
     if ($eku -contains 'CodeSigning' -and $level -eq 'DV') { Write-PkiLog 'A code signing certificate is normally OV or EV; DV carries no organization in its subject.' 'WARN' }
     if ($eku -contains 'CodeSigning' -and ($eku -contains 'ServerAuth' -or $eku -contains 'ClientAuth' -or $eku -contains 'EmailProtection')) { Write-PkiLog 'Code signing is combined with another purpose in ONE certificate: separate certificates are the usual practice (use the set: no -Purpose).' 'WARN' }
 
-    # key and hash
-    $key = Resolve-PkiLeafKey -Quadrant $q -KeyType (& $get 'KeyType' '') -KeyBits ([int](& $get 'KeyBits' 0)) -Curve (& $get 'Curve' '') -PqcAlgorithm (& $get 'PqcAlgorithm' '') -Eku $eku
+    # key and hash.  -AddDevelopmentSAN + e-mail (S/MIME): the algorithm of the person certificates (ECDSA P-384, SHA-512) unless the caller chose one
+    $kt0 = [string](& $get 'KeyType' ''); $cv0 = [string](& $get 'Curve' ''); $hs0 = [string](& $get 'Hash' '')
+    if ($Options.ContainsKey('AddDevelopmentSan') -and [bool]$Options['AddDevelopmentSan'] -and $eku -contains 'EmailProtection' -and $q -in 1, 2) {
+        $dflt = [System.Collections.Generic.List[string]]::new()
+        if ($kt0 -eq '') { $kt0 = 'ECDSA'; [void]$dflt.Add('ECDSA') }
+        if ($kt0.ToUpperInvariant() -eq 'ECDSA' -and $cv0 -eq '') { $cv0 = 'P-384'; [void]$dflt.Add('P-384') }
+        if ($hs0 -eq '') { $hs0 = 'sha512'; [void]$dflt.Add('SHA-512') }
+        if ($dflt.Count -gt 0) { [void]$notes.Add("development e-mail certificate: default algorithm of the person certificates ($($dflt -join ', '))") }
+    }
+    $key = Resolve-PkiLeafKey -Quadrant $q -KeyType $kt0 -KeyBits ([int](& $get 'KeyBits' 0)) -Curve $cv0 -PqcAlgorithm (& $get 'PqcAlgorithm' '') -Eku $eku
     foreach ($n in $key.Notes) { [void]$notes.Add($n) }
-    $h = Resolve-PkiLeafHash -Ca $ca -Hash (& $get 'Hash' '')
+    $h = Resolve-PkiLeafHash -Ca $ca -Hash $hs0
     foreach ($n in $h.Notes) { [void]$notes.Add($n) }
     $ekuInfo = Get-PkiLeafEkuInfo -Eku $eku -Family $key.Family
     # a person certificate (GeneratePersonLeafCertificate.ps1) fixes its own key usage, subject, extra extensions and config sections
@@ -516,7 +528,7 @@ function New-PkiLeafSpec {
     $cnValue = @($dn | Where-Object { $_[0] -eq 'CN' } | ForEach-Object { $_[1] }) | Select-Object -First 1
     $primary = if ($san.Dns.Count -gt 0) { $san.Dns[0] } elseif ($san.Ip.Count -gt 0) { $san.Ip[0] } elseif ($san.Email.Count -gt 0) { $san.Email[0] } elseif ($cnValue) { $cnValue } else { 'leaf' }
     $nq = [int](Get-PkiNamingQuadrant -Ca $ca)      # the number in NAMES: 1 = non-FIPS, 2 = FIPS, in both tracks (file names of the leaf)
-    $purposeAbbr = ($eku | ForEach-Object { $script:PkiPurposeProfiles[$_].Token }) -join '-'
+    $purposeAbbr = ($eku | ForEach-Object { if ($script:PkiPurposeProfiles.Contains($_)) { $script:PkiPurposeProfiles[$_].Token } else { $_.ToLowerInvariant() } }) -join '-'
     $purposeLong = ($eku | ForEach-Object { $_.ToLowerInvariant() }) -join '-'
     if ($eku -contains 'EmailProtection') { $purposeAbbr = 'email'; $purposeLong = 'emailprotection' }     # S/MIME (+ clientAuth): the short names stay
     $now = Get-Date
@@ -743,8 +755,8 @@ function Test-PkiLeafResult {
 
     if ($t -notmatch 'CA:FALSE') { [void]$problems.Add('basicConstraints CA:FALSE is missing') }
     foreach ($e in $Spec.Eku) {
-        $label = switch ($e) { 'ServerAuth' { 'TLS Web Server Authentication' } 'ClientAuth' { 'TLS Web Client Authentication' } 'EmailProtection' { 'E-mail Protection' } 'CodeSigning' { 'Code Signing' } 'TimeStamping' { 'Time Stamping' } 'OcspSigning' { 'OCSP Signing' } }
-        if ($t -notmatch [regex]::Escape($label)) { [void]$problems.Add("extended key usage '$label' is missing") }
+        $label = switch ($e) { 'ServerAuth' { 'TLS Web Server Authentication' } 'ClientAuth' { 'TLS Web Client Authentication' } 'EmailProtection' { 'E-mail Protection' } 'CodeSigning' { 'Code Signing' } 'TimeStamping' { 'Time Stamping' } 'OcspSigning' { 'OCSP Signing' } 'DocumentSigning' { '1.3.6.1.4.1.311.10.3.12|Document Signing' } 'DocumentEncryption' { '1.3.6.1.4.1.311.80.1|Document Encryption' } }
+        if ($t -notmatch $(if ($label -like '*|*') { $label } else { [regex]::Escape($label) })) { [void]$problems.Add("extended key usage '$label' is missing") }
     }
     if ($Spec.Eku -contains 'OcspSigning' -and $t -notmatch 'OCSP No Check') { [void]$problems.Add('the OCSP no-check extension is missing') }
     if ($Spec.Eku -contains 'TimeStamping' -and $t -notmatch '(?s)Extended Key Usage:\s*critical') { [void]$problems.Add('the time stamping extended key usage is not critical') }

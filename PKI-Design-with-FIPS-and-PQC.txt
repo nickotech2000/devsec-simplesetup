@@ -780,6 +780,18 @@
  10.62 DECIDED   (4.9.4) Person certificate algorithm = the ID-card sample (ECC P-384, key agreement, signature SHA-512): key ECDSA P-384, digest SHA-512 by default (-Hash). The signature
                  algorithm itself is the one of the issuing CA: Q2 (ECDSA P-384 intermediate) gives ecdsa-with-SHA512; Q1 (RSA 4096 intermediate, the non-FIPS default; intermediates are
                  not changed) gives sha512WithRSAEncryption.
+ 10.63 DECIDED   (4.9.4) GenerateOffice365LeafCertificate.ps1 issues Microsoft Office / Microsoft 365 document signing + encryption certificates with the mechanism of
+                 GeneratePersonLeafCertificate.ps1 (parameters for one signer, or ONE JSON file with "isGenerate" per signer; 5-person example; all checked before anything is issued;
+                 Classic only; OV default, EV on request, never DV; Quadrant 1 non-FIPS default, -Fips = 2). Office uses the Windows CryptoAPI / CNG, so: key RSA (default 4096,
+                 minimum 2048) or ECDSA (P-384 default, minimum P-256); digest SHA-2 only (SHA-256 baseline, SHA-384 / SHA-512 supported; SHA-1 / MD5 refused).
+                 EKU: Document Encryption 1.3.6.1.4.1.311.80.1 + Secure Email 1.3.6.1.5.5.7.3.4 + Microsoft Document Signing 1.3.6.1.4.1.311.10.3.12 (-NoDocumentSigningEku omits the last).
+                 Key usage critical: Digital Signature + Non-Repudiation + Key Encipherment (RSA); ECDSA cannot encipher keys and gets Key Agreement (a warning says document
+                 encryption needs RSA). SAN rfc822 = the e-mail (DNS from the e-mail only with -DnsFromEmail). Subject [serialNumber] givenName surname CN "<Given> <Surname>" C (ID
+                 optional, names as given). Same policies and CPS pointers as every OV / EV certificate (10.60, 10.61). Folder leafcerts\office365\<name>\ with OFFICE-NOTES.txt,
+                 office365-info.json, office365-batch-<date>.json. Shared code: scripts/20_PersonLeaf.ps1 (Profile office365). A certificate of a private PKI: Office trusts the
+                 signature only where the Root CA is trusted.
+ 10.64 DECIDED   (4.9.4) GenerateLeafCertificate.ps1 -AddDevelopmentSAN with the purpose EmailProtection: default algorithm = the person certificates (ECDSA P-384, SHA-512; Quadrants 1 and 2;
+                 -KeyType -Curve -Hash win). Every ECDSA e-mail certificate has keyAgreement in its key usage (S/MIME with ECDH). Policies and CPS URLs are the shared ones (10.60, 10.61).
  10.46 DECIDED   Key pair per certificate: every purpose folder (serverauth, clientauth, serverauth-clientauth, codesigning, emailprotection, timestamping, ocspsigning) has
                  its own <stem>.key (PKCS#8), <stem>.pub (public key PEM) and <stem>.pub.der. All PEM files (.key .crt .pem .cert -fullchain.crt -chain.crt .pub) are written with LF
                  line endings and no BOM: OpenSSL on Windows writes CRLF, and OpenSSL 3.5+ on Linux (nginx on Ubuntu 26.04) then fails with "PEM_read_bio_PrivateKey() failed ...
@@ -900,6 +912,7 @@
    + SignExternalCa.ps1 (+ module 19): sign the CSR of another private CA, default signer q1-root, minimum RSA 4096 / P-384 / ML-DSA-65, one folder per CA (10.58).
    + GeneratePersonLeafCertificate.ps1 (+ module 20): ID-card style person e-mail certificates (any ID, SAN e-mail + DNS from the e-mail, Classic only, OV/EV) from parameters or a JSON file with isGenerate (10.59). [ person ] in agantra_pki.cnf.
    + CPS pointers on every policy (https://nextmantra.com/security/certs, EV ev-cps.pdf) (10.60); High Assurance policy 1.3.6.1.4.1.67096.1.5 in every OV certificate (10.61); person certificates ECDSA P-384 + SHA-512 (10.62).
+   + GenerateOffice365LeafCertificate.ps1: Office / 365 document signing certificates from parameters or a JSON file (10.63). -AddDevelopmentSAN e-mail certificates use ECDSA P-384 + SHA-512 (10.64).
    + GenerateLeafCertificate core: options KeyUsage, PersonDn, ExtraExt, ExtraConfig (used by the person script).
  4.9.3-phaseC  2026-10-06
    + GenerateLeafCertificate.ps1 -CodeSigningCompany (alias -CodesignCompany): code signing subject C=EE, ST=Tallinn, L=Tallinn, O=CN=<company>; empty = the Organization.

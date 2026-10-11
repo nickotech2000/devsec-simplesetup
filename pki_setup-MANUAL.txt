@@ -1009,3 +1009,5 @@ NEW IN 4.9.4  -  SEPARATE SCRIPTS
   GeneratePersonLeafCertificate.ps1   person e-mail certificates like a national ID card (any ID; SAN e-mail + DNS from it; Classic, OV/EV; one by parameters, many from a JSON file).
                                       Manual: GeneratePersonLeafCertificate-MANUAL.txt        Design 10.59
   Revoke an externally signed CA: PkiRevocation.ps1 -Revoke (the serial is in external-ca\<name>_...\ca-info.json).
+  GenerateOffice365LeafCertificate.ps1  Microsoft Office / 365 document signing certificates (EKU e-mail + document encryption + document signing; key usage digital
+                                      signature + non-repudiation). Same mechanism as the person script. Manual: GenerateOffice365LeafCertificate-MANUAL.txt   Design 10.63

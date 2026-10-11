@@ -239,3 +239,11 @@
          DV expect: 2.23.140.1.2.1, 67096.1, .1.3 with the https://nextmantra.com/security/certs pointer (no .1.5)
  E5  Person certificate algorithm
        openssl x509 -in <person crt> -noout -text | findstr /C:"Signature Algorithm" /C:"Public-Key"   Q2: ecdsa-with-SHA512, 384 bit;  Q1: sha512WithRSAEncryption, 384 bit key
+ E6  Office 365 document signing
+       .\GenerateOffice365LeafCertificate.ps1 -ExampleFile .\office365.json ; edit ; .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json
+       openssl x509 -in <crt> -noout -ext keyUsage,extendedKeyUsage,subjectAltName
+         expect: Digital Signature, Non Repudiation, Key Encipherment (RSA 4096 default) | Key Agreement (ECDSA, with a warning); E-mail Protection, 1.3.6.1.4.1.311.80.1, 1.3.6.1.4.1.311.10.3.12; email:<address>
+         SHA-2 signature only; -KeyBits 1024 and -Hash sha1 are refused
+       folder leafcerts\office365\<name>\ with OFFICE-NOTES.txt; import the PFX, trust the Root, Word: File > Info > Protect Document > Add a Digital Signature
+ E7  Development e-mail certificate
+       .\GenerateLeafCertificate.ps1 -OV -Purpose EmailProtection -AddDevelopmentSAN -EmailAddress you@example.org      key 384 bit (ECDSA P-384), sha512 signature, same policies as E4

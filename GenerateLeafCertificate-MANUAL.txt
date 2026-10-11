@@ -401,6 +401,9 @@ NAMES
   base of the CN of Time Stamping and OCSP signing (code signing: see CODE SIGNING SUBJECT).
 
 DEVELOPMENT SAN   (-AddDevelopmentSAN)
+  E-MAIL (S/MIME) with -AddDevelopmentSAN (4.9.4): the certificate gets the algorithm of GeneratePersonLeafCertificate.ps1 by default: ECDSA P-384, SHA-512
+                       (Quadrants 1 and 2; -KeyType / -Curve / -Hash win), key usage digitalSignature + nonRepudiation + keyAgreement. The policies are the same as
+                       those of every OV / EV certificate (level OID, company PEN OIDs, High Assurance for OV; CPS URL by level), see -CpsUrl.
   Adds the development list to the SAN. It is MERGED with the names you give (yours stay first, the CN is your first
   name; duplicates are removed). With no -DnsName the names of [ leaf_san ] come first. The list:
       DNS    nextmantra.com  www.nextmantra.com  *.nextmantra.com  localhost  local.dev

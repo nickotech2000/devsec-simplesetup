@@ -182,6 +182,7 @@
  Root key policy (RSA 8192 / P-521 / ML-DSA-87)         01_Configuration.ps1  (constants at the top)
  Quadrant root key (Q1 RSA 4096, Q2 P-384, SHA-384)     agantra_pki.cnf [ pki_settings ] QuadrantRsaBits / QuadrantCurve
  Sign another private CA's CSR                          SignExternalCa.ps1 + 19_ExternalCaSigning.ps1
+ Office / 365 document signing certificates           GenerateOffice365LeafCertificate.ps1 (shares 20_PersonLeaf.ps1), agantra_pki.cnf [ office365 ]
  Person (ID-card style) e-mail certificates             GeneratePersonLeafCertificate.ps1 + 20_PersonLeaf.ps1, agantra_pki.cnf [ person ]
  OpenSSL commands for CAs                               03_RuntimeConfig.ps1, 04_CertificateAuthority.ps1
  What counts as valid                                   06_Validation.ps1
