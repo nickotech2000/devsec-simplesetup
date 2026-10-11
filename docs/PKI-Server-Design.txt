@@ -82,3 +82,31 @@
      systemd units started, WSL with the Windows hosts file. First run on the VM: ./pki-server.sh check, install, test.
    * The Windows PKI keeps working without the server; the server never signs a certificate.
 ====================================================================================================================================
+
+THE PKI TELLS THE SERVER  (4.9.5; pki\R<n>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
+  The server does not guess and does not depend on a file you keep in step: the PKI writes what it really contains.
+      server-info.json     release, variant (normal | NoCR), name suffix, CRL days, the hosts, the URL templates, and for every CA: id, common name,
+                           parent, level, track, fips, slug, crl / crt file names, CRL number and next update, "ocspResponder" yes / no
+      ca-list.tsv          the same list for shell (tab separated: id kind slug level track fips parent ocsp crl-file crt-file common-name crl-next-update)
+      server.env           PKI_SRV_RELEASE, PKI_SRV_VARIANT, PKI_SRV_NAME_SUFFIX, PKI_SRV_HOSTS_CRL (CRL + CA-issuer hosts), PKI_SRV_HOSTS_OCSP, PKI_SRV_CRL_DAYS
+      expected-urls.tsv    EVERY CRL / CA-issuer / OCSP URL that the certificates of this PKI contain: type, host, url
+      DNS-RECORDS.txt      the host names to put in DNS (or the hosts file), with their role
+  pki-server.sh install / update copies these files to /etc/agantra-pki-server/pki-info/<R1|R2|NoCR-R1>/, builds the nginx server_name lists from
+  them, serves the CRL and CA files under the SAME file names (the slug of the URL: agantra-root-g1.crl, agantra-q1-ov-g1-r2.crl ...), creates the
+  OCSP responders from the CA list, names the OCSP / time stamp requests the same way as the PKI does ("Agantra EV RSA-4096 G1 CA (NoCR) R2 OCSP
+  Responder", "Agantra Time Stamping Authority (NoCR) R2"), and  pki-server.sh test  asks every URL of expected-urls.tsv (right host name, right path,
+  the file parses as a CRL / certificate). The test therefore proves that the server satisfies the certificates that exist, not a fixed list.
+  Several releases / families: install the package of each one; the files of all of them stay (their names differ), the host lists are added together,
+  OCSP and the time stamp service serve the release installed LAST. A PKI made by an older version has no server\ folder: the hosts then come from
+  agantra_pki.cnf, and  .\PkiRevocation.ps1 -Action Info  creates the folder.
+  A NoCR PKI has no URL in its CA certificates; the server is still needed for the leaf certificates (they keep their CRL / OCSP URLs).
+  NAMES of the CRL and CA-issuer files (the {ca} of the URLs) follow the CA names: Root CA -> agantra-root-g1, Classic Root -> agantra-classic-root-g1,
+  PQC Root -> agantra-pqc-root-g2, Q1 / Q2 roots -> agantra-q1-root-g1 / -g2, intermediates -> agantra-q1-ov-g1 ; NoCR adds -nocr, release 2+ adds -r2.
+
+PkiTransport.ps1 -Server  -  the server package from the transport script  (4.9.5)
+  .\PkiTransport.ps1 -Server                 .\transport\agantra-pki-server-<date>.zip   (latest release, normal family)
+  .\PkiTransport.ps1 -Server -Release 2 -Tar  also a .tar.gz       -NoCaRevocationInfo  the NoCR family       -PkiRoot <folder>  one folder
+  -Out <file.zip>  -Force      -IncludeServiceKeys  LAB ONLY (the OCSP / time stamp keys; a CA key is never packed)
+  It runs New-PkiServerPackage.ps1 (same checks: no private key, LF text, execute bits; the package is opened again and scanned, one key = deleted)
+  and prints the SHA-256. No password: the package holds nothing secret. Inside: linux\ (pki-server kit, pki-transport.sh, Install-DevEnvironment.sh),
+  pki\ (the PKI WITHOUT keys, with server\), agantra_pki.cnf, the documents. On Ubuntu:  unzip; sudo ./linux/pki-server/pki-server.sh install --source ./pki

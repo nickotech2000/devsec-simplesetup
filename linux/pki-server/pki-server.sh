@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pki-server.sh - Agantra Inovatif private PKI SERVER KIT for Ubuntu 24.04 / 26.04
+# pki-server.sh - Agantra private PKI SERVER KIT for Ubuntu 24.04 / 26.04
 # Publishes the CRLs and CA certificates, answers OCSP and RFC 3161 time stamp requests, all through YOUR nginx (PPA) and OpenSSL 4.
 # Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 KIT_VERSION="1.1.0"
@@ -36,15 +36,15 @@ priv() { if [ "$(id -u)" = 0 ]; then "$@"; elif have sudo; then sudo "$@"; else 
 
 usage() {
 cat <<'EOF'
-pki-server.sh  -  Agantra Inovatif PKI SERVER KIT  (Ubuntu 24.04 / 26.04)
+pki-server.sh  -  Agantra PKI SERVER KIT  (Ubuntu 24.04 / 26.04)
 
 WHAT IT DOES
   Turns one Ubuntu VM into the servers of your private PKI, on plain HTTP port 80 through nginx:
-    CRL + CA certificates   http://crl-01.nextmantra.com/<ca>.crl   (host names are read from agantra_pki.cnf)
+    CRL + CA certificates   http://crl-01.nextmantra.com/<slug>.crl   (host names and file names come from the PKI: <pki>/server/)
     OCSP                    http://ocsp.nextmantra.internal           one URL for ALL your CAs (one openssl responder per CA)
     Time stamping RFC 3161  http://tsa.nextmantra.internal            openssl ts, signed with your TimeStamping certificate
   nginx comes from YOUR PPA (default ppa:nickotech2000/nicko-su-prod), OpenSSL must be 4.0 or newer (PPA package, an existing
-  install, or built by ../Install-DevEnvironment.sh (linux/ folder) with --build-openssl).
+  install, or built by ../Install-DevEnvironment.sh with --build-openssl).
 
 USAGE
   sudo ./pki-server.sh install --source <pki folder> --ocsp-leaf <leafcerts folder> --tsa-leaf <leafcerts folder> [options]
@@ -84,7 +84,7 @@ OPTIONS
   --nginx-package P    package name for nginx (default nicko-su-nginx; "nginx" for the Ubuntu one)
   --openssl-package P  package name of OpenSSL 4 in the PPA (default nicko-su-openssl4)
   --openssl PATH       use this openssl 4 binary
-  --build-openssl      when no OpenSSL 4 exists: build it with ../Install-DevEnvironment.sh (linux/ folder) (FIPS + ML-DSA, long)
+  --build-openssl      when no OpenSSL 4 exists: build it with ../Install-DevEnvironment.sh (FIPS + ML-DSA, long)
   --tsa-policy OID     time stamp policy OID (default: the policy found in the TSA certificate, else 1.3.6.1.4.1.67096.1.4)
   --no-packages        do not install anything with apt        --no-systemd   write the files, start nothing (use "run")
   --dry-run            show what would run                      --yes   no questions
@@ -171,12 +171,38 @@ uri_hosts() {  # $1 = section name
    | sed -n 's#^[a-zA-Z]*://\([^/:]*\).*#\1#p' | sort -u
 }
 compute_hosts() {
-  if [ -z "$CNF" ]; then for c in "$SOURCE/../agantra_pki.cnf" "$SOURCE/../../agantra_pki.cnf" "$KIT_DIR/../../agantra_pki.cnf" "$SAVED_CNF"; do [ -n "$c" ] && [ -f "$c" ] && { CNF="$c"; break; }; done; fi
-  HOSTS_CRL="$(uri_hosts crl_urls; uri_hosts ca_issuer_urls)"; HOSTS_OCSP="$(uri_hosts ocsp_urls)"
+  # 1. the PKI itself: pki/server/server.env (written by pki_setup.ps1 / PkiRevocation.ps1) lists the hosts that its certificates really contain;
+  #    every installed release is kept in $ETC_DIR/pki-info/<R1|NoCR-R2>/ and all of them are served (additive).
+  # 2. agantra_pki.cnf (only when the PKI has no server folder: a PKI made by an older version)
+  HOSTS_CRL=""; HOSTS_OCSP=""; HOSTS_FROM="agantra_pki.cnf"
+  local e
+  for e in "$ETC_DIR"/pki-info/*/server.env "$SOURCE/server/server.env"; do
+    [ -f "$e" ] || continue
+    HOSTS_CRL="$HOSTS_CRL"$'\n'"$(. "$e"; echo "$PKI_SRV_HOSTS_CRL" | tr ' ' '\n')"
+    HOSTS_OCSP="$HOSTS_OCSP"$'\n'"$(. "$e"; echo "$PKI_SRV_HOSTS_OCSP" | tr ' ' '\n')"
+    HOSTS_FROM="the PKI (server/server.env)"
+  done
+  if [ "$HOSTS_FROM" = agantra_pki.cnf ]; then
+    if [ -z "$CNF" ]; then for c in "$SOURCE/../agantra_pki.cnf" "$SOURCE/../../agantra_pki.cnf" "$KIT_DIR/../../agantra_pki.cnf" "$SAVED_CNF"; do [ -n "$c" ] && [ -f "$c" ] && { CNF="$c"; break; }; done; fi
+    HOSTS_CRL="$(uri_hosts crl_urls; uri_hosts ca_issuer_urls)"; HOSTS_OCSP="$(uri_hosts ocsp_urls)"
+  fi
   HOSTS_CRL="$(echo "$HOSTS_CRL" | sort -u | grep -v '^$')"; HOSTS_OCSP="$(echo "$HOSTS_OCSP" | sort -u | grep -v '^$')"
   [ -n "$HOSTS_CRL" ] || HOSTS_CRL=$'crl-01.nextmantra.com\ncrl-02.nextmantra.com\ncrl-dev.nextmantra.internal\npki.nextmantra.internal'
   [ -n "$HOSTS_OCSP" ] || HOSTS_OCSP=$'ocsp.nextmantra.internal\nocsp.nextmantra.com'
   HOSTS_TSA=$'tsa.nextmantra.internal\ntimestamp.nextmantra.internal'
+}
+# the PKI folder tells the server which release / family it is: keep its server\ files (additive per release)
+PKI_LABEL=""
+keep_pki_info() {
+  local e="$SOURCE/server/server.env" rel var d
+  [ -f "$e" ] || { warn "$SOURCE/server/server.env not found: this PKI was made by an older pki_setup.ps1 (hosts are read from agantra_pki.cnf). Run .\\PkiRevocation.ps1 -Action Info on the CA machine to create it."; return 0; }
+  rel="$(. "$e"; echo "$PKI_SRV_RELEASE")"; var="$(. "$e"; echo "$PKI_SRV_VARIANT")"
+  if [ "$var" = NoCR ]; then PKI_LABEL="NoCR-R$rel"; else PKI_LABEL="R$rel"; fi
+  d="$ETC_DIR/pki-info/$PKI_LABEL"; mkdir -p "$d"
+  cp -f "$SOURCE"/server/server.env "$SOURCE"/server/ca-list.tsv "$SOURCE"/server/expected-urls.tsv "$d/" 2>/dev/null
+  [ -f "$SOURCE/server/server-info.json" ] && cp -f "$SOURCE/server/server-info.json" "$d/"
+  lf "$d"/*
+  ok "PKI $PKI_LABEL: $(grep -vc '^#' "$d/ca-list.tsv") CA(s), hosts from the PKI"
 }
 SAVED_CNF=""
 
@@ -219,8 +245,8 @@ install_packages() {
   fi
   detect_nginx
   if ! find_openssl && [ "$BUILD_OPENSSL" = 1 ]; then
-    [ -x "$KIT_DIR/../Install-DevEnvironment.sh (linux/ folder)" ] || die "--build-openssl needs ../Install-DevEnvironment.sh (linux/ folder) next to this kit" 6
-    run bash "$KIT_DIR/../Install-DevEnvironment.sh (linux/ folder)" --yes --only openssl || die "OpenSSL build failed" 6
+    [ -x "$KIT_DIR/../Install-DevEnvironment.sh" ] || die "--build-openssl needs ../Install-DevEnvironment.sh next to this kit" 6
+    run bash "$KIT_DIR/../Install-DevEnvironment.sh" --yes --only openssl --openssl-source build || die "OpenSSL build failed" 6
   fi
   return 0
 }
@@ -279,8 +305,8 @@ publish_files() {
   for f in "$SOURCE"/publish/*; do [ -f "$f" ] || continue; b="$(basename "$f")"; case "$b" in README.txt) continue;; esac
     cp -f "$f" "$WWW_DIR/$b"; case "$b" in *.pem|root.crt|ca-bundle.crt) lf "$WWW_DIR/$b";; esac; done
   {
-    echo '<!doctype html><meta charset="utf-8"><title>Agantra Inovatif PKI</title><body style="font:15px sans-serif;max-width:60em;margin:2em auto">'
-    echo '<h1>Agantra Inovatif Enterprise PKI</h1><p>CA certificates and revocation lists. Install <a href="root.crt">root.crt</a> (Enterprise Root) on clients.</p><table cellpadding="4"><tr><th align=left>File</th><th align=left>Size</th></tr>'
+    echo '<!doctype html><meta charset="utf-8"><title>Agantra PKI</title><body style="font:15px sans-serif;max-width:60em;margin:2em auto">'
+    echo '<h1>Agantra PKI</h1><p>CA certificates and revocation lists. Install <a href="root.crt">root.crt</a> (Root CA) on clients.</p><table cellpadding="4"><tr><th align=left>File</th><th align=left>Size</th></tr>'
     for f in "$WWW_DIR"/*; do b="$(basename "$f")"; [ "$b" = index.html ] && continue; echo "<tr><td><a href=\"$b\">$b</a></td><td>$(stat -c %s "$f")</td></tr>"; done
     echo '</table></body>'
   } > "$WWW_DIR/index.html"
@@ -405,7 +431,7 @@ write_nginx() {
   if [ -d "$NGINX_ETC/sites-available" ] && [ -d "$NGINX_ETC/sites-enabled" ]; then conf="$NGINX_ETC/sites-available/agantra-pki-server.conf"; else mkdir -p "$NGINX_ETC/conf.d"; conf="$NGINX_ETC/conf.d/agantra-pki-server.conf"; fi
   [ -f "$conf" ] && cp -f "$conf" "$conf.bak"
   {
-    echo "# Agantra Inovatif PKI server kit $KIT_VERSION - written by pki-server.sh (re-written on every install / update)"
+    echo "# Agantra PKI server kit $KIT_VERSION - written by pki-server.sh (re-written on every install / update)"
     echo "# CRL + CA certificates"
     echo "server {"
     echo "    listen 80;$V6"
@@ -551,7 +577,7 @@ do_install() {
   id "$SVC_USER" >/dev/null 2>&1 || run useradd --system --home-dir "$LIB_DIR" --shell /usr/sbin/nologin "$SVC_USER" || true
   mkdir -p "$ETC_DIR" "$LIB_DIR"
   [ "$DRY" = 1 ] && { info "dry-run: stopping here"; return 0; }
-  scan_source; compute_hosts
+  scan_source; keep_pki_info; compute_hosts
   publish_files; setup_ocsp; setup_tsa; write_helpers; write_nginx; write_units
   cat > "$SAVED" <<EOF
 OPENSSL_BIN="$OPENSSL_BIN"
@@ -588,6 +614,19 @@ do_test() {
     local f; for f in "$WWW_DIR"/*.crl; do [ -f "$f" ] || continue
       if [ "$(http_get "$host" "$t/x" "/$(basename "$f")")" = 200 ] && "$OPENSSL_BIN" crl -inform DER -in "$t/x" -noout 2>/dev/null; then ok "CRL via nginx: $(basename "$f")"; else warn "CRL not served: $(basename "$f")"; fails=$((fails+1)); fi; done
   else warn "nginx is not listening on port 80: CRL download not tested"; fi
+  # every URL that the certificates of the installed PKIs contain (pki/server/expected-urls.tsv): same host name, same path
+  if have curl && (ss -ltn 2>/dev/null | grep -q ':80 '); then
+    local et typ h url pth okn=0 badn=0
+    for et in "$ETC_DIR"/pki-info/*/expected-urls.tsv; do [ -f "$et" ] || continue
+      while IFS=$'\t' read -r typ h url; do
+        case "$typ" in crl|ca-issuer) ;; *) continue;; esac
+        pth="/${url#*://*/}"
+        if [ "$(http_get "$h" "$t/y" "$pth")" = 200 ] && { [ "$typ" = crl ] && "$OPENSSL_BIN" crl -inform DER -in "$t/y" -noout 2>/dev/null || [ "$typ" = ca-issuer ] && "$OPENSSL_BIN" x509 -inform DER -in "$t/y" -noout 2>/dev/null; }; then okn=$((okn+1))
+        else warn "$typ not served: $url"; badn=$((badn+1)); fi
+      done < <(grep -v '^#' "$et")
+    done
+    [ $((okn+badn)) -gt 0 ] && { [ "$badn" = 0 ] && ok "all $okn CRL / CA-issuer URL(s) of the installed PKI(s) answer" || fails=$((fails+badn)); }
+  fi
   # OCSP
   local port d serial
   if [ -s "$ETC_DIR/ocsp-backends" ]; then
@@ -626,6 +665,7 @@ do_crl_check() {
 }
 
 do_status() {
+  local pi; for pi in "$ETC_DIR"/pki-info/*/; do [ -d "$pi" ] && echo "  PKI $(basename "$pi"): $(grep -vc '^#' "$pi/ca-list.tsv" 2>/dev/null) CA(s), hosts: $(. "$pi/server.env" 2>/dev/null; echo "$PKI_SRV_HOSTS_CRL $PKI_SRV_HOSTS_OCSP" | wc -w)"; done
   load_saved; find_openssl; echo "kit $KIT_VERSION   openssl: ${OPENSSL_BIN:-not found}   nginx: ${NGINX_BIN:-missing}"
   if have systemctl && [ -d "$UNIT_DIR" ]; then local u; for u in $(ls "$UNIT_DIR" 2>/dev/null | grep -E '^agantra-(ocsp|tsa).*\.service$'); do printf '  %-40s %s\n' "$u" "$(systemctl is-active "$u" 2>/dev/null)"; done; printf '  %-40s %s\n' "$NGINX_SVC" "$(systemctl is-active "$NGINX_SVC" 2>/dev/null)"; fi
   [ -f "$ETC_DIR/tsa.cnf" ] && echo "  TSA certificate: $("$OPENSSL_BIN" x509 -in "$ETC_DIR/keys/tsa.crt" -noout -subject -enddate 2>/dev/null | tr '\n' ' ')"
@@ -665,6 +705,18 @@ do_uninstall() {
 }
 
 # ---------------------------------------------------------------- keys on the server: csr / import-cert
+# common name of an OCSP / TSA certificate request: the same words as pki_setup.ps1 uses ("<CA name> OCSP Responder", "<Prefix> Time Stamping Authority" + the
+# release / NoCR suffix), read from the PKI's server/ files; plain defaults for a PKI made by an older pki_setup.ps1
+csr_cn() {   # $1 = ocsp|tsa, $2 = CA id
+  local kind="$1" id="$2" cl="$SOURCE/server/ca-list.tsv" suf="" pre="Agantra" cn rootcn
+  [ -f "$SOURCE/server/server.env" ] && suf="$(. "$SOURCE/server/server.env"; echo "$PKI_SRV_NAME_SUFFIX")"
+  if [ -f "$cl" ]; then
+    rootcn="$(awk -F'\t' '$1=="root"{print $11}' "$cl")"; [ -n "$rootcn" ] && pre="${rootcn%% Root CA*}"
+    cn="$(awk -F'\t' -v i="$id" '$1==i{print $11}' "$cl")"
+  fi
+  if [ "$kind" = tsa ]; then echo "$pre Time Stamping Authority$suf"; return; fi
+  if [ -n "$cn" ] && [ $(( ${#cn} + 15 )) -le 64 ]; then echo "$cn OCSP Responder"; else echo "$pre OCSP Responder $id$suf"; fi
+}
 do_csr() {
   [ -n "$SOURCE" ] || die "--source <pki folder> is required (see --help)"
   load_saved; find_openssl || die "OpenSSL 4.x not found (install it first: install --openssl-package, or --openssl PATH)" 4
@@ -678,8 +730,8 @@ do_csr() {
   [[ " ${CA_IDS[*]} " == *" $tsaca "* ]] || die "--tsa-ca $tsaca is not a CA of this PKI (${CA_IDS[*]})"
   local list=() x; for x in "${CA_IDS[@]}"; do case "$x" in *root*) ;; *) list+=("$x");; esac; done   # root CAs sign CAs only: no OCSP responder for them
   for id in "${list[@]}" "TSA:$tsaca"; do
-    case "$id" in TSA:*) id="${id#TSA:}"; name="tsa-$id"; subj="/C=EE/O=Agantra Inovatif OÜ/CN=Agantra Inovatif OU Time Stamping Authority";;
-      *) name="ocsp-$id"; subj="/C=EE/O=Agantra Inovatif OÜ/CN=Agantra Inovatif OU OCSP Responder ($id)";; esac
+    case "$id" in TSA:*) id="${id#TSA:}"; name="tsa-$id"; subj="/C=EE/O=Agantra Inovatif OÜ/CN=$(csr_cn tsa "$id")";;
+      *) name="ocsp-$id"; subj="/C=EE/O=Agantra Inovatif OÜ/CN=$(csr_cn ocsp "$id")";; esac
     if [ -f "$pend/$name.key" ]; then info "$name: key already exists, the CSR is made again from it"; else
       "$OPENSSL_BIN" genpkey "${keyargs[@]}" -out "$pend/$name.key" 2>/dev/null || die "key generation failed ($name)"; fi
     lf "$pend/$name.key"; chmod 640 "$pend/$name.key"; chown "root:$SVC_USER" "$pend/$name.key" 2>/dev/null || true

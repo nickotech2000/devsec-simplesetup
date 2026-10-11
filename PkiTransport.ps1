@@ -18,6 +18,8 @@
     -DevKit   SOURCE: ONE zip (or 7z) for the developers: the .certpacked (CA certificates + the keys of the ISSUING CAs, no root key),
               Install-PkiTrust.ps1 / .sh, the leaf / person / Office 365 generators and SignCsr as .ps1 and .sh, Make-ShExecutable.ps1 /
               make-executable.sh, devkit.env, the manuals. Manual: docs\DevKit-MANUAL.txt
+    -Server   SOURCE: ONE zip for the CRL / OCSP / time stamp server on Ubuntu 24.04 / 26.04 (pki-server.sh, the PKI WITHOUT any private key, the
+              server\ files of the PKI: hosts, CA list, expected URLs). Built by New-PkiServerPackage.ps1. Manual: docs\PKI-SERVER-MANUAL.txt
     Unpack only (any machine with PowerShell 7):  Unpack-PkiTransport.ps1.   Linux and macOS:  pki-transport.sh.
 
     Full help:  .\PkiTransport.ps1 -Help        Manual: docs\PkiTransport-MANUAL.txt
@@ -38,6 +40,7 @@ param(
     # ---- what to do ----
     [switch]$Pack,
     [switch]$DevKit,
+    [switch]$Server,
     [switch]$Install,
     [switch]$Check,
     [switch]$List,
@@ -61,6 +64,8 @@ param(
     [switch]$IncludeCaKeys,
     [switch]$Kit,
     [switch]$DevKitNoKeys,
+    [switch]$Tar,
+    [switch]$IncludeServiceKeys,
     [ValidateSet('zip', '7z')][string]$KitArchiveFormat = 'zip',
 
     # ---- what comes out (destination) ----
@@ -104,6 +109,8 @@ WHAT IT DOES
   -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
   -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1, Ubuntu sh), the leaf / person /
              Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
+  -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp server: pki-server.sh + the PKI without private keys
+             (the CA keys NEVER go there) + the server\ files of the PKI. No password: the package holds nothing secret. See SERVER.
   -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes it unpacks the
              package and installs the CA certificates in the Windows certificate stores.
   -Check     DESTINATION. The scan only (nothing is changed): READY or NOT READY.
@@ -141,6 +148,17 @@ PACK  (source)
                          needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
   -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
+SERVER   (-Server)
+  .\PkiTransport.ps1 -Server                                  .\transport\agantra-pki-server-<date>.zip (latest release of the normal family)
+  .\PkiTransport.ps1 -Server -Release 2 -Tar                  release R2, and also a .tar.gz (mode bits kept on every tool)
+  .\PkiTransport.ps1 -Server -NoCaRevocationInfo -Out D:\share\pki-server-nocr.zip
+  -Out <file.zip>  -Force  -Tar   as for the package.      -PkiRoot / -Release / -NoCaRevocationInfo   which PKI (ONE PKI per package).
+  -IncludeServiceKeys  LAB ONLY: also the OCSP / time stamp private keys. A CA key is never included. Without it the keys are made ON the server
+                       (pki-server.sh csr) and signed here (PkiRevocation.ps1 -Action SignCsr): nothing secret travels.
+  The package is opened again and scanned: one private key inside = deleted, exit 5. The server reads hosts, CA list and URLs from the
+  server\ folder of the PKI (written by pki_setup.ps1 / PkiRevocation.ps1), not from a file you have to keep in step.
+  On Ubuntu:  unzip, then  sudo ./linux/pki-server/pki-server.sh install --source ./pki     (docs\PKI-SERVER-MANUAL.txt)
+
   -Release <n>  -NoCaRevocationInfo   WHICH PKI of .\pki\ is packed (-Pack, -DevKit): release R<n>, else the LATEST; the NoCR family with the switch.
                        ONE PKI per package: the kit of release 2 holds R2 only. A release that no longer exists = the latest, with a warning.
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
@@ -239,11 +257,36 @@ catch { Write-Host "[WARN] Automatic unblock / unlock failed: $($_.Exception.Mes
 $script:PackageOpened = $null
 try {
     # ---------------- what is asked ----------------
-    $modes = @($Pack, $DevKit, $Install, $Check, $List, $RemoveTrust, $Unblock | Where-Object { $_ })
-    if ($modes.Count -eq 0) { throw 'Say what to do: -Pack, -DevKit, -Install, -Check, -List, -RemoveTrust or -Unblock. See .\PkiTransport.ps1 -Help.' }
-    if ($modes.Count -gt 1 -and -not ($Check -and ($Install -or $List)) ) { throw 'Use only one of -Pack, -DevKit, -Install, -Check, -List, -RemoveTrust and -Unblock.' }
+    $modes = @($Pack, $DevKit, $Server, $Install, $Check, $List, $RemoveTrust, $Unblock | Where-Object { $_ })
+    if ($modes.Count -eq 0) { throw 'Say what to do: -Pack, -DevKit, -Server, -Install, -Check, -List, -RemoveTrust or -Unblock. See .\PkiTransport.ps1 -Help.' }
+    if ($modes.Count -gt 1 -and -not ($Check -and ($Install -or $List)) ) { throw 'Use only one of -Pack, -DevKit, -Server, -Install, -Check, -List, -RemoveTrust and -Unblock.' }
     if ($IncludeCaKeys -and -not $Pack) { throw '-IncludeCaKeys is a -Pack option (-DevKit packs the issuing CA keys by itself).' }
     if ($Pack -and ($Install -or $RemoveTrust)) { throw '-Pack cannot be combined with -Install or -RemoveTrust.' }
+
+    # =========================================================================================== -Server (no module needed: New-PkiServerPackage.ps1 does the work)
+    if ($Server) {
+        if ($Pack -or $DevKit -or $Install -or $Check -or $List -or $RemoveTrust -or $Unblock) { throw '-Server cannot be combined with another mode.' }
+        $np = Join-Path $script:ScriptRoot 'New-PkiServerPackage.ps1'
+        if (-not (Test-Path -LiteralPath $np)) { throw "New-PkiServerPackage.ps1 not found next to this script: $np" }
+        $outZip = if ($Out) { $Out } else { Join-Path (Join-Path $script:ScriptRoot 'transport') ("agantra-pki-server-{0}.zip" -f (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+        if ([System.IO.Path]::GetExtension($outZip).ToLowerInvariant() -ne '.zip') { $outZip += '.zip' }
+        $outZip = [System.IO.Path]::GetFullPath($outZip)
+        $na = @('-NoProfile', '-File', $np, '-Output', $outZip)
+        if ($PkiRoot) { $na += @('-PkiRoot', $PkiRoot) }
+        if ($Release -gt 0) { $na += @('-Release', [string]$Release) }
+        if ($NoCaRevocationInfo) { $na += '-NoCaRevocationInfo' }
+        if ($Tar) { $na += '-Tar' }
+        if ($IncludeServiceKeys) { $na += '-IncludeServiceKeys' }
+        if ($Force) { $na += '-Force' }
+        $sw = Get-Item -LiteralPath (Get-Process -Id $PID).Path
+        & $sw.FullName @na
+        $rc = $LASTEXITCODE
+        if ($rc -ne 0) { exit $rc }
+        $h = (Get-FileHash -LiteralPath $outZip -Algorithm SHA256).Hash.ToLowerInvariant()
+        Write-Host "  SHA-256     : $h   (compare it after the transfer)" -ForegroundColor Gray
+        Write-Host '  The server package holds NO private key (a CA key never). Ubuntu: unzip; sudo ./linux/pki-server/pki-server.sh install --source ./pki' -ForegroundColor Gray
+        exit 0
+    }
 
     # module set: pack needs the whole library, everything else only the small destination kit
     $PkiModuleSet = if ($Pack -or $DevKit) { 'Library' } else { 'Transport' }

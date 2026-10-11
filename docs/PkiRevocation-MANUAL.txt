@@ -74,7 +74,8 @@ WHAT IT DOES
 
 ACTIONS   (-Action <name>)
   Status      Table: per CA the CRL number, next update, days left, revoked/issued, and the OCSP responder. (default)
-  Info        Status + writes pki\revocation-info.json and pki\REVOCATION-INFO.txt (URLs, dates, how to renew).
+  Info        Status + writes pki\R<n>\revocation-info.json and REVOCATION-INFO.txt (URLs, dates, how to renew) and the server\ folder
+              (server-info.json, ca-list.tsv, server.env, expected-urls.tsv, DNS-RECORDS.txt) that pki-server.sh reads. Every action refreshes them.
   NewCrl      New CRL of the CA(s) (-Ca q1-ev,q1-ov ; default every CA) and publish it. -CrlDays N = its validity (default 365,
               agantra_pki.cnf [ revocation ] CrlDays).    Do it BEFORE the old CRL ends (Status shows the days left).
   Revoke      Revoke an issued certificate:  -Certificate <file.crt>   or  -Serial <hex> -Ca <issuing CA>.

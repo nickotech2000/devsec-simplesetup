@@ -334,6 +334,8 @@ WHAT IT DOES
   -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
   -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1, Ubuntu sh), the leaf / person /
              Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
+  -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp server: pki-server.sh + the PKI without private keys
+             (the CA keys NEVER go there) + the server\ files of the PKI. No password: the package holds nothing secret. See SERVER.
   -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes it unpacks the
              package and installs the CA certificates in the Windows certificate stores.
   -Check     DESTINATION. The scan only (nothing is changed): READY or NOT READY.
@@ -371,6 +373,17 @@ PACK  (source)
                          needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
   -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
+SERVER   (-Server)
+  .\PkiTransport.ps1 -Server                                  .\transport\agantra-pki-server-<date>.zip (latest release of the normal family)
+  .\PkiTransport.ps1 -Server -Release 2 -Tar                  release R2, and also a .tar.gz (mode bits kept on every tool)
+  .\PkiTransport.ps1 -Server -NoCaRevocationInfo -Out D:\share\pki-server-nocr.zip
+  -Out <file.zip>  -Force  -Tar   as for the package.      -PkiRoot / -Release / -NoCaRevocationInfo   which PKI (ONE PKI per package).
+  -IncludeServiceKeys  LAB ONLY: also the OCSP / time stamp private keys. A CA key is never included. Without it the keys are made ON the server
+                       (pki-server.sh csr) and signed here (PkiRevocation.ps1 -Action SignCsr): nothing secret travels.
+  The package is opened again and scanned: one private key inside = deleted, exit 5. The server reads hosts, CA list and URLs from the
+  server\ folder of the PKI (written by pki_setup.ps1 / PkiRevocation.ps1), not from a file you have to keep in step.
+  On Ubuntu:  unzip, then  sudo ./linux/pki-server/pki-server.sh install --source ./pki     (docs\PKI-SERVER-MANUAL.txt)
+
   -Release <n>  -NoCaRevocationInfo   WHICH PKI of .\pki\ is packed (-Pack, -DevKit): release R<n>, else the LATEST; the NoCR family with the switch.
                        ONE PKI per package: the kit of release 2 holds R2 only. A release that no longer exists = the latest, with a warning.
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
@@ -641,3 +654,14 @@ LIMITATIONS
   warning), -NoCaRevocationInfo the NoCR family, -PkiRoot a folder. Inside the package the PKI is always the folder pki/ (no R2 in the path), so the destination
   scripts need no change. devkit.env holds PKI_RELEASE and PKI_VARIANT; the shell scripts derive the name suffix (-r2, -nocr) from the manifest.
   A kit holds one PKI: build one kit per release. See pki_setup-MANUAL.txt section 18.
+
+====================================================================================================
+ 20  -Server: THE SERVER PACKAGE  (4.9.5)
+====================================================================================================
+PkiTransport.ps1 -Server  -  the server package from the transport script  (4.9.5)
+  .\PkiTransport.ps1 -Server                 .\transport\agantra-pki-server-<date>.zip   (latest release, normal family)
+  .\PkiTransport.ps1 -Server -Release 2 -Tar  also a .tar.gz       -NoCaRevocationInfo  the NoCR family       -PkiRoot <folder>  one folder
+  -Out <file.zip>  -Force      -IncludeServiceKeys  LAB ONLY (the OCSP / time stamp keys; a CA key is never packed)
+  It runs New-PkiServerPackage.ps1 (same checks: no private key, LF text, execute bits; the package is opened again and scanned, one key = deleted)
+  and prints the SHA-256. No password: the package holds nothing secret. Inside: linux\ (pki-server kit, pki-transport.sh, Install-DevEnvironment.sh),
+  pki\ (the PKI WITHOUT keys, with server\), agantra_pki.cnf, the documents. On Ubuntu:  unzip; sudo ./linux/pki-server/pki-server.sh install --source ./pki

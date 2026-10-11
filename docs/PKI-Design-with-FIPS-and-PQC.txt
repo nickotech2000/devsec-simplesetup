@@ -72,7 +72,7 @@
 
                     +----------------------------------------------------------+
                     |  ENTERPRISE ROOT CA            (self-signed)             |
-                    |  Agantra Inovatif Enterprise Root CA G1                  |
+                    |  Agantra Root CA G1                  |
                     |  RSA 8192 / SHA-512     1000 years     pathlen 3         |
                     +----------------------------+-----------------------------+
                                                  |
@@ -80,7 +80,7 @@
                |                                                                  |
    +-----------v-------------------------+                      +-----------------v-----------------+
    | TRACK ROOT - CLASSIC                |                      | TRACK ROOT - QUANTUM              |
-   | ...Enterprise Classic Root CA G1    |                      | ...Enterprise PQC-PostQuantum     |
+   | Agantra Classic Root CA G1          |                      | Agantra PQC           |
    | RSA 8192 / SHA-512  500 y  pathlen 2|                      |    Root CA G2                     |
    | folder: pki\classical\root          |                      | ML-DSA-87           500 y  pl 2   |
    +-----------+-------------------------+                      | folder: pki\quantum\root          |
@@ -189,23 +189,23 @@
  4  NAMES  (configurable)
 ====================================================================================================
  Defaults:
- Enterprise Root     Agantra Inovatif Enterprise Root CA G1
- Track Root          Agantra Inovatif Enterprise Classic Root CA G1
-                     Agantra Inovatif Enterprise PQC-PostQuantum Root CA G2
- Quadrant Root       Agantra Inovatif Enterprise Classic Q1 Root CA G1          (Q2 likewise)
-                     Agantra Inovatif Enterprise PQC-PostQuantum Q1 Root CA G2  (Q2 likewise)
+ Enterprise Root     Agantra Root CA G1
+ Track Root          Agantra Classic Root CA G1
+                     Agantra PQC Root CA G2
+ Quadrant Root       Agantra Classic Q1 Root CA G1          (Q2 likewise)
+                     Agantra PQC Q1 Root CA G2  (Q2 likewise)
                      Q1 = non-FIPS, Q2 = FIPS, in BOTH tracks. The track word and the generation (G1 Classic, G2 Quantum) keep every
                      name and file stem unique: agantra-q1-root-g1 (Classic) / agantra-q1-root-g2 (Quantum).
                      The internal quadrant numbers 1..4 (-Quadrant, ids q1-ev .. q4-ev, folders) are NOT renamed.
                      Leaf file names use the same Q1 / Q2: www.example.com-ev-q2-mldsa65.crt is a Quantum FIPS leaf.
- Intermediate        Agantra Inovatif <EV|OV|DV> <algorithm> <G1|G2> CA
-                       Agantra Inovatif EV RSA-4096 G1 CA
-                       Agantra Inovatif OV ECDSA-P384 FIPS G1 CA
-                       Agantra Inovatif DV ML-DSA-87 G2 CA
-                       Agantra Inovatif EV ML-DSA-87 FIPS G2 CA
+ Intermediate        Agantra <EV|OV|DV> <algorithm> <G1|G2> CA
+                       Agantra EV RSA-4096 G1 CA
+                       Agantra OV ECDSA-P384 FIPS G1 CA
+                       Agantra DV ML-DSA-87 G2 CA
+                       Agantra EV ML-DSA-87 FIPS G2 CA
  G1 = Classic track, G2 = everything in the Quantum track. The algorithm in an intermediate name is
  the key that really exists (after a -PqcFallback it reads RSA-8192, never ML-DSA). No year range.
- "PQC-PostQuantum" is literally true for the Quantum track (ML-DSA).
+ "PQC" is literally true for the Quantum track (ML-DSA).
 
  WHERE THE NAMES ARE DECIDED  (one module: scripts\01b_CaNaming.ps1)
    Defaults   scripts\01b_CaNaming.ps1            ($script:PkiNamingDefaults, documented in the file)
@@ -882,6 +882,24 @@
                  -NewRelease = latest + 1). (f) A common name is limited to 64 characters: the PQC short label applies to the whole PKI when any name would be longer, so the
                  names of one PKI stay consistent. (g) A DevKit / server package holds one PKI.
 
+ 10.77 DECIDED   (4.9.5) Shorter CA names. The common names of the CAs no longer contain "Inovatif", "Enterprise" (roots) or "PostQuantum": Prefix = Agantra, QuantumLabel = PQC.
+                 Agantra Root CA G1, Agantra Classic Root CA G1, Agantra PQC Root CA G2, Agantra Classic Q1 Root CA G1, Agantra PQC Q1 Root CA G2, Agantra EV RSA-4096 G1 CA.
+                 The company name in the subject (O = Agantra Inovatif OU) is NOT changed, so the identity marker 'Agantra Inovatif' still finds every certificate of the PKI in the
+                 Windows stores. The file-name stems / URL slugs are changed in a second step, see 10.78.
+                 A PKI built earlier keeps its old names and keeps working; pki_remove / -RemoveTrust recognise both (names starting with "Agantra"). Rebuild to get the new names.
+
+ 10.78 DECIDED   (4.9.5) CRL / CA-issuer file names ("slugs") follow the new CA names: agantra-root-g1 (was agantra-enterprise-root-g1), agantra-classic-root-g1, agantra-pqc-root-g2 (was
+                 agantra-quantum-root-g2), agantra-q1-root-g1 / -g2, agantra-q1-ov-g1 (intermediates unchanged); -nocr and -rN as before. The OCSP responder certificate is named
+                 "<CA name> OCSP Responder" and the time stamp certificate "<Prefix> Time Stamping Authority", both with the " (NoCR) R2" suffix of the PKI (the O of the subject is the company).
+                 A PKI built before this version keeps its old slugs and URLs (they are inside its certificates); only a rebuilt PKI uses the new ones.
+ 10.79 DECIDED   (4.9.5) The PKI describes its own server: pki\R<n>\server\ (server-info.json, ca-list.tsv, server.env, expected-urls.tsv, DNS-RECORDS.txt) is written by pki_setup.ps1 and by every
+                 PkiRevocation.ps1 action, from the same data that put the URLs into the certificates, and never contains a key. pki-server.sh takes hosts, CA list and names from it (cnf = fallback for
+                 older PKIs), keeps one copy per release under /etc/agantra-pki-server/pki-info/, and its self-test asks every expected URL. PkiTransport.ps1 -Server builds the server zip by running
+                 New-PkiServerPackage.ps1 (no CA key, ever; service keys only with -IncludeServiceKeys for a lab).
+ 10.80 DECIDED   (4.9.5) Install-DevEnvironment.sh: OpenSSL comes from the distribution by default (--openssl-source system: 3.0.0 or newer accepted; Ubuntu 26.04 3.5.x has ML-DSA / ML-KEM, 24.04 3.0.x does
+                 not - reported as NOTE, not failure), OpenSSL 4 from the author's PPA (--openssl-source ppa, nicko-su-openssl4) or from source (build); nginx only from the PPA (nicko-su-nginx, Ubuntu only,
+                 an existing other nginx is never replaced). The scripts that really need OpenSSL 4 (pki-transport.sh chain proof, pki-server.sh --build-openssl) ask for --openssl-source build.
+
 ====================================================================================================
  11  REQUIREMENT TRACKER
 ====================================================================================================
@@ -983,6 +1001,13 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
+  4.9.5-phaseC  2026-10-11  (CRL / OCSP names, server, installer)
+    + File names of CRL / CA-issuer URLs follow the CA names (agantra-root-g1, agantra-pqc-root-g2 ...) (10.78); OCSP / TSA certificate names with the suffix.
+    + pki\R<n>\server\ written by the PKI; pki-server.sh reads it, keeps releases side by side, tests every expected URL, names the CSRs like the PKI (10.79).
+    + PkiTransport.ps1 -Server (-Tar, -IncludeServiceKeys, -Release, -NoCaRevocationInfo); New-PkiServerPackage.ps1 puts server\ into the package.
+    + Install-DevEnvironment.sh: --openssl-source system (default) | ppa | build, nginx component from ppa:nickotech2000/nicko-su-prod, --ppa, --nginx-package (10.80).
+  4.9.5-phaseC  2026-10-11  (shorter CA names)
+    + CA common names: Prefix 'Agantra' (was 'Agantra Inovatif'), no word 'Enterprise' in the root names, QuantumLabel 'PQC' (was 'PQC-PostQuantum') (10.77). Slugs and the subject O unchanged.
   4.9.5-phaseC  2026-10-11  (releases and NoCR)
     + pki_setup.ps1 -NoCaRevocationInfo (CA certificates without CDP / OCSP / caIssuers), -NewRelease, -Release N; every PKI inside pki\ (R1, R2, NoCR-R1 ...); module 01c_Releases.ps1 (10.76, section 21).
     + CA names / slugs: " R2" suffix from release 2, " (NoCR)" for the NoCR family; the Quantum word becomes PQC when a name would pass 64 characters.
@@ -1014,7 +1039,7 @@
    + Documentation and -Help corrected: PEN placement (not in the Enterprise Root and Track Roots), the policies of the roots (All issuance policies + EV), the names of the Quantum
      quadrants (Q1 / Q2), the table of quadrant numbers and names; pki_setup -Help has a POLICIES and a NAMES OF THE QUADRANTS section.
    + Verified on a FRESH build of the current code (19 CAs, -Verify valid): Enterprise Root and both Track Roots = Any Policy + 2.23.140.1.1 only, no EKU; Quadrant Roots EV + OV + DV +
-     PEN (1, 1.1, 1.2, 1.3); intermediates their level + PEN; names Classic Q1 / Q2 and PQC-PostQuantum Q1 / Q2, stems agantra-q1-root-g1 / -g2 ...; a leaf from it carries its level + PEN with no
+     PEN (1, 1.1, 1.2, 1.3); intermediates their level + PEN; names Classic Q1 / Q2 and PQC Q1 / Q2, stems agantra-q1-root-g1 / -g2 ...; a leaf from it carries its level + PEN with no
      "issuer lacks the policy" warning and verifies against the Enterprise Root alone.
    + Found while finishing: the help text of pki_setup.ps1 had lost five sections (ROOT KEY POLICY, QUANTUM TRACK, VALIDITY, POLICIES, the COMMON NAMES heading); restored and updated.
    + Verified, not changed: the root policies, the PEN placement and the Q1 / Q2 names of the Quadrant Root and Intermediate CAs were already implemented (see 10.43 to 10.45).
@@ -1424,13 +1449,13 @@
   A PKI made by an older version sits directly in pki\ (pki\root, pki\classical ...). It counts as R1 and keeps working.
 
   NAMES.  Release 1 has no suffix. From release 2 every CA common name ends in " R2", " R3" ... The NoCR family adds " (NoCR)":
-      Agantra Inovatif Enterprise Root CA G1               R1, with revocation information
-      Agantra Inovatif Enterprise Root CA G1 R2            release 2
-      Agantra Inovatif Enterprise Root CA G1 (NoCR)        NoCR, release 1
-      Agantra Inovatif Enterprise Root CA G1 (NoCR) R2     NoCR, release 2
+      Agantra Root CA G1               R1, with revocation information
+      Agantra Root CA G1 R2            release 2
+      Agantra Root CA G1 (NoCR)        NoCR, release 1
+      Agantra Root CA G1 (NoCR) R2     NoCR, release 2
   The Track Roots, Quadrant Roots and intermediates follow the same rule, the file names and URL slugs get -nocr / -r2
   (agantra-q1-ov-g1-nocr-r2). Leaf certificates are not renamed. A common name is limited to 64 characters: when one would be longer
-  (a Quantum Q-root with "(NoCR) R2"), the word PQC-PostQuantum becomes PQC in ALL names of that PKI (agantra_pki.cnf [ ca_names ]
+  (a Quantum Q-root with "(NoCR) R2"), the word PQC becomes PQC in ALL names of that PKI (agantra_pki.cnf [ ca_names ]
   QuantumLabelShort). The words are configurable: NoCrLabel, ReleaseLabel. Preview: .\pki_setup.ps1 -ShowNames -NoCaRevocationInfo -NewRelease.
 
   WHAT -NoCaRevocationInfo DOES.  The Enterprise Root, Track Roots, Quadrant Roots and intermediates are made WITHOUT crlDistributionPoints,
@@ -1486,3 +1511,38 @@
    -Clean -Release 2; pki_remove -List / -Release 1 -DeleteFiles / NoCR -DeleteFiles / -All; -RemoveTrust with two releases (error asking for -Release); DevKit from R2: install,
    devkit.env (PKI_RELEASE), GenerateLeafCertificate.sh issues from "... CA R2", no root / OCSP / TSA key in the kit.
    NOT RUN: Windows (real certificate-store installation and removal, pki_remove on Windows, the Word signature result with a NoCR PKI), macOS.
+
+====================================================================================================
+ 22  CRL / OCSP SERVER FROM THE PKI  (4.9.5; scripts\18_Revocation.ps1 Write-PkiServerInfo, linux\pki-server\pki-server.sh, PkiTransport.ps1 -Server, linux\Install-DevEnvironment.sh)
+====================================================================================================
+ 22.1 Flow
+   pki_setup.ps1 / PkiRevocation.ps1  ->  pki\R<n>\publish (CRL, CA files, slug names) + pki\R<n>\server (what the server must satisfy)
+   PkiTransport.ps1 -Server           ->  agantra-pki-server-<date>.zip (no private key)  ->  Ubuntu: pki-server.sh install --source ./pki  ->  nginx (PPA) + OCSP + TSA
+ 22.2 What the server reads from the PKI
+   THE PKI TELLS THE SERVER  (4.9.5; pki\R<n>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
+   The server does not guess and does not depend on a file you keep in step: the PKI writes what it really contains.
+       server-info.json     release, variant (normal | NoCR), name suffix, CRL days, the hosts, the URL templates, and for every CA: id, common name,
+                            parent, level, track, fips, slug, crl / crt file names, CRL number and next update, "ocspResponder" yes / no
+       ca-list.tsv          the same list for shell (tab separated: id kind slug level track fips parent ocsp crl-file crt-file common-name crl-next-update)
+       server.env           PKI_SRV_RELEASE, PKI_SRV_VARIANT, PKI_SRV_NAME_SUFFIX, PKI_SRV_HOSTS_CRL (CRL + CA-issuer hosts), PKI_SRV_HOSTS_OCSP, PKI_SRV_CRL_DAYS
+       expected-urls.tsv    EVERY CRL / CA-issuer / OCSP URL that the certificates of this PKI contain: type, host, url
+       DNS-RECORDS.txt      the host names to put in DNS (or the hosts file), with their role
+   pki-server.sh install / update copies these files to /etc/agantra-pki-server/pki-info/<R1|R2|NoCR-R1>/, builds the nginx server_name lists from
+   them, serves the CRL and CA files under the SAME file names (the slug of the URL: agantra-root-g1.crl, agantra-q1-ov-g1-r2.crl ...), creates the
+   OCSP responders from the CA list, names the OCSP / time stamp requests the same way as the PKI does ("Agantra EV RSA-4096 G1 CA (NoCR) R2 OCSP
+   Responder", "Agantra Time Stamping Authority (NoCR) R2"), and  pki-server.sh test  asks every URL of expected-urls.tsv (right host name, right path,
+   the file parses as a CRL / certificate). The test therefore proves that the server satisfies the certificates that exist, not a fixed list.
+   Several releases / families: install the package of each one; the files of all of them stay (their names differ), the host lists are added together,
+   OCSP and the time stamp service serve the release installed LAST. A PKI made by an older version has no server\ folder: the hosts then come from
+   agantra_pki.cnf, and  .\PkiRevocation.ps1 -Action Info  creates the folder.
+   A NoCR PKI has no URL in its CA certificates; the server is still needed for the leaf certificates (they keep their CRL / OCSP URLs).
+   NAMES of the CRL and CA-issuer files (the {ca} of the URLs) follow the CA names: Root CA -> agantra-root-g1, Classic Root -> agantra-classic-root-g1,
+   PQC Root -> agantra-pqc-root-g2, Q1 / Q2 roots -> agantra-q1-root-g1 / -g2, intermediates -> agantra-q1-ov-g1 ; NoCR adds -nocr, release 2+ adds -r2.
+ 22.3 Keys: the CA keys are never on the server. The OCSP responder and time stamp keys are made on the server (pki-server.sh csr), the CSR is signed on the CA machine
+   (PkiRevocation.ps1 -Action SignCsr), the certificate is imported (import-cert). -IncludeServiceKeys is a lab shortcut.
+ 22.4 Software on the machines: Windows CA machine - OpenSSL 4.x (Install-DevEnvironment.ps1); Ubuntu server - nginx and OpenSSL 4 from ppa:nickotech2000/nicko-su-prod (nicko-su-nginx 1.31.6, nicko-su-openssl4 4.0.3,
+   noble and resolute); Ubuntu developer machine - the distribution's OpenSSL (Install-DevEnvironment.sh default), nginx optional from the PPA.
+ 22.5 Tests run (Ubuntu 24.04, PowerShell 7.5, OpenSSL 4.0.3): fresh PKI (NoCR-R1, Classic) writes server\ with 6 CAs and 8 hosts; PkiTransport.ps1 -Server (zip + tar.gz, no key, LF); pki-server.sh csr from the
+   unzipped package (new CSR names; signed with PkiRevocation.ps1 SignCsr); pki-server.sh install in a sandbox (--no-systemd, own directories): CAs found, hosts from the PKI, OCSP responders and TSA set up, nginx
+   configuration written and checked; dns; Install-DevEnvironment.sh --check / --dry-run for system, ppa and build.
+   NOT RUN: systemd units and a real nginx on port 80 with the PPA package, add-apt-repository on the PPA, the PPA packages, Ubuntu 26.04, WSL, Windows.

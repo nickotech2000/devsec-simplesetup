@@ -67,7 +67,7 @@
                                                               no extended key usage. Windows (certlm.msc, Details): "All issuance policies"
   A14   the same on a Quadrant Root and on an EV intermediate   Quadrant Root: EV, OV, DV + 1.3.6.1.4.1.67096.1 and .1.1 .1.2 .1.3;
                                                               EV intermediate: 2.23.140.1.1 + 67096.1 + 67096.1.1. A leaf: its level + PEN
-  A15   .\pki_setup.ps1 -ShowNames, then look in certlm.msc    Quadrant Roots: Classic Q1, Classic Q2, "PQC-PostQuantum Q1", "PQC-PostQuantum
+  A15   .\pki_setup.ps1 -ShowNames, then look in certlm.msc    Quadrant Roots: Classic Q1, Classic Q2, "PQC Q1", "PQC
                                                               Q2"; stems agantra-q1-root-g1, -q2-root-g1, -q1-root-g2, -q2-root-g2;
                                                               no Q3 / Q4 in any name
 
@@ -305,3 +305,17 @@
  [ ] .\pki_setup.ps1 -RemoveTrust with two releases and no -Release stops with a message; with -Release 2 it removes R2.
  [ ] .\pki_remove.ps1 -All (or pki_setup.ps1 -RemoveAllTrust) removes every Agantra / NextMantra certificate from Windows and deletes the pki folder.
  [ ] A DevKit made from a release: devkit.env has PKI_RELEASE; ./GenerateLeafCertificate.sh issues from the CA of that release.
+
+====================================================================================================
+ E17  CRL / OCSP names, server folder, PkiTransport -Server, Install-DevEnvironment.sh (4.9.5)
+====================================================================================================
+ [ ] After pki_setup.ps1: pki\R<n>\publish has agantra-root-g1.crl / .crt, agantra-classic-root-g1.*, agantra-pqc-root-g2.* (no "enterprise" in any file name).
+ [ ] The OCSP certificate subject reads "<CA name> OCSP Responder", the time stamp one "Agantra Time Stamping Authority" (+ " (NoCR) R2" when it applies).
+ [ ] pki\R<n>\server\ holds server-info.json, ca-list.tsv, server.env, expected-urls.tsv, DNS-RECORDS.txt; the hosts in DNS-RECORDS.txt are the hosts of a leaf certificate's CRL / OCSP URLs.
+ [ ] .\PkiTransport.ps1 -Server writes a zip: unzip -l shows no *.key / *.pfx; pki\server\ is inside. -Release 2 / -NoCaRevocationInfo pick the PKI.
+ [ ] Ubuntu: sudo ./linux/pki-server/pki-server.sh csr --source ./pki --out ./csr -> the CSR subjects carry the new names; sign them with PkiRevocation.ps1 -Action SignCsr;
+     import-cert; install --source ./pki; ./pki-server.sh test says "all N CRL / CA-issuer URL(s) of the installed PKI(s) answer", OCSP good, time stamp verified.
+ [ ] A second release (or the NoCR family) installed on the same server: both sets of CRL files are served; ./pki-server.sh status lists both under PKI R1 / NoCR-R1.
+ [ ] ./Install-DevEnvironment.sh --check --only openssl,nginx on Ubuntu 26.04 shows OpenSSL 3.5.x READY (ML-DSA PASS); on 24.04 OpenSSL 3.0.x READY with NOTE lines.
+ [ ] ./Install-DevEnvironment.sh --yes --only nginx adds ppa:nickotech2000/nicko-su-prod and installs nicko-su-nginx (NOT TESTED by the author: check nginx -v says 1.31.6).
+ [ ] ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa installs nicko-su-openssl4 and the readiness check passes (NOT TESTED by the author).

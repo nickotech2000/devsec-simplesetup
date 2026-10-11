@@ -17,8 +17,8 @@
 # Precedence:  [ ca_names ] in agantra_pki.cnf  >  this file
 #
 # TOKENS usable in a template (case-sensitive, in braces):
-#   {Prefix}        company prefix                     Agantra Inovatif
-#   {QuantumLabel}  word for the Quantum track         PQC-PostQuantum
+#   {Prefix}        company prefix                     Agantra
+#   {QuantumLabel}  word for the Quantum track         PQC
 #   {Gen}           generation label of the CA         G1 (Enterprise, Classic)  G2 (Quantum)
 #   {N}             quadrant number IN NAMES           1 = non-FIPS, 2 = FIPS  (both tracks; the Quantum quadrants 3 / 4 are
 #                                                      called Q1 / Q2 too: the track label and {Gen} tell them apart)
@@ -59,8 +59,8 @@ $ErrorActionPreference = 'Stop'
 # DEFAULTS  (edit here or override in agantra_pki.cnf [ ca_names ])
 # ------------------------------------------------------------
 $script:PkiNamingDefaults = [ordered]@{
-    Prefix        = 'Agantra Inovatif'
-    QuantumLabel  = 'PQC-PostQuantum'
+    Prefix        = 'Agantra'
+    QuantumLabel  = 'PQC'
     SlugPrefix    = 'agantra'
     NoCrLabel     = '(NoCR)'          # added to every CA name of a PKI made with -NoCaRevocationInfo
     ReleaseLabel  = 'R{N}'            # added from release 2 on:  R2, R3 ...   ({N} = the release number)
@@ -69,11 +69,11 @@ $script:PkiNamingDefaults = [ordered]@{
     GenClassic    = 'G1'
     GenQuantum    = 'G2'
     Templates     = [ordered]@{
-        EnterpriseRoot      = '{Prefix} Enterprise Root CA {Gen}'
-        ClassicTrackRoot    = '{Prefix} Enterprise Classic Root CA {Gen}'
-        QuantumTrackRoot    = '{Prefix} Enterprise {QuantumLabel} Root CA {Gen}'
-        ClassicQuadrantRoot = '{Prefix} Enterprise Classic Q{N} Root CA {Gen}'
-        QuantumQuadrantRoot = '{Prefix} Enterprise {QuantumLabel} Q{N} Root CA {Gen}'
+        EnterpriseRoot      = '{Prefix} Root CA {Gen}'
+        ClassicTrackRoot    = '{Prefix} Classic Root CA {Gen}'
+        QuantumTrackRoot    = '{Prefix} {QuantumLabel} Root CA {Gen}'
+        ClassicQuadrantRoot = '{Prefix} Classic Q{N} Root CA {Gen}'
+        QuantumQuadrantRoot = '{Prefix} {QuantumLabel} Q{N} Root CA {Gen}'
         Intermediate        = '{Prefix} {Level} {Algorithm} {Gen} CA'
     }
 }
@@ -196,9 +196,9 @@ function Get-PkiCaCommonName {
 }
 
 function Get-PkiCaSlug {
-    # File-name stem: agantra-q1-ev-g1, agantra-enterprise-root-g1 ...   (NoCR: ...-g1-nocr, release 2: ...-g1-r2, both: ...-g1-nocr-r2)
+    # File-name stem (CRL / CA-issuer URLs, pki\publish): agantra-root-g1, agantra-classic-root-g1, agantra-pqc-root-g2, agantra-q1-root-g1, agantra-q1-ev-g1 ...   (NoCR: ...-g1-nocr, release 2: ...-g1-r2, both: ...-g1-nocr-r2)
     param([Parameter(Mandatory)][hashtable]$Ca)
-    $name = if ($Ca.Kind -eq 'root') { 'enterprise-root' } else { $Ca.Id }
+    $name = if ($Ca.Kind -eq 'root') { 'root' } elseif ($Ca.Id -eq 'quantum-root') { 'pqc-root' } else { $Ca.Id }     # the words follow the common names: Root CA, PQC Root CA
     if ([int]$Ca.Quadrant -gt 0) { $name = $name -replace '^q\d+', ('q' + (Get-PkiNamingQuadrant -Ca $Ca)) }    # q3-ev -> q1-ev, q4-ev -> q2-ev (the generation tells the tracks apart)
     $slug = "$($script:Pki.Naming.SlugPrefix)-$name-$($Ca.Gen.ToLowerInvariant())".ToLowerInvariant()
     # the variant and the release are part of the file stem (CRL / CA-issuer URLs): all PKIs can be served by one server

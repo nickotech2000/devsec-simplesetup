@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL   (Install-DevEnvironment.ps1 for Windows, Install-DevEnvironment.sh for Linux and macOS)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 4.9.0     2026-10-06
+ Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 4.9.5     2026-10-11
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt, PKI-Design-with-FIPS-and-PQC.txt (section 18)
 
@@ -204,7 +204,7 @@ EXIT CODES   0 ok   1 error (for example not elevated)   4 OpenSSL not ready
 ====================================================================================================
 ============================================================
  Install-DevEnvironment.sh - Linux and macOS developer bootstrap
- Version 4.9.0
+ Version 4.9.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -215,17 +215,22 @@ WHAT IT DOES
   Installs what is MISSING, verifies each component, and prints a summary. Nothing that is already there is replaced.
     tools      curl, tar, gzip, unzip, ca-certificates, compiler, make, perl
     7zip       7-Zip: the archive tool of the .certpacked transport (AES-256 zip, 7z)
-    openssl    OpenSSL 4.0.1 or newer as a FULL build, never a stripped one: FIPS provider with fipsmodule.cnf, native ML-DSA
-               and ML-KEM (quantum-safe), shared libraries, headers, documentation. Built from the official source release
-               (the tarball is checked against the SHA-256 of the same release page) into --openssl-prefix. The system openssl
-               is NOT replaced; a link  openssl4  is put in /usr/local/bin. Then PROVEN: version, FIPS provider active,
-               ML-DSA-65 sign + verify, ML-KEM-768 key generation, ML-DSA inside the FIPS provider.
+    openssl    DEFAULT = the OpenSSL of your distribution (apt install openssl): Ubuntu 26.04 ships 3.5.x (ML-DSA, ML-KEM), Ubuntu 24.04
+               ships 3.0.x (Classic RSA / ECDSA only). Nothing is built, nothing is replaced, the PATH is not touched. Enough for the DevKit
+               generators (GenerateLeafCertificate.sh ...). Then PROVEN: version, FIPS provider, ML-DSA, ML-KEM.
+               --openssl-source ppa     OpenSSL 4 from YOUR PPA (package nicko-su-openssl4, ppa:nickotech2000/nicko-su-prod), Ubuntu 24.04 / 26.04.
+               --openssl-source build   OpenSSL 4.0.1+ as a FULL build from the official source (SHA-256 checked) into --openssl-prefix,
+                                        link openssl4 in /usr/local/bin. This is what pki_setup.ps1 needs on a CA machine (it requires 4.x).
+    nginx      YOUR nginx from YOUR PPA (ppa:nickotech2000/nicko-su-prod, package nicko-su-nginx 1.31.x). Ubuntu 24.04 / 26.04 only; other
+               systems skip it. For the CRL / OCSP / time stamp server (linux/pki-server/pki-server.sh installs it by itself as well).
     git python go node php dotnet pwsh     developer tools (distribution packages; pwsh from the PowerShell GitHub release)
 
 USAGE
   ./Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; changes nothing
   ./Install-DevEnvironment.sh --yes                        install everything that is missing
   ./Install-DevEnvironment.sh --yes --only openssl,7zip    only these (what the PKI scripts need)
+  ./Install-DevEnvironment.sh --yes --only nginx           only nginx from the PPA
+  ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa     OpenSSL 4 from the PPA instead of the distribution's
   ./Install-DevEnvironment.sh --yes --skip php,dotnet      everything except these
   ./Install-DevEnvironment.sh --dry-run --only openssl     show the commands, run nothing
   ./Install-DevEnvironment.sh --unblock                    UNBLOCK + UNLOCK this folder, then stop
@@ -233,16 +238,21 @@ USAGE
 OPTIONS
   --only LIST            Comma-separated components (above). Default: all.      --skip LIST   All except these.
   --check                Scan only: components found, OpenSSL readiness. Exit 0 when OpenSSL is ready, 4 when not.
+                         (ready = the OpenSSL of the chosen --openssl-source: 3.0.0+ for system, 4.0.1+ for ppa / build)
   --yes, -y              Do not ask. Needed when there is no terminal.         --dry-run   Print system-changing commands.
-  --openssl-prefix DIR   Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS: /usr/local/openssl-4.0.3).
-  --openssl-version V    Build this version instead of 4.0.3 (4.0.1 or newer).
+  --openssl-source S     system (default) | ppa | build   (see openssl above).
+  --ppa PPA              The PPA for nginx and OpenSSL 4. Default ppa:nickotech2000/nicko-su-prod.   --nginx-package P   Default nicko-su-nginx.
+  --openssl-prefix DIR   (build) Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS: /usr/local/openssl-4.0.3).
+  --openssl-version V    (build) Build this version instead of 4.0.3 (4.0.1 or newer).
+  --no-path              (ppa / build) Do not put the OpenSSL 4 bin folder on the PATH (default: it is put FIRST on the PATH of every login shell:
+                         /etc/profile.d/openssl4.sh with sudo, else a marked block in ~/.profile and ~/.bashrc).
   --openssl-no-docs      Skip the manual pages (shorter build). The cryptography is still the FULL build.
   --openssl-jobs N       Parallel compile jobs. Default: the number of CPU cores.
   --unblock              UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, immutable, locked flags) this script's
                          folder, children and recursive, then stop. The same is done silently at every start.
   --version              Show the version.                                     --help, -h   This text.
 
-OPENSSL BUILD TIME  (be warned)
+OPENSSL BUILD TIME  (only with --openssl-source build; be warned)
   A full build compiles hundreds of files. About 5 minutes on 8 cores, 15 to 25 on 2 cores, and over an hour on ONE core
   (measured: more than 30 minutes without finishing on a 1-core VM). Use a machine with cores, or --openssl-no-docs.
 
@@ -256,6 +266,9 @@ LIMITATIONS
   * Needs root (or sudo) to install packages and into /opt. Not needed for --check and --unblock.
   * Package names differ between distributions and versions; each component is tried with the usual names and then
     verified, never assumed. dotnet, node, go and php are best effort (your distribution may not ship a current version).
+  * The PPA (ppa:nickotech2000/nicko-su-prod) publishes nicko-su-nginx 1.31.6 and nicko-su-openssl4 4.0.3 for Ubuntu 24.04 (noble) and 26.04
+    (resolute), amd64. add-apt-repository, the package names and the installed paths were not testable in the author's sandbox (no PPA access):
+    --dry-run shows the commands; the result is verified, never assumed.
   * Tested on Ubuntu 24.04 (real apt). The other platforms are tested only by simulation (--dry-run). The OpenSSL source build
     was NOT completed here (a 1-core VM); the Configure step, the download, the checksum and the readiness checks were tested.
 ====================================================================================================
@@ -266,3 +279,19 @@ LIMITATIONS
  -InstallMissing in PkiTransport.ps1 and Unpack-PkiTransport.ps1; pki-transport.sh rejects stripped OpenSSL builds, builds a FULL OpenSSL and has
  --unblock; the transport kit carries both bootstrap scripts; this manual.
 ====================================================================================================
+
+====================================================================================================
+ 14  OPENSSL SOURCE AND NGINX ON LINUX  (4.9.5)
+====================================================================================================
+ Install-DevEnvironment.sh --only openssl     DEFAULT = the OpenSSL of the distribution (--openssl-source system). Nothing is built or replaced; the PATH
+                                              is not touched. Ubuntu 26.04 ships 3.5.x (Classic AND post-quantum ML-DSA / ML-KEM); Ubuntu 24.04 ships 3.0.x (Classic
+                                              RSA / ECDSA only). That is enough for the DevKit generators (GenerateLeafCertificate.sh ...). The readiness check
+                                              shows PASS for what works and NOTE (not a failure) for what this OpenSSL cannot do (FIPS config, ML-DSA, ML-KEM).
+ Install-DevEnvironment.sh --only openssl --openssl-source ppa     OpenSSL 4 from YOUR PPA (package nicko-su-openssl4 4.0.3), Ubuntu 24.04 / 26.04, amd64.
+ Install-DevEnvironment.sh --only openssl --openssl-source build   the full source build (as before); pki-transport.sh and pki-server.sh --build-openssl use it.
+ Install-DevEnvironment.sh --only nginx       nginx from YOUR PPA (package nicko-su-nginx 1.31.6). The PPA is added with add-apt-repository, the package is checked with
+                                              apt-cache; another nginx that is already installed is NOT replaced (the scan says "NOT from the PPA"). --ppa and
+                                              --nginx-package change the names. Other systems than Ubuntu skip it.
+ pki_setup.ps1 (the CA machine) still needs OpenSSL 4.x: Windows - Install-DevEnvironment.ps1; Linux - --openssl-source ppa or build.
+ NOT TESTED here: add-apt-repository on the PPA and the real installation of the two PPA packages (no Launchpad access in the sandbox). Tested: --check,
+ --dry-run of every source, the version / readiness logic on Ubuntu 24.04 (OpenSSL 3.0.13), the syntax, the exit codes.

@@ -47,7 +47,8 @@ WHAT IT DOES
     pki\                   the PKI WITHOUT any private key: publish\ (CA certificates, CRLs), every CA's certificate, chain,
                            configuration, index.txt, serial and crlnumber (the OCSP responders read index.txt), the public parts of
                            ocsp\ and tsa\ (certificates, chains, .pub, info json)
-    agantra_pki.cnf        the host names (CRL / OCSP / CA issuer URLs) the kit puts into nginx
+    pki\server\            made by pki_setup.ps1: the host names, the CA list and every URL of THIS PKI. pki-server.sh reads it (no key inside)
+    agantra_pki.cnf        only a fallback for the host names when the PKI has no server\ folder (a PKI of an older version)
     docs\PKI-Server-Design.txt, docs\PKI-SERVER-MANUAL.txt, docs\PkiRevocation-MANUAL.txt   the documents
     README-SERVER-PACKAGE.txt, SHA256SUMS, PACKAGE-MANIFEST.txt
   Every text file is written with LF and no BOM (OpenSSL 3.5+ and nginx on Linux reject CRLF keys / PEM). The .sh and .py files get
@@ -62,6 +63,8 @@ NEVER IN THE PACKAGE
 
 USAGE
   .\New-PkiServerPackage.ps1 [-PkiRoot <folder>] [-Release <n>] [-NoCaRevocationInfo] [-Output <file.zip>] [-RootName <name>] [-IncludeServiceKeys] [-NoPki] [-Tar] [-Force]
+
+ALSO AS PkiTransport.ps1 -Server (same package, same checks, lands in .\transport\).
 
 PARAMETERS
   -PkiRoot <folder>      one PKI folder made by pki_setup.ps1 (default: the latest release in .\pki\ next to this script)

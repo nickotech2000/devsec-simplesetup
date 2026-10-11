@@ -8,7 +8,7 @@
 #
 # Used by pki_setup.ps1 (generates them with the PKI) and by PkiRevocation.ps1 (shows, edits, renews).
 # Provides : Get-PkiRevocationCas, Update-PkiCrl, Revoke-PkiCertificate, New-PkiServiceCertificate (OCSP responder / time
-#            stamp), New-PkiRevocationServiceSet, Invoke-PkiSignServiceCsr, Get-PkiRevocationStatus, Write-PkiRevocationInfo
+#            stamp), New-PkiRevocationServiceSet, Invoke-PkiSignServiceCsr, Get-PkiRevocationStatus, Write-PkiRevocationInfo, Write-PkiServerInfo
 # Layout   : pki\ocsp\<ca id>\<ca id>-ocsp.crt / .key / .pub / -fullchain.crt / ocsp-info.json    (one responder per issuing CA)
 #            pki\tsa\<ca id>\<ca id>-tsa.crt  ...                                                  (time stamping)
 #            pki\revocation-info.json + REVOCATION-INFO.txt                                         (URLs, CRL dates, responders)
@@ -154,14 +154,16 @@ function New-PkiServiceCertificate {
     }
     if ($KeyType) { $o.KeyType = $KeyType }
     if ($Days -gt 0) { $o.Days = $Days }
-    $org = ConvertTo-PkiAscii (Get-PkiLeafSubjectValue 'Organization' 'O' 'Agantra Inovatif OU' $o.Level)
+    # names follow the CA names: "<CA common name> OCSP Responder" and "<Prefix> Time Stamping Authority", both with the release / NoCR suffix
+    # of this PKI (" (NoCR) R2"), so the services of two releases can be told apart in a certificate store.
+    $pre = [string]$c.Naming.Prefix; $suf = Get-PkiNameSuffix
     if ($CommonName) { $o.CommonName = $CommonName }
     elseif ($Kind -eq 'Ocsp') {
         $cn = "$($c.Built[$Ca.Id].commonName) OCSP Responder"
-        if ($cn.Length -gt 64) { $cn = "$org OCSP Responder $($Ca.Id)" }
+        if ($cn.Length -gt 64) { $cn = "$pre OCSP Responder $($Ca.Id)$suf" }
         $o.CommonName = $cn
     }
-    else { $o.CommonName = "$org Time Stamping Authority" }
+    else { $o.CommonName = "$pre Time Stamping Authority$suf" }
 
     $spec = New-PkiLeafSpec -Options $o
     $root = if ($Kind -eq 'Ocsp') { Get-PkiOcspRoot } else { Get-PkiTsaRoot }
@@ -390,6 +392,85 @@ function Show-PkiRevocationStatus {
     Write-Host ''
 }
 
+function Write-PkiServerInfo {
+    <#
+    .SYNOPSIS
+        pki\server\ : what a CRL / OCSP / CA-issuer server needs to know about THIS PKI (so the server does not guess):
+          server-info.json    release, variant, hosts, and every CA (id, common name, parent, slug, files, URLs, OCSP yes/no, CRL dates)
+          ca-list.tsv         the same CA list for shell scripts (tab separated, no JSON parser needed)
+          server.env          KEY='value' lines for pki-server.sh (hosts, release, variant, CRL days)
+          expected-urls.tsv   every URL the certificates of this PKI contain (type, host, url): the server test asks all of them
+          DNS-RECORDS.txt     the host names to put in DNS (or in the hosts file) pointing at the server
+        Written by pki_setup.ps1 and again by every PkiRevocation.ps1 action. No key is ever written here.
+    #>
+    param($Status)
+    $c = $script:Pki
+    $dir = Join-Path $c.PkiRoot 'server'
+    [void][System.IO.Directory]::CreateDirectory($dir)
+    $hostOf = { param($u) try { ([uri]$u).Host } catch { '' } }
+    $hCrl = [System.Collections.Generic.SortedSet[string]]::new(); $hOcsp = [System.Collections.Generic.SortedSet[string]]::new(); $hAia = [System.Collections.Generic.SortedSet[string]]::new()
+    $cas = [System.Collections.Generic.List[object]]::new()
+    $exp = [System.Collections.Generic.List[string]]::new()
+    $tsv = [System.Collections.Generic.List[string]]::new()
+    [void]$tsv.Add("#id`tkind`tslug`tlevel`ttrack`tfips`tparent`tocsp`tcrl-file`tcrt-file`tcommon-name`tcrl-next-update")
+    foreach ($r in $Status.cas) {
+        $ca = $c.Catalog | Where-Object { $_.Id -eq $r.ca } | Select-Object -First 1
+        $cn = if ($c.Built.Contains($r.ca)) { [string]$c.Built[$r.ca].commonName } else { '' }
+        $ocsp = ($r.kind -eq 'intermediate' -and $null -ne $ca -and $ca.Track -eq 'Classic')
+        $u = $r.urls
+        foreach ($x in @($u.crl)) { $h = & $hostOf $x; if ($h) { [void]$hCrl.Add($h); [void]$exp.Add("crl`t$h`t$x") } }
+        foreach ($x in @($u.caIssuers)) { $h = & $hostOf $x; if ($h) { [void]$hAia.Add($h); [void]$exp.Add("ca-issuer`t$h`t$x") } }
+        if ($ocsp) { foreach ($x in @($u.ocsp)) { $h = & $hostOf $x; if ($h) { [void]$hOcsp.Add($h); [void]$exp.Add("ocsp`t$h`t$x") } } }
+        $lvl = if ($null -ne $ca -and $ca.Validation) { [string]$ca.Validation } else { '' }
+        $trk = if ($null -ne $ca) { [string]$ca.Track } else { '' }
+        $fips = if ($null -ne $ca -and $ca.Fips) { 'fips' } else { 'non-fips' }
+        $par = if ($null -ne $ca -and $ca.Parent) { [string]$ca.Parent } else { '' }
+        [void]$cas.Add([ordered]@{
+            id = $r.ca; kind = $r.kind; commonName = $cn; parent = $par; level = $lvl; track = $trk; fips = ($fips -eq 'fips'); slug = $r.slug
+            crlFile = "$($r.slug).crl"; crlPem = "$($r.slug).crl.pem"; certFile = "$($r.slug).crt"; certPem = "$($r.slug).pem"
+            crlNumber = [string]$r.crl.number; crlNextUpdate = $r.crl.nextUpdate; crlDaysLeft = $r.crl.daysLeft
+            ocspResponder = $ocsp; ocspCertificateIssued = ($null -ne $r.ocspResponder); urls = $u
+        })
+        [void]$tsv.Add((@($r.ca, $r.kind, $r.slug, $lvl, $trk, $fips, $par, $(if ($ocsp) { 'yes' } else { 'no' }), "$($r.slug).crl", "$($r.slug).crt", $cn, [string]$r.crl.nextUpdate) -join "`t"))
+    }
+    $hAll = [System.Collections.Generic.SortedSet[string]]::new(); foreach ($x in @($hCrl) + @($hAia) + @($hOcsp)) { [void]$hAll.Add($x) }
+    $info = [ordered]@{
+        generated = [DateTime]::UtcNow.ToString('o'); generator = "pki_setup / PkiRevocation $($script:PkiGeneratorVersion)"
+        release = [int]$c.Release; variant = $(if ($c.NoCaRevocationInfo) { 'NoCR' } else { 'normal' }); nameSuffix = (Get-PkiNameSuffix)
+        caCertificatesCarryRevocationUrls = (-not [bool]$c.NoCaRevocationInfo)
+        crlDays = [int]$c.CrlDays; ocspDays = [int]$c.OcspDays
+        hosts = [ordered]@{ crl = @($hCrl); caIssuer = @($hAia); ocsp = @($hOcsp); all = @($hAll) }
+        urlTemplates = [ordered]@{ crl = @($c.CrlUrls); caIssuer = @($c.CaIssuerUrls); ocsp = @($c.OcspUrls) }
+        timestamp = $Status.timestamp
+        cas = @($cas)
+    }
+    Write-Utf8NoBom -Path (Join-Path $dir 'server-info.json') -Content (($info | ConvertTo-Json -Depth 9) + "`n")
+    Write-Utf8NoBom -Path (Join-Path $dir 'ca-list.tsv') -Content (($tsv -join "`n") + "`n")
+    Write-Utf8NoBom -Path (Join-Path $dir 'expected-urls.tsv') -Content (((@("#type`thost`turl") + @($exp | Sort-Object -Unique)) -join "`n") + "`n")
+    $q = { param($v) "'" + ([string]$v -replace "'", "'\''") + "'" }
+    $envLines = @(
+        '# written by pki_setup.ps1 / PkiRevocation.ps1 - read by pki-server.sh (sourced: KEY=value only)',
+        "PKI_SRV_RELEASE=$([int]$c.Release)",
+        "PKI_SRV_VARIANT=$(& $q $(if ($c.NoCaRevocationInfo) { 'NoCR' } else { 'normal' }))",
+        "PKI_SRV_NAME_SUFFIX=$(& $q (Get-PkiNameSuffix))",
+        "PKI_SRV_HOSTS_CRL=$(& $q ((@($hCrl) + @($hAia) | Sort-Object -Unique) -join ' '))",
+        "PKI_SRV_HOSTS_OCSP=$(& $q (@($hOcsp) -join ' '))",
+        "PKI_SRV_CRL_DAYS=$([int]$c.CrlDays)",
+        "PKI_SRV_CA_COUNT=$($cas.Count)"
+    )
+    Write-Utf8NoBom -Path (Join-Path $dir 'server.env') -Content (($envLines -join "`n") + "`n")
+    $d = [System.Text.StringBuilder]::new()
+    [void]$d.Append("DNS RECORDS FOR THE CRL / OCSP / CA-ISSUER SERVER  -  PKI $($c.PkiRoot)`n")
+    [void]$d.Append("Every host below appears in a certificate of this PKI. Point ALL of them at the machine that runs pki-server.sh (A record, or one line each in the hosts file).`n")
+    [void]$d.Append(('=' * 100) + "`n")
+    foreach ($h in $hAll) { $role = @(); if ($hCrl.Contains($h)) { $role += 'CRL' }; if ($hAia.Contains($h)) { $role += 'CA issuer (.crt)' }; if ($hOcsp.Contains($h)) { $role += 'OCSP' }; [void]$d.Append(('{0,-40} {1}' -f $h, ($role -join ', ')) + "`n") }
+    [void]$d.Append("`nThe server keeps one file per CA: <slug>.crl, <slug>.crl.pem, <slug>.crt, <slug>.pem (slug = the {ca} of the URL, see ca-list.tsv).`n")
+    if ($c.NoCaRevocationInfo) { [void]$d.Append("This PKI is a NoCR PKI: its CA certificates carry no CRL / OCSP / CA-issuer URL. The hosts above are used by the LEAF certificates only.`n") }
+    Write-Utf8NoBom -Path (Join-Path $dir 'DNS-RECORDS.txt') -Content $d.ToString()
+    Write-PkiLog "Server information: $dir  ($($cas.Count) CAs, $($hAll.Count) host name(s))" 'OK'
+    return $info
+}
+
 function Write-PkiRevocationInfo {
     <#
     .SYNOPSIS
@@ -425,6 +506,7 @@ function Write-PkiRevocationInfo {
     & $w '  New TSA cert    .\PkiRevocation.ps1 -Action NewTsa -Replace [-TimestampPolicyOid 1.3.6.1.4.1.67096.1.4] [-TimestampDays 3650]'
     & $w '  Then            .\New-PkiServerPackage.ps1  and  sudo ./pki-server.sh update   on the server'
     Write-Utf8NoBom -Path (Join-Path $c.PkiRoot 'REVOCATION-INFO.txt') -Content $buf.ToString()
+    [void](Write-PkiServerInfo -Status $st)
     Write-PkiLog "Revocation information: $json" 'OK'
     return $st
 }

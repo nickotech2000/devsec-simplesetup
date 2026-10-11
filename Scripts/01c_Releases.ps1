@@ -17,7 +17,7 @@
 #  family, or as the release / variant written in its pki-manifest.json, and keeps working. -PkiRoot pki\R2 points at one PKI.)
 #
 # Release 1 has no suffix in any name. From release 2 every CA common name ends in " R2", " R3" ...
-# The NoCR variant adds " (NoCR)":   Agantra Inovatif Enterprise Root CA G1 (NoCR) R2
+# The NoCR variant adds " (NoCR)":   Agantra Root CA G1 (NoCR) R2
 # (leaf certificates are not renamed).
 #
 # The two variants are two separate families of roots. Inside a family every release has its own Enterprise

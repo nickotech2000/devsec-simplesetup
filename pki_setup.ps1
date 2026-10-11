@@ -174,7 +174,7 @@ HIERARCHY CREATED  (.\pki\R1 ; every PKI lives in its own subfolder of .\pki, se
   Quadrant NUMBERS (-Quadrant, folders, internal ids q1 .. q4):
               1 Classic Non-FIPS | 2 Classic FIPS | 3 Quantum Non-FIPS | 4 Quantum FIPS
   NAMES: in the common names and file names a quadrant is only Q1 (non-FIPS) or Q2 (FIPS), in BOTH tracks:
-              Classic Q1 / Q2 (G1)   and   PQC-PostQuantum Q1 / Q2 (G2)  = quadrants 3 / 4.   See COMMON NAMES
+              Classic Q1 / Q2 (G1)   and   PQC Q1 / Q2 (G2)  = quadrants 3 / 4.   See COMMON NAMES
   Default EV leaf: quadrant 1 RSA 2048 | 2 ECDSA P-256 | 3, 4 ML-DSA-65.
   Only the quadrants selected with -Quadrant are built; the Enterprise Root and the Track
   Roots they need are always built.
@@ -236,15 +236,15 @@ POLICIES  (EV policy is required)
   More policies: agantra_pki.cnf [ custom_policies ] (Quadrant Roots, intermediates, leaves).
 
 COMMON NAMES
-  Enterprise Root   Agantra Inovatif Enterprise Root CA G1
-  Track Root        Agantra Inovatif Enterprise Classic Root CA G1
-                    Agantra Inovatif Enterprise PQC-PostQuantum Root CA G2
-  Quadrant Root     Agantra Inovatif Enterprise Classic Q1 Root CA G1            Q1 = non-FIPS   (quadrant 1)
-                    Agantra Inovatif Enterprise Classic Q2 Root CA G1            Q2 = FIPS       (quadrant 2)
-                    Agantra Inovatif Enterprise PQC-PostQuantum Q1 Root CA G2    Q1 = non-FIPS   (quadrant 3)
-                    Agantra Inovatif Enterprise PQC-PostQuantum Q2 Root CA G2    Q2 = FIPS       (quadrant 4)
-  Intermediate      Agantra Inovatif <EV|OV|DV> <algorithm> <G1|G2> CA
-                      e.g. Agantra Inovatif EV RSA-4096 G1 CA | ... OV ECDSA-P384 FIPS G1 CA |
+  Enterprise Root   Agantra Root CA G1
+  Track Root        Agantra Classic Root CA G1
+                    Agantra PQC Root CA G2
+  Quadrant Root     Agantra Classic Q1 Root CA G1            Q1 = non-FIPS   (quadrant 1)
+                    Agantra Classic Q2 Root CA G1            Q2 = FIPS       (quadrant 2)
+                    Agantra PQC Q1 Root CA G2    Q1 = non-FIPS   (quadrant 3)
+                    Agantra PQC Q2 Root CA G2    Q2 = FIPS       (quadrant 4)
+  Intermediate      Agantra <EV|OV|DV> <algorithm> <G1|G2> CA
+                      e.g. Agantra EV RSA-4096 G1 CA | ... OV ECDSA-P384 FIPS G1 CA |
                            ... DV ML-DSA-87 G2 CA | ... EV ML-DSA-87 FIPS G2 CA
   G1 = Classic track, G2 = everything in the Quantum track.
   In NAMES (common names, file names such as agantra-q1-root-g2 in pki\publish and in the CRL / CA-issuer URLs) a
@@ -267,9 +267,9 @@ RELEASES AND THE NoCR VARIANT
   -NewRelease          Build the next release (latest + 1) of the family: a new Enterprise Root and everything below it.
                        Existing releases are not touched, so old leaf certificates keep working.
   Names: release 1 has no suffix; from release 2 every CA name ends in " R2", " R3" ...; NoCR adds " (NoCR)":
-      Agantra Inovatif Enterprise Root CA G1            (R1)
-      Agantra Inovatif Enterprise Root CA G1 R2         (release 2)
-      Agantra Inovatif Enterprise Root CA G1 (NoCR) R2  (NoCR, release 2)
+      Agantra Root CA G1            (R1)
+      Agantra Root CA G1 R2         (release 2)
+      Agantra Root CA G1 (NoCR) R2  (NoCR, release 2)
   Track Roots, Quadrant Roots and intermediates follow; file names and URL slugs get -nocr / -r2 (agantra-q1-ov-g1-nocr-r2).
   A name longer than 64 characters (Quantum Q-roots) uses "PQC" instead of the Quantum word automatically.
   Leaf names are not changed. The other scripts use the LATEST release by default; -Release N picks one, and a release
@@ -312,7 +312,12 @@ CRL, OCSP AND TIME STAMPING INFORMATION  (made with the PKI unless -SkipRevocati
   non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\R<n>\publish\ and pki\R<n>\revocation-info.json + REVOCATION-INFO.txt.
   -CrlDays N  -OcspDays N  -TimestampQuadrant 1|2|3|4  -TimestampPolicyOid <oid>  -TimestampDays N  -SkipRevocation.
   Show / edit / renew / revoke later: .\PkiRevocation.ps1 -Help.   E-mail leaf certificates carry emailProtection AND clientAuth.
-  Server: .\New-PkiServerPackage.ps1 makes a zip of the Linux scripts and the PKI WITHOUT private keys for Ubuntu 24.04 / 26.04.
+  Server: .\PkiTransport.ps1 -Server (or .\New-PkiServerPackage.ps1) makes a zip of the Linux scripts and the PKI WITHOUT private keys for
+  Ubuntu 24.04 / 26.04. The PKI writes pki\R<n>\server\ for it: the host names of its CRL / OCSP / CA-issuer URLs, the list of CAs with
+  their file names, and every URL its certificates contain, so pki-server.sh serves exactly this PKI (nginx from your PPA).
+  CRL and CA-issuer FILE NAMES follow the CA names: agantra-root-g1.crl, agantra-classic-root-g1.crt, agantra-pqc-root-g2.crl,
+  agantra-q1-root-g1.crl, agantra-q1-ov-g1.crl (NoCR: ...-nocr, release 2: ...-r2). The OCSP and time stamp certificates are named the same way:
+  "Agantra EV RSA-4096 G1 CA OCSP Responder", "Agantra Time Stamping Authority" (+ " (NoCR) R2" when it applies).
 
 TRANSPORT  (Phase C)
   .\PkiTransport.ps1 -Pack packs this PKI into a password-protected .certpacked (a zip or 7z under another name):
@@ -501,6 +506,8 @@ OUTPUT (.\pki\R<n>  or  .\pki\NoCR-R<n>)
   leaf\                                           default EV leaf files
   publish\                                        root.crt, ca-bundle.crt, <slug>.crt/.crl/.pem,
                                                   README.txt
+  server\                                         for the CRL / OCSP server: server-info.json, ca-list.tsv, server.env,
+                                                  expected-urls.tsv, DNS-RECORDS.txt  (no key)
   provider-default.cnf, provider-fips.cnf         native provider configuration
   pki-manifest.json, telemetry.json               what was generated
 

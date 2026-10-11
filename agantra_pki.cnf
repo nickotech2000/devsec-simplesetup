@@ -122,8 +122,8 @@ CpsUrlEv         = https://nextmantra.com/security/certs/ev-cps.pdf
 
 [ ca_names ]
 
-# Prefix         = Agantra Inovatif
-# QuantumLabel   = PQC-PostQuantum
+# Prefix         = Agantra
+# QuantumLabel   = PQC
 # SlugPrefix     = agantra
 # GenEnterprise  = G1
 # GenClassic     = G1
@@ -132,11 +132,11 @@ CpsUrlEv         = https://nextmantra.com/security/certs/ev-cps.pdf
 # ReleaseLabel      = R{N}         added from release 2 (pki_setup -NewRelease / -Release 2): Root CA G1 R2
 # QuantumLabelShort = PQC          replaces QuantumLabel in ALL names when a name would exceed 64 characters
 
-# EnterpriseRoot      = {Prefix} Enterprise Root CA {Gen}
-# ClassicTrackRoot    = {Prefix} Enterprise Classic Root CA {Gen}
-# QuantumTrackRoot    = {Prefix} Enterprise {QuantumLabel} Root CA {Gen}
-# ClassicQuadrantRoot = {Prefix} Enterprise Classic Q{N} Root CA {Gen}
-# QuantumQuadrantRoot = {Prefix} Enterprise {QuantumLabel} Q{N} Root CA {Gen}
+# EnterpriseRoot      = {Prefix} Root CA {Gen}
+# ClassicTrackRoot    = {Prefix} Classic Root CA {Gen}
+# QuantumTrackRoot    = {Prefix} {QuantumLabel} Root CA {Gen}
+# ClassicQuadrantRoot = {Prefix} Classic Q{N} Root CA {Gen}
+# QuantumQuadrantRoot = {Prefix} {QuantumLabel} Q{N} Root CA {Gen}
 # Intermediate        = {Prefix} {Level} {Algorithm} {Gen} CA
 
 
@@ -269,6 +269,10 @@ OcspKeyBits  = 2048
 # Windows reports "revocation server offline" for client certificates
 # until at least one URL answers (IIS / Kestrel mutual TLS).
 # ============================================================
+
+# {ca} = the file-name stem of the issuing CA (the same words as its common name): agantra-root-g1, agantra-classic-root-g1, agantra-pqc-root-g2,
+# agantra-q1-root-g1, agantra-q1-ov-g1 ... (NoCR: -nocr, release 2: -r2). pki_setup.ps1 writes the host names of the three lists below into
+# pki\R<n>\server\ (server.env, DNS-RECORDS.txt, expected-urls.tsv) and pki-server.sh reads them from there.
 
 [ crl_urls ]
 

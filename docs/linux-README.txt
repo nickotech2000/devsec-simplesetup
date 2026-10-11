@@ -18,3 +18,5 @@ Design: PKI-Server-Design.txt (this folder: docs\). Since 4.9.5 all documentatio
 The DevKit (PkiTransport.ps1 -DevKit) carries pki-transport.sh and Install-DevEnvironment.sh to the developers; its Ubuntu scripts (Install-PkiTrust.sh, Generate*.sh) are in devkit\ of the project.
 
 Releases: the shell generators use the latest release in pki/ (or the one in devkit.env); --release N picks one, --no-ca-revocation-info the NoCR family. See pki_setup-MANUAL.txt section 18.
+
+Server: PkiTransport.ps1 -Server (on the CA machine) -> unzip on Ubuntu -> sudo ./linux/pki-server/pki-server.sh install --source ./pki. Install-DevEnvironment.sh: OpenSSL of the distribution by default; --openssl-source ppa|build; --only nginx for nginx from the PPA.

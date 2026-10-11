@@ -11,10 +11,11 @@
 # Prepares a machine for the Agantra PKI scripts and for development:
 #   tools     curl, tar, gzip, unzip, ca-certificates, a compiler, make, perl
 #   7zip      7-Zip (the archive tool of the .certpacked transport: AES-256 zip and 7z)
-#   openssl   OpenSSL 4 as a FULL build: FIPS provider (fipsmodule.cnf), native ML-DSA / ML-KEM (post-quantum), shared
-#             libraries, headers, documentation. Built from the official source release (checksum verified) when the
-#             machine has no OpenSSL 4.0.1 or newer. Proven afterwards: FIPS provider active, ML-DSA sign / verify,
-#             ML-KEM key generation, ML-DSA inside the FIPS provider.
+#   openssl   DEFAULT: the OpenSSL of the distribution (Ubuntu 26.04: 3.5.x; Ubuntu 24.04: 3.0.x), nothing is built or replaced.
+#             --openssl-source ppa    OpenSSL 4 (nicko-su-openssl4) from YOUR PPA ppa:nickotech2000/nicko-su-prod
+#             --openssl-source build  OpenSSL 4 as a FULL build from the official source release (checksum verified).
+#             Proven afterwards: version, FIPS provider, ML-DSA sign / verify, ML-KEM, ML-DSA inside the FIPS provider.
+#   nginx     YOUR nginx (nicko-su-nginx) from the PPA ppa:nickotech2000/nicko-su-prod (Ubuntu 24.04 / 26.04 only).
 #   git, python, go, node, php, dotnet, pwsh      developer tools, installed from the distribution (pwsh: GitHub release)
 #
 # Platforms: Ubuntu / Debian, RHEL / CentOS Stream / Rocky / Oracle / Alma, SLES / openSUSE, macOS (Apple Silicon, Intel).
@@ -22,17 +23,19 @@
 # Manual: docs/Install-DevEnvironment-MANUAL.txt        Help: ./Install-DevEnvironment.sh --help
 # ============================================================
 
-VERSION="4.9.0"
+VERSION="4.9.5"
 SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
-OSSL_MIN_MAJOR=4; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=1
+OSSL_MIN_MAJOR=3; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=0        # set again after the options: system 3.0.0, ppa / build 4.0.1
+OSSL_SOURCE="system"                       # system | ppa | build
+PPA="ppa:nickotech2000/nicko-su-prod"; PPA_OPENSSL_PKG="nicko-su-openssl4"; NGINX_PKG="nicko-su-nginx"
 OSSL_VERSION="4.0.3"                       # what is built; --openssl-version changes it
-ALL_COMPONENTS="tools 7zip openssl git python go node php dotnet pwsh"
+ALL_COMPONENTS="tools 7zip openssl nginx git python go node php dotnet pwsh"
 
 usage() {
 cat <<'EOF'
 ============================================================
  Install-DevEnvironment.sh - Linux and macOS developer bootstrap
- Version 4.9.0
+ Version 4.9.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -43,17 +46,22 @@ WHAT IT DOES
   Installs what is MISSING, verifies each component, and prints a summary. Nothing that is already there is replaced.
     tools      curl, tar, gzip, unzip, ca-certificates, compiler, make, perl
     7zip       7-Zip: the archive tool of the .certpacked transport (AES-256 zip, 7z)
-    openssl    OpenSSL 4.0.1 or newer as a FULL build, never a stripped one: FIPS provider with fipsmodule.cnf, native ML-DSA
-               and ML-KEM (quantum-safe), shared libraries, headers, documentation. Built from the official source release
-               (the tarball is checked against the SHA-256 of the same release page) into --openssl-prefix. The system openssl
-               is NOT replaced; a link  openssl4  is put in /usr/local/bin. Then PROVEN: version, FIPS provider active,
-               ML-DSA-65 sign + verify, ML-KEM-768 key generation, ML-DSA inside the FIPS provider.
+    openssl    DEFAULT = the OpenSSL of your distribution (apt install openssl): Ubuntu 26.04 ships 3.5.x (ML-DSA, ML-KEM), Ubuntu 24.04
+               ships 3.0.x (Classic RSA / ECDSA only). Nothing is built, nothing is replaced, the PATH is not touched. Enough for the DevKit
+               generators (GenerateLeafCertificate.sh ...). Then PROVEN: version, FIPS provider, ML-DSA, ML-KEM.
+               --openssl-source ppa     OpenSSL 4 from YOUR PPA (package nicko-su-openssl4, ppa:nickotech2000/nicko-su-prod), Ubuntu 24.04 / 26.04.
+               --openssl-source build   OpenSSL 4.0.1+ as a FULL build from the official source (SHA-256 checked) into --openssl-prefix,
+                                        link openssl4 in /usr/local/bin. This is what pki_setup.ps1 needs on a CA machine (it requires 4.x).
+    nginx      YOUR nginx from YOUR PPA (ppa:nickotech2000/nicko-su-prod, package nicko-su-nginx 1.31.x). Ubuntu 24.04 / 26.04 only; other
+               systems skip it. For the CRL / OCSP / time stamp server (linux/pki-server/pki-server.sh installs it by itself as well).
     git python go node php dotnet pwsh     developer tools (distribution packages; pwsh from the PowerShell GitHub release)
 
 USAGE
   ./Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; changes nothing
   ./Install-DevEnvironment.sh --yes                        install everything that is missing
   ./Install-DevEnvironment.sh --yes --only openssl,7zip    only these (what the PKI scripts need)
+  ./Install-DevEnvironment.sh --yes --only nginx           only nginx from the PPA
+  ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa     OpenSSL 4 from the PPA instead of the distribution's
   ./Install-DevEnvironment.sh --yes --skip php,dotnet      everything except these
   ./Install-DevEnvironment.sh --dry-run --only openssl     show the commands, run nothing
   ./Install-DevEnvironment.sh --unblock                    UNBLOCK + UNLOCK this folder, then stop
@@ -61,10 +69,13 @@ USAGE
 OPTIONS
   --only LIST            Comma-separated components (above). Default: all.      --skip LIST   All except these.
   --check                Scan only: components found, OpenSSL readiness. Exit 0 when OpenSSL is ready, 4 when not.
+                         (ready = the OpenSSL of the chosen --openssl-source: 3.0.0+ for system, 4.0.1+ for ppa / build)
   --yes, -y              Do not ask. Needed when there is no terminal.         --dry-run   Print system-changing commands.
-  --openssl-prefix DIR   Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS: /usr/local/openssl-4.0.3).
-  --openssl-version V    Build this version instead of 4.0.3 (4.0.1 or newer).
-  --no-path              Do not put the OpenSSL 4 bin folder on the PATH (default: it is put FIRST on the PATH of every login shell:
+  --openssl-source S     system (default) | ppa | build   (see openssl above).
+  --ppa PPA              The PPA for nginx and OpenSSL 4. Default ppa:nickotech2000/nicko-su-prod.   --nginx-package P   Default nicko-su-nginx.
+  --openssl-prefix DIR   (build) Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS: /usr/local/openssl-4.0.3).
+  --openssl-version V    (build) Build this version instead of 4.0.3 (4.0.1 or newer).
+  --no-path              (ppa / build) Do not put the OpenSSL 4 bin folder on the PATH (default: it is put FIRST on the PATH of every login shell:
                          /etc/profile.d/openssl4.sh with sudo, else a marked block in ~/.profile and ~/.bashrc).
   --openssl-no-docs      Skip the manual pages (shorter build). The cryptography is still the FULL build.
   --openssl-jobs N       Parallel compile jobs. Default: the number of CPU cores.
@@ -72,7 +83,7 @@ OPTIONS
                          folder, children and recursive, then stop. The same is done silently at every start.
   --version              Show the version.                                     --help, -h   This text.
 
-OPENSSL BUILD TIME  (be warned)
+OPENSSL BUILD TIME  (only with --openssl-source build; be warned)
   A full build compiles hundreds of files. About 5 minutes on 8 cores, 15 to 25 on 2 cores, and over an hour on ONE core
   (measured: more than 30 minutes without finishing on a 1-core VM). Use a machine with cores, or --openssl-no-docs.
 
@@ -86,6 +97,9 @@ LIMITATIONS
   * Needs root (or sudo) to install packages and into /opt. Not needed for --check and --unblock.
   * Package names differ between distributions and versions; each component is tried with the usual names and then
     verified, never assumed. dotnet, node, go and php are best effort (your distribution may not ship a current version).
+  * The PPA (ppa:nickotech2000/nicko-su-prod) publishes nicko-su-nginx 1.31.6 and nicko-su-openssl4 4.0.3 for Ubuntu 24.04 (noble) and 26.04
+    (resolute), amd64. add-apt-repository, the package names and the installed paths were not testable in the author's sandbox (no PPA access):
+    --dry-run shows the commands; the result is verified, never assumed.
   * Tested on Ubuntu 24.04 (real apt). The other platforms are tested only by simulation (--dry-run). The OpenSSL source build
     was NOT completed here (a 1-core VM); the Configure step, the download, the checksum and the readiness checks were tested.
 EOF
@@ -119,7 +133,7 @@ unblock_unlock() {   # $1 = folder ; children and recursive. Linux: write bit, i
 unblock_unlock "$SCRIPT_DIR"
 
 # ------------------------------------------------------------------------------------------------ options
-ONLY=""; SKIP=""; CHECK=0; YES=0; DRYRUN=0; OSSL_PREFIX=""; OSSL_DOCS=1; OSSL_JOBS=""; UNBLOCK=0; ADDPATH=1
+OSSL_SOURCE_SET=0; ONLY=""; SKIP=""; CHECK=0; YES=0; DRYRUN=0; OSSL_PREFIX=""; OSSL_DOCS=1; OSSL_JOBS=""; UNBLOCK=0; ADDPATH=1
 need_value() { [ $# -ge 2 ] && [ -n "$2" ] || die "Option $1 needs a value. See --help." 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -130,6 +144,9 @@ while [ $# -gt 0 ]; do
     --check) CHECK=1; shift ;;
     --yes|-y) YES=1; shift ;;
     --dry-run) DRYRUN=1; shift ;;
+    --openssl-source) need_value "$@"; OSSL_SOURCE="$2"; shift 2 ;; --openssl-source=*) OSSL_SOURCE="${1#*=}"; shift ;;
+    --ppa) need_value "$@"; PPA="$2"; shift 2 ;; --ppa=*) PPA="${1#*=}"; shift ;;
+    --nginx-package) need_value "$@"; NGINX_PKG="$2"; shift 2 ;; --nginx-package=*) NGINX_PKG="${1#*=}"; shift ;;
     --openssl-prefix) need_value "$@"; OSSL_PREFIX="$2"; shift 2 ;; --openssl-prefix=*) OSSL_PREFIX="${1#*=}"; shift ;;
     --openssl-version) need_value "$@"; OSSL_VERSION="$2"; shift 2 ;; --openssl-version=*) OSSL_VERSION="${1#*=}"; shift ;;
     --openssl-no-docs) OSSL_DOCS=0; shift ;;
@@ -139,6 +156,8 @@ while [ $# -gt 0 ]; do
     *) die "Unknown option $1. See ./Install-DevEnvironment.sh --help" 1 ;;
   esac
 done
+
+case "$OSSL_SOURCE" in system) OSSL_MIN_MAJOR=3; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=0 ;; ppa|build) OSSL_MIN_MAJOR=4; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=1 ;; *) die "--openssl-source is system, ppa or build (got '$OSSL_SOURCE')." 1 ;; esac
 
 if [ "$UNBLOCK" = 1 ]; then
   info "UNBLOCK + UNLOCK (children and recursive): $SCRIPT_DIR"
@@ -219,8 +238,10 @@ ver_ok() { set -- $1; local a="$1" b="$2" c="${3:-0}"; [ -z "$c" ] && c=0
   [ "$c" -ge "$OSSL_MIN_PATCH" ]; }
 find_openssl() {
   OPENSSL=""; OSSL_TEXT=""
-  local c v p
-  for c in "$OSSL_PREFIX/bin/openssl" $(command -v openssl4 2>/dev/null) $(command -v openssl 2>/dev/null) \
+  local c v p cands=""
+  if [ "$OSSL_SOURCE" = system ]; then cands="$(command -v openssl 2>/dev/null) /usr/bin/openssl"
+  elif [ "$OSSL_SOURCE" = ppa ]; then cands="$(dpkg -L "$PPA_OPENSSL_PKG" 2>/dev/null | grep -E '/bin/openssl$' | head -1)"; fi
+  for c in $cands "$OSSL_PREFIX/bin/openssl" $(command -v openssl4 2>/dev/null) $(command -v openssl 2>/dev/null) \
            /opt/openssl-4*/bin/openssl /usr/local/openssl-4*/bin/openssl "$HOME"/.local/openssl-4*/bin/openssl \
            /opt/homebrew/opt/openssl@4/bin/openssl /usr/local/opt/openssl@4/bin/openssl /opt/homebrew/bin/openssl /usr/local/bin/openssl; do
     [ -n "$c" ] && [ -x "$c" ] || continue
@@ -235,17 +256,22 @@ openssl_ready() {   # $1 = openssl binary; prints one line per check; returns 0 
   local o="$1" t fips ok_all=0 prefix cnf
   t="$(mktemp -d "${TMPDIR:-/tmp}/ossl-ready.XXXXXX")" || return 1
   local v; v="$("$o" version 2>/dev/null | head -1)"
-  if ver_ok "$(ver_parts "$v")"; then row "$C_G" PASS "version" "$(echo "$v" | cut -d'(' -f1)"; else row "$C_R" FAIL "version" "${v:-not runnable} (4.0.1 or newer is required)"; ok_all=1; fi
+  if ver_ok "$(ver_parts "$v")"; then row "$C_G" PASS "version" "$(echo "$v" | cut -d'(' -f1)"; else row "$C_R" FAIL "version" "${v:-not runnable} ($OSSL_MIN_MAJOR.$OSSL_MIN_MINOR.$OSSL_MIN_PATCH or newer is required for --openssl-source $OSSL_SOURCE)"; ok_all=1; fi
   prefix="$(cd "$(dirname "$o")/.." 2>/dev/null && pwd)"
   fips=""; for cnf in "$prefix/ssl/fipsmodule.cnf" "$prefix/etc/ssl/fipsmodule.cnf" "$(dirname "$o")/fipsmodule.cnf"; do [ -f "$cnf" ] && { fips="$cnf"; break; }; done
   if [ -n "$fips" ]; then
     printf 'openssl_conf = openssl_init\n.include %s\n[openssl_init]\nproviders = provider_sect\n[provider_sect]\nfips = fips_sect\nbase = base_sect\n[base_sect]\nactivate = 1\n' "$fips" > "$t/fips.cnf"
     if OPENSSL_CONF="$t/fips.cnf" "$o" list -providers -provider fips -provider base 2>&1 | grep -q 'fips'; then row "$C_G" PASS "FIPS provider" "active ($fips)"; else row "$C_R" FAIL "FIPS provider" "does not load with $fips"; ok_all=1; fips=""; fi
+  elif [ "$OSSL_SOURCE" = system ]; then row "$C_Y" NOTE "FIPS provider" "no fipsmodule.cnf next to the distribution's OpenSSL: the FIPS quadrants (Q2 / Q4) need --openssl-source ppa or build"
   else row "$C_R" FAIL "FIPS provider" "fipsmodule.cnf not found (the build needs enable-fips; Windows: Install-DevEnvironment.ps1)"; ok_all=1; fi
   echo hello > "$t/d.txt"
   if "$o" genpkey -algorithm ML-DSA-65 -out "$t/k.pem" >/dev/null 2>&1 && "$o" pkeyutl -sign -inkey "$t/k.pem" -rawin -in "$t/d.txt" -out "$t/s.bin" >/dev/null 2>&1 \
-     && "$o" pkeyutl -verify -inkey "$t/k.pem" -rawin -in "$t/d.txt" -sigfile "$t/s.bin" >/dev/null 2>&1; then row "$C_G" PASS "ML-DSA" "ML-DSA-65 key, sign and verify (post-quantum signatures)"; else row "$C_R" FAIL "ML-DSA" "ML-DSA-65 sign / verify failed"; ok_all=1; fi
-  if "$o" genpkey -algorithm ML-KEM-768 -out "$t/kem.pem" >/dev/null 2>&1 && [ -s "$t/kem.pem" ]; then row "$C_G" PASS "ML-KEM" "ML-KEM-768 key generation (post-quantum key exchange)"; else row "$C_R" FAIL "ML-KEM" "ML-KEM-768 key generation failed"; ok_all=1; fi
+     && "$o" pkeyutl -verify -inkey "$t/k.pem" -rawin -in "$t/d.txt" -sigfile "$t/s.bin" >/dev/null 2>&1; then row "$C_G" PASS "ML-DSA" "ML-DSA-65 key, sign and verify (post-quantum signatures)"; else
+    if [ "$OSSL_SOURCE" = system ]; then row "$C_Y" NOTE "ML-DSA" "not available in this OpenSSL (needs 3.5 or newer): Classic RSA / ECDSA certificates only; Quantum (ML-DSA) needs Ubuntu 26.04 or --openssl-source ppa"
+    else row "$C_R" FAIL "ML-DSA" "ML-DSA-65 sign / verify failed"; ok_all=1; fi; fi
+  if "$o" genpkey -algorithm ML-KEM-768 -out "$t/kem.pem" >/dev/null 2>&1 && [ -s "$t/kem.pem" ]; then row "$C_G" PASS "ML-KEM" "ML-KEM-768 key generation (post-quantum key exchange)"
+  elif [ "$OSSL_SOURCE" = system ]; then row "$C_Y" NOTE "ML-KEM" "not available in this OpenSSL (needs 3.5 or newer)"
+  else row "$C_R" FAIL "ML-KEM" "ML-KEM-768 key generation failed"; ok_all=1; fi
   if [ -n "$fips" ]; then
     if OPENSSL_CONF="$t/fips.cnf" "$o" genpkey -provider fips -propquery fips=yes -algorithm ML-DSA-65 -out "$t/kf.pem" >/dev/null 2>&1 && [ -s "$t/kf.pem" ]; then row "$C_G" PASS "ML-DSA in FIPS" "ML-DSA-65 key inside the FIPS provider"; else row "$C_Y" WARN "ML-DSA in FIPS" "not available inside the FIPS provider of this build"; fi
   fi
@@ -321,19 +347,65 @@ add_openssl_path() {
   ok "PATH: $bin is first in ~/.profile and ~/.bashrc (new terminals; or now: export PATH=\"$bin:\$PATH\")"
 }
 
+# the PPA of the author: nicko-su-nginx and nicko-su-openssl4 for Ubuntu 24.04 (noble) and 26.04 (resolute)
+PPA_ADDED=0
+add_ppa() {
+  [ "$PPA_ADDED" = 1 ] && return 0
+  [ "$FAMILY" = debian ] || { warn "The PPA is for Ubuntu (24.04 / 26.04) only; this system is $DIST_NAME."; return 1; }
+  if [ -r /etc/os-release ] && ! grep -qi '^ID=ubuntu' /etc/os-release 2>/dev/null; then warn "$DIST_NAME is not Ubuntu: a Launchpad PPA is not supported here."; return 1; fi
+  have add-apt-repository || pkg_install software-properties-common ca-certificates >/dev/null 2>&1
+  info "Adding the PPA $PPA (nicko-su-nginx 1.31.6, nicko-su-openssl4 4.0.3 for noble and resolute)"
+  priv add-apt-repository -y "$PPA" || { err "add-apt-repository $PPA failed (network? Launchpad?)."; return 1; }
+  [ "$DRYRUN" = 1 ] || { priv env DEBIAN_FRONTEND=noninteractive apt-get update -y >/dev/null 2>&1; APT_UPDATED=1; }
+  PPA_ADDED=1; return 0
+}
 install_openssl() {
-  if find_openssl; then ok "OpenSSL: $OSSL_TEXT already installed at $OPENSSL"
-  else
-    warn "No OpenSSL 4.0.1 or newer found."
-    if [ "$DRYRUN" = 1 ] || confirm "Build OpenSSL $OSSL_VERSION (full, FIPS + quantum-safe) from the official source release now?"; then
-      build_openssl || return 1
-      [ "$DRYRUN" = 1 ] && return 0
-      find_openssl || { err "OpenSSL was built but cannot be found."; return 1; }
-    else return 1; fi
-  fi
-  add_openssl_path
+  local what
+  case "$OSSL_SOURCE" in
+    system)
+      if find_openssl; then ok "OpenSSL: $OSSL_TEXT already installed at $OPENSSL (the distribution's)"
+      else
+        info "Installing the OpenSSL of the distribution"
+        case "$FAMILY" in debian) pkg_any "openssl libssl-dev" "openssl" ;; rhel) pkg_any "openssl openssl-devel" "openssl" ;; suse) pkg_any "openssl libopenssl-devel" "openssl" ;; macos) pkg_any "openssl@3" ;; esac
+        [ "$DRYRUN" = 1 ] && return 0
+        find_openssl || { err "No OpenSSL 3.0.0 or newer after the installation."; return 1; }
+      fi ;;
+    ppa)
+      if find_openssl; then ok "OpenSSL: $OSSL_TEXT already installed at $OPENSSL"
+      else
+        add_ppa || return 1
+        pkg_install "$PPA_OPENSSL_PKG" || { err "Package $PPA_OPENSSL_PKG could not be installed from $PPA."; return 1; }
+        [ "$DRYRUN" = 1 ] && return 0
+        find_openssl || { err "$PPA_OPENSSL_PKG is installed but no OpenSSL 4.0.1+ binary was found (dpkg -L $PPA_OPENSSL_PKG | grep bin/openssl)."; return 1; }
+      fi ;;
+    build)
+      if find_openssl; then ok "OpenSSL: $OSSL_TEXT already installed at $OPENSSL"
+      else
+        warn "No OpenSSL 4.0.1 or newer found."
+        if [ "$DRYRUN" = 1 ] || confirm "Build OpenSSL $OSSL_VERSION (full, FIPS + quantum-safe) from the official source release now?"; then
+          build_openssl || return 1
+          [ "$DRYRUN" = 1 ] && return 0
+          find_openssl || { err "OpenSSL was built but cannot be found."; return 1; }
+        else return 1; fi
+      fi ;;
+  esac
+  [ "$OSSL_SOURCE" = system ] || add_openssl_path
   info "Proving $OPENSSL"
   openssl_ready "$OPENSSL"
+}
+
+install_nginx() {
+  # YOUR nginx from YOUR PPA. Ubuntu only. The binary package name is checked with apt-cache; "nginx" from the PPA is the fallback.
+  [ "$FAMILY" = debian ] || { warn "nginx from the PPA: Ubuntu 24.04 / 26.04 only (this is $DIST_NAME). Skipped."; return 2; }
+  add_ppa || return 1
+  local pkg="$NGINX_PKG"
+  if [ "$DRYRUN" != 1 ] && ! apt-cache policy "$pkg" 2>/dev/null | grep -q 'Candidate: [^(]'; then
+    if apt-cache policy nginx 2>/dev/null | grep -q "$(echo "${PPA#ppa:}" | cut -d/ -f1)"; then pkg="nginx"; info "package $NGINX_PKG not listed; the PPA offers nginx"
+    else err "Neither $NGINX_PKG nor an nginx from $PPA is listed by apt (apt-cache policy). Use --nginx-package NAME."; return 1; fi
+  fi
+  info "Installing nginx: $pkg"
+  pkg_install "$pkg" || return 1
+  return 0
 }
 
 # ------------------------------------------------------------------------------------------------ the other components
@@ -342,6 +414,7 @@ comp_present() {   # 0 when the component is already there
     tools)   have curl && have tar && have gzip && have unzip && have perl && have make && { have cc || have gcc; } ;;
     7zip)    have 7zz || have 7z || have 7za ;;
     openssl) find_openssl ;;
+    nginx)   have nginx || [ -x /usr/sbin/nginx ] ;;
     git) have git ;; python) have python3 ;; go) have go ;; node) have node ;; php) have php ;; dotnet) have dotnet ;; pwsh) have pwsh ;;
   esac
 }
@@ -350,6 +423,8 @@ comp_version() {
     tools) echo "$(have curl && curl --version | head -1 | cut -d' ' -f1-2)" ;;
     7zip) echo "$( (7zz 2>/dev/null || 7z 2>/dev/null || 7za 2>/dev/null) </dev/null | sed -n '1,3p' | grep -m1 '7-Zip' | cut -c1-60)" ;;
     openssl) echo "$OSSL_TEXT $OPENSSL" ;;
+    nginx) { (nginx -v 2>&1 || /usr/sbin/nginx -v 2>&1) | sed 's/.*: //'
+             if dpkg -s "$NGINX_PKG" >/dev/null 2>&1; then echo "  [PPA package $NGINX_PKG]"; else echo "  [NOT from the PPA: $NGINX_PKG is not installed; a different nginx is left alone - remove it first to switch]"; fi; } | tr -d '\n'; echo ;;
     git) git --version ;; python) python3 --version ;; go) go version ;; node) node --version ;; php) php --version | head -1 ;;
     dotnet) dotnet --version ;; pwsh) pwsh --version ;;
   esac 2>/dev/null
@@ -394,7 +469,7 @@ install_pwsh() {
 }
 install_component() {
   case "$1" in
-    tools) install_tools ;; 7zip) install_7zip ;; openssl) install_openssl ;; pwsh) install_pwsh ;;
+    tools) install_tools ;; 7zip) install_7zip ;; openssl) install_openssl ;; nginx) install_nginx ;; pwsh) install_pwsh ;;
     git)    pkg_any "git" ;;
     python) case "$FAMILY" in macos) pkg_any "python" ;; debian) pkg_any "python3 python3-pip python3-venv" "python3" ;; *) pkg_any "python3 python3-pip" "python3" ;; esac ;;
     go)     case "$FAMILY" in debian) pkg_any "golang-go" "golang" ;; suse|macos) pkg_any "go" "golang" ;; *) pkg_any "golang" "go" ;; esac ;;
@@ -418,18 +493,20 @@ if [ "$CHECK" = 1 ]; then
   done
   echo
   if want openssl || [ -n "$OPENSSL" ]; then
-    if find_openssl; then echo "OPENSSL READINESS  ($OPENSSL)"; openssl_ready "$OPENSSL"; rc=$?; echo; [ $rc -eq 0 ] && echo "READY: OpenSSL 4 with FIPS and quantum-safe algorithms." || echo "NOT READY: see above."; exit $([ $rc -eq 0 ] && echo 0 || echo 4)
-    else echo "NOT READY: no OpenSSL 4.0.1 or newer on this machine (run: ./Install-DevEnvironment.sh --yes --only openssl)."; exit 4; fi
+    if find_openssl; then echo "OPENSSL READINESS  ($OPENSSL)"; openssl_ready "$OPENSSL"; rc=$?; echo; [ $rc -eq 0 ] && echo "READY: OpenSSL $OSSL_TEXT (source: $OSSL_SOURCE) passes every check that applies to it." || echo "NOT READY: see above."; exit $([ $rc -eq 0 ] && echo 0 || echo 4)
+    else echo "NOT READY: no OpenSSL $OSSL_MIN_MAJOR.$OSSL_MIN_MINOR.$OSSL_MIN_PATCH or newer for --openssl-source $OSSL_SOURCE (run: ./Install-DevEnvironment.sh --yes --only openssl [--openssl-source ppa|build])."; exit 4; fi
   fi
   exit 0
 fi
 
-FAILED=""; DONE_LIST=""
+FAILED=""; DONE_LIST=""; SKIPPED=""
 for c in $SELECT; do
   echo
   if [ "$c" != openssl ] && comp_present "$c"; then ok "$c: already installed ($(comp_version "$c"))"; DONE_LIST="$DONE_LIST $c"; continue; fi
   info "Installing: $c"
-  if install_component "$c"; then
+  install_component "$c"; irc=$?
+  if [ "$irc" = 2 ]; then info "$c: skipped (not available on this system)"; SKIPPED="$SKIPPED $c"; continue; fi
+  if [ "$irc" = 0 ]; then
     if [ "$DRYRUN" = 1 ]; then DONE_LIST="$DONE_LIST $c"; continue; fi
     if [ "$c" = openssl ] || comp_present "$c"; then ok "$c: installed and verified"; DONE_LIST="$DONE_LIST $c"; else warn "$c: the package manager finished but the program is still not on PATH"; FAILED="$FAILED $c"; fi
   else
@@ -437,10 +514,10 @@ for c in $SELECT; do
   fi
 done
 echo; echo "SUMMARY"
-for c in $SELECT; do case " $FAILED " in *" $c "*) row "$C_R" FAIL "$c" "not installed" ;; *) row "$C_G" PASS "$c" "ok" ;; esac; done
+for c in $SELECT; do case " $FAILED " in *" $c "*) row "$C_R" FAIL "$c" "not installed" ;; *) case " $SKIPPED " in *" $c "*) row "$C_Y" SKIP "$c" "not available on this system" ;; *) row "$C_G" PASS "$c" "ok" ;; esac ;; esac; done
 if [ -n "$FAILED" ]; then
   echo; case " $FAILED " in *" openssl "*) err "OpenSSL 4 is not ready. See above."; exit 4 ;; esac
   err "Not installed:$FAILED"; exit 6
 fi
-echo; ok "Developer environment ready.$(want openssl && echo ' OpenSSL: '$OPENSSL' (use  openssl4  or the full path).')"
+echo; ok "Developer environment ready.$(want openssl && echo ' OpenSSL: '$OPENSSL)"
 exit 0

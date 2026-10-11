@@ -481,7 +481,7 @@ function Get-PkiCaNameInfo {
     param([Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate)
     $cn = $Certificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
     if ([string]::IsNullOrWhiteSpace($cn)) { return $null }
-    $prefix = 'Agantra Inovatif'
+    $prefix = 'Agantra'
     if ($null -ne (Get-Variable -Name Pki -Scope Script -ErrorAction SilentlyContinue) -and $script:Pki.Contains('Naming') -and $script:Pki.Naming) { $prefix = [string]$script:Pki.Naming.Prefix }
     if (-not $cn.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
     if ($cn -notmatch '^(?<base>.+?)(?<nocr> \(NoCR\))?(?: R(?<rel>\d+))?$') { return $null }

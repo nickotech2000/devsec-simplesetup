@@ -30,7 +30,9 @@ THE PASSWORD of the package comes from the person who sent you this kit, by anot
      .\Install-PkiTrust.ps1 -InstallMissing  installs it for you.
      No OpenSSL 4 yet? First (once, as Administrator):  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
      (installs OpenSSL 4.x, writes the FIPS config and adds it to the Path; open a NEW PowerShell afterwards).
-     Ubuntu:  ./Install-DevEnvironment.sh --yes --only openssl   (builds OpenSSL 4.0.3, puts it first on the PATH; new terminal afterwards).
+     Ubuntu:  ./Install-DevEnvironment.sh --yes --only openssl
+              (default: the OpenSSL of Ubuntu itself - 3.5.x on 26.04, 3.0.x on 24.04 - enough for the .sh generators; nothing is built.
+               OpenSSL 4 from YOUR PPA: add  --openssl-source ppa ;  built from source: --openssl-source build.   nginx from the PPA: --only nginx).
   3. Make certificates (a normal PowerShell is enough from now on):
          .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com
          .\GenerateLeafCertificate.ps1 -EV -DnsName api.example.com -Purpose ServerAuth -NoRevocationInfo

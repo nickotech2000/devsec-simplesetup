@@ -399,7 +399,7 @@ ensure_openssl() {
   if [ "$go" = 1 ] || [ "$DRYRUN" = 1 ]; then
     if [ -x "$SCRIPT_DIR/Install-DevEnvironment.sh" ] || [ -f "$SCRIPT_DIR/Install-DevEnvironment.sh" ]; then
       info "Using Install-DevEnvironment.sh for the OpenSSL installation."
-      bash "$SCRIPT_DIR/Install-DevEnvironment.sh" --yes --only openssl ${OSSL_PREFIX:+--openssl-prefix "$OSSL_PREFIX"} $([ "$DRYRUN" = 1 ] && echo --dry-run) || return 4
+      bash "$SCRIPT_DIR/Install-DevEnvironment.sh" --yes --only openssl --openssl-source build ${OSSL_PREFIX:+--openssl-prefix "$OSSL_PREFIX"} $([ "$DRYRUN" = 1 ] && echo --dry-run) || return 4
     else
       build_openssl || return 4
     fi
@@ -408,7 +408,7 @@ ensure_openssl() {
   fi
   err "OpenSSL 4.0.1 or newer is required on this machine."
   echo "  Install it with this script:   ./pki-transport.sh --install-openssl --package <file>      (a FULL build of $OSSL_BUILD_VERSION: FIPS + ML-DSA / ML-KEM)"
-  echo "  Or with the bootstrap:          ./Install-DevEnvironment.sh --yes --only openssl"
+  echo "  Or with the bootstrap:          ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa   (or build)"
   echo "  Or use your own build:         --openssl /path/to/openssl      Or skip the check (not recommended): --skip-openssl-check"
   return 4
 }
