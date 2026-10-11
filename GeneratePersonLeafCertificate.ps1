@@ -8,12 +8,15 @@
 <#
 .SYNOPSIS
     Person (natural person) leaf certificates for e-mail and client authentication, in the form of the national ID card certificate:
-    serialNumber PNOEE-<id>, givenName, surname, CN SURNAME,GIVEN,<id>, C, e-mail SAN, EKU clientAuth + emailProtection.
-    One person with parameters, or many persons from a CSV / JSON file. Full help: .\GeneratePersonLeafCertificate.ps1 -Help
+    serialNumber = the ID, givenName, surname, CN SURNAME,GIVEN,<ID>, C, SAN e-mail + DNS (domain and *.domain of the e-mail), EKU clientAuth + emailProtection.
+    The ID can be any identifier (national ID, passport, driver licence ...). Classic PKI only, OV by default (EV on request, never DV), non-FIPS by default.
+    One person with parameters, or many persons from a JSON file ("isGenerate": true | false). Full help: .\GeneratePersonLeafCertificate.ps1 -Help
 .EXAMPLE
-    .\GeneratePersonLeafCertificate.ps1 -IdCode 37605030299 -GivenName Mari-Liis -Surname Männik
+    .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.json
 .EXAMPLE
-    .\GeneratePersonLeafCertificate.ps1 -File .\persons.csv
+    .\GeneratePersonLeafCertificate.ps1 -File .\persons.json
+.EXAMPLE
+    .\GeneratePersonLeafCertificate.ps1 -IdCode 3674010101900001 -GivenName Budi -Surname Santoso -Email budi@example.co.id -Country ID
 #>
 param(
     # ---- one person ----
@@ -22,7 +25,7 @@ param(
     [string]$Surname,
     [Alias('EmailAddress')][string]$Email,
     [string]$Country,
-    [ValidateSet('PNO', 'PAS', 'IDC', 'TIN')][string]$IdType,
+    [ValidatePattern('^[A-Za-z0-9]{2,6}$')][string]$IdType,
     [string]$SerialNumber,
     [string]$CommonName,
     # ---- many persons ----
@@ -31,20 +34,22 @@ param(
     [switch]$ValidateOnly,
     [switch]$StopOnError,
     # ---- certificate ----
-    [ValidateSet('DV', 'OV', 'EV')][string]$Level,
-    [ValidateSet(1, 2, 3, 4)][int]$Quadrant = 1,
-    [string]$EmailDomain,
+    [ValidateSet('OV', 'EV')][string]$Level,
+    [ValidateSet(1, 2)][int]$Quadrant = 1,
+    [switch]$Fips,
     [string]$CommonNameFormat,
+    [string]$SerialNumberFormat,
     [switch]$KeepCase,
-    [switch]$NoIdCheck,
-    [ValidateSet('RSA', 'ECDSA', 'MLDSA')][string]$KeyType,
+    [switch]$CheckEstonianId,
+    [switch]$NoDnsFromEmail,
+    [ValidateSet('RSA', 'ECDSA')][string]$KeyType,
     [int]$KeyBits,
     [ValidateSet('P-256', 'P-384', 'P-521')][string]$Curve,
-    [ValidatePattern('^(?i)ml-?dsa-?(44|65|87)$')][string]$PqcAlgorithm,
     [string]$Hash,
     [ValidateRange(1, 36500)][int]$Days,
     [string[]]$Policy,
     [string]$CpsUrl,
+    [string]$CpsUrlEv,
     [switch]$NonRepudiation,
     [switch]$QcStatements,
     # ---- output ----
@@ -82,51 +87,62 @@ function Show-PersonHelp {
  Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.
 
 WHAT IT MAKES   (the form of a national ID card certificate; NOT a qualified certificate)
-  Subject      serialNumber = PNOEE-<id code>      givenName = NICKO SATRIA      surname = UTAMA      CN = UTAMA,NICKO SATRIA,<id code>      C = EE
-               (this order; UTF-8, õ ä ö ü are kept; names in capitals unless -KeepCase)
-  SAN          e-mail <id code>@eesti.ee, or the address you give (rfc822Name only; no DNS, no IP)
+  Subject      serialNumber = <the ID>   givenName = NICKO SATRIA   surname = UTAMA   CN = UTAMA,NICKO SATRIA,<ID>   C = <country, default EE>
+               (this order; UTF-8, names in capitals unless -KeepCase)
+  The ID       ANY identifier of the person: national ID (KTP/NIK, isikukood ...), passport, driver licence, tax number, staff number.
+               There is no country-specific check (-CheckEstonianId switches the Estonian check digit test on for EE).
+  SAN          rfc822Name = the e-mail address, and the DNS names TAKEN FROM IT: nicko@nextmantra.com  ->  DNS:nextmantra.com  and  DNS:*.nextmantra.com
+               (-NoDnsFromEmail, or "dnsFromEmail": false for one person, leaves them out). No IP address.
   EKU          Client Authentication + Secure E-mail (emailProtection)
-  Key usage    critical: digitalSignature + keyAgreement (ECDSA) | keyEncipherment (RSA) | digitalSignature (ML-DSA); -NonRepudiation adds nonRepudiation
-  Key          ECDSA P-384 (Quadrant 1 and 2); ML-DSA in Quadrants 3 and 4.   Valid 730 days by default.
-  Policies     the level policy (OV default) + PEN + -Policy; CRL / OCSP / CA issuer URLs of the issuing CA (q1-ov by default)
+  Key usage    critical: digitalSignature + keyAgreement (ECDSA) | keyEncipherment (RSA); -NonRepudiation adds nonRepudiation
+  Key          Classic PKI only: ECDSA P-384 (default, as the ID-card sample) or RSA; signature digest SHA-512 (-Hash).  Quadrant 1 = Classic NON-FIPS (default); -Fips or -Quadrant 2 = Classic FIPS.
+  Level        OV (default). EV with -Level EV (valid 397 days then). DV is never used for a person.
+  Validity     730 days (OV) by default, -Days; cut to what the issuing CA has left.
+  Policies     the level policy + PEN + -Policy; CRL / OCSP / CA issuer URLs of the issuing CA (q1-ov by default)
   Output       leafcerts\persons\<id>-<SURNAME>-<GIVEN>\  every format (PEM DER CER CERT P7B RFC7468 PFX), key + public key, chain, leaf-info.json,
-               person-info.json, and one persons-batch-<date>.csv summary per run (no passwords in it).
+               person-info.json, and one persons-batch-<date>.json summary per run (no passwords in it).
 
 ONE PERSON
-  .\GeneratePersonLeafCertificate.ps1 -IdCode 37605030299 -GivenName "Mari-Liis" -Surname "Männik" [-Email mari@example.ee]
-  -IdCode <text>         National identification number. Estonia (-Country EE, -IdType PNO): 11 digits, the check digit is verified (-NoIdCheck skips it).
+  .\GeneratePersonLeafCertificate.ps1 -IdCode 3674010101900001 -GivenName Budi -Surname Santoso -Email budi.santoso@example.co.id -Country ID
+  -IdCode <text>         The ID (any kind).        -IdType <code>   optional short code: PNO PAS IDC TIN NIK DL ... (only a label, used by -SerialNumberFormat)
   -GivenName / -Surname  Several given names are allowed ("NICKO SATRIA").
-  -Email <address>       Default <id code>@<EmailDomain>.   -EmailDomain <domain>  default eesti.ee  ([ person ] EmailDomain).
-  -Country <CC>          Two letters, default EE.       -IdType PNO|PAS|IDC|TIN  personal number (default), passport, identity card, tax number
-                         -> serialNumber "<IdType><Country>-<IdCode>" (ETSI EN 319 412-1 semantics identifier).   -SerialNumber replaces it as it is.
+  -Email <address>       REQUIRED. Becomes the rfc822Name; the DNS names come from its domain.
+  -Country <CC>          Two letters, default EE ([ person ] Country).
+  -SerialNumber <text>   The subject serialNumber. Default = the ID.   -SerialNumberFormat "{IdType}{Country}-{IdCode}"  gives the ETSI form PNOEE-37605030299
   -CommonName <text>     Replaces the CN.  -CommonNameFormat "{Surname},{Given},{IdCode}"  tokens {Surname} {Given} {IdCode} {Country} {SurnameFirst}; max 64 characters.
 
-MANY PERSONS - A FILE
-  .\GeneratePersonLeafCertificate.ps1 -File .\persons.csv           -ValidateOnly   checks the file and shows the table, issues nothing
-  .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.csv    writes persons.csv and persons.json as examples and stops
-  CSV  (comma, semicolon, tab or |; first line = column names; # = comment) / JSON ([ {..}, {..} ] or { "persons": [ ... ] }) / plain text in CSV form.
-  Columns (any spelling: given_name, First Name ...):  IdCode, GivenName, Surname  (required);  Email, Country, IdType, Days, Password, Level, KeyType,
-  KeyBits, Curve, CommonName, SerialNumber, Name (folder), Policy  (optional; empty = the default / the command line value).
-  Every entry is checked BEFORE anything is written: one error = nothing is issued and every error is listed with its line. A person is then issued
+MANY PERSONS - A JSON FILE  (JSON only; CSV is not accepted)
+  .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.json    writes an example with 5 people (3 of them isGenerate true) and stops
+  .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -ValidateOnly   checks the file and shows the table, issues nothing
+  .\GeneratePersonLeafCertificate.ps1 -File .\persons.json
+  { "persons": [ { "isGenerate": true, "idCode": "3674010101900001", "serialNumber": "3674010101900001", "givenName": "Budi", "surname": "Santoso",
+                   "email": "budi.santoso@example.co.id", "country": "ID" }, { ... } ] }
+  Keys (any spelling or case):  idCode  givenName  surname  email   (required)       isGenerate (true | false; default true; false = skipped, not even checked)
+  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail   (optional)
+  Keys that start with _ are comments. A missing optional key takes the default / the command line value.
+  Every person with isGenerate true is checked BEFORE anything is written: one error = nothing is issued, every error is listed. A person is then issued
   on its own; a failure removes that person's folder and the run goes on (-StopOnError stops at the first failure). Exit 1 when one failed.
 
 CERTIFICATE OPTIONS
-  -Level DV|OV|EV        Issuing level (default OV: q1-ov). A person has no organization in the subject; EV is limited to 398 days.
-  -Quadrant 1|2|3|4      1 Classic non-FIPS (default), 2 Classic FIPS, 3 Quantum non-FIPS, 4 Quantum FIPS.
-  -KeyType RSA|ECDSA|MLDSA  -KeyBits  -Curve  -PqcAlgorithm  -Hash   as in GenerateLeafCertificate.ps1 (rules: RSA >= 2048, P-256+, SHA-256+).
-  -Days <n>              Validity (default 730, [ person ] Days; cut to what the issuer has left).
-  -Policy <oid|oid=cps>  Extra certificate policies.   -CpsUrl <url>
-  -NonRepudiation        Adds nonRepudiation (content commitment) to the key usage.
+  -Level OV|EV           OV (default: q1-ov).  EV: issuer q1-ev, limited to 398 days.  There is no DV.
+  -Quadrant 1|2, -Fips   1 Classic non-FIPS (default), 2 Classic FIPS.  The Quantum quadrants are not used for persons.
+  -KeyType RSA|ECDSA  -KeyBits  -Curve  as in GenerateLeafCertificate.ps1.   -Hash sha256|sha384|sha512   signature digest, default SHA-512 (the ID-card sample).
+                         The sample is ECC P-384 (ECDH_P384) signed ecdsa-with-SHA-512: the leaf here has exactly that key and digest. The SIGNATURE ALGORITHM
+                         follows the issuing CA: Q2 (ECDSA P-384 CA) gives ecdsa-with-SHA512; Q1 (RSA 4096 CA, the non-FIPS default) gives sha512WithRSAEncryption.
+  -Days <n>  -Policy <oid|oid=cps>  -NonRepudiation
+  -CpsUrl <url>          CPS pointer on every OV policy (default https://nextmantra.com/security/certs).   -CpsUrlEv <url>  on every EV policy (default .../security/certs/ev-cps.pdf).
+  POLICIES               level policy (OV 2.23.140.1.2.2), company policy 1.3.6.1.4.1.<PEN>.1 and 1.3.6.1.4.1.<PEN>.1.2, and for OV the HIGH ASSURANCE policy
+                         1.3.6.1.4.1.<PEN>.1.5 - each with the CPS pointer.
   -QcStatements          Adds the qcStatements extension with QcType eSign (ETSI 0.4.0.1862.1.6.1) like the ID card. It is NOT QcCompliance: this PKI is
-                         private and does not issue qualified certificates. Use it only where an application wants to see the extension.
+                         private and does not issue qualified certificates.
   -KeepCase              Do not convert the names to capitals.
-  -Password <text>       Password of the PFX (default Abc12345!; the Password column of a file replaces it per person). CHANGE IT for real use.
+  -Password <text>       Password of the PFX (default Abc12345!; the password key of a person replaces it). CHANGE IT for real use.
   -Format <list>         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)
   -OutputRoot <path>     Default leafcerts\persons.
   -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then stop.
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
 
-DEFAULTS IN agantra_pki.cnf   [ person ]   EmailDomain  Days  Level  CommonNameFormat  Country  IdType  KeyType  Curve
+DEFAULTS IN agantra_pki.cnf   [ person ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  Curve  DnsFromEmail
 EXIT CODES   0 ok   1 an error or a failed person
 ============================================================
 '@
@@ -165,7 +181,8 @@ try {
         exit 0
     }
     if ($File -and ($IdCode -or $GivenName -or $Surname)) { throw 'Use -File OR -IdCode / -GivenName / -Surname, not both.' }
-    if (-not $File -and -not ($IdCode -or $GivenName -or $Surname) -and -not $Unblock) { throw 'Give one person (-IdCode, -GivenName, -Surname) or a file (-File persons.csv). -Help shows everything; -ExampleFile writes an example.' }
+    if (-not $File -and -not ($IdCode -or $GivenName -or $Surname) -and -not $Unblock) { throw 'Give one person (-IdCode, -GivenName, -Surname, -Email) or a file (-File persons.json). -Help shows everything; -ExampleFile persons.json writes an example.' }
+    if ($Fips) { if ($PSBoundParameters.ContainsKey('Quadrant') -and $Quadrant -ne 2) { throw '-Fips and -Quadrant 1 contradict each other.' }; $Quadrant = 2 }
 
     Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:([bool]$Verbose)
     $c = $script:Pki
@@ -178,30 +195,33 @@ try {
     # ---------------- the persons ----------------
     $set = Get-PkiPersonSettings
     $defaults = @{
-        EmailDomain = $(if ($EmailDomain) { $EmailDomain } else { $set.EmailDomain }); CommonNameFormat = $(if ($CommonNameFormat) { $CommonNameFormat } else { $set.CommonNameFormat })
-        KeepCase = [bool]$KeepCase; NoIdCheck = [bool]$NoIdCheck
-        Country = $(if ($Country) { $Country } else { $set.Country }); IdType = $(if ($IdType) { $IdType } else { $set.IdType })
-        Level = $(if ($Level) { $Level } else { $set.Level }); Days = $(if ($Days) { $Days } else { $set.Days })
-        Password = $Password
+        CommonNameFormat = $(if ($CommonNameFormat) { $CommonNameFormat } else { $set.CommonNameFormat })
+        SerialNumberFormat = $(if ($SerialNumberFormat) { $SerialNumberFormat } else { $set.SerialNumberFormat })
+        KeepCase = [bool]$KeepCase; CheckEstonianId = [bool]$CheckEstonianId; DnsFromEmail = $(if ($NoDnsFromEmail) { $false } else { [bool]$set.DnsFromEmail })
+        Country = $(if ($Country) { $Country } else { $set.Country }); IdType = $(if ($IdType) { $IdType } else { '' })
+        Level = $(if ($Level) { $Level } else { $set.Level }); Days = $(if ($Days) { $Days } else { $set.Days }); DaysGiven = [bool]$Days
+        Quadrant = $Quadrant; Password = $Password
     }
     foreach ($k in 'KeyType', 'KeyBits', 'Curve') { if ($PSBoundParameters.ContainsKey($k)) { $defaults[$k] = $PSBoundParameters[$k] } }
     $records = [System.Collections.Generic.List[object]]::new()
     if ($File) { foreach ($r in (Read-PkiPersonFile -Path $File)) { [void]$records.Add($r) } }
     else {
         $one = [ordered]@{ _Line = 0 }
-        foreach ($k in 'IdCode', 'GivenName', 'Surname', 'Email', 'Country', 'IdType', 'SerialNumber', 'CommonName') { if ($PSBoundParameters.ContainsKey($k)) { $one[$k] = $PSBoundParameters[$k] } }
+        foreach ($k in 'IdCode', 'GivenName', 'Surname', 'Email', 'Country', 'IdType', 'SerialNumber', 'CommonName', 'Level') { if ($PSBoundParameters.ContainsKey($k)) { $one[$k] = $PSBoundParameters[$k] } }
         [void]$records.Add($one)
     }
     if ($records.Count -eq 0) { throw 'The person file contains no person.' }
 
     $errors = [System.Collections.Generic.List[string]]::new()
     $entries = [System.Collections.Generic.List[object]]::new()
+    $skipped = [System.Collections.Generic.List[object]]::new()
     $seen = @{}
     foreach ($rec in $records) {
         try {
             $e = ConvertTo-PkiPersonEntry -Record $rec -Defaults $defaults
-            $key = "$($e.IdType)|$($e.Country)|$($e.IdCode)|$($e.Level)"
-            if ($seen.ContainsKey($key)) { throw "Line $($e.Line) [$($e.Label)]: the same person (id code, country, type, level) is already on line $($seen[$key])." }
+            if ($e.Skip) { [void]$skipped.Add($e); continue }
+            $key = "$($e.Country)|$($e.IdCode)|$($e.Level)|$($e.Quadrant)"
+            if ($seen.ContainsKey($key)) { throw "Person $($e.Line) [$($e.Label)]: the same ID (country, ID, level, quadrant) is already on person $($seen[$key])." }
             $seen[$key] = $e.Line
             [void]$entries.Add($e)
         }
@@ -209,17 +229,17 @@ try {
     }
 
     $common = @{
-        Quadrant = $Quadrant; KeyType = $(if ($KeyType) { $KeyType } else { $set.KeyType }); Curve = $(if ($Curve) { $Curve } else { $set.Curve })
-        Hash = $Hash; PqcAlgorithm = $PqcAlgorithm; Days = $(if ($Days) { $Days } else { $set.Days }); Policy = @($Policy); Format = @($Format)
+        KeyType = $(if ($KeyType) { $KeyType } else { $set.KeyType }); Curve = $(if ($Curve) { $Curve } else { $set.Curve })
+        Hash = $(if ($Hash) { $Hash } else { 'sha512' }); Days = $(if ($Days) { $Days } else { $set.Days }); Policy = @($Policy); Format = @($Format)
         NonRepudiation = [bool]$NonRepudiation; QcStatements = [bool]$QcStatements
     }
 
     # ---------------- OpenSSL and the PKI ----------------
     Initialize-OpenSSL
-    $fipsQ = $Quadrant -in 2, 4
-    [void](Assert-PkiLeafOpenSslReady -NeedFips $fipsQ -NeedPqc ($Quadrant -in 3, 4))
+    $needFips = (@($entries | Where-Object { $_.Quadrant -eq 2 }).Count -gt 0)
+    [void](Assert-PkiLeafOpenSslReady -NeedFips $needFips -NeedPqc $false)
     [void](Import-PkiExisting -SkipProviders)
-    if ($c.Quadrants -notcontains $Quadrant) { throw "This PKI has no Quadrant $Quadrant (it has: $(($c.Quadrants | ForEach-Object { "Q$_" }) -join ', '))." }
+    foreach ($qq in @($entries | ForEach-Object { $_.Quadrant } | Sort-Object -Unique)) { if ($c.Quadrants -notcontains $qq) { [void]$errors.Add("This PKI has no Quadrant $qq (it has: $(($c.Quadrants | ForEach-Object { "Q$_" }) -join ', ')).") } }
 
     # decide everything before anything is written
     $specs = @{}
@@ -228,7 +248,7 @@ try {
             $o = New-PkiPersonOptions -Entry $e -Common $common
             $specs[$e.Label + '|' + $e.Line] = New-PkiLeafSpec -Options $o
         }
-        catch { [void]$errors.Add("Line $($e.Line) [$($e.Label)]: $($_.Exception.Message)") }
+        catch { [void]$errors.Add("Person $($e.Line) [$($e.Label)]: $($_.Exception.Message)") }
     }
     if ($errors.Count -gt 0) {
         Write-Host ''
@@ -236,19 +256,19 @@ try {
         foreach ($m in $errors) { Write-Host "   - $m" -ForegroundColor Red }
         exit 1
     }
-    Write-PkiLog "Persons: $($entries.Count)   Level $($defaults.Level) (default)   Quadrant $Quadrant   Output: $personRoot"
+    Write-PkiLog "Persons to issue: $($entries.Count)   skipped (isGenerate false): $($skipped.Count)   Output: $personRoot"
     Write-Host ''
-    Write-Host ('{0,-4} {1,-14} {2,-30} {3,-34} {4}' -f 'LINE', 'SERIAL NUMBER', 'NAME', 'E-MAIL', 'CN') -ForegroundColor Cyan
-    foreach ($e in $entries) { Write-Host ('{0,-4} {1,-14} {2,-30} {3,-34} {4}' -f $e.Line, $e.SerialNumber, "$($e.Surname) $($e.GivenName)", $e.Email, $e.CommonName) }
+    Write-Host ('{0,-3} {1,-20} {2,-26} {3,-30} {4,-3} {5,-5} {6}' -f 'NO', 'SERIAL NUMBER', 'NAME', 'E-MAIL', 'LVL', 'QUAD', 'DNS') -ForegroundColor Cyan
+    foreach ($e in $entries) { Write-Host ('{0,-3} {1,-20} {2,-26} {3,-30} {4,-3} {5,-5} {6}' -f $e.Line, $e.SerialNumber, "$($e.Surname) $($e.GivenName)", $e.Email, $e.Level, "Q$($e.Quadrant)", (@($e.Dns) -join ', ')) }
+    foreach ($e in $skipped) { Write-Host ('{0,-3} {1,-20} {2}' -f $e.Line, $e.IdCode, "SKIPPED (isGenerate false): $($e.Label)") -ForegroundColor DarkGray }
     Write-Host ''
-    if ($ValidateOnly) { Write-PkiLog 'Validation only: every entry is valid. Nothing was issued.' 'OK'; exit 0 }
+    if ($entries.Count -eq 0) { Write-PkiLog 'No person has isGenerate true: nothing to issue.' 'WARN'; exit 0 }
+    if ($ValidateOnly) { Write-PkiLog 'Validation only: every entry with isGenerate true is valid. Nothing was issued.' 'OK'; exit 0 }
 
     # ---------------- issue ----------------
     [void][System.IO.Directory]::CreateDirectory($personRoot)
     $done = [System.Collections.Generic.List[object]]::new(); $failed = [System.Collections.Generic.List[string]]::new()
-    $csvRows = [System.Collections.Generic.List[string]]::new()
-    [void]$csvRows.Add('Status,IdCode,SerialNumber,GivenName,Surname,Email,Folder,CertificateSerial,NotAfter,Sha1,Issuer,Message')
-    $qc = { param($v) '"' + ([string]$v -replace '"', '""') + '"' }
+    $rows = [System.Collections.Generic.List[object]]::new()
     foreach ($e in $entries) {
         $spec = $specs[$e.Label + '|' + $e.Line]
         $pw = if ($e.Password) { $e.Password } else { $Password }
@@ -268,7 +288,7 @@ try {
             $entry = Add-PkiLeafIndex -Root $personRoot -Spec $spec -R $r -FolderName $folder.Name
             Write-Utf8NoBom -Path (Join-Path $r.Dir 'leaf-info.json') -Content ($entry | ConvertTo-Json -Depth 6)
             $pinfo = [ordered]@{
-                person = [ordered]@{ serialNumber = $e.SerialNumber; idCode = $e.IdCode; idType = $e.IdType; country = $e.Country; givenName = $e.GivenName; surname = $e.Surname; commonName = $e.CommonName; email = $e.Email }
+                person = [ordered]@{ serialNumber = $e.SerialNumber; idCode = $e.IdCode; idType = $e.IdType; country = $e.Country; givenName = $e.GivenName; surname = $e.Surname; commonName = $e.CommonName; email = $e.Email; dns = @($e.Dns) }
                 certificate = [ordered]@{ subject = $subject; issuer = $spec.Ca.Id; level = $spec.Level; keyAlgorithm = $r.Actual.Algorithm; keyUsage = $spec.KeyUsage; extendedKeyUsage = @('clientAuth', 'emailProtection'); days = $r.Days; notAfter = $r.NotAfter; sha1 = $r.Sha1; sha256 = $r.Sha256; qcStatements = [bool]$QcStatements; qualified = $false }
                 note = 'Private PKI certificate. Not a qualified certificate (no QcCompliance).'
                 createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "GeneratePersonLeafCertificate.ps1 $($script:PkiGeneratorVersion)"
@@ -282,7 +302,7 @@ try {
             }
             $script:PersonFolderCreated = $null
             [void]$done.Add(@{ Entry = $e; R = $r; Spec = $spec; Folder = $folder })
-            [void]$csvRows.Add((@('OK', $e.IdCode, $e.SerialNumber, $e.GivenName, $e.Surname, $e.Email, $folder.Name, (Get-PersonCertSerial -Path $r.Crt), $r.NotAfter, $r.Sha1, $spec.Ca.Id, '') | ForEach-Object { & $qc $_ }) -join ',')
+            [void]$rows.Add([ordered]@{ status = 'OK'; idCode = $e.IdCode; serialNumber = $e.SerialNumber; givenName = $e.GivenName; surname = $e.Surname; email = $e.Email; dns = @($e.Dns); folder = $folder.Name; certificateSerial = (Get-PersonCertSerial -Path $r.Crt); notAfter = $r.NotAfter; sha1 = $r.Sha1; issuer = $spec.Ca.Id })
         }
         catch {
             $msg = ($_.Exception.Message -split "`n" | Select-Object -First 3) -join ' | '
@@ -292,12 +312,13 @@ try {
             $script:PersonFolderCreated = $null
             [void]$failed.Add("$($e.Label): $msg")
             Write-PkiLog "FAILED $($e.Label): $msg" 'ERROR'
-            [void]$csvRows.Add((@('FAILED', $e.IdCode, $e.SerialNumber, $e.GivenName, $e.Surname, $e.Email, '', '', '', '', '', $msg) | ForEach-Object { & $qc $_ }) -join ',')
+            [void]$rows.Add([ordered]@{ status = 'FAILED'; idCode = $e.IdCode; serialNumber = $e.SerialNumber; givenName = $e.GivenName; surname = $e.Surname; email = $e.Email; message = $msg })
             if ($StopOnError) { break }
         }
     }
-    $batch = Join-Path $personRoot ("persons-batch-{0}.csv" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
-    Write-Utf8NoBom -Path $batch -Content (($csvRows -join "`n") + "`n")
+    foreach ($e in $skipped) { [void]$rows.Add([ordered]@{ status = 'SKIPPED'; idCode = $e.IdCode; serialNumber = $e.SerialNumber; email = $e.Email; message = 'isGenerate is false' }) }
+    $batch = Join-Path $personRoot ("persons-batch-{0}.json" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    Write-Utf8NoBom -Path $batch -Content (([ordered]@{ createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "GeneratePersonLeafCertificate.ps1 $($script:PkiGeneratorVersion)"; issued = $done.Count; failed = $failed.Count; skipped = $skipped.Count; persons = @($rows) } | ConvertTo-Json -Depth 6) + "`n")
 
     # ---------------- summary ----------------
     Write-Host ''
@@ -308,7 +329,7 @@ try {
     }
     foreach ($f in $failed) { Write-Host "  FAIL $f" -ForegroundColor Red }
     Write-Host ("  Summary    : {0}   (no passwords in it)" -f $batch)
-    Write-PkiLog ("{0} certificate(s) issued, {1} failed. Issuer q{2}-{3}; the PKI server learns about them after New-PkiServerPackage.ps1 + 'pki-server.sh update'." -f $done.Count, $failed.Count, $Quadrant, $defaults.Level.ToLowerInvariant()) $(if ($failed.Count -eq 0) { 'OK' } else { 'WARN' })
+    Write-PkiLog ("{0} certificate(s) issued, {1} failed, {2} skipped (isGenerate false). The PKI server learns about them after New-PkiServerPackage.ps1 + 'pki-server.sh update'." -f $done.Count, $failed.Count, $skipped.Count) $(if ($failed.Count -eq 0) { 'OK' } else { 'WARN' })
     exit $(if ($failed.Count -eq 0) { 0 } else { 1 })
 }
 catch {

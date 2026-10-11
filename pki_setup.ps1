@@ -71,6 +71,7 @@ param(
     [string]$JurisdictionState,
     [string]$JurisdictionLocality,
     [string]$CpsUrl,
+    [string]$CpsUrlEv,
     [string]$ContactName,
     [string]$ContactEmail,
     [string]$ContactPhone,
@@ -374,7 +375,8 @@ SUBJECT OPTIONS   (apply to the CA subjects and, where relevant, to the default 
                              Non-Commercial Entity
   -JurisdictionCountry <cc>  Default EE.   -JurisdictionState <text> Default Tallinn.
   -JurisdictionLocality <t>  Optional.
-  -CpsUrl <url>              CPS URI in the first certificate policy.
+  -CpsUrl <url>              CPS pointer on every DV / OV policy.  Default https://nextmantra.com/security/certs
+  -CpsUrlEv <url>            CPS pointer on every EV policy.        Default https://nextmantra.com/security/certs/ev-cps.pdf
   -ContactName / -ContactEmail / -ContactPhone   Contact fields.
                              Leaf defaults: BizDevSecOps Administrator, info@nextmantra.com,
                              (+372)53194019. CA defaults come from agantra_pki.cnf.

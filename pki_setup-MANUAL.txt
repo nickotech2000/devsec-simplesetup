@@ -886,7 +886,10 @@ SUBJECT OPTIONS   (apply to the CA subjects and, where relevant, to the default 
                              Non-Commercial Entity
   -JurisdictionCountry <cc>  Default EE.   -JurisdictionState <text> Default Tallinn.
   -JurisdictionLocality <t>  Optional.
-  -CpsUrl <url>              CPS URI in the first certificate policy.
+  -CpsUrl <url>              CPS pointer on every DV / OV policy.  Default https://nextmantra.com/security/certs
+  -CpsUrlEv <url>            CPS pointer on every EV policy.        Default https://nextmantra.com/security/certs/ev-cps.pdf
+                             (4.9.4: the pointer is on EVERY policy of a certificate - level, company PEN, High Assurance - not only the first.)
+  High Assurance policy: every OV CA and OV leaf carries 1.3.6.1.4.1.<PEN>.1.5  (agantra_pki.cnf [ policy_oids ] HighAssurance; none = off).
   -ContactName / -ContactEmail / -ContactPhone   Contact fields.
                              Leaf defaults: BizDevSecOps Administrator, info@nextmantra.com,
                              (+372)53194019. CA defaults come from agantra_pki.cnf.
@@ -1003,6 +1006,6 @@ LIMITATIONS  (details: PKI-Design-with-FIPS-and-PQC.txt, section 9)
 NEW IN 4.9.4  -  SEPARATE SCRIPTS
   SignExternalCa.ps1                  signs the CSR of another private CA (default signer: Classic non-FIPS Quadrant Root).
                                       Manual: SignExternalCa-MANUAL.txt        Design 10.58
-  GeneratePersonLeafCertificate.ps1   person e-mail certificates like a national ID card (one by parameters, many from a CSV / JSON file).
+  GeneratePersonLeafCertificate.ps1   person e-mail certificates like a national ID card (any ID; SAN e-mail + DNS from it; Classic, OV/EV; one by parameters, many from a JSON file).
                                       Manual: GeneratePersonLeafCertificate-MANUAL.txt        Design 10.59
   Revoke an externally signed CA: PkiRevocation.ps1 -Revoke (the serial is in external-ca\<name>_...\ca-info.json).

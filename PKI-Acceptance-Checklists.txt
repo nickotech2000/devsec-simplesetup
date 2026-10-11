@@ -226,8 +226,16 @@
        RSA 3072 or ECDSA P-256 CSR is refused; SHA-1 CSR is refused; -SignWith Intermediate stops (pathlen 0) unless IntermediatePathLen = 1
        .\PkiRevocation.ps1 -Action Revoke ...   works for the external CA certificate (serial in ca-info.json)
  E3  Person certificates
-       .\GeneratePersonLeafCertificate.ps1 -IdCode 37605030299 -GivenName Mari-Liis -Surname Männik
-       openssl x509 -in <crt> -noout -subject -ext subjectAltName,keyUsage,extendedKeyUsage    serialNumber=PNOEE-..., givenName, surname, CN=SURNAME,GIVEN,ID, C=EE; SAN email only;
-       Digital Signature + Key Agreement; Email Protection + Client Authentication.  openssl verify -purpose smimesign passes.
-       .\GeneratePersonLeafCertificate.ps1 -File persons.csv       one folder per person; a wrong check digit or a duplicate stops everything before anything is issued
-       -QcStatements: qcStatements has QcType eSign, NO QcCompliance (not a qualified certificate)
+       .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.json       5 people; edit; isGenerate true / false
+       .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -ValidateOnly    table, nothing issued;  then without -ValidateOnly: only the isGenerate true people are issued
+       openssl x509 -in <crt> -noout -subject -ext subjectAltName,keyUsage,extendedKeyUsage
+         expect: serialNumber = the ID, GN, SN, CN="SURNAME,GIVEN,ID", C; SAN DNS:<domain>, DNS:*.<domain>, email:<address>; Digital Signature + Key Agreement; Email Protection + Client Authentication
+       openssl verify -x509_strict -purpose smimesign -CAfile pki\publish\root.crt -untrusted <chain.crt> <crt>      OK
+       refused: a .csv file, "level": "DV", a missing e-mail; -Fips gives issuer q2-ov; -Level EV gives 397 days; -QcStatements: QcType eSign, NO QcCompliance
+ E4  Policies (fresh pki_setup needed for the CA part)
+       openssl x509 -in <ov leaf or OV intermediate> -noout -text | findstr /C:"Policy:" /C:"CPS:"
+         OV expect: 2.23.140.1.2.2, 1.3.6.1.4.1.67096.1, .1.2, .1.5 (High Assurance), each with CPS: https://nextmantra.com/security/certs
+         EV expect: 2.23.140.1.1, 1.3.6.1.4.1.67096.1, .1.1 each with CPS: https://nextmantra.com/security/certs/ev-cps.pdf     (no .1.5)
+         DV expect: 2.23.140.1.2.1, 67096.1, .1.3 with the https://nextmantra.com/security/certs pointer (no .1.5)
+ E5  Person certificate algorithm
+       openssl x509 -in <person crt> -noout -text | findstr /C:"Signature Algorithm" /C:"Public-Key"   Q2: ecdsa-with-SHA512, 384 bit;  Q1: sha512WithRSAEncryption, 384 bit key

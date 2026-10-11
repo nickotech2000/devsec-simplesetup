@@ -91,7 +91,7 @@
  18_Revocation.ps1            CRL / OCSP responder / time stamping: Update-PkiCrl, Revoke-PkiCertificate,   00, 01, 03, 04, 14
                                New-PkiServiceCertificate, Invoke-PkiSignServiceCsr, Write-PkiRevocationInfo
  19_ExternalCaSigning.ps1    Sign the CSR of an external private CA (openssl ca, name constraints, chain folder)    00, 01, 02, 03, 04
- 20_PersonLeaf.ps1             Person certificates: records (CSV/JSON), Estonian id check, DN, key usage, qcStatements   00, 01, 14
+ 20_PersonLeaf.ps1             Person certificates: records (JSON, isGenerate), any ID, DNS from e-mail, DN, key usage, qcStatements   00, 01, 14
  17_Transport.ps1              Phase C: scans (Windows 11 25H2+, OpenSSL 4.0.1+), 00, 02, 07, 09, 16
                                password policy, package plan / pack / open /
                                export, Windows trust install, chain proof, kit,

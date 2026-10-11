@@ -759,14 +759,27 @@
                  optional critical nameConstraints (-PermitDns, -PermitEmail), validity default 1825 days and never beyond the signer. Result in external-ca\<name>_<date-time>\:
                  <name>.csr, <name>.crt, <name>-fullchain.crt (his CA + our chain), <name>-chain.crt, root.crt, our-ca-bundle.crt, ca-info.json, README.txt; one new folder per signing.
                  No CA private key of ours leaves the machine; the external CA keeps its own key.
- 10.59 DECIDED   (4.9.4) GeneratePersonLeafCertificate.ps1 issues person e-mail certificates in the form of a national ID-card certificate: Subject serialNumber (ETSI semantics
-                 identifier <IdType><Country>-<IdCode>, e.g. PNOEE-37605030299), givenName, surname, CN "SURNAME,GIVENNAME,IDCODE" (upper case, max 64), C; SAN rfc822 only (default
-                 <idcode>@eesti.ee); keyUsage digitalSignature + keyAgreement (RSA: keyEncipherment instead; -NonRepudiation adds contentCommitment); EKU clientAuth + emailProtection;
-                 default key ECDSA P-384, 730 days, level OV, Quadrant 1. Input: parameters (one person) or -File CSV/JSON (many; one certificate and one folder each, leafcerts\persons\
-                 <id>-<surname>-<given>\). All entries are validated before anything is issued (Estonian check digit, duplicates, lengths); -ValidateOnly, -ExampleFile.
-                 -QcStatements adds a qcStatements extension with QcType eSign only. It never adds QcCompliance: this is a private CA, the certificate is NOT a qualified certificate and
-                 has no legal effect of one. The PFX password defaults to Abc12345! (change it with -Password). Names keep their real characters in the certificate (UTF-8, Männik);
-                 only the folder name is ASCII.
+ 10.59 DECIDED   (4.9.4) GeneratePersonLeafCertificate.ps1 issues person e-mail certificates in the form of a national ID-card certificate: Subject serialNumber, givenName,
+                 surname, CN "SURNAME,GIVENNAME,ID" (upper case, max 64), C (default EE; any ISO country). The ID is ANY identifier (national ID, passport, driver licence, tax
+                 number ...): no country-specific check by default (-CheckEstonianId is opt-in), serialNumber = the ID as it is (SerialNumberFormat "{IdType}{Country}-{IdCode}"
+                 gives the ETSI form PNOEE-...). SAN: rfc822Name = the e-mail, plus DNS names taken from its domain: nicko@nextmantra.com -> DNS:nextmantra.com and
+                 DNS:*.nextmantra.com (dnsFromEmail / -NoDnsFromEmail); no IP. keyUsage digitalSignature + keyAgreement (RSA: keyEncipherment); EKU clientAuth + emailProtection.
+                 Classic PKI only (no ML-DSA): Quadrant 1 non-FIPS by default, Quadrant 2 FIPS with -Fips / "quadrant": 2; key ECDSA P-384 (or RSA). Level OV by default, EV on request
+                 (397 days), DV is refused. Input: parameters (one person) or ONE JSON file (CSV is refused) with "isGenerate": true | false per person (false = skipped, not checked);
+                 -ExampleFile writes 5 made-up people from different countries. One certificate and one folder each (leafcerts\persons\<id>-<surname>-<given>\), summary
+                 persons-batch-<date>.json without passwords. All persons with isGenerate true are validated before anything is issued; -ValidateOnly.
+                 -QcStatements adds qcStatements with QcType eSign only, never QcCompliance: private CA, NOT a qualified certificate. The PFX password defaults to Abc12345!.
+                 Names keep their real characters in the certificate (UTF-8); only the folder name is ASCII.
+ 10.60 DECIDED   (4.9.4) Certificate policy pointers: EVERY policy of a certificate (level policy, company PEN policy 1.3.6.1.4.1.<PEN>.1, PEN level policy .1.1 EV / .1.2 OV / .1.3 DV,
+                 High Assurance) carries a CPS URI: DV and OV -> https://nextmantra.com/security/certs (CpsUrl); EV -> https://nextmantra.com/security/certs/ev-cps.pdf (CpsUrlEv).
+                 Applies to leaves AND CA certificates (the roots' EV policy gets the EV pointer). Before 4.9.4 only the first policy had a pointer (https://cps.nextmantra.com/ev_cps.pdf).
+                 The PEN policies are in all DV and OV certificates (PEN 67096, arc 1; [ iana_pen ]).
+ 10.61 DECIDED   (4.9.4) HIGH ASSURANCE policy: 1.3.6.1.4.1.67096.1.5 (<PEN>.<arc>.5; [ policy_oids ] HighAssurance = another OID, or none) is in EVERY OV certificate: the leaves of
+                 GenerateLeafCertificate.ps1 and GeneratePersonLeafCertificate.ps1, the OV intermediates (so the issuer carries what it issues) and the Quadrant Roots. There is no
+                 public standard OID called "High Assurance"; this is a company OID in your PEN arc. DV and EV certificates do not carry it. Needs a fresh pki_setup for the CA part.
+ 10.62 DECIDED   (4.9.4) Person certificate algorithm = the ID-card sample (ECC P-384, key agreement, signature SHA-512): key ECDSA P-384, digest SHA-512 by default (-Hash). The signature
+                 algorithm itself is the one of the issuing CA: Q2 (ECDSA P-384 intermediate) gives ecdsa-with-SHA512; Q1 (RSA 4096 intermediate, the non-FIPS default; intermediates are
+                 not changed) gives sha512WithRSAEncryption.
  10.46 DECIDED   Key pair per certificate: every purpose folder (serverauth, clientauth, serverauth-clientauth, codesigning, emailprotection, timestamping, ocspsigning) has
                  its own <stem>.key (PKCS#8), <stem>.pub (public key PEM) and <stem>.pub.der. All PEM files (.key .crt .pem .cert -fullchain.crt -chain.crt .pub) are written with LF
                  line endings and no BOM: OpenSSL on Windows writes CRLF, and OpenSSL 3.5+ on Linux (nginx on Ubuntu 26.04) then fails with "PEM_read_bio_PrivateKey() failed ...
@@ -885,7 +898,8 @@
  4.9.4-phaseC  2026-10-11
    + Quadrant roots: Q1 RSA 4096 / SHA-384, Q2 ECDSA P-384 / SHA-384 (QuadrantRsaBits, QuadrantCurve); intermediates and leaves unchanged (10.56). IntermediatePathLen option (10.57).
    + SignExternalCa.ps1 (+ module 19): sign the CSR of another private CA, default signer q1-root, minimum RSA 4096 / P-384 / ML-DSA-65, one folder per CA (10.58).
-   + GeneratePersonLeafCertificate.ps1 (+ module 20): ID-card style person e-mail certificates from parameters or a CSV / JSON file (10.59). [ person ] in agantra_pki.cnf.
+   + GeneratePersonLeafCertificate.ps1 (+ module 20): ID-card style person e-mail certificates (any ID, SAN e-mail + DNS from the e-mail, Classic only, OV/EV) from parameters or a JSON file with isGenerate (10.59). [ person ] in agantra_pki.cnf.
+   + CPS pointers on every policy (https://nextmantra.com/security/certs, EV ev-cps.pdf) (10.60); High Assurance policy 1.3.6.1.4.1.67096.1.5 in every OV certificate (10.61); person certificates ECDSA P-384 + SHA-512 (10.62).
    + GenerateLeafCertificate core: options KeyUsage, PersonDn, ExtraExt, ExtraConfig (used by the person script).
  4.9.3-phaseC  2026-10-06
    + GenerateLeafCertificate.ps1 -CodeSigningCompany (alias -CodesignCompany): code signing subject C=EE, ST=Tallinn, L=Tallinn, O=CN=<company>; empty = the Organization.

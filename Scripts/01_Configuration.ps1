@@ -262,16 +262,35 @@ function New-PkiCatalog {
 #   level  = <arc>.1 (EV)  <arc>.2 (OV)  <arc>.3 (DV)  level policy
 # Nothing is added while IanaPen is blank.
 # ------------------------------------------------------------
+function Get-PkiCpsUrl {
+    # CPS pointer of a policy: EV -> CpsUrlEv (ev-cps.pdf), every other level -> CpsUrl (https://nextmantra.com/security/certs)
+    param([Parameter(Mandatory)][ValidateSet('EV', 'OV', 'DV', 'All')][string]$Level)
+    if ($Level -eq 'EV') { return [string]$script:Pki.CpsUrlEv }
+    return [string]$script:Pki.CpsUrl
+}
+
+function Get-PkiHighAssurancePolicy {
+    # The High Assurance policy of OV certificates ($null when switched off or no OID can be derived).
+    $v = [string]$script:PkiHighAssuranceOid
+    if ($v -eq 'none') { return $null }
+    if ($v -eq '') {
+        $pen = [string]$script:Pki.IanaPen
+        if ([string]::IsNullOrWhiteSpace($pen)) { return $null }
+        $v = "1.3.6.1.4.1.$pen.$($script:Pki.PenArc).5"
+    }
+    return [ordered]@{ Label = 'HighAssurance'; Oid = $v; Cps = (Get-PkiCpsUrl -Level 'OV') }
+}
+
 function Get-PkiPenPolicies {
     param([Parameter(Mandatory)][ValidateSet('EV', 'OV', 'DV', 'All')][string]$Level)
     $list = [System.Collections.Generic.List[object]]::new()
     $pen = [string]$script:Pki.IanaPen
     if ([string]::IsNullOrWhiteSpace($pen)) { return $list }
     $arc = "1.3.6.1.4.1.$pen.$($script:Pki.PenArc)"
-    [void]$list.Add([ordered]@{ Label = 'PEN'; Oid = $arc; Cps = '' })
+    [void]$list.Add([ordered]@{ Label = 'PEN'; Oid = $arc; Cps = (Get-PkiCpsUrl -Level $Level) })
     $n = @{ EV = 1; OV = 2; DV = 3 }
     foreach ($l in 'EV', 'OV', 'DV') {
-        if ($Level -eq 'All' -or $Level -eq $l) { [void]$list.Add([ordered]@{ Label = "PEN-$l"; Oid = "$arc.$($n[$l])"; Cps = '' }) }
+        if ($Level -eq 'All' -or $Level -eq $l) { [void]$list.Add([ordered]@{ Label = "PEN-$l"; Oid = "$arc.$($n[$l])"; Cps = (Get-PkiCpsUrl -Level $l) }) }
     }
     return $list
 }
@@ -281,7 +300,8 @@ function Get-PkiExtraPolicies {
     param([Parameter(Mandatory)][ValidateSet('EV', 'OV', 'DV', 'All')][string]$Level)
     $list = [System.Collections.Generic.List[object]]::new()
     $seen = [System.Collections.Generic.HashSet[string]]::new()
-    foreach ($p in (@($script:Pki.CustomPolicies) + @(Get-PkiPenPolicies -Level $Level))) {
+    $ha = @(); if ($Level -in 'OV', 'All') { $h = Get-PkiHighAssurancePolicy; if ($null -ne $h) { $ha = @($h) } }
+    foreach ($p in (@($script:Pki.CustomPolicies) + @(Get-PkiPenPolicies -Level $Level) + $ha)) {
         if ($seen.Add($p.Oid)) { [void]$list.Add($p) }
     }
     return $list
@@ -340,6 +360,8 @@ function Initialize-PkiConfiguration {
     $script:PkiPolicyOid.OV = Get-PkiIniValue -Ini $ini -Section 'policy_oids' -Key 'OV' -Default '2.23.140.1.2.2'
     $script:PkiPolicyOid.DV = Get-PkiIniValue -Ini $ini -Section 'policy_oids' -Key 'DV' -Default '2.23.140.1.2.1'
     if ($Bound.Contains('EvPolicyOid')) { $script:PkiPolicyOid.EV = ([string]$Bound['EvPolicyOid']).Trim() }
+    # High Assurance policy of every OV certificate: '' = <PEN>.<arc>.5 when a PEN is set, an OID = that OID, 'none' = off
+    $script:PkiHighAssuranceOid = (Get-PkiIniValue -Ini $ini -Section 'policy_oids' -Key 'HighAssurance' -Default '').Trim()
 
     # command line > cnf > default
     $opt = {
@@ -438,7 +460,8 @@ function Initialize-PkiConfiguration {
             ContactPhone = [string](& $opt 'ContactPhone' 'CaContactPhone' '(+372)53194019')
         }
         Domain = [string]$(if ($Bound.Contains('Domain')) { $Bound['Domain'] } else { '' })
-        CpsUrl = [string](& $opt 'CpsUrl' 'CpsUrl' 'https://cps.nextmantra.com/ev_cps.pdf')
+        CpsUrl = [string](& $opt 'CpsUrl' 'CpsUrl' 'https://nextmantra.com/security/certs')
+        CpsUrlEv = [string](& $opt 'CpsUrlEv' 'CpsUrlEv' 'https://nextmantra.com/security/certs/ev-cps.pdf')
 
         # tooling
         OpenSslPath      = [string]$(if ($Bound.Contains('OpenSslPath')) { $Bound['OpenSslPath'] } else { '' })

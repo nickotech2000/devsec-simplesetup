@@ -183,21 +183,21 @@ function Get-PkiCaPolicies {
     #>
     param([Parameter(Mandatory)][hashtable]$Ca)
     $list = [System.Collections.Generic.List[object]]::new()
-    $cps = $script:Pki.CpsUrl
+    $cps = Get-PkiCpsUrl -Level 'OV'; $cpsEv = Get-PkiCpsUrl -Level 'EV'
     if ($Ca.Kind -eq 'root' -or $Ca.Kind -eq 'track') {
         [void]$list.Add([ordered]@{ Label = 'AnyPolicy'; Oid = $script:PkiAnyPolicyOid; Cps = '' })
-        [void]$list.Add([ordered]@{ Label = 'EV'; Oid = $script:PkiPolicyOid.EV; Cps = $cps })
+        [void]$list.Add([ordered]@{ Label = 'EV'; Oid = $script:PkiPolicyOid.EV; Cps = $cpsEv })
         return $list
     }
     if ($Ca.Kind -eq 'intermediate') {
-        [void]$list.Add([ordered]@{ Label = $Ca.Validation; Oid = $script:PkiPolicyOid[$Ca.Validation]; Cps = $cps })
+        [void]$list.Add([ordered]@{ Label = $Ca.Validation; Oid = $script:PkiPolicyOid[$Ca.Validation]; Cps = $(if ($Ca.Validation -eq 'EV') { $cpsEv } else { $cps }) })
         $extra = Get-PkiExtraPolicies -Level $Ca.Validation
     }
     else {
         # Quadrant Roots carry all three validation levels
-        [void]$list.Add([ordered]@{ Label = 'EV'; Oid = $script:PkiPolicyOid.EV; Cps = $cps })
-        [void]$list.Add([ordered]@{ Label = 'OV'; Oid = $script:PkiPolicyOid.OV; Cps = '' })
-        [void]$list.Add([ordered]@{ Label = 'DV'; Oid = $script:PkiPolicyOid.DV; Cps = '' })
+        [void]$list.Add([ordered]@{ Label = 'EV'; Oid = $script:PkiPolicyOid.EV; Cps = $cpsEv })
+        [void]$list.Add([ordered]@{ Label = 'OV'; Oid = $script:PkiPolicyOid.OV; Cps = $cps })
+        [void]$list.Add([ordered]@{ Label = 'DV'; Oid = $script:PkiPolicyOid.DV; Cps = $cps })
         $extra = Get-PkiExtraPolicies -Level 'All'
     }
     foreach ($cp in $extra) { [void]$list.Add($cp) }

@@ -327,7 +327,7 @@ function Get-PkiLeafPolicies {
     $c = $script:Pki
     $list = [System.Collections.Generic.List[object]]::new()
     $seen = [System.Collections.Generic.HashSet[string]]::new()
-    $levelPolicy = [ordered]@{ Label = $Level; Oid = $script:PkiPolicyOid[$Level]; Cps = $c.CpsUrl }
+    $levelPolicy = [ordered]@{ Label = $Level; Oid = $script:PkiPolicyOid[$Level]; Cps = (Get-PkiCpsUrl -Level $Level) }
     [void]$seen.Add($levelPolicy.Oid); [void]$list.Add($levelPolicy)
     foreach ($p in (Get-PkiExtraPolicies -Level $Level)) { if ($seen.Add($p.Oid)) { [void]$list.Add($p) } }
     $i = 0

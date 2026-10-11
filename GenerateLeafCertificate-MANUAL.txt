@@ -441,7 +441,11 @@ VALIDITY AND POLICIES
   -Days <n>            Default: EV 397 days (maximum 398), OV 3 years, DV 5 years. Never longer than the issuer.
   -Policy <list>       Extra certificate policies: "OID" or "OID|CPS-URL". The level policy (EV 2.23.140.1.1,
                        OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [ policy_oids ] / [ iana_pen ] and these are written.
-  -CpsUrl <url>        CPS pointer of the level policy.
+  -CpsUrl <url>        CPS pointer on every policy of a DV / OV certificate (default https://nextmantra.com/security/certs).
+  -CpsUrlEv <url>      CPS pointer on every policy of an EV certificate (default https://nextmantra.com/security/certs/ev-cps.pdf).
+  POLICIES of a leaf: the level policy (DV 2.23.140.1.2.1 | OV 2.23.140.1.2.2 | EV 2.23.140.1.1), the company policy 1.3.6.1.4.1.<PEN>.1 and its level policy
+                       (.1.1 EV, .1.2 OV, .1.3 DV), and for EVERY OV certificate the HIGH ASSURANCE policy 1.3.6.1.4.1.<PEN>.1.5 ([ policy_oids ] HighAssurance).
+                       Each policy carries the CPS pointer above.
 
 SUBJECT   (DV: CN only.  OV: CN O OU L ST C street postalCode + contact.  EV: OV + serialNumber,
            businessCategory, jurisdiction*, and -Duns)

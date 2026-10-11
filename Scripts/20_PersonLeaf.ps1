@@ -5,10 +5,12 @@
 # Email  : nicko@nextmantra.com
 # ============================================================
 # Module 20: leaf certificates of NATURAL PERSONS (e-mail + client authentication), modelled on the national ID card certificate:
-#   Subject   serialNumber = PNOEE-<id code>   givenName   surname   CN = SURNAME,GIVEN,<id code>   C = EE      (in that order)
-#   SAN       rfc822Name <id code>@eesti.ee (or the e-mail you give)
+#   Subject   serialNumber = <the ID>   givenName   surname   CN = SURNAME,GIVEN,<ID>   C = <country, default EE>      (in that order)
+#             the ID can be ANY identifier: national ID, passport, driver licence, tax number, staff number ... (no country-specific check by default)
+#   SAN       rfc822Name <e-mail>  +  DNS <domain of the e-mail> and DNS *.<domain>      (the DNS names are extracted from the e-mail address)
 #   EKU       clientAuth + emailProtection      Key usage  digitalSignature + keyAgreement (EC) | keyEncipherment (RSA)
-#   Key       ECDSA P-384 by default            Policies   the level policy + PEN + -Policy      (optional) qcStatements: QcType eSign, never QcCompliance
+#   Key       Classic only (RSA / ECDSA P-384 default); Quadrant 1 non-FIPS by default, Quadrant 2 FIPS on request; level OV (EV on request, never DV)
+#   Input     one JSON file with many persons ("isGenerate": true | false per person)   (optional) qcStatements: QcType eSign, never QcCompliance
 # Used by GeneratePersonLeafCertificate.ps1 through New-PkiLeafSpec / New-PkiLeafCertificate (module 14).
 # Depends on: 00, 01, 01b, 03, 14
 # ============================================================
@@ -30,26 +32,28 @@ function Get-PkiPersonSettings {
     $c = $script:Pki
     $g = { param($k, $d) Get-PkiIniValue -Ini $c.Ini -Section 'person' -Key $k -Default $d }
     return [ordered]@{
-        EmailDomain = [string](& $g 'EmailDomain' 'eesti.ee')
         Days = [int](& $g 'Days' '730')
         Level = [string](& $g 'Level' 'OV')
         CommonNameFormat = [string](& $g 'CommonNameFormat' '{Surname},{Given},{IdCode}')
+        SerialNumberFormat = [string](& $g 'SerialNumberFormat' '{IdCode}')
         Country = [string](& $g 'Country' 'EE')
-        IdType = [string](& $g 'IdType' 'PNO')
         KeyType = [string](& $g 'KeyType' 'ECDSA')
         Curve = [string](& $g 'Curve' 'P-384')
+        DnsFromEmail = ([string](& $g 'DnsFromEmail' 'true')).Trim().ToLowerInvariant() -notin 'false', 'no', '0', 'off'
     }
 }
 
 $script:PkiPersonAliases = @{
-    idcode = 'IdCode'; id = 'IdCode'; personalcode = 'IdCode'; personalnumber = 'IdCode'; isikukood = 'IdCode'; nationalid = 'IdCode'; idnumber = 'IdCode'
-    givenname = 'GivenName'; given = 'GivenName'; firstname = 'GivenName'; forename = 'GivenName'; gn = 'GivenName'; g = 'GivenName'; eesnimi = 'GivenName'
-    surname = 'Surname'; lastname = 'Surname'; familyname = 'Surname'; sn = 'Surname'; perenimi = 'Surname'
+    idcode = 'IdCode'; id = 'IdCode'; idnumber = 'IdCode'; nationalid = 'IdCode'; personalcode = 'IdCode'; personalnumber = 'IdCode'; isikukood = 'IdCode'; nik = 'IdCode'
+    passport = 'IdCode'; passportnumber = 'IdCode'; licence = 'IdCode'; license = 'IdCode'; drivinglicence = 'IdCode'; driverlicense = 'IdCode'; documentnumber = 'IdCode'
+    givenname = 'GivenName'; given = 'GivenName'; firstname = 'GivenName'; forename = 'GivenName'; gn = 'GivenName'; g = 'GivenName'
+    surname = 'Surname'; lastname = 'Surname'; familyname = 'Surname'; sn = 'Surname'
     email = 'Email'; emailaddress = 'Email'; mail = 'Email'; rfc822 = 'Email'; rfc822name = 'Email'
     country = 'Country'; c = 'Country'; idtype = 'IdType'; type = 'IdType'
     days = 'Days'; validity = 'Days'; validitydays = 'Days'; password = 'Password'; pfxpassword = 'Password'
-    level = 'Level'; keytype = 'KeyType'; keybits = 'KeyBits'; curve = 'Curve'; commonname = 'CommonName'; cn = 'CommonName'
+    level = 'Level'; quadrant = 'Quadrant'; keytype = 'KeyType'; keybits = 'KeyBits'; curve = 'Curve'; commonname = 'CommonName'; cn = 'CommonName'
     serialnumber = 'SerialNumber'; serial = 'SerialNumber'; name = 'Name'; foldername = 'Name'; policy = 'Policy'
+    isgenerate = 'IsGenerate'; generate = 'IsGenerate'; enabled = 'IsGenerate'; dnsfromemail = 'DnsFromEmail'
 }
 
 function ConvertTo-PkiPersonRecord {
@@ -60,7 +64,7 @@ function ConvertTo-PkiPersonRecord {
     foreach ($p in $props) {
         $k = ([string]$p.Name -replace '[\s_\-\.]', '').ToLowerInvariant()
         if ($k -eq '' -or $k.StartsWith('_')) { continue }
-        if (-not $script:PkiPersonAliases.ContainsKey($k)) { throw "Line ${Line}: unknown column '$($p.Name)'. Known: IdCode, GivenName, Surname, Email, Country, IdType, Days, Password, Level, KeyType, KeyBits, Curve, CommonName, SerialNumber, Name, Policy." }
+        if (-not $script:PkiPersonAliases.ContainsKey($k)) { throw "Line ${Line}: unknown column '$($p.Name)'. Known: isGenerate, idCode, idType, serialNumber, givenName, surname, email, country, level, quadrant, days, keyType, keyBits, curve, commonName, password, name, policy, dnsFromEmail." }
         $v = $p.Value
         if ($null -eq $v) { continue }
         if ($v -is [string]) { $v = $v.Trim(); if ($v -eq '') { continue } }
@@ -72,102 +76,103 @@ function ConvertTo-PkiPersonRecord {
 function Read-PkiPersonFile {
     <#
     .SYNOPSIS
-        Reads the persons of a file: CSV (comma, semicolon, tab or | ; first line = column names; lines starting with # are comments),
-        JSON (an array of objects, or { "persons": [ ... ] }, or one object) or a plain text file in the CSV form.
+        Reads the persons of a JSON file: { "persons": [ {..}, {..} ] }, a bare array [ {..}, {..} ] or one object.
+        Keys starting with "_" (for example "_readme", "_note") are comments. CSV and other formats are not accepted.
         Returns a list of canonical records (one per person).
     #>
     param([Parameter(Mandatory)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Person file not found: $Path" }
+    if ([System.IO.Path]::GetExtension($Path) -ne '.json') { throw "The person file must be a JSON file (.json); other formats such as CSV are not accepted: $Path. Write an example with -ExampleFile persons.json." }
     $raw = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $Path).Path, [System.Text.UTF8Encoding]::new($false))
     if ($raw.Length -gt 0 -and [int]$raw[0] -eq 0xFEFF) { $raw = $raw.Substring(1) }
+    try { $j = $raw | ConvertFrom-Json -Depth 8 } catch { throw "The person file is not valid JSON ($Path): $($_.Exception.Message)" }
+    $items = if ($j -is [System.Array]) { $j } elseif ($null -ne $j.PSObject.Properties['persons']) { @($j.persons) } else { @($j) }
     $out = [System.Collections.Generic.List[object]]::new()
-    $t = $raw.TrimStart()
-    if ($t.StartsWith('[') -or $t.StartsWith('{')) {
-        $j = $raw | ConvertFrom-Json -Depth 8
-        $items = if ($j -is [System.Array]) { $j } elseif ($null -ne $j.PSObject.Properties['persons']) { @($j.persons) } else { @($j) }
-        $n = 0; foreach ($it in $items) { $n++; [void]$out.Add((ConvertTo-PkiPersonRecord -Row $it -Line $n)) }
-        return , $out
-    }
-    $lines = @($raw -split "`r?`n")
-    $rows = [System.Collections.Generic.List[object]]::new()
-    $num = 0; $header = $null; $delim = $null
-    foreach ($ln in $lines) {
-        $num++
-        if ($ln.Trim() -eq '' -or $ln.TrimStart().StartsWith('#')) { continue }
-        if ($null -eq $delim) {
-            $cand = @(',', ';', "`t", '|') | Sort-Object { -([regex]::Matches($ln, [regex]::Escape($_))).Count } | Select-Object -First 1
-            $delim = $cand
-            $header = @($ln.Split($delim[0]) | ForEach-Object { $_.Trim().Trim('"') })
-            continue
-        }
-        $cells = @($ln.Split($delim[0]) | ForEach-Object { $_.Trim().Trim('"') })
-        if ($cells.Count -gt $header.Count) { throw "Line ${num}: $($cells.Count) values but the header has $($header.Count) columns (a value with the separator inside?)." }
-        $o = [ordered]@{}
-        for ($i = 0; $i -lt $header.Count; $i++) { $o[$header[$i]] = $(if ($i -lt $cells.Count) { $cells[$i] } else { '' }) }
-        [void]$rows.Add(@{ Line = $num; Row = $o })
-    }
-    if ($null -eq $header) { throw "The person file has no header line: $Path" }
-    foreach ($r in $rows) { [void]$out.Add((ConvertTo-PkiPersonRecord -Row $r.Row -Line $r.Line)) }
+    $n = 0; foreach ($it in $items) { $n++; [void]$out.Add((ConvertTo-PkiPersonRecord -Row $it -Line $n)) }
     return , $out
+}
+
+function ConvertTo-PkiBool {
+    param($Value, [bool]$Default = $true)
+    if ($null -eq $Value -or "$Value" -eq '') { return $Default }
+    if ($Value -is [bool]) { return $Value }
+    switch (([string]$Value).Trim().ToLowerInvariant()) { { $_ -in 'true', 'yes', 'y', '1', 'on' } { return $true } { $_ -in 'false', 'no', 'n', '0', 'off' } { return $false } }
+    throw "'$Value' is not true or false."
 }
 
 function ConvertTo-PkiPersonEntry {
     <#
     .SYNOPSIS
         Validates one record and fills in the defaults. Returns the entry (canonical, checked) or throws a message naming the person / line.
+        IsGenerate = $false is returned as an entry with Skip = $true (it is not validated further).
     #>
     param([Parameter(Mandatory)]$Record, [Parameter(Mandatory)][hashtable]$Defaults)
     $r = $Record
-    $where = if ($r.Contains('_Line') -and $r['_Line']) { "Line $($r['_Line'])" } else { 'Person' }
+    $where = if ($r.Contains('_Line') -and $r['_Line']) { "Person $($r['_Line'])" } else { 'Person' }
     $get = { param($k, $d) if ($r.Contains($k) -and "$($r[$k])" -ne '') { $r[$k] } elseif ($Defaults.ContainsKey($k) -and "$($Defaults[$k])" -ne '') { $Defaults[$k] } else { $d } }
-    foreach ($req in 'IdCode', 'GivenName', 'Surname') { if (-not ($r.Contains($req) -and "$($r[$req])" -ne '') -and -not ($Defaults.ContainsKey($req) -and "$($Defaults[$req])" -ne '')) { throw "${where}: $req is missing." } }
+    $line = if ($r.Contains('_Line')) { $r['_Line'] } else { 0 }
+    try { $gen = ConvertTo-PkiBool -Value $(if ($r.Contains('IsGenerate')) { $r['IsGenerate'] } else { $null }) -Default $true } catch { throw "${where}: isGenerate: $($_.Exception.Message)" }
+    if (-not $gen) {
+        $nm = (@($r['GivenName'], $r['Surname']) | Where-Object { $_ }) -join ' '
+        return [ordered]@{ Line = $line; Skip = $true; Label = "$nm ($($r['IdCode']))"; IdCode = [string]$r['IdCode']; SerialNumber = [string]$r['SerialNumber']; Email = [string]$r['Email'] }
+    }
+    foreach ($req in 'IdCode', 'GivenName', 'Surname', 'Email') { if (-not ($r.Contains($req) -and "$($r[$req])" -ne '') -and -not ($Defaults.ContainsKey($req) -and "$($Defaults[$req])" -ne '')) { throw "${where}: $req is missing." } }
     $idCode = ([string](& $get 'IdCode' '')).Trim()
     $country = ([string](& $get 'Country' 'EE')).Trim().ToUpperInvariant()
-    $idType = ([string](& $get 'IdType' 'PNO')).Trim().ToUpperInvariant()
+    $idType = ([string](& $get 'IdType' '')).Trim().ToUpperInvariant()
     $given = ([string](& $get 'GivenName' '')).Trim() -replace '\s+', ' '
     $sur = ([string](& $get 'Surname' '')).Trim() -replace '\s+', ' '
     $label = "$sur $given ($idCode)"
-    if ($country -notmatch '^[A-Z]{2}$') { throw "${where} [$label]: Country must be a two-letter code (EE, FI ...), got '$country'." }
-    if ($idType -notin 'PNO', 'PAS', 'IDC', 'TIN') { throw "${where} [$label]: IdType must be PNO (personal number), PAS (passport), IDC (identity card) or TIN (tax number), got '$idType'." }
-    if ($idCode -notmatch '^[A-Za-z0-9][A-Za-z0-9._/\-]{2,38}[A-Za-z0-9]$') { throw "${where} [$label]: IdCode '$idCode' must be 4 to 40 letters / digits (. _ / - inside)." }
-    if (-not [bool]$Defaults['NoIdCheck'] -and $country -eq 'EE' -and $idType -eq 'PNO' -and -not (Test-PkiEstonianIdCode -Code $idCode)) {
-        throw "${where} [$label]: '$idCode' is not a valid Estonian personal code (11 digits with check digit). Check it, or -NoIdCheck."
+    if ($country -notmatch '^[A-Z]{2}$') { throw "${where} [$label]: Country must be a two-letter ISO code (EE, ID, FI ...), got '$country'." }
+    if ($idType -ne '' -and $idType -notmatch '^[A-Z0-9]{2,6}$') { throw "${where} [$label]: IdType is a short code of 2 to 6 letters / digits (PNO, PAS, IDC, TIN, NIK, DL ...), got '$idType'." }
+    if ($idCode -notmatch '^[A-Za-z0-9][A-Za-z0-9 ._/:+()\-]{0,62}[A-Za-z0-9]$') { throw "${where} [$label]: the ID '$idCode' must be 2 to 64 characters: letters, digits and . _ / : + ( ) - (not at the ends)." }
+    if ([bool]$Defaults['CheckEstonianId'] -and $country -eq 'EE' -and -not (Test-PkiEstonianIdCode -Code $idCode)) {
+        throw "${where} [$label]: '$idCode' is not a valid Estonian personal code (11 digits with check digit)."
     }
     foreach ($nm in @(@('GivenName', $given), @('Surname', $sur))) {
         if ($nm[1].Length -lt 1 -or $nm[1].Length -gt 64) { throw "${where} [$label]: $($nm[0]) must be 1 to 64 characters." }
         if ($nm[1] -match '[\x00-\x1F\x7F]|[=+"\\<>;]') { throw "${where} [$label]: $($nm[0]) contains a character that does not belong in a name (= + `" \ < > ;)." }
     }
     $email = ([string](& $get 'Email' '')).Trim()
-    if ($email -eq '') { $email = ("{0}@{1}" -f $idCode.ToLowerInvariant(), ([string]$Defaults['EmailDomain']).Trim().TrimStart('@')) }
     if ($email -notmatch '^[^@\s,;<>"]+@[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9\-]*[A-Za-z0-9])?)+$') { throw "${where} [$label]: '$email' is not a valid e-mail address." }
     $level = ([string](& $get 'Level' 'OV')).ToUpperInvariant()
-    if ($level -notin 'DV', 'OV', 'EV') { throw "${where} [$label]: Level must be DV, OV or EV." }
+    if ($level -eq 'DV') { throw "${where} [$label]: Level DV is not used for person certificates (a person certificate carries the name of a person). Use OV (default) or EV." }
+    if ($level -notin 'OV', 'EV') { throw "${where} [$label]: Level must be OV (default) or EV." }
+    $q = 0; if (-not [int]::TryParse([string](& $get 'Quadrant' 1), [ref]$q) -or $q -notin 1, 2) { throw "${where} [$label]: Quadrant must be 1 (Classic non-FIPS, default) or 2 (Classic FIPS); person certificates are Classic only." }
     $days = [int](& $get 'Days' 0)
+    $daysGiven = ($r.Contains('Days') -and "$($r['Days'])" -ne '') -or [bool]$Defaults['DaysGiven']
+    if ($level -eq 'EV' -and -not $daysGiven) { $days = 397 }
     if ($days -lt 0 -or $days -gt 36500) { throw "${where} [$label]: Days must be 1 to 36500." }
+    if ($level -eq 'EV' -and $days -gt 398) { throw "${where} [$label]: an EV certificate may not be valid longer than 398 days." }
+    try { $dnsFrom = ConvertTo-PkiBool -Value $(if ($r.Contains('DnsFromEmail')) { $r['DnsFromEmail'] } else { $null }) -Default ([bool]$Defaults['DnsFromEmail']) } catch { throw "${where} [$label]: dnsFromEmail: $($_.Exception.Message)" }
+    $dns = @(); if ($dnsFrom) { $dom = $email.Substring($email.LastIndexOf('@') + 1).ToLowerInvariant(); $dns = @($dom, "*.$dom") }
     $keep = [bool]$Defaults['KeepCase']
     $upper = { param($x) if ($keep) { $x } else { $x.ToUpperInvariant() } }
     $serialNumber = ([string](& $get 'SerialNumber' '')).Trim()
-    if ($serialNumber -eq '') { $serialNumber = "$idType$country-$idCode" }
+    if ($serialNumber -eq '') { $serialNumber = ([string]$Defaults['SerialNumberFormat']).Replace('{IdType}', $idType).Replace('{Country}', $country).Replace('{IdCode}', $idCode) }
+    if ($serialNumber.Length -lt 1 -or $serialNumber.Length -gt 64) { throw "${where} [$label]: the serial number '$serialNumber' must be 1 to 64 characters (X.520)." }
     $cn = ([string](& $get 'CommonName' '')).Trim()
     if ($cn -eq '') {
         $fmt = [string]$Defaults['CommonNameFormat']
         $cn = $fmt.Replace('{Surname}', $sur).Replace('{Given}', $given).Replace('{IdCode}', $idCode).Replace('{Country}', $country).Replace('{SurnameFirst}', "$sur $given")
         $cn = & $upper $cn
     }
-    if ($cn.Length -gt 64) { throw "${where} [$label]: the common name '$cn' is longer than 64 characters (X.520 limit): use a shorter -CommonNameFormat or a CommonName column." }
+    if ($cn.Length -gt 64) { throw "${where} [$label]: the common name '$cn' is longer than 64 characters (X.520 limit): use a shorter -CommonNameFormat or a commonName in the file." }
     $folder = ([string](& $get 'Name' '')).Trim()
     if ($folder -eq '') {
         # file-system name only: strip diacritics (Männik -> Mannik); the certificate keeps the real characters
         $fs = ("$idCode-$sur-$given").Normalize([Text.NormalizationForm]::FormD)
         $fs = (($fs.ToCharArray() | Where-Object { [Globalization.CharUnicodeInfo]::GetUnicodeCategory($_) -ne 'NonSpacingMark' }) -join '').Normalize([Text.NormalizationForm]::FormC)
-        $folder = $fs -replace 'ß','ss' -replace 'ø','o' -replace 'Ø','O' -replace 'æ','ae' -replace 'Æ','AE' -replace 'đ','d' -replace 'ł','l' -replace 'Ł','L'
+        $fs = $fs -replace 'ß','ss' -replace 'ø','o' -replace 'Ø','O' -replace 'æ','ae' -replace 'Æ','AE' -replace 'đ','d' -replace 'ł','l' -replace 'Ł','L'
+        $folder = ($fs -replace '[^A-Za-z0-9._-]+', '-').Trim('-', '.')
     }
-    $keyType = [string](& $get 'KeyType' '')
+    $keyType = ([string](& $get 'KeyType' '')).Trim().ToUpperInvariant()
+    if ($keyType -notin '', 'RSA', 'ECDSA') { throw "${where} [$label]: KeyType must be RSA or ECDSA (person certificates are Classic only)." }
     return [ordered]@{
-        Line = $(if ($r.Contains('_Line')) { $r['_Line'] } else { 0 }); Label = $label
+        Line = $line; Skip = $false; Label = $label
         IdCode = $idCode; Country = $country; IdType = $idType; SerialNumber = $serialNumber
-        GivenName = (& $upper $given); Surname = (& $upper $sur); CommonName = $cn; Email = $email
-        Level = $level; Days = $days; Password = [string](& $get 'Password' ''); Name = $folder
+        GivenName = (& $upper $given); Surname = (& $upper $sur); CommonName = $cn; Email = $email; Dns = @($dns)
+        Level = $level; Quadrant = $q; Days = $days; Password = [string](& $get 'Password' ''); Name = $folder
         KeyType = $keyType; KeyBits = [int](& $get 'KeyBits' 0); Curve = [string](& $get 'Curve' ''); Policy = @(& $get 'Policy' @())
     }
 }
@@ -196,22 +201,19 @@ function Get-PkiPersonKeyUsage {
 function New-PkiPersonOptions {
     <#
     .SYNOPSIS
-        The options for New-PkiLeafSpec of one person. $Common: Quadrant, Format, Hash, PqcAlgorithm, QcStatements, NonRepudiation, Policy.
+        The options for New-PkiLeafSpec of one person. $Common: Format, Hash, QcStatements, NonRepudiation, Policy, KeyType, Curve, Days.
     #>
     param([Parameter(Mandatory)]$Entry, [Parameter(Mandatory)][hashtable]$Common)
-    $q = [int]$Common.Quadrant
-    $quantum = $q -in 3, 4
-    $kt = if ($Entry.KeyType) { $Entry.KeyType } elseif ($quantum) { 'MLDSA' } else { [string]$Common.KeyType }
-    $family = switch ($kt.ToUpperInvariant()) { 'RSA' { 'rsa' } 'MLDSA' { 'pqc' } default { 'ecdsa' } }
+    $kt = if ($Entry.KeyType) { $Entry.KeyType } else { [string]$Common.KeyType }
+    $family = if ($kt.ToUpperInvariant() -eq 'RSA') { 'rsa' } else { 'ecdsa' }
     $o = @{
-        Level = $Entry.Level; Quadrant = $q; Eku = @('EmailProtection', 'ClientAuth'); EmailAddress = @($Entry.Email)
+        Level = $Entry.Level; Quadrant = [int]$Entry.Quadrant; Eku = @('EmailProtection', 'ClientAuth'); EmailAddress = @($Entry.Email); DnsName = @($Entry.Dns)
         PersonDn = (Get-PkiPersonDn -Entry $Entry); CommonName = $Entry.CommonName
         KeyUsage = (Get-PkiPersonKeyUsage -Family $family -NonRepudiation:([bool]$Common.NonRepudiation))
         KeyType = $kt; KeyBits = $Entry.KeyBits; Curve = $(if ($Entry.Curve) { $Entry.Curve } elseif ($family -eq 'ecdsa') { [string]$Common.Curve } else { '' })
-        Hash = $Common.Hash; PqcAlgorithm = $Common.PqcAlgorithm; Days = $(if ($Entry.Days -gt 0) { $Entry.Days } else { [int]$Common.Days })
+        Hash = $Common.Hash; Days = $(if ($Entry.Days -gt 0) { $Entry.Days } else { [int]$Common.Days })
         Policy = @(@($Common.Policy) + @($Entry.Policy) | Where-Object { $_ }); Format = $Common.Format; NameOverride = $Entry.Name
     }
-    if ($quantum -and $family -ne 'pqc') { throw "$($Entry.Label): Quadrants 3 and 4 (Quantum) issue ML-DSA keys only." }
     if ([bool]$Common.QcStatements) {
         $o.ExtraConfig = @('[ person_qcs ]', 'qc1 = SEQUENCE:person_qc_type', '[ person_qc_type ]', 'oid = OID:0.4.0.1862.1.6', 'types = SEQUENCE:person_qc_types', '[ person_qc_types ]', 't1 = OID:0.4.0.1862.1.6.1', '')
         $o.ExtraExt = @('1.3.6.1.5.5.7.1.3 = ASN1:SEQUENCE:person_qcs')
@@ -230,7 +232,9 @@ function Test-PkiPersonResult {
     if ($subj -notmatch '(?i)(surname|SN)\s*=') { [void]$p.Add('subject surname missing') }
     if ($subj -notmatch '(?i)\bC\s*=\s*' + [regex]::Escape($Entry.Country)) { [void]$p.Add("subject C=$($Entry.Country) missing") }
     if ($t -notmatch '(?i)email:' + [regex]::Escape($Entry.Email)) { [void]$p.Add("SAN e-mail $($Entry.Email) missing") }
-    if ($t -match 'DNS:|IP Address:') { [void]$p.Add('a person certificate must not carry DNS or IP names') }
+    foreach ($d in @($Entry.Dns)) { if ($t -notmatch '(?i)DNS:' + [regex]::Escape($d) + '(,|\s|$)') { [void]$p.Add("SAN DNS:$d missing") } }
+    if (@($Entry.Dns).Count -eq 0 -and $t -match 'DNS:') { [void]$p.Add('unexpected DNS name in the SAN') }
+    if ($t -match 'IP Address:') { [void]$p.Add('a person certificate must not carry an IP address') }
     if ($t -notmatch 'TLS Web Client Authentication') { [void]$p.Add('clientAuth missing') }
     if ($t -notmatch 'E-mail Protection') { [void]$p.Add('emailProtection missing') }
     if ($t -match 'TLS Web Server Authentication') { [void]$p.Add('serverAuth must not be in a person certificate') }
@@ -240,28 +244,32 @@ function Test-PkiPersonResult {
 }
 
 function Write-PkiPersonExample {
+    # JSON only. Five made-up people from different countries; "isGenerate" switches a person on or off.
     param([Parameter(Mandatory)][string]$Path)
-    $dir = Split-Path -Parent ([System.IO.Path]::GetFullPath($Path)); [void][System.IO.Directory]::CreateDirectory($dir)
-    $csv = @'
-# Persons for GeneratePersonLeafCertificate.ps1 -File persons.csv       (# = comment; separator , ; tab or |)
-# Required: IdCode, GivenName, Surname.   Optional: Email, Country, IdType, Days, Password, Level, KeyType, KeyBits, Curve, CommonName, SerialNumber, Name, Policy
-# Empty = the default (Email = <IdCode>@eesti.ee, Country EE, IdType PNO, Days 730, Level OV, ECDSA P-384, Password of -Password).
-# The two people below are made up; 37605030299 is the Estonian personal code used in the public examples (its check digit is valid).
-IdCode,GivenName,Surname,Email,Days,Password
-37605030299,Mari-Liis,Männik,mari-liis.mannik@example.ee,,
-60001019906,Jaan,Tamm,,1095,Different1!
-'@
+    $full = [System.IO.Path]::GetFullPath($Path)
+    if ([System.IO.Path]::GetExtension($full) -ne '.json') { $full = [System.IO.Path]::ChangeExtension($full, '.json') }
+    [void][System.IO.Directory]::CreateDirectory((Split-Path -Parent $full))
     $json = @'
 {
+  "_readme": [
+    "Persons for GeneratePersonLeafCertificate.ps1 -File persons.json   (JSON only; keys that start with _ are comments).",
+    "isGenerate: true = issue the certificate, false = skip this person (default true).",
+    "idCode: ANY identifier - national ID, passport, driver licence, tax number ...   idType: free short code (PNO PAS IDC TIN NIK DL ...), optional.",
+    "serialNumber: goes into the subject serialNumber; here it is the same as idCode. Empty = idCode (see -SerialNumberFormat).",
+    "email: becomes the SAN rfc822Name; the DNS names are taken from it (nicko@nextmantra.com -> DNS:nextmantra.com and DNS:*.nextmantra.com).",
+    "country: ISO 3166 two letters, default EE.   level: OV (default) or EV, never DV.   quadrant: 1 = Classic non-FIPS (default), 2 = Classic FIPS.",
+    "Optional per person: days, keyType (RSA|ECDSA), keyBits, curve, commonName, password, name (folder), policy, dnsFromEmail.",
+    "All five people below are made up."
+  ],
   "persons": [
-    { "IdCode": "37605030299", "GivenName": "Mari-Liis", "Surname": "Männik", "Email": "mari-liis.mannik@example.ee" },
-    { "IdCode": "60001019906", "GivenName": "Jaan", "Surname": "Tamm", "Days": 1095, "Password": "Different1!" }
+    { "isGenerate": true,  "idCode": "3674010101900001", "idType": "NIK", "serialNumber": "3674010101900001", "givenName": "Budi",      "surname": "Santoso",  "email": "budi.santoso@example.co.id", "country": "ID" },
+    { "isGenerate": true,  "idCode": "37605030299",      "idType": "PNO", "serialNumber": "37605030299",      "givenName": "Mari-Liis", "surname": "Männik",   "email": "mari-liis.mannik@example.ee" },
+    { "isGenerate": false, "idCode": "AB1234567",        "idType": "DL",  "serialNumber": "AB1234567",        "givenName": "Jaan",      "surname": "Tamm",     "email": "jaan.tamm@example.ee", "country": "EE", "days": 1095 },
+    { "isGenerate": true,  "idCode": "XP1234567",        "idType": "PAS", "serialNumber": "XP1234567",        "givenName": "Anna",      "surname": "Virtanen", "email": "anna.virtanen@example.fi", "country": "FI", "level": "EV" },
+    { "isGenerate": false, "idCode": "D1234567890",      "idType": "DL",  "serialNumber": "D1234567890",      "givenName": "John",      "surname": "Smith",    "email": "john.smith@example.com", "country": "US", "quadrant": 2 }
   ]
 }
 '@
-    $base = if ([System.IO.Path]::GetExtension($Path)) { $Path } else { "$Path.csv" }
-    Write-Utf8NoBom -Path $base -Content ($csv.Replace("`r", '') + "`n")
-    $jp = [System.IO.Path]::ChangeExtension($base, '.json')
-    Write-Utf8NoBom -Path $jp -Content ($json.Replace("`r", '') + "`n")
-    return @($base, $jp)
+    Write-Utf8NoBom -Path $full -Content ($json.Replace("`r", '') + "`n")
+    return @($full)
 }
