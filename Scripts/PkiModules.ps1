@@ -22,7 +22,7 @@
 #            00_Common, 02_OpenSSL, 07_TrustStore, 09_Administrator, 16_CertPack, 17_Transport. A small kit.
 #
 # It must be dot-sourced (not called) so the functions land in the caller's scope.
-# Module documentation: scripts\README.txt
+# Module documentation: docs\scripts-README.txt
 # ============================================================
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -49,6 +49,8 @@ $script:PkiModuleCatalog = @(
     @{ File = '18_Revocation.ps1';           Sets = 'All', 'Library';          Purpose = 'CRL, revocation, OCSP responder and time stamp certificates, revocation information' }
     @{ File = '20_PersonLeaf.ps1';           Sets = 'All', 'Library';          Purpose = 'person (natural person) leaf certificates: subject, e-mail SAN, id code check, file import' }
     @{ File = '19_ExternalCaSigning.ps1';    Sets = 'All', 'Library';          Purpose = 'sign the CSR of another private CA with our intermediate or Quadrant Root' }
+    @{ File = '21_DevKit.ps1';               Sets = 'All', 'Library';          Purpose = 'the DevKit: one archive with the PKI, installers and generators for developers (Windows and Ubuntu)' }
+    @{ File = '22_CsrSigning.ps1';           Sets = 'All', 'Library';          Purpose = 'checks a CSR against the spec of the PKI and signs it (leaf certificates; CA requests use the same checker)' }
     @{ File = '17_Transport.ps1';            Sets = 'All', 'Library', 'Transport'; Purpose = 'Phase C: pack, unpack, scans, Windows trust install' }
 )
 

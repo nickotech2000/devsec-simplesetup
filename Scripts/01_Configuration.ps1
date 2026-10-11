@@ -29,7 +29,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PkiGeneratorVersion = '4.9.4-phaseC'
+$script:PkiGeneratorVersion = '4.9.5-phaseC'
 
 # ROOT KEY POLICY (enforced, not configurable)
 #   Every root-level CA (Enterprise Root, Track Roots, Quadrant Roots) is RSA 8192 with
@@ -487,7 +487,7 @@ function Initialize-PkiConfiguration {
         ReinstallTrust = (& $flag 'ReinstallTrust')
         ClassicPki    = (& $flag 'ClassicPKI')
 
-        # Enterprise Root signed by a public CA (see PUBLIC-CA-ENTERPRISE-ROOT.txt)
+        # Enterprise Root signed by a public CA (see docs\PUBLIC-CA-ENTERPRISE-ROOT.txt)
         ExternalCa           = [string]$(if ($Bound.Contains('ExternalCa')) { $Bound['ExternalCa'] } else { '' })
         EnterpriseRootCsr    = (& $flag 'EnterpriseRootCsr')
         ImportEnterpriseRoot = [string]$(if ($Bound.Contains('ImportEnterpriseRoot')) { $Bound['ImportEnterpriseRoot'] } else { '' })
@@ -545,7 +545,7 @@ function Test-PkiConfiguration {
         [void]$errors.Add("Validity must shrink at every level: RootYears ($($c.RootYears)) > TrackYears ($($c.TrackYears)) > QuadrantYears ($($c.QuadrantYears)) > IntYears ($($c.IntYears)) >= 1.")
     }
     if ($c.RootYears -gt 1000) { [void]$errors.Add('RootYears may not exceed 1000.') }
-    if ($c.LeafDays -lt 1 -or $c.LeafDays -gt 398) { [void]$errors.Add("EV leaf validity (LeafDays) must be 1..398 days (got $($c.LeafDays)).") }
+    if ($c.LeafDays -lt 1 -or $c.LeafDays -gt 397) { [void]$errors.Add("EV leaf validity (LeafDays) must be 1..397 days (got $($c.LeafDays)).") }
     if ($c.OvLeafYears -lt 1 -or $c.OvLeafYears -gt 100) { [void]$errors.Add("OvLeafYears must be 1..100 (got $($c.OvLeafYears)).") }
     if ($c.DvLeafYears -lt 1 -or $c.DvLeafYears -gt 100) { [void]$errors.Add("DvLeafYears must be 1..100 (got $($c.DvLeafYears)).") }
     foreach ($lvl in 'EV', 'OV', 'DV') {

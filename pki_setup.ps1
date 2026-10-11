@@ -48,7 +48,7 @@ param(
     [ValidateRange(1, 1000)][int]$TrackYears = 500,
     [ValidateRange(1, 1000)][int]$QuadrantYears = 400,
     [ValidateRange(1, 1000)][int]$IntYears = 250,
-    [ValidateRange(1, 398)][int]$LeafDays = 397,
+    [ValidateRange(1, 397)][int]$LeafDays = 397,
     [ValidateRange(1, 100)][int]$OvLeafYears = 3,
     [ValidateRange(1, 100)][int]$DvLeafYears = 5,
 
@@ -103,7 +103,7 @@ param(
     # ---- Classic PKI only ----
     [switch]$ClassicPKI,
 
-    # ---- Enterprise Root signed by a public CA (see PUBLIC-CA-ENTERPRISE-ROOT.txt) ----
+    # ---- Enterprise Root signed by a public CA (see docs\PUBLIC-CA-ENTERPRISE-ROOT.txt) ----
     [ValidateSet('DigiCert', 'GlobalSign', 'Sectigo', 'Other')][string]$ExternalCa,
     [switch]$EnterpriseRootCsr,
     [ValidateSet(4096, 8192)][int]$EnterpriseRootKeyBits = 8192,
@@ -124,18 +124,19 @@ function Show-PkiHelp {
     @'
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : pki_setup-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt
- Public CA : PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : scripts\README.txt
- Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   GenerateLeafCertificate-MANUAL.txt
+ Manual : docs\pki_setup-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt
+ Public CA : docs\PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : docs\scripts-README.txt
+ Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   docs\GenerateLeafCertificate-MANUAL.txt
  Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./linux/pki-transport.sh --help
-                      Manual: PkiTransport-MANUAL.txt
- CRL / OCSP / time stamping: PkiRevocation.ps1 -Help   Manual: PkiRevocation-MANUAL.txt
- Ubuntu server (CRL, OCSP, TSA): New-PkiServerPackage.ps1 -Help   linux/pki-server/pki-server.sh --help   Design: PKI-Server-Design.txt
+                      Manual: docs\PkiTransport-MANUAL.txt
+ CRL / OCSP / time stamping: PkiRevocation.ps1 -Help   Manual: docs\PkiRevocation-MANUAL.txt
+ Ubuntu server (CRL, OCSP, TSA): New-PkiServerPackage.ps1 -Help   linux/pki-server/pki-server.sh --help   Design: docs\PKI-Server-Design.txt
+ Developers (one zip: PKI + installers + generators, Windows ps1 and Ubuntu sh): PkiTransport.ps1 -DevKit -Help   Manual: docs\DevKit-MANUAL.txt
  Git (private repository): Setup-GitRepo.ps1 -Help   (execute bit, hooks, LF)
 
 REQUIREMENTS
@@ -273,7 +274,7 @@ LEAF CERTIFICATES  (Phase B)
   generator and scripts folder, checks first that OpenSSL is 4.x with the FIPS module and ML-DSA (otherwise it suggests
   Install-DevEnvironment.ps1), never overwrites a folder (a new one with the date and time is created) and has the
   same -Unblock. Names of the folders and files: agantra_pki.cnf [ leaf_names ].
-  .\GenerateLeafCertificate.ps1 -Help    Manual: GenerateLeafCertificate-MANUAL.txt
+  .\GenerateLeafCertificate.ps1 -Help    Manual: docs\GenerateLeafCertificate-MANUAL.txt
 
 CRL, OCSP AND TIME STAMPING INFORMATION  (made with the PKI unless -SkipRevocation)
   After the CAs: one OCSP responder certificate per Classic intermediate (pki\ocsp\<ca>\), the time stamping certificate (pki\tsa\<ca>\; Classic
@@ -287,7 +288,7 @@ TRANSPORT  (Phase C)
   CA certificates only, or with the leafcerts, or with the whole PKI and its CA keys. On a Windows 11 25H2+ machine
   .\PkiTransport.ps1 -Install scans,
   unpacks and installs the trust; Unpack-PkiTransport.ps1 only unpacks; pki-transport.sh does it on Linux and macOS.
-  Manual: PkiTransport-MANUAL.txt.
+  Manual: docs\PkiTransport-MANUAL.txt.
 
 CLASSIC PKI  (-ClassicPKI)
   Builds only:  Enterprise Root -> Classic Track Root -> Q1 Root -> DV / OV / EV intermediates
@@ -302,7 +303,7 @@ CA NAMES  (all roots and intermediates)
   reason. -ShowNames prints the templates and every resulting name without generating anything.
 
 ENTERPRISE ROOT SIGNED BY A PUBLIC CA  (DigiCert, GlobalSign, Sectigo ...)  - full text:
-PUBLIC-CA-ENTERPRISE-ROOT.txt
+docs\PUBLIC-CA-ENTERPRISE-ROOT.txt
   Model A  The Enterprise Root becomes a subordinate CA of the public CA
     -EnterpriseRootCsr          create the Enterprise Root key and request (pki\root\root.csr), stop
     -ExternalCa <name>          DigiCert | GlobalSign | Sectigo | Other: names the CA in the request sheet
@@ -354,7 +355,7 @@ ALGORITHMS BELOW THE ROOTS
 VALIDITY
   -RootYears <n>       Default 1000     -TrackYears <n>      Default 500
   -QuadrantYears <n>   Default 400      -IntYears <n>        Default 250
-  -LeafDays <n>        EV leaf validity. Default 397 (maximum 398).
+  -LeafDays <n>        EV leaf validity. Default 397 (the maximum).
   -OvLeafYears <n>     OV leaf validity in years. Default 3.     -DvLeafYears <n>  DV. Default 5.
 
 POLICY OPTIONS
@@ -428,7 +429,7 @@ WINDOWS TRUST   (elevated PowerShell; other modes need no elevation)
                        the .\pki folder: all contents and the folder itself.
   Certificates that are already gone from the stores are ignored and the run continues.
   Linux, macOS, FreeBSD and the browsers' own stores: install pki\root\root.crt as described
-  in pki_setup-MANUAL.txt.
+  in docs\pki_setup-MANUAL.txt.
 
 UNBLOCK / UNLOCK
   -Unblock             UNBLOCK (remove the Windows "downloaded from the Internet" mark) and UNLOCK (remove the
@@ -471,7 +472,7 @@ OUTPUT (.\pki)
   provider-default.cnf, provider-fips.cnf         native provider configuration
   pki-manifest.json, telemetry.json               what was generated
 
-LIMITATIONS  (details: PKI-Design-with-FIPS-and-PQC.txt, section 9)
+LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   * Private PKI: install the Enterprise Root on every client. No browser shows the EV company
     line for a private root.
   * ML-DSA certificates are NOT accepted for HTTPS by Windows Schannel (Kestrel / IIS on Windows),
@@ -490,7 +491,7 @@ LIMITATIONS  (details: PKI-Design-with-FIPS-and-PQC.txt, section 9)
   * OpenSSL 4.0 is a short-support release (about May 2027); the OpenSSL 3.5 LTS runs to 2030.
     Only this script needs 4.x; the servers that use the certificates can link 3.5 or newer.
   * A public CA signs only what it agrees to: it may refuse RSA 8192 / P-521, limit pathlen below 3, require
-    an HSM, add name constraints and cap the validity (public TLS leaves: 398 days). Signing is not
+    an HSM, add name constraints and cap the validity (public TLS leaves: 398 days; EV here: 397). Signing is not
     automated. Tested here with a stand-in CA, not with DigiCert, GlobalSign or Sectigo.
   * pki_reuse.ps1 and GenerateLeafCertificate.ps1 still target the old single-root layout until
     Phases B and C.

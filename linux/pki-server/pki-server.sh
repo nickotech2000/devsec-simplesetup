@@ -92,11 +92,11 @@ OPTIONS
 
 NOTES
   * The CA private keys are NOT needed and NOT copied. Only public files, the index.txt of each CA, and the keys of the OCSP / TSA certificates.
-  * WSL / testing: add the host names to C:\Windows\System32\drivers\etc\hosts (see "dns" and PKI-SERVER-MANUAL.txt); run "run" when systemd is off.
+  * WSL / testing: add the host names to C:\Windows\System32\drivers\etc\hosts (see "dns" and docs/PKI-SERVER-MANUAL.txt); run "run" when systemd is off.
   * CRLs are made on the machine that holds the CA keys (pki_setup.ps1). After a new CRL or after issuing / revoking certificates:
     copy the pki folder again and run "update". OCSP answers come from index.txt, so they follow the same update.
   * Certificates must carry the matching URLs: OCSP http://ocsp.nextmantra.internal, CRL http://crl-01.nextmantra.com/{ca}.crl ...
-  * Details: PKI-SERVER-MANUAL.txt and PKI-Server-Design.txt (package root)
+  * Details: docs/PKI-SERVER-MANUAL.txt and docs/PKI-Server-Design.txt (package root)
 EOF
 }
 

@@ -9,7 +9,7 @@
 .SYNOPSIS
     Packs the Linux scripts (pki-server kit, pki-transport.sh, Install-DevEnvironment.sh) and the PKI WITHOUT private keys into one
     zip (and optionally .tar.gz) for Ubuntu 24.04 / 26.04: all text is LF, .sh and .py carry the Unix execute bit.
-    Full help: .\New-PkiServerPackage.ps1 -Help      Manual: PKI-SERVER-MANUAL.txt, PKI-Server-Design.txt
+    Full help: .\New-PkiServerPackage.ps1 -Help      Manual: docs\PKI-SERVER-MANUAL.txt, docs\PKI-Server-Design.txt
 .EXAMPLE
     .\New-PkiServerPackage.ps1
 .EXAMPLE
@@ -28,25 +28,25 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$script:Version = '4.9.4-phaseC'
+$script:Version = '4.9.5-phaseC'
 $root = $PSScriptRoot
 
 function Show-PackageHelp {
     @'
 ============================================================
  New-PkiServerPackage.ps1 - the PKI + the Linux scripts as ONE zip for Ubuntu 24.04 / 26.04
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
   Builds <name>.zip (and with -Tar also <name>.tar.gz) that you copy to the Ubuntu VM / WSL. It holds:
     linux\                 pki-server\ (the server kit: nginx CRL/CA host, OCSP, RFC 3161 time stamping), pki-transport.sh,
-                           Install-DevEnvironment.sh, fix-permissions.sh, README
+                           Install-DevEnvironment.sh, fix-permissions.sh
     pki\                   the PKI WITHOUT any private key: publish\ (CA certificates, CRLs), every CA's certificate, chain,
                            configuration, index.txt, serial and crlnumber (the OCSP responders read index.txt), the public parts of
                            ocsp\ and tsa\ (certificates, chains, .pub, info json)
     agantra_pki.cnf        the host names (CRL / OCSP / CA issuer URLs) the kit puts into nginx
-    PKI-Server-Design.txt, PKI-SERVER-MANUAL.txt, PkiRevocation-MANUAL.txt   the documents
+    docs\PKI-Server-Design.txt, docs\PKI-SERVER-MANUAL.txt, docs\PkiRevocation-MANUAL.txt   the documents
     README-SERVER-PACKAGE.txt, SHA256SUMS, PACKAGE-MANIFEST.txt
   Every text file is written with LF and no BOM (OpenSSL 3.5+ and nginx on Linux reject CRLF keys / PEM). The .sh and .py files get
   mode 755 inside the zip (and inside the .tar.gz), everything else 644.
@@ -159,12 +159,12 @@ Get-ChildItem -LiteralPath $linuxDir -Recurse -File -Force | ForEach-Object {
     if ($rel -match '(^|[\\/])(\.git|__pycache__)([\\/]|$)') { return }
     Add-File -Path $_.FullName -Name "$RootName/linux/$rel"
 }
-foreach ($d in @('agantra_pki.cnf', 'PKI-Server-Design.txt', 'PkiRevocation-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt')) {
-    $p = Join-Path $root $d
-    if (Test-Path -LiteralPath $p) { Add-File -Path $p -Name "$RootName/$d" } else { Write-Msg "not found, not packed: $d" 'WARN' }
+$cn = Join-Path $root 'agantra_pki.cnf'
+if (Test-Path -LiteralPath $cn) { Add-File -Path $cn -Name "$RootName/agantra_pki.cnf" } else { Write-Msg 'not found, not packed: agantra_pki.cnf' 'WARN' }
+foreach ($d in @('PKI-Server-Design.txt', 'PKI-SERVER-MANUAL.txt', 'PkiRevocation-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'linux-README.txt')) {
+    $p = Join-Path (Join-Path $root 'docs') $d
+    if (Test-Path -LiteralPath $p) { Add-File -Path $p -Name "$RootName/docs/$d" } else { Write-Msg "not found, not packed: docs\$d" 'WARN' }
 }
-$mp = Join-Path $linuxDir 'pki-server/PKI-SERVER-MANUAL.txt'
-if (Test-Path -LiteralPath $mp) { Add-File -Path $mp -Name "$RootName/PKI-SERVER-MANUAL.txt" }
 
 # ---------------------------------------------------------------- the PKI, public parts only
 $nPki = 0; $nKeyFiles = 0
@@ -204,7 +204,7 @@ For Ubuntu 24.04 / 26.04 (or WSL with Ubuntu 24.04 / 26.04). All text files are 
 4  ./linux/pki-server/pki-server.sh dns         -> the lines for the hosts file (WSL test) or for your DNS server
 5  ./linux/pki-server/pki-server.sh test        -> CRL download, OCSP query, time stamp
 
-Documents: PKI-SERVER-MANUAL.txt, PKI-Server-Design.txt, PkiRevocation-MANUAL.txt.   Check the files: sha256sum -c SHA256SUMS
+Documents: docs\PKI-SERVER-MANUAL.txt, docs\PKI-Server-Design.txt, docs\PkiRevocation-MANUAL.txt.   Check the files: sha256sum -c SHA256SUMS
 "@
 Add-Item -Name "$RootName/README-SERVER-PACKAGE.txt" -Bytes $utf8.GetBytes($readme) -Ext '.txt'
 

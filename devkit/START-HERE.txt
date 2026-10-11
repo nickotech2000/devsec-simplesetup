@@ -1,0 +1,73 @@
+================================================================================
+ AGANTRA INOVATIF ENTERPRISE PKI - DEVELOPER KIT (DevKit)
+ Version {{VERSION}}   built {{DATE}}
+ Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   nicko@nextmantra.com
+================================================================================
+
+WHAT IS IN THIS FOLDER
+  {{PACKAGE}}     the PKI, password protected (AES-256). Contains {{KEYS}}.
+  Install-PkiTrust.ps1  /  Install-PkiTrust.sh
+                      unpack the package here and put every root and intermediate CA in the machine certificate store
+                      (Windows: Local Machine; Ubuntu: the system store).
+  GenerateLeafCertificate.ps1  /  .sh                TLS, client, code signing, S/MIME, time stamping, OCSP certificates
+  GeneratePersonLeafCertificate.ps1  /  .sh          certificates of people, from a JSON file
+  GenerateOffice365LeafCertificate.ps1  /  .sh       Microsoft Office / 365 document signing, from a JSON file
+  SignCsr.ps1  /  .sh                                sign the certificate request (CSR) of a colleague with the intermediate CAs in this kit
+  Make-ShExecutable.ps1  /  make-executable.sh       make the .sh files executable (you do not need to know Linux)
+  devkit.env, lib\, scripts\, examples\, docs\       what the scripts use; docs\ has the manuals. SHA256SUMS lists every file.
+
+THE PASSWORD of the package comes from the person who sent you this kit, by another channel (not with the kit).
+
+--------------------------------------------------------------------------------
+ WINDOWS  (Windows 11 25H2 or newer, PowerShell 7)
+--------------------------------------------------------------------------------
+  1. Unzip the kit (right click > Extract All) to a folder, for example C:\pki-devkit.
+  2. Start PowerShell 7 AS ADMINISTRATOR, then:
+         cd C:\pki-devkit
+         .\Install-PkiTrust.ps1
+     (If Windows blocks the script: Unblock-File .\*.ps1   or   .\PkiTransport.ps1 -Unblock)
+     It asks for the password, checks the machine, unpacks, installs the CAs. OpenSSL 4.0.1+ must be installed:
+     .\Install-PkiTrust.ps1 -InstallMissing  installs it for you.
+     No OpenSSL 4 yet? First (once, as Administrator):  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+     (installs OpenSSL 4.x, writes the FIPS config and adds it to the Path; open a NEW PowerShell afterwards).
+     Ubuntu:  ./Install-DevEnvironment.sh --yes --only openssl   (builds OpenSSL 4.0.3, puts it first on the PATH; new terminal afterwards).
+  3. Make certificates (a normal PowerShell is enough from now on):
+         .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com
+         .\GenerateLeafCertificate.ps1 -EV -DnsName api.example.com -Purpose ServerAuth -NoRevocationInfo
+         .\GeneratePersonLeafCertificate.ps1 -ExampleFile persons.json      (edit persons.json, then)
+         .\GeneratePersonLeafCertificate.ps1 -File persons.json
+         .\GenerateOffice365LeafCertificate.ps1 -ExampleFile office365.json
+         .\GenerateOffice365LeafCertificate.ps1 -File office365.json -NoRevocationInfo
+     The certificates are written to the folder leafcerts\ (every folder has the .crt, .key, .pfx, chain files).
+     A colleague sends a CSR:   .\SignCsr.ps1 -Csr his.csr -Check     (report only: what is wrong, in colour)
+                                .\SignCsr.ps1 -Csr his.csr            (DV, default)    -OV / -EV / -Quantum / -FIPS / -Purpose / -Days
+     The result is in csr-signed\ - send him the *-fullchain.crt. Only the intermediate CAs of the kit sign; roots are signed by the owner.
+     Help of every script:  .\<script>.ps1 -Help
+
+--------------------------------------------------------------------------------
+ UBUNTU / LINUX  (you do not need to be a Linux person: copy and paste)
+--------------------------------------------------------------------------------
+  1. Copy the zip to the Ubuntu machine and unpack it:      unzip agantra-pki-devkit-*.zip && cd agantra-pki-devkit-*
+  2. Make the scripts executable (once):                     bash make-executable.sh
+     (A kit unpacked on Windows and copied over loses the executable bit; this puts it back and fixes Windows line endings.
+      You can also start any script with   bash ./name.sh   and never need the executable bit.)
+  3. Install the PKI:                                        ./Install-PkiTrust.sh
+     It asks for the package password, uses sudo only for the system store and for missing packages (7-Zip).
+  4. Make certificates:
+         ./GenerateLeafCertificate.sh --ov --dns www.example.com
+         ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth --no-revocation-info
+         ./GeneratePersonLeafCertificate.sh --example-file persons.json ; ./GeneratePersonLeafCertificate.sh --file persons.json
+         ./GenerateOffice365LeafCertificate.sh --example-file office365.json ; ./GenerateOffice365LeafCertificate.sh --file office365.json
+     A colleague sends a CSR:   ./SignCsr.sh --csr his.csr --check ;  ./SignCsr.sh --csr his.csr --ov --purpose ServerAuth
+     Help of every script:  ./<script>.sh --help
+     The .sh generators need bash, openssl 3.0+ and python3 (Ubuntu has them; python3 only reads the JSON files).
+
+--------------------------------------------------------------------------------
+ GOOD TO KNOW
+--------------------------------------------------------------------------------
+  * Certificates made here are DEVELOPMENT certificates. They are not in the revocation database (CRL / OCSP) of the master PKI:
+    nobody can revoke them centrally. Do not use them for production. The serial numbers are random and different on every copy.
+  * Do not copy the pki\ folder to other machines or into Git: it holds the keys of the issuing CAs. leafcerts\ is private too.
+  * -NoCrl / -NoOcsp / -NoRevocationInfo (--no-crl / --no-ocsp / --no-revocation-info) leave the revocation URLs out: use them when
+    Word / Excel / a tool says "cannot connect to the revocation server".
+  * Trouble? docs\DevKit-MANUAL.txt has the list of messages and what to do.

@@ -8,7 +8,7 @@
 <#
 .SYNOPSIS
     CRLs, revocation, OCSP responder certificates and the time stamping certificate of the Agantra Inovatif Enterprise PKI:
-    show them, make them, edit (renew) them. Full help: .\PkiRevocation.ps1 -Help     Manual: PkiRevocation-MANUAL.txt
+    show them, make them, edit (renew) them. Full help: .\PkiRevocation.ps1 -Help     Manual: docs\PkiRevocation-MANUAL.txt
 .EXAMPLE
     .\PkiRevocation.ps1 -Action Status
 .EXAMPLE
@@ -56,12 +56,12 @@ function Show-PkiRevocationHelp {
     @'
 ============================================================
  PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiRevocation-MANUAL.txt     Server: linux\pki-server\PKI-SERVER-MANUAL.txt     Design: PKI-Server-Design.txt
+ Manual : docs\PkiRevocation-MANUAL.txt     Server: docs\PKI-SERVER-MANUAL.txt     Design: docs\PKI-Server-Design.txt
  Needs  : PowerShell 7+, OpenSSL 4.x (see Install-DevEnvironment.ps1) and a PKI made by pki_setup.ps1.
 
 WHAT IT DOES

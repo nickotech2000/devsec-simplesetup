@@ -1,5 +1,5 @@
 ====================================================================================================================================
- Agantra Inovatif Enterprise PKI  -  DESIGN OF THE PKI SERVER (CRL, OCSP, RFC 3161 time stamping)         Version 4.9.4-phaseC 2026-10-11
+ Agantra Inovatif Enterprise PKI  -  DESIGN OF THE PKI SERVER (CRL, OCSP, RFC 3161 time stamping)         Version 4.9.5-phaseC 2026-10-11
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Companion documents: linux/pki-server/PKI-SERVER-MANUAL.txt (how to use it), PkiRevocation-MANUAL.txt (CA side), PKI-Design-with-FIPS-and-PQC.txt
 ====================================================================================================================================

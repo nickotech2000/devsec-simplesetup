@@ -1,12 +1,13 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL   (PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 4.9.4-phaseC     2026-10-06
+ Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 4.9.5-phaseC     2026-10-11
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: Install-DevEnvironment-MANUAL.txt (the bootstrap that installs 7-Zip and OpenSSL 4)
           pki_setup-MANUAL.txt                (the PKI itself)           GenerateLeafCertificate-MANUAL.txt (leaf
                                               certificates)
-          PKI-Design-with-FIPS-and-PQC.txt    (design, section 17 = this transport)
+          DevKit-MANUAL.txt                   (the DevKit: one zip with the PKI, installers and generators for developers)
+          PKI-Design-with-FIPS-and-PQC.txt    (design, section 17 = this transport, section 19 = the DevKit)
           PKI-Acceptance-Checklists.txt       (what to run on your machines, section C)
           the three -Help texts: sections 13 - 15 below
 
@@ -20,6 +21,7 @@
     7  Linux and macOS: pki-transport.sh        14  Unpack-PkiTransport.ps1 -Help
                                                 15  pki-transport.sh --help        16  What changed
                                                 17  Prerequisites: what is installed for you
+                                                18  The DevKit: one zip for the developers (4.9.5)
 ====================================================================================================
  1  WHAT THE TRANSPORT IS
 ====================================================================================================
@@ -320,16 +322,18 @@
 ====================================================================================================
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiTransport-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt (section 17)
+ Manual : docs\PkiTransport-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt (section 17)
  Needs  : PowerShell 7+. Source: the PKI made by pki_setup.ps1. Destination: see -Install.
 
 WHAT IT DOES
   -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
+  -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1, Ubuntu sh), the leaf / person /
+             Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
   -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes it unpacks the
              package and installs the CA certificates in the Windows certificate stores.
   -Check     DESTINATION. The scan only (nothing is changed): READY or NOT READY.
@@ -370,6 +374,23 @@ PACK  (source)
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
   ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains (one fullchain file per intermediate), ca\publish,
   certpack.json, certpack.tsv, SHA256SUMS, README.txt. Every file has its SHA-256 listed.
+
+DEVKIT  (source: one zip for the developers)
+  .\PkiTransport.ps1 -DevKit -GeneratePassword                    zip + the .certpacked (zip AES-256) with the ISSUING CA keys
+  .\PkiTransport.ps1 -DevKit -Out D:\share\devkit.zip -KitArchiveFormat 7z -ArchiveFormat 7z
+  .\PkiTransport.ps1 -DevKit -DevKitNoKeys                        trust only: the generators then cannot issue
+  The kit holds, in one folder:
+      <name>.certpacked                           CA certificates + the pki folder with the keys of the intermediate (issuing) CAs.
+                                                  NO root key: Enterprise, Track and Quadrant root keys, OCSP / TSA and old leaf keys are left out.
+      Install-PkiTrust.ps1 / .sh                  unpack it and put the PKI in the Local Machine store (Windows) / the Ubuntu store;
+                                                  give every intermediate a NEW RANDOM serial counter (copies must not issue the same serials)
+      GenerateLeafCertificate.ps1 / .sh           GeneratePersonLeafCertificate.ps1 / .sh        GenerateOffice365LeafCertificate.ps1 / .sh
+      Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (and LF line endings); Windows developers need no Linux
+      devkit.env  examples\  docs\  START-HERE.txt  SHA256SUMS  scripts\ (the PowerShell modules)
+  -KitArchiveFormat zip|7z   the outer archive (default zip, not encrypted: the .certpacked inside is).
+  -ArchiveFormat zip|7z      the .certpacked inside (AES-256).        -DevKitNoKeys   no private keys at all.
+  -Out <file>   -GeneratePassword / -PackagePassword   as for -Pack.   Manual: docs\DevKit-MANUAL.txt
+  Certificates issued from a DevKit copy are NOT in the CRL / OCSP database of the master PKI (see the manual).
 
 INSTALL  (destination: Windows 11 25H2 or newer)
   .\PkiTransport.ps1 -Install -Package .\dev.certpacked
@@ -417,12 +438,12 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiTransport-MANUAL.txt   Needs: PowerShell 7+ (Windows, Linux or macOS)
+ Manual : docs\PkiTransport-MANUAL.txt   Needs: PowerShell 7+ (Windows, Linux or macOS)
 
 WHAT IT DOES
   Opens a .certpacked (a password-protected zip or 7z made by PkiTransport.ps1), checks the SHA-256 of every file
@@ -475,12 +496,12 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  pki-transport.sh - DESTINATION script for Linux and macOS
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiTransport-MANUAL.txt     Help: ./linux/pki-transport.sh --help
+ Manual : docs/PkiTransport-MANUAL.txt     Help: ./pki-transport.sh --help
 
 WHAT IT DOES  (and nothing else)
   1. SCAN         the platform, privileges, OpenSSL 4.0.1+, the certificate-store tools, an archive tool.
@@ -493,16 +514,16 @@ WHAT IT DOES  (and nothing else)
                   chains verify against it.
 
 USAGE
-  ./linux/pki-transport.sh --package dev.certpacked                         unpack the CA certificates, install the roots
-  ./linux/pki-transport.sh --package dev.certpacked --no-trust              unpack only
-  ./linux/pki-transport.sh --package dev.certpacked --extract roots         only the roots
-  ./linux/pki-transport.sh --package dev.certpacked --extract intermediates only the DV / OV / EV CAs
-  ./linux/pki-transport.sh --package dev.certpacked --extract ca,leafcerts  CAs and the leaf certificates
-  ./linux/pki-transport.sh --package dev.certpacked --extract fullchain     everything the package holds
-  ./linux/pki-transport.sh --package dev.certpacked --extract leafcerts --leaf 'www*' --no-trust
-  ./linux/pki-transport.sh --package dev.certpacked --list                  what is inside; nothing written
-  ./linux/pki-transport.sh --check                                          the scan only
-  ./linux/pki-transport.sh --package dev.certpacked --remove-trust          take the package's CAs out of the store
+  ./pki-transport.sh --package dev.certpacked                         unpack the CA certificates, install the roots
+  ./pki-transport.sh --package dev.certpacked --no-trust              unpack only
+  ./pki-transport.sh --package dev.certpacked --extract roots         only the roots
+  ./pki-transport.sh --package dev.certpacked --extract intermediates only the DV / OV / EV CAs
+  ./pki-transport.sh --package dev.certpacked --extract ca,leafcerts  CAs and the leaf certificates
+  ./pki-transport.sh --package dev.certpacked --extract fullchain     everything the package holds
+  ./pki-transport.sh --package dev.certpacked --extract leafcerts --leaf 'www*' --no-trust
+  ./pki-transport.sh --package dev.certpacked --list                  what is inside; nothing written
+  ./pki-transport.sh --check                                          the scan only
+  ./pki-transport.sh --package dev.certpacked --remove-trust          take the package's CAs out of the store
 
 OPTIONS
   --package FILE        The .certpacked.                                          (also: the first plain argument)
@@ -515,7 +536,7 @@ OPTIONS
                           chains         ca/chains/*-fullchain.crt (each intermediate + its parents) and the bundles
                           ca             roots + intermediates + chains + bundles + CRLs   (default)
                           leafcerts      the leafcerts folders (leaf certificates AND their private keys), if packed
-                          pki            the whole PKI folder with the CA private keys, if packed
+                          pki            the PKI folder with the CA private keys (a DevKit: only the issuing CAs' keys), if packed
                           all            everything in the package;  fullchain is the same
   --leaf WILDCARD       With leafcerts: only these leaf sets (top-level folder names), e.g. 'www*'. Several: comma.
   --trust MODE          Which CAs go into the system store:
@@ -593,4 +614,20 @@ LIMITATIONS
  stop with the exact command to run. A STRIPPED OpenSSL 4 (no FIPS module, no ML-DSA / ML-KEM) is not accepted by pki-transport.sh; on Windows run
  Install-DevEnvironment.ps1 -Check to see the readiness table. OpenSSL BUILD TIME (Linux, macOS): about 5 minutes on 8 cores, over an hour on one core.
  Details and the readiness checks: Install-DevEnvironment-MANUAL.txt.
+====================================================================================================
+ 18  THE DEVKIT: ONE ZIP FOR THE DEVELOPERS  (4.9.5)
+====================================================================================================
+
+ PkiTransport.ps1 -DevKit makes ONE zip (or 7z) for your developers: the .certpacked, Install-PkiTrust.ps1 / .sh (unpack and put the whole PKI in the Local Machine
+ store / the Ubuntu store), the leaf / person / Office 365 generators and SignCsr as .ps1 and .sh, Make-ShExecutable.ps1 / make-executable.sh (the .sh executable, no Linux
+ knowledge), devkit.env, examples, the manuals. The full manual is DevKit-MANUAL.txt; this section lists what changed in the transport itself.
+
+   * New mode -DevKit with -KitArchiveFormat zip|7z, -DevKitNoKeys, -Out, -ArchiveFormat (the .certpacked inside), the password options of -Pack.
+   * The .certpacked of a DevKit has the scope  caPrivateKeys = true, issuingKeysOnly = true : the pki folder with the keys of the ISSUING (intermediate) CAs only.
+     No root key, no OCSP / TSA key, no old leaf key, no .pfx / .p12. (-Pack -IncludeCaKeys is unchanged: the whole PKI folder.)
+   * Unpacking the pki folder (-Extract pki, all three destinations) now rewrites the absolute path in pki-manifest.json AND, new, in the CA configuration files
+     (dir = ...), revocation-info.json and the notes. Before, an unpacked PKI still pointed at the pki folder of the machine it came from. (Windows / Unpack-PkiTransport.ps1:
+     Export-PkiPackageSelection; Linux: Install-PkiTrust.sh of the DevKit does it; pki-transport.sh itself only unpacks.)
+   * The scope line shows "keys of the ISSUING (intermediate) CAs only (no root key)" for such a package (PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh).
+   * -Kit writes the manuals to a docs\ folder (the manuals moved to docs\ in 4.9.5).
 ====================================================================================================

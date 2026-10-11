@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+# ============================================================
+# PKI Script - DevKit shell library (sourced by the *.sh generators; not run on its own)
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OU (NextMantra)
+# Email  : nicko@nextmantra.com
+# ============================================================
+# Needs: bash 4+ (Ubuntu), openssl 3.0+ (4.0.1+ recommended), python3 (JSON files only).
+# Reads devkit.env (written by PkiTransport.ps1 -DevKit from the live configuration of the PKI).
+
+PKI_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKI_KIT_DIR="$(cd "$PKI_LIB_DIR/.." && pwd)"
+# Inside the project of the ORIGINAL PKI (devkit/ next to pki/): the PKI home is the parent folder (devkit.env: SignCsr.ps1 -WriteShellEnv).
+# PKI_HOME=<folder> chooses another one.
+if [ -n "${PKI_HOME:-}" ]; then PKI_KIT_DIR="$(cd "$PKI_HOME" && pwd)"
+elif [ ! -f "$PKI_KIT_DIR/devkit.env" ] && [ -f "$PKI_KIT_DIR/../devkit.env" ]; then PKI_KIT_DIR="$(cd "$PKI_KIT_DIR/.." && pwd)"; fi
+TAB="$(printf '\t')"
+
+pki_die()  { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
+pki_warn() { printf '[WARN]  %s\n' "$*" >&2; }
+pki_info() { printf '[INFO]  %s\n' "$*"; }
+pki_ok()   { printf '[OK]    %s\n' "$*"; }
+
+pki_load_env() {
+  local f="$PKI_KIT_DIR/devkit.env"
+  [ -f "$f" ] || pki_die "devkit.env not found in $PKI_KIT_DIR. Run these scripts from the DevKit folder (the zip made by PkiTransport.ps1 -DevKit)."
+  set -a; . "$f"; set +a
+}
+
+# --openssl FILE or the first openssl 3.0+ found (an OpenSSL 4 under /opt is preferred)
+pki_find_openssl() {
+  local want="$1" c
+  if [ -n "$want" ]; then OPENSSL="$want"
+  else
+    OPENSSL=""
+    for c in /opt/openssl-4*/bin/openssl /usr/local/bin/openssl "$(command -v openssl 2>/dev/null)"; do
+      [ -n "$c" ] && [ -x "$c" ] && { OPENSSL="$c"; break; }
+    done
+  fi
+  [ -n "$OPENSSL" ] && [ -x "$OPENSSL" ] || pki_die "openssl not found. Ubuntu: sudo apt install openssl   (or use --openssl FILE)"
+  local v; v="$("$OPENSSL" version 2>/dev/null | awk '{print $2}')"
+  case "$v" in
+    3.*|4.*|5.*) ;;
+    *) pki_die "OpenSSL $v is too old: 3.0 or newer is needed (4.0.1+ recommended). Found: $OPENSSL" ;;
+  esac
+  case "$v" in 4.*|5.*) ;; *) pki_warn "OpenSSL $v works for Classic RSA / ECDSA certificates; the project recommends 4.0.1+ (Install-PkiTrust.sh can build it)." ;; esac
+  OPENSSL_VERSION="$v"
+}
+
+# lower-case / upper-case without ${var,,} (works in bash 3.2 too)
+pki_lc() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+pki_uc() { printf '%s' "$1" | tr '[:lower:]' '[:upper:]'; }
+
+# comma / space list -> one item per line
+pki_list() { printf '%s' "$1" | tr ',; ' '\n\n\n' | sed '/^$/d'; }
+
+# 128-bit random serial, positive (first nibble 1-7). Printed as 32 hex digits.
+pki_rand_serial() {
+  local h; h="$("$OPENSSL" rand -hex 16)"
+  printf '%x%s' $(( (0x${h:0:1} % 7) + 1 )) "${h:1}"
+}
+
+# ---------------------------------------------------------------- the issuing CA
+# pki_ca_info <q1|q2> <ov|ev|dv>  -> CA_BASE (path prefix without extension), CA_SLUG, CA_FAMILY, CA_MD, CA_KEY, CA_CRT, CA_CHAIN
+pki_ca_info() {
+  local id="${1}-${2}" var rec
+  var="CA_$(printf '%s' "$id" | tr '-' '_')"
+  rec="${!var:-}"
+  [ -n "$rec" ] || pki_die "This PKI has no CA '$id' (devkit.env lists: $CA_IDS)."
+  CA_BASE="$PKI_KIT_DIR/pki/$(printf '%s' "$rec" | cut -d'|' -f1)"
+  CA_SLUG="$(printf '%s' "$rec" | cut -d'|' -f2)"
+  CA_FAMILY="$(printf '%s' "$rec" | cut -d'|' -f3)"
+  CA_MD="$(printf '%s' "$rec" | cut -d'|' -f4)"
+  CA_KEY="$CA_BASE.key"; CA_CRT="$CA_BASE.crt"; CA_CHAIN="${CA_BASE}-chain.crt"
+  [ -f "$CA_CRT" ] || pki_die "CA certificate not found: $CA_CRT. Run Install-PkiTrust (.ps1 on Windows, .sh on Linux) first: it unpacks the .certpacked into the pki folder."
+  [ -f "$CA_KEY" ] || pki_die "The private key of the issuing CA '$id' is not here: $CA_KEY. This DevKit package holds no issuing keys (it was made without them), or the key is on the PKI server."
+  [ -f "$CA_CHAIN" ] || CA_CHAIN="$CA_CRT"
+}
+
+# ---------------------------------------------------------------- config pieces
+# pki_cps <level>
+pki_cps() { if [ "$1" = "EV" ]; then printf '%s' "$CPS_URL_EV"; else printf '%s' "$CPS_URL"; fi; }
+
+# pki_write_policies <file> <level>  -> sections [ lp_1 ].. and sets POLICY_REFS ("@lp_1,@lp_2,...")
+pki_write_policies() {
+  local f="$1" lvl="$2" var item oid cps n=0 refs=""
+  var="POLICIES_$lvl"
+  for item in ${!var}; do
+    oid="${item%%|*}"; cps="${item#*|}"; n=$((n+1))
+    { printf '[ lp_%s ]\npolicyIdentifier = %s\n' "$n" "$oid"; [ -n "$cps" ] && printf 'CPS.1 = %s\n' "$cps"; printf '\n'; } >> "$f"
+    refs="$refs${refs:+,}@lp_$n"
+  done
+  POLICY_REFS="$refs"
+}
+
+# pki_write_location <file> <slug> <no_crl 0|1> <no_ocsp 0|1>  -> sets EXT_CRL / EXT_AIA lines (empty when none)
+pki_write_location() {
+  local f="$1" slug="$2" nocrl="$3" noocsp="$4" u n
+  EXT_CRL=""; EXT_AIA=""
+  if [ "$nocrl" != "1" ] && [ -n "${CRL_URLS:-}" ]; then
+    printf '[ ll_crl ]\n' >> "$f"; n=0
+    for u in $CRL_URLS; do n=$((n+1)); printf 'URI.%s = %s\n' "$n" "${u//\{ca\}/$slug}" >> "$f"; done
+    printf '\n' >> "$f"; EXT_CRL="crlDistributionPoints = @ll_crl"
+  fi
+  local have=0
+  [ "$noocsp" != "1" ] && [ -n "${OCSP_URLS:-}" ] && have=1
+  [ -n "${CA_ISSUER_URLS:-}" ] && have=1
+  if [ "$have" = "1" ]; then
+    printf '[ ll_aia ]\n' >> "$f"
+    if [ "$noocsp" != "1" ]; then n=0; for u in ${OCSP_URLS:-}; do n=$((n+1)); printf 'OCSP;URI.%s = %s\n' "$n" "${u//\{ca\}/$slug}" >> "$f"; done; fi
+    n=0; for u in ${CA_ISSUER_URLS:-}; do n=$((n+1)); printf 'caIssuers;URI.%s = %s\n' "$n" "${u//\{ca\}/$slug}" >> "$f"; done
+    printf '\n' >> "$f"; EXT_AIA="authorityInfoAccess = @ll_aia"
+  fi
+}
+
+# pki_write_dn <file> <dnspec "k=v|k=v">   (a value may be empty-skipped; UTF-8 kept)
+pki_write_dn() {
+  local f="$1" spec="$2" pair IFS_SAVE="$IFS"
+  printf '[ req ]\nprompt = no\nutf8 = yes\nstring_mask = utf8only\ndistinguished_name = dn\n\n[ dn ]\n' >> "$f"
+  IFS='|'; for pair in $spec; do [ -n "$pair" ] && printf '%s = %s\n' "${pair%%=*}" "${pair#*=}" >> "$f"; done; IFS="$IFS_SAVE"
+  printf '\n' >> "$f"
+}
+
+# pki_gen_key <file> <rsa|ecdsa> <bits> <curve>
+pki_gen_key() {
+  case "$2" in
+    rsa)   "$OPENSSL" genpkey -algorithm RSA -pkeyopt "rsa_keygen_bits:$3" -out "$1" 2>/dev/null || pki_die "RSA key generation failed" ;;
+    ecdsa) "$OPENSSL" genpkey -algorithm EC -pkeyopt "ec_paramgen_curve:$4" -pkeyopt ec_param_enc:named_curve -out "$1" 2>/dev/null || pki_die "EC key generation failed" ;;
+    *) pki_die "key type '$2' is not supported by the shell generators (rsa or ecdsa; Classic only)" ;;
+  esac
+  chmod 600 "$1" 2>/dev/null
+}
+
+# pki_sign <cnf> <key> <crt> <days> <md>   (uses CA_CRT / CA_KEY; random 128-bit serial; records the issue in the kit log)
+pki_sign() {
+  local cnf="$1" key="$2" crt="$3" days="$4" md="$5" csr="${3%.crt}.csr" ser
+  "$OPENSSL" req -new -key "$key" -config "$cnf" -out "$csr" 2>/dev/null || pki_die "CSR failed (see $cnf)"
+  ser="$(pki_rand_serial)"
+  "$OPENSSL" x509 -req -in "$csr" -CA "$CA_CRT" -CAkey "$CA_KEY" -set_serial "0x$ser" -days "$days" "-$md" \
+      -extfile "$cnf" -extensions ext -out "$crt" 2>/dev/null || pki_die "Signing failed (openssl x509 -req): is $CA_KEY the key of $CA_CRT?"
+  rm -f "$csr"
+  PKI_LAST_SERIAL="$ser"
+}
+
+# pki_package <dir> <stem> <pfx-password>   chain, fullchain, pfx, public key
+pki_package() {
+  local d="$1" s="$2" pw="$3"
+  cat "$d/$s.crt" "$CA_CHAIN" > "$d/$s-fullchain.crt"
+  cat "$CA_CHAIN" > "$d/$s-chain.crt"
+  "$OPENSSL" pkey -in "$d/$s.key" -pubout -out "$d/$s.pub" 2>/dev/null
+  "$OPENSSL" pkcs12 -export -inkey "$d/$s.key" -in "$d/$s.crt" -certfile "$CA_CHAIN" -out "$d/$s.pfx" -passout "pass:$pw" 2>/dev/null \
+    || pki_warn "PFX could not be written"
+}
+
+# pki_verify <crt> <expect: "no-crl" etc. as 0/1 flags>  -> proves the chain and reports revocation extensions
+pki_verify() {
+  local crt="$1" nocrl="$2" noocsp="$3" t roots
+  roots="$PKI_KIT_DIR/ca/ca-bundle-roots.crt"
+  if [ -f "$roots" ]; then
+    "$OPENSSL" verify -CAfile "$roots" -untrusted "$CA_CHAIN" "$crt" >/dev/null 2>&1 || pki_die "chain verification FAILED for $crt"
+  fi
+  t="$("$OPENSSL" x509 -in "$crt" -noout -text)"
+  if [ "$nocrl" = "1" ] && printf '%s' "$t" | grep -q 'CRL Distribution Points'; then pki_die "-NoCrl: the certificate still has a CRL distribution point"; fi
+  if [ "$noocsp" = "1" ] && printf '%s' "$t" | grep -q 'OCSP - URI'; then pki_die "-NoOcsp: the certificate still has an OCSP URL"; fi
+  return 0
+}
+
+# pki_log_issue <kind> <name> <crt> : one line per issued certificate in leafcerts/issued-by-devkit.tsv
+pki_log_issue() {
+  local root="$1" kind="$2" name="$3" crt="$4" log nb na sj
+  log="$root/issued-by-devkit.tsv"
+  [ -f "$log" ] || printf '# utc\tserial\tkind\tname\tnotAfter\tissuer\tmachine\n' > "$log"
+  na="$("$OPENSSL" x509 -in "$crt" -noout -enddate | cut -d= -f2)"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PKI_LAST_SERIAL" "$kind" "$name" "$na" "$CA_SLUG" "$(hostname 2>/dev/null)" >> "$log"
+}
+
+# yes/no word -> 1/0
+pki_bool() { case "$(pki_lc "${1:-}")" in true|yes|y|1|on) echo 1 ;; *) echo 0 ;; esac; }

@@ -28,7 +28,7 @@ if ($Help) {
 @'
 ============================================================
  Setup-GitRepo.ps1 - make the private GitHub repository clone-and-run on Ubuntu / WSL
- Version 4.9.4-phaseC     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 4.9.5-phaseC     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
 WHY
   Windows git does not know the Unix execute bit: a new .sh is stored with mode 100644 and a Linux clone gets files that cannot be
@@ -45,9 +45,11 @@ WHAT IT DOES (run it in the working copy on Windows, once, and after you add a n
   -Check   only report what would change (exit 1 when something would)
 
 REPOSITORY LAYOUT (what the scripts expect)
-  *.ps1, *-MANUAL.txt, design and checklist .txt, agantra_pki.cnf   repository root
-  scripts/                      the PowerShell modules (00..18, PkiModules.ps1)
+  *.ps1, agantra_pki.cnf, README.md                                 repository root
+  docs/                         every manual (*-MANUAL.txt), the design, the checklists, the other documentation text files
+  scripts/                      the PowerShell modules (00..21, PkiModules.ps1)
   linux/                        Install-DevEnvironment.sh, pki-transport.sh, fix-permissions.sh, setup-git.sh, pki-server/ (the server kit)
+  devkit/                       the source of the DevKit (PkiTransport.ps1 -DevKit): Install-PkiTrust, shell generators, lib/, START-HERE
   .githooks/, .gitattributes, .gitignore
 
 AFTER "git clone" ON LINUX / WSL

@@ -42,6 +42,8 @@ function Get-PkiPersonSettings {
         KeyType = [string](& $g 'KeyType' 'ECDSA')
         Curve = [string](& $g 'Curve' 'P-384')
         DnsFromEmail = ([string](& $g 'DnsFromEmail' 'true')).Trim().ToLowerInvariant() -notin 'false', 'no', '0', 'off'
+        NoCrl = ([string](& $g 'NoCrl' 'false')).Trim().ToLowerInvariant() -in 'true', 'yes', '1', 'on'
+        NoOcsp = ([string](& $g 'NoOcsp' 'false')).Trim().ToLowerInvariant() -in 'true', 'yes', '1', 'on'
     }
 }
 
@@ -56,6 +58,7 @@ $script:PkiPersonAliases = @{
     level = 'Level'; quadrant = 'Quadrant'; keytype = 'KeyType'; keybits = 'KeyBits'; curve = 'Curve'; commonname = 'CommonName'; cn = 'CommonName'
     serialnumber = 'SerialNumber'; serial = 'SerialNumber'; name = 'Name'; foldername = 'Name'; policy = 'Policy'
     isgenerate = 'IsGenerate'; generate = 'IsGenerate'; enabled = 'IsGenerate'; dnsfromemail = 'DnsFromEmail'
+    nocrl = 'NoCrl'; noocsp = 'NoOcsp'; norevocationinfo = 'NoRevocationInfo'; norevocation = 'NoRevocationInfo'
 }
 
 function ConvertTo-PkiPersonRecord {
@@ -66,7 +69,7 @@ function ConvertTo-PkiPersonRecord {
     foreach ($p in $props) {
         $k = ([string]$p.Name -replace '[\s_\-\.]', '').ToLowerInvariant()
         if ($k -eq '' -or $k.StartsWith('_')) { continue }
-        if (-not $script:PkiPersonAliases.ContainsKey($k)) { throw "Line ${Line}: unknown column '$($p.Name)'. Known: isGenerate, idCode, idType, serialNumber, givenName, surname, email, country, level, quadrant, days, keyType, keyBits, curve, commonName, password, name, policy, dnsFromEmail." }
+        if (-not $script:PkiPersonAliases.ContainsKey($k)) { throw "Line ${Line}: unknown column '$($p.Name)'. Known: isGenerate, noCrl, noOcsp, noRevocationInfo, idCode, idType, serialNumber, givenName, surname, email, country, level, quadrant, days, keyType, keyBits, curve, commonName, password, name, policy, dnsFromEmail." }
         $v = $p.Value
         if ($null -eq $v) { continue }
         if ($v -is [string]) { $v = $v.Trim(); if ($v -eq '') { continue } }
@@ -146,9 +149,17 @@ function ConvertTo-PkiPersonEntry {
     $daysGiven = ($r.Contains('Days') -and "$($r['Days'])" -ne '') -or [bool]$Defaults['DaysGiven']
     if ($level -eq 'EV' -and -not $daysGiven) { $days = 397 }
     if ($days -lt 0 -or $days -gt 36500) { throw "${where} [$label]: Days must be 1 to 36500." }
-    if ($level -eq 'EV' -and $days -gt 398) { throw "${where} [$label]: an EV certificate may not be valid longer than 398 days." }
+    if ($level -eq 'EV' -and $days -gt 397) { throw "${where} [$label]: an EV certificate may not be valid longer than 397 days." }
     try { $dnsFrom = ConvertTo-PkiBool -Value $(if ($r.Contains('DnsFromEmail')) { $r['DnsFromEmail'] } else { $null }) -Default ([bool]$Defaults['DnsFromEmail']) } catch { throw "${where} [$label]: dnsFromEmail: $($_.Exception.Message)" }
     $dns = @(); if ($dnsFrom) { $dom = $email.Substring($email.LastIndexOf('@') + 1).ToLowerInvariant(); $dns = @($dom, "*.$dom") }
+    $noCrl = [bool]$Defaults['NoCrl']; $noOcsp = [bool]$Defaults['NoOcsp']
+    foreach ($rk in 'NoCrl', 'NoOcsp', 'NoRevocationInfo') {
+        if ($r.Contains($rk)) {
+            try { $bv = ConvertTo-PkiBool -Value $r[$rk] -Default $false } catch { throw "${where} [$label]: $($rk.Substring(0,1).ToLower() + $rk.Substring(1)): $($_.Exception.Message)" }
+            if ($rk -eq 'NoCrl' -or $rk -eq 'NoRevocationInfo') { $noCrl = $bv }
+            if ($rk -eq 'NoOcsp' -or $rk -eq 'NoRevocationInfo') { $noOcsp = $bv }
+        }
+    }
     $keep = [bool]$Defaults['KeepCase']
     $upper = { param($x) if ($keep) { $x } else { $x.ToUpperInvariant() } }
     $serialNumber = ([string](& $get 'SerialNumber' '')).Trim()
@@ -175,7 +186,7 @@ function ConvertTo-PkiPersonEntry {
         Line = $line; Skip = $false; Label = $label
         IdCode = $idCode; Country = $country; IdType = $idType; SerialNumber = $serialNumber
         GivenName = (& $upper $given); Surname = (& $upper $sur); CommonName = $cn; Email = $email; Dns = @($dns)
-        Level = $level; Quadrant = $q; Days = $days; Password = [string](& $get 'Password' ''); Name = $folder
+        NoCrl = $noCrl; NoOcsp = $noOcsp; Level = $level; Quadrant = $q; Days = $days; Password = [string](& $get 'Password' ''); Name = $folder
         KeyType = $keyType; KeyBits = [int](& $get 'KeyBits' 0); Curve = [string](& $get 'Curve' ''); Policy = @(& $get 'Policy' @())
     }
 }
@@ -211,7 +222,7 @@ function New-PkiPersonOptions {
     $family = if ($kt.ToUpperInvariant() -eq 'RSA') { 'rsa' } else { 'ecdsa' }
     $office = ($Common.ContainsKey('Profile') -and [string]$Common['Profile'] -eq 'office365')
     $o = @{
-        Level = $Entry.Level; Quadrant = [int]$Entry.Quadrant; Eku = $(if ($office) { @('EmailProtection', 'DocumentEncryption') + $(if (-not $Common.ContainsKey('DocumentSigning') -or [bool]$Common['DocumentSigning']) { @('DocumentSigning') } else { @() }) } else { @('EmailProtection', 'ClientAuth') }); EmailAddress = @($Entry.Email); DnsName = @($Entry.Dns)
+        Level = $Entry.Level; Quadrant = [int]$Entry.Quadrant; Eku = $(if ($office) { @('EmailProtection', 'DocumentEncryption') + $(if (-not $Common.ContainsKey('DocumentSigning') -or [bool]$Common['DocumentSigning']) { @('DocumentSigning') } else { @() }) } else { @('EmailProtection', 'ClientAuth') }); EmailAddress = @($Entry.Email); DnsName = @($Entry.Dns); NoCrl = [bool]$Entry.NoCrl; NoOcsp = [bool]$Entry.NoOcsp
         PersonDn = (Get-PkiPersonDn -Entry $Entry); CommonName = $Entry.CommonName
         KeyUsage = (Get-PkiPersonKeyUsage -Family $family -NonRepudiation:([bool]$Common.NonRepudiation -or $office))
         KeyType = $kt; KeyBits = $(if ($family -eq 'rsa') { $Entry.KeyBits } else { 0 }); Curve = $(if ($Entry.Curve) { $Entry.Curve } elseif ($family -eq 'ecdsa') { [string]$Common.Curve } else { '' })
@@ -298,6 +309,8 @@ function Get-PkiOfficeSettings {
         KeyBits = [int](& $g 'KeyBits' '4096')
         Curve = [string](& $g 'Curve' 'P-384')
         DnsFromEmail = ([string](& $g 'DnsFromEmail' 'false')).Trim().ToLowerInvariant() -in 'true', 'yes', '1', 'on'
+        NoCrl = ([string](& $g 'NoCrl' 'false')).Trim().ToLowerInvariant() -in 'true', 'yes', '1', 'on'
+        NoOcsp = ([string](& $g 'NoOcsp' 'false')).Trim().ToLowerInvariant() -in 'true', 'yes', '1', 'on'
         KeepCase = ([string](& $g 'KeepCase' 'true')).Trim().ToLowerInvariant() -notin 'false', 'no', '0', 'off'
     }
 }

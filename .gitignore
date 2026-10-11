@@ -6,6 +6,9 @@ leafcerts/
 *.p12
 *.csr
 *.certpacked
+transport/
+certpacked-received/
+agantra-pki-devkit-*
 agantra-pki-server-*.zip
 agantra-pki-server-*.tar.gz
 pki-phaseA*.zip
@@ -14,3 +17,5 @@ pki-phaseA*.zip
 *.old
 *:Zone.Identifier
 external-ca/
+csr-signed/
+devkit.env

@@ -80,7 +80,7 @@ QuadrantYears    = 400
 IntYears         = 250
 
 # Leaf (end-entity) validity, used when no parameter is given:
-#   EV  397 days  (-LeafDays, maximum 398)     OV  3 years     DV  5 years
+#   EV  397 days  (-LeafDays, maximum 397)     OV  3 years     DV  5 years
 LeafDays         = 397
 OvLeafYears      = 3
 DvLeafYears      = 5
@@ -394,6 +394,9 @@ Country            = EE
 KeyType            = ECDSA
 Curve              = P-384
 DnsFromEmail       = true
+# NoCrl / NoOcsp = true: no CRL distribution point / no OCSP URL in the person certificates (-NoCrl -NoOcsp -NoRevocationInfo)
+NoCrl              = false
+NoOcsp             = false
 
 
 # ============================================================
@@ -413,6 +416,9 @@ KeyBits            = 4096
 Curve              = P-384
 DnsFromEmail       = false
 KeepCase           = true
+# NoCrl / NoOcsp = true: no CRL distribution point / no OCSP URL (Word / Excel "cannot connect to the revocation server"; -NoCrl -NoOcsp -NoRevocationInfo)
+NoCrl              = false
+NoOcsp             = false
 
 # ============================================================
 # END OF CONFIGURATION

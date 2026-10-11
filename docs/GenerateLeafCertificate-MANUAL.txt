@@ -1,13 +1,14 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.4-phaseC          2026-10-06
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.5-phaseC          2026-10-11
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: .\GenerateLeafCertificate.ps1 -Help     (the same text as section 13 of this file)
           pki_setup-MANUAL.txt                  (the PKI itself, trust, servers)
           PKI-Design-with-FIPS-and-PQC.txt      (design, section 15 = this script)
           PKI-Acceptance-Checklists.txt         (what to run on your machines, section B)
-          scripts\README.txt                    (the shared modules)
+          scripts-README.txt                    (the shared modules)
+          DevKit-MANUAL.txt                     (GenerateLeafCertificate.sh: the Ubuntu twin in the DevKit)
 
  CONTENTS
     1  What the script does                       8  Unblock and unlock (every main script)
@@ -19,6 +20,7 @@
     7  Level, quadrant, keys, validity, policies 14  What changed in 4.7
                                                 15  Three TLS certificates and the development SAN (4.9.1)
                                                 16  Code signing subject and quadrant names (4.9.2)
+                                                17  No CRL / no OCSP in the certificates (4.9.5)
 ====================================================================================================
  1  WHAT THE SCRIPT DOES
 ====================================================================================================
@@ -179,7 +181,7 @@
                    RSA 2048 | 3072 | 4096 | 8192   ECDSA P-256 | P-384 | P-521   ML-DSA 44 | 65 | 87
                    Defaults: quadrant 1 RSA 2048, 2 ECDSA P-256, 3 / 4 ML-DSA-65. Hash sha256 | sha384 | sha512 (the issuer's
                    by default); SHA-1, SHA-224, MD5 rejected.
- Validity          EV 397 days (maximum 398), OV 3 years, DV 5 years, or -Days. Never longer than the issuer.
+ Validity          EV 397 days (the maximum, for every purpose), OV 3 years, DV 5 years, or -Days. Never longer than the issuer.
  Policies          The level OID (EV 2.23.140.1.1, OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [ policy_oids ] /
                    [ iana_pen ], and -Policy "OID" or "OID|https://cps.url". A policy the issuing CA does not
                    carry is reported.
@@ -292,7 +294,7 @@
    of tls-guidance.txt in your nginx / Apache / Kestrel versions.
  * ML-DSA certificates (-Quantum): Windows Schannel (Kestrel / IIS on Windows), Java 25 and the browsers do not accept
    them for HTTPS today. Use Classic leaves there.
- * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. Public TLS leaves: 398 days.
+ * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. EV certificates: 397 days at most.
  * -Duns is a private convention (organizationIdentifier = DUNS+<n>); EV here is the policy and the subject fields,
    not a browser EV badge.
  * Mixing purposes in one certificate (-Purpose) is allowed except TimeStamping / OcspSigning, but a warning
@@ -310,12 +312,13 @@
 ====================================================================================================
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : GenerateLeafCertificate-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt (section 15)
+ Manual : docs\GenerateLeafCertificate-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt (section 15)
+ Ubuntu : GenerateLeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl, no PowerShell needed.
  Needs  : PowerShell 7+, OpenSSL 4.x with the FIPS module and ML-DSA, and a PKI made by pki_setup.ps1.
 
 WHAT IT DOES
@@ -395,6 +398,13 @@ TIME STAMPING CERTIFICATE (RFC 3161)
   Config: [ timestamp ] Quadrant / PolicyOid / Days in agantra_pki.cnf.  Keys of the OCSP / TSA certificates can also be made on the
   server (pki-server.sh csr) and signed with PkiRevocation.ps1 -Action SignCsr.
 
+REVOCATION INFORMATION   (4.9.5)
+  -NoCrl             no CRL distribution point in ANY generated certificate (the whole set, or the one certificate)
+  -NoOcsp            no OCSP URL (Authority Information Access OCSP) in any generated certificate
+  -NoRevocationInfo  both. The CA issuer URL (caIssuers) stays. Use it for development / Office / offline systems that say "cannot connect
+                     to the revocation server". Such a certificate cannot be checked or revoked by CRL / OCSP; leaf-info.json records
+                     revocationInfo {crlDistributionPoints, ocsp}.   Same switches: GeneratePersonLeafCertificate.ps1, GenerateOffice365LeafCertificate.ps1.
+
 NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
   Given on the command line = exactly these names. -CommonName replaces the CN of the TLS certificates and is the
@@ -418,7 +428,7 @@ DEVELOPMENT SAN   (-AddDevelopmentSAN)
   EmailProtection: the e-mail addresses only. CodeSigning, TimeStamping, OcspSigning: nothing (they carry no SAN).
   EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are
   deliberately NOT applied, so an EV leaf with -AddDevelopmentSAN is the way to make EV-looking certificates for
-  development. The EV subject, the EV policy and the 398-day limit stay. A warning is printed and leaf-info.json says
+  development. The EV subject, the EV policy and the 397-day limit stay. A warning is printed and leaf-info.json says
   developmentSan / evSanOverride = true. FOR DEVELOPMENT ONLY: a public CA would not issue such a certificate.
   Change the list in [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); without
   that section the built-in list above is used. A range may have at most 1024 addresses.
@@ -441,7 +451,7 @@ KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
   Code signing is FORCED up: RSA >= 4096, ECDSA >= P-384, ML-DSA >= 65, SHA-256 or stronger (a note says so).
 
 VALIDITY AND POLICIES
-  -Days <n>            Default: EV 397 days (maximum 398), OV 3 years, DV 5 years. Never longer than the issuer.
+  -Days <n>            Default: EV 397 days (the maximum, for every purpose), OV 3 years, DV 5 years. Never longer than the issuer.
   -Policy <list>       Extra certificate policies: "OID" or "OID|CPS-URL". The level policy (EV 2.23.140.1.1,
                        OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [ policy_oids ] / [ iana_pen ] and these are written.
   -CpsUrl <url>        CPS pointer on every policy of a DV / OV certificate (default https://nextmantra.com/security/certs).
@@ -493,7 +503,7 @@ LIMITATIONS
   * ML-DSA leaves (-Quantum) work with OpenSSL 3.5+ services and mutual TLS. Windows Schannel (Kestrel / IIS on
     Windows), Java 25 and the browsers do not accept them for HTTPS today: use a Classic leaf there.
   * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. Public TLS leaves are
-    limited to 398 days.
+    capped at 397 days.
   * -AddDevelopmentSAN makes certificates that are NOT EV-conformant in their SAN (by intent); development only.
     A SAN with 428 entries makes every TLS certificate about 6 KB larger than usual.
   * A set is all or nothing: if one certificate fails, the new set folder is removed.
@@ -555,7 +565,7 @@ LIMITATIONS
    Merge             Your -DnsName / -IpAddress / -EmailAddress come FIRST (the first DNS name is the CN); the development names follow;
                      duplicates (case-insensitive; IPv6 by value) are removed. With no names at all the names of [ leaf_san ] come first.
    EV                The SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are deliberately NOT
-                     applied, also at -EV. The EV subject, the EV policy OID and the 398-day limit are kept. A warning says so; leaf-info.json
+                     applied, also at -EV. The EV subject, the EV policy OID and the 397-day limit are kept. A warning says so; leaf-info.json
                      and leaf-index.json carry developmentSan = true and evSanOverride = true; leaf-set.json carries developmentSan.
                      The result is for development; no public CA would issue it and a public EV validator would reject it.
    The list          [ development_san ] in agantra_pki.cnf:  DNS.n = name   IP.n = address   IPRange.n = first-last (IPv4, at most
@@ -605,3 +615,25 @@ LIMITATIONS
      "PEM_read_bio_PrivateKey() failed (SSL: error:1E08010C:DECODER routines::unsupported:No supported data to decode)".
      Files made by older versions: on the Linux host   sed -i 's/\r$//' <stem>.key <stem>-fullchain.crt <stem>.crt
      (and never copy PEM files with a tool that converts line endings; keep the key 640 root:www-data or 600).
+
+====================================================================================================
+ 17  NO CRL / NO OCSP IN THE CERTIFICATES  (4.9.5)
+====================================================================================================
+
+ -NoCrl             no CRL distribution point (crlDistributionPoints) in ANY certificate this run makes: the whole set, or the single certificate.
+ -NoOcsp            no OCSP URL (the OCSP method of Authority Information Access). The caIssuers URL stays.
+ -NoRevocationInfo  both.
+ Same switches in GeneratePersonLeafCertificate.ps1 and GenerateOffice365LeafCertificate.ps1 (4.9.4); the Ubuntu twin has --no-crl / --no-ocsp / --no-revocation-info.
+
+ WHY    A client that cannot reach the CRL / OCSP host of a private PKI reports an error: Word / Excel "cannot connect to the revocation server", a TLS client
+        "unable to get certificate CRL", an offline build agent that waits for a time-out. A certificate without the URL has nothing to fetch.
+ COST   The client can no longer learn that the certificate was revoked: it accepts it until it expires. The certificate stays in the CA database; PkiRevocation.ps1
+        revokes it and the CRL lists it, but nobody reads the CRL. Use it for development, Office and offline systems - not for a certificate that must be revocable.
+ CHECK  The finished certificate is read back (Test-PkiLeafResult): a certificate that still has what you left out is an error. leaf-info.json records
+        "revocationInfo": { "crlDistributionPoints": true|false, "ocsp": true|false }.
+ EXAMPLES
+      .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com -NoRevocationInfo          the whole set of 7 certificates without CRL and OCSP
+      .\GenerateLeafCertificate.ps1 -EV -DnsName api.example.com -Purpose ServerAuth -NoCrl     keeps the OCSP URL
+      .\GenerateLeafCertificate.ps1 -OV -AddDevelopmentSAN -Purpose EmailProtection -NoRevocationInfo
+ Tested on a fresh build: -OV -NoRevocationInfo (7 certificates: no CRL distribution point, no OCSP, caIssuers kept), -EV -NoCrl -AddDevelopmentSAN (OCSP kept, no CRL).
+====================================================================================================

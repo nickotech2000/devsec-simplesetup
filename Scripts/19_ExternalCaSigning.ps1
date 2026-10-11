@@ -4,9 +4,9 @@
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
 # ============================================================
-# Module 19: signs the CSR of ANOTHER private CA ("external CA") with one of our CAs.
-#   Default signer : our Classic non-FIPS Quadrant Root q1-root (-SignWith QuadrantRoot, -Quadrant 1)
-#   Alternative    : our DV / OV / EV intermediate (-SignWith Intermediate, needs pathLen >= 1) or any CA id (-Ca q2-ev)
+# Module 19: signs the CSR of ANOTHER private CA ("external CA", e.g. a department) with a CLASSIC QUADRANT ROOT (q1-root, or q2-root with -Fips).
+#   Signer : ONLY a Classic Quadrant Root: q1-root (non-FIPS, default) or q2-root (FIPS, -Fips). No intermediate, no Quantum, no Track/Enterprise Root.
+#   Level  : OV (default), DV, EV. The request is checked against the spec (module 22, profile Ca): OV needs C, O, OU, CN; EV the EV fields too; EV 397 days.
 # Output (one NEW folder per request, never overwritten):
 #   external-ca\<name>_<yyyyMMdd-HHmmss>\<name>.csr  <name>.crt  <name>-fullchain.crt  <name>-chain.crt  root.crt  ca-info.json  README.txt
 # The certificate is issued with "openssl ca" from the signer's database: it is in the signer's index.txt and can be revoked
@@ -15,13 +15,14 @@
 # ============================================================
 
 function Get-PkiExternalCaSigner {
-    # Resolves the signing CA from -Ca, or from -SignWith / -Quadrant / -Level.
-    param([string]$CaId, [string]$SignWith = 'QuadrantRoot', [int]$Quadrant = 1, [string]$Level = 'OV')
+    # The signer of a department CA is ALWAYS a Classic Quadrant Root: q1-root (non-FIPS, default) or q2-root (FIPS).
+    param([int]$Quadrant = 1)
+    if ($Quadrant -notin 1, 2) { throw "A department CA is signed by a Classic Quadrant Root only: Quadrant 1 (non-FIPS, default) or 2 (FIPS, -Fips). Quadrant $Quadrant (Quantum) is not used." }
     $all = @($script:Pki.Catalog | Where-Object { $null -ne $_.Actual })
-    $id = if ($CaId) { $CaId } elseif ($SignWith -eq 'QuadrantRoot') { "q$Quadrant-root" } else { "q$Quadrant-$($Level.ToLowerInvariant())" }
+    $id = "q$Quadrant-root"
     $ca = @($all | Where-Object { $_.Id -eq $id })[0]
-    if ($null -eq $ca) { throw "The signing CA '$id' does not exist in this PKI. Built: $((@($all | ForEach-Object { $_.Id }) -join ', ')). (-Quadrant, -Level, -SignWith or -Ca <id>)" }
-    if ($ca.Kind -notin 'intermediate', 'quadrant') { throw "'$id' is a $($ca.Kind) CA. Sign with an intermediate (q1-ov ...) or a Quadrant Root (q1-root ...): the Enterprise and Track Roots stay offline and sign only our own CAs." }
+    if ($null -eq $ca) { throw "The signing CA '$id' does not exist in this PKI (built: $((@($all | Where-Object { $_.Kind -eq 'quadrant' } | ForEach-Object { $_.Id }) -join ', ')))." }
+    if ($ca.Kind -ne 'quadrant') { throw "'$id' is not a Quadrant Root." }
     return $ca
 }
 
@@ -42,48 +43,44 @@ function Invoke-PkiSignExternalCa {
     param(
         [Parameter(Mandatory)][string]$Csr, [Parameter(Mandatory)][hashtable]$Signer,
         [string]$Name, [string]$Level = 'OV', [int]$Days = 1825, [int]$PathLen = 0,
-        [string[]]$PermitDns = @(), [string[]]$PermitEmail = @(), [string]$OutRoot, [switch]$Force
+        [string[]]$PermitDns = @(), [string[]]$PermitEmail = @(), [string]$OutRoot, [switch]$Force,
+        [int]$DaysAsked = 0, [switch]$Strict, [switch]$CheckOnly, [switch]$NoColor
     )
     $c = $script:Pki
     if (-not (Test-Path -LiteralPath $Csr -PathType Leaf)) { throw "CSR not found: $Csr" }
     $csrFull = (Resolve-Path -LiteralPath $Csr).Path
     $cfg0 = Get-PkiProviderConfigPath -Fips $false; $prov0 = Get-PkiProviderArgs -Fips $false
 
-    # --- the request ---
-    $ver = Invoke-OpenSSL -AllowFailure -ConfigPath $cfg0 -Arguments (@('req', '-in', $csrFull, '-noout', '-verify') + $prov0)
-    if ($ver.ExitCode -ne 0) { throw 'The signature of the CSR is not valid (it was changed, or it is not a PKCS#10 request).' }
-    $txt = (Invoke-OpenSSL -ConfigPath $cfg0 -Arguments (@('req', '-in', $csrFull, '-noout', '-text') + $prov0)).StdOut
-    $subject = ''
-    if ($txt -match '(?m)^\s*Subject:\s*(?<s>.+)$') { $subject = $Matches['s'].Trim() }
-    if (-not $subject) { throw 'The CSR has no subject: a CA needs a distinguished name.' }
-    $keyDesc = ''
-    if ($txt -match 'rsaEncryption') {
-        $bits = if ($txt -match 'Public-Key: \((\d+) bit\)') { [int]$Matches[1] } else { 0 }
-        if ($bits -lt 4096) { throw "The CA key of the request is RSA $bits bit: an external CA key needs RSA 4096 or more (equal-strength minimums: ECDSA P-384, ML-DSA-65)." }
-        $keyDesc = "RSA-$bits"
-    }
-    elseif ($txt -match 'id-ecPublicKey') {
-        if ($txt -notmatch 'P-384|P-521|secp384r1|secp521r1') { throw 'An external ECDSA CA key needs P-384 or P-521 (P-256 is weaker than RSA 4096).' }
-        $keyDesc = if ($txt -match 'P-521|secp521r1') { 'ECDSA-P521' } else { 'ECDSA-P384' }
-    }
-    elseif ($txt -match '(?i)ML-?DSA-?(\d+)') {
-        if ([int]$Matches[1] -lt 65) { throw "ML-DSA-$($Matches[1]) is below the minimum: an external CA key needs ML-DSA-65 or ML-DSA-87 (equal strength to RSA 4096 / P-384)." }
-        $keyDesc = "ML-DSA-$($Matches[1])"
-    }
-    else { throw 'Unsupported key type in the request (RSA, ECDSA P-384 / P-521 or ML-DSA).' }
-    # the request itself must be signed with SHA-256 or stronger (ML-DSA signs without a digest)
-    if ($keyDesc -notlike 'ML-DSA*') {
-        $sigAlg = if ($txt -match '(?m)^\s*Signature Algorithm:\s*(?<a>\S+)') { $Matches['a'] } else { '' }
-        if ($sigAlg -match '(?i)md5|sha1(?!\d)|sha-1|md2|md4') { throw "The CSR is signed with ${sigAlg}: SHA-256 or stronger is required (openssl req -new -sha384 ...)." }
-    }
-    # never sign a request that carries the name of one of OUR CAs
-    $norm = { param($v) (($v -replace '\s*=\s*', '=' -replace '\s*,\s*', ',').Trim().ToLowerInvariant()) }
+    # --- the request: the specification of this PKI for a CA of a department (Test-PkiCsrSpec -Profile Ca) ---
+    $info = Read-PkiCsr -Path $csrFull
+    $subject = $info.SubjectText
+    $keyDesc = Get-PkiKeyDescription -Csr $info
+    $levelUp = $Level.ToUpperInvariant()
+    Write-Host ''
+    Write-Host "REQUEST  $($info.Path)"
+    Write-Host "  subject : $subject"
+    Write-Host "  key     : $keyDesc    signature: $($info.SigAlg)"
+    Write-Host "  asked   : CA certificate, $levelUp, signed by $($Signer.Id) ($(if ($Signer.Fips) { 'Classic FIPS' } else { 'Classic non-FIPS' }) Quadrant Root)"
+    Write-Host ''
+    $spec = Test-PkiCsrSpec -Csr $info -Profile Ca -Level $levelUp -Track Classic -Days $DaysAsked
+    $fx = [System.Collections.Generic.List[object]]::new(); foreach ($x in $spec.Findings) { [void]$fx.Add($x) }
+    # never sign a request that carries the name (CN) of one of OUR CAs
+    $theirCn = @($info.Subject | Where-Object { $_[0] -ceq 'CN' } | ForEach-Object { $_[1] }) | Select-Object -First 1
     foreach ($ours in @($c.Catalog | Where-Object { $_.Actual })) {
         $p0 = Get-PkiCaPaths -Ca $ours
         if (-not (Test-Path -LiteralPath $p0.Crt)) { continue }
-        $os = (Invoke-OpenSSL -ConfigPath $cfg0 -Arguments (@('x509', '-in', $p0.Crt, '-noout', '-subject') + $prov0)).StdOut -replace '^subject\s*=\s*', ''
-        if ((& $norm $os) -eq (& $norm $subject)) { throw "The request uses the name of our own CA $($ours.Id). Refused." }
+        $os = (Invoke-OpenSSL -ConfigPath $cfg0 -Arguments (@('x509', '-in', $p0.Crt, '-noout', '-subject', '-nameopt', 'multiline,utf8,sname') + $prov0)).StdOut
+        $ourCn = if ($os -match '(?m)^\s+CN\s*=\s?(?<v>.*)$') { $Matches['v'].Trim() } else { '' }
+        if ($theirCn -and $ourCn -and $theirCn.Trim() -ieq $ourCn) { [void]$fx.Add((New-PkiFinding ERROR 'SUBJ-OUR-CA' 'CN' "The request uses the name of our own CA $($ours.Id) ('$ourCn'). Refused." 'Choose the name of YOUR CA.')) }
     }
+    Write-PkiCsrFindings -Findings $fx -NoColor:$NoColor
+    Write-Host ''
+    $errs = @($fx | Where-Object { $_.Severity -eq 'ERROR' }).Count; $warns = @($fx | Where-Object { $_.Severity -eq 'WARN' }).Count
+    if ($errs -gt 0 -or ($Strict -and $warns -gt 0)) {
+        if ($Strict -and $errs -eq 0) { Write-PkiLog '-Strict: the warnings count as errors.' 'ERROR' }
+        return [pscustomobject]@{ Signed = $false; Errors = $errs; Warnings = $warns; Findings = $fx; Dir = $null; Certificate = $null }
+    }
+    if ($CheckOnly) { Write-PkiLog 'Check only (-Check): nothing was signed.' 'INFO'; return [pscustomobject]@{ Signed = $false; Errors = 0; Warnings = $warns; Findings = $fx; Dir = $null; Certificate = $null } }
 
     # --- the signer ---
     $sp = Get-PkiCaPaths -Ca $Signer
@@ -91,18 +88,18 @@ function Invoke-PkiSignExternalCa {
     if ($signerPath -eq 0) {
         $msg = "$($Signer.Id) has pathLenConstraint 0: it may issue end-entity certificates only. A CA certificate below it is rejected by OpenSSL, Windows and browsers (path length constraint exceeded)."
         if (-not $Force) {
-            throw ($msg + " Use -SignWith QuadrantRoot, the default (its pathLenConstraint is 1: the other CA becomes a sibling of our intermediates), or build the PKI with -IntermediatePathLen 1, or -Force to issue it anyway (lab / the other CA is only a trust anchor for you).")
+            throw ($msg + " Only a Quadrant Root (pathLenConstraint 1) signs a department CA; this one has 0 (was the PKI built with a different setting?). -Force issues it anyway (lab).")
         }
         Write-PkiLog "$msg -Force: issued anyway." 'WARN'
     }
     $maxPath = if ($signerPath -lt 0) { 3 } else { [Math]::Max(0, $signerPath - 1) }
     if ($PathLen -gt $maxPath) { Write-PkiLog "PathLen $PathLen is more than $($Signer.Id) allows: lowered to $maxPath." 'WARN'; $PathLen = $maxPath }
 
+    if ($levelUp -eq 'EV' -and $Days -gt 397) { $Days = 397 }
     $room = Get-PkiIssuerRemainingDays -IssuerId $Signer.Id
     if ($null -ne $room -and $Days -gt $room) { Write-PkiLog "Validity limited by the signer: $Days -> $room days." 'WARN'; $Days = $room }
 
     $familyKnown = $Signer.Actual.Family
-    $levelUp = $Level.ToUpperInvariant()
     $policies = Get-PkiLeafPolicies -Level $levelUp
 
     # --- the output folder ---
@@ -139,6 +136,7 @@ function Invoke-PkiSignExternalCa {
     try {
         $caArgs = @('ca', '-batch', '-notext', '-utf8', '-preserveDN', '-config', $issuerCnf, '-in', $csrFull, '-out', $crt, '-extfile', $ext, '-extensions', 'ext', '-days', [string]$Days)
         if ($md -ne 'default') { $caArgs += @('-md', $md) }
+        if ($levelUp -eq 'DV') { $caArgs += @('-subj', "/CN=$theirCn") }      # DV: the CN only
         $caArgs += (Get-PkiSigOpts -Family $Signer.Actual.Family -Md $md)
         $caArgs += (Get-PkiProviderArgs -Fips ([bool]$Signer.Fips))
         [void](Invoke-OpenSSL -Arguments $caArgs -ConfigPath $issuerCnf)
@@ -213,5 +211,5 @@ OUR SIDE
     Write-Utf8NoBom -Path (Join-Path $dir 'README.txt') -Content ($readme.Replace("`r", '') + "`n")
     Write-PkiLog "Signed $keyDesc CA '$safe' with $($Signer.Id): $dir" 'OK'
     if (-not $chainOk) { Write-PkiLog 'openssl verify (strict) against our chain failed - see README.txt.' 'WARN' }
-    return [pscustomobject]@{ Dir = $dir; Certificate = $crt; Info = $info }
+    return [pscustomobject]@{ Signed = $true; Errors = 0; Warnings = $warns; Findings = $fx; Dir = $dir; Certificate = $crt; Info = $info }
 }

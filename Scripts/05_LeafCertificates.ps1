@@ -44,7 +44,7 @@ function Get-PkiLeafSpecs {
 function New-PkiEvLeaf {
     param([Parameter(Mandatory)][hashtable]$Spec)
     $c = $script:Pki
-    if ($c.LeafDays -gt 398) { throw 'An EV leaf certificate may not be valid longer than 398 days.' }
+    if ($c.LeafDays -gt 397) { throw 'An EV leaf certificate may not be valid longer than 397 days.' }
 
     $keyType = switch ($Spec.Family) { 'rsa' { 'RSA' } 'ecdsa' { 'ECDSA' } default { 'MLDSA' } }
     $s = New-PkiLeafSpec -Options @{

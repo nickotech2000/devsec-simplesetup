@@ -79,7 +79,7 @@ function Show-DevEnvHelp {
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
 ============================================================
- Manual : Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling: Install-DevEnvironment.sh
+ Manual : docs\Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling: Install-DevEnvironment.sh
 
 WHAT IT DOES   (run in an ELEVATED PowerShell; -Check, -Help and -Unblock need no elevation)
   Installs through WinGet what is missing: PowerShell 7, .NET 10 and 8 SDK, Node.js, Go, PHP, Python, Git, 7-Zip, FireDaemon
@@ -830,4 +830,4 @@ if ($OpenSslReady) {
     Write-Console 'Bootstrap finished, but OpenSSL is NOT ready (see the readiness table above).' Red
     exit 4
 }
-Write-Host ''
+Write-Host ''

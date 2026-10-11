@@ -6,7 +6,7 @@
 # ============================================================
 # 13_ExternalRoot.ps1  -  Enterprise Root signed by a public CA (DigiCert, GlobalSign, Sectigo ...)
 #
-# Full explanation, requirements and cautions: PUBLIC-CA-ENTERPRISE-ROOT.txt
+# Full explanation, requirements and cautions: docs\PUBLIC-CA-ENTERPRISE-ROOT.txt
 #
 # Two models, both prepared here:
 #
@@ -178,7 +178,7 @@ REQUIRED so that the rest of this PKI works below it
 ASK THE CA
   1. Is this key size accepted (RSA-$($c.EnterpriseRootKeyBits))? Public CAs often accept 4096 at most.
   2. Which pathlen, EKU and name constraints will the certificate carry?
-  3. Which maximum validity? Which leaf validity may this CA issue (public TLS: 398 days)?
+  3. Which maximum validity? Which leaf validity may this CA issue (public TLS: 398 days; this PKI: EV 397)?
   4. Is an audit (WebTrust / ETSI) or a technically-constrained profile required?
   5. Which chain file (intermediates + root) do they deliver, in PEM?
 
@@ -236,7 +236,7 @@ function Import-PkiEnterpriseRoot {
     elseif ($t -match 'pathlen:(?<n>\d+)') {
         $pl = [int]$Matches['n']
         if ($pl -lt $script:PkiExternalRootMinPathLen) {
-            [void]$problems.Add("Its path length is $pl, but this PKI needs at least $script:PkiExternalRootMinPathLen (three CA levels below the Enterprise Root). Ask the CA for pathlen >= $script:PkiExternalRootMinPathLen, or let it sign a lower level (see PUBLIC-CA-ENTERPRISE-ROOT.txt, 'Which level to sign').")
+            [void]$problems.Add("Its path length is $pl, but this PKI needs at least $script:PkiExternalRootMinPathLen (three CA levels below the Enterprise Root). Ask the CA for pathlen >= $script:PkiExternalRootMinPathLen, or let it sign a lower level (see docs\PUBLIC-CA-ENTERPRISE-ROOT.txt, 'Which level to sign').")
         }
         else { [void]$notes.Add("pathlen $pl") }
     }

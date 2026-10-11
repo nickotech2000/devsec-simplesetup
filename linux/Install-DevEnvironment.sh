@@ -19,7 +19,7 @@
 #
 # Platforms: Ubuntu / Debian, RHEL / CentOS Stream / Rocky / Oracle / Alma, SLES / openSUSE, macOS (Apple Silicon, Intel).
 # Written for bash 3.2 (macOS) and newer. UNBLOCK / UNLOCK of its own folder at every start; --unblock does only that.
-# Manual: Install-DevEnvironment-MANUAL.txt        Help: ./Install-DevEnvironment.sh --help
+# Manual: docs/Install-DevEnvironment-MANUAL.txt        Help: ./Install-DevEnvironment.sh --help
 # ============================================================
 
 VERSION="4.9.0"
@@ -37,7 +37,7 @@ cat <<'EOF'
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : Install-DevEnvironment-MANUAL.txt     Windows sibling: Install-DevEnvironment.ps1
+ Manual : docs/Install-DevEnvironment-MANUAL.txt     Windows sibling: Install-DevEnvironment.ps1
 
 WHAT IT DOES
   Installs what is MISSING, verifies each component, and prints a summary. Nothing that is already there is replaced.
@@ -64,6 +64,8 @@ OPTIONS
   --yes, -y              Do not ask. Needed when there is no terminal.         --dry-run   Print system-changing commands.
   --openssl-prefix DIR   Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS: /usr/local/openssl-4.0.3).
   --openssl-version V    Build this version instead of 4.0.3 (4.0.1 or newer).
+  --no-path              Do not put the OpenSSL 4 bin folder on the PATH (default: it is put FIRST on the PATH of every login shell:
+                         /etc/profile.d/openssl4.sh with sudo, else a marked block in ~/.profile and ~/.bashrc).
   --openssl-no-docs      Skip the manual pages (shorter build). The cryptography is still the FULL build.
   --openssl-jobs N       Parallel compile jobs. Default: the number of CPU cores.
   --unblock              UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, immutable, locked flags) this script's
@@ -117,7 +119,7 @@ unblock_unlock() {   # $1 = folder ; children and recursive. Linux: write bit, i
 unblock_unlock "$SCRIPT_DIR"
 
 # ------------------------------------------------------------------------------------------------ options
-ONLY=""; SKIP=""; CHECK=0; YES=0; DRYRUN=0; OSSL_PREFIX=""; OSSL_DOCS=1; OSSL_JOBS=""; UNBLOCK=0
+ONLY=""; SKIP=""; CHECK=0; YES=0; DRYRUN=0; OSSL_PREFIX=""; OSSL_DOCS=1; OSSL_JOBS=""; UNBLOCK=0; ADDPATH=1
 need_value() { [ $# -ge 2 ] && [ -n "$2" ] || die "Option $1 needs a value. See --help." 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -131,6 +133,7 @@ while [ $# -gt 0 ]; do
     --openssl-prefix) need_value "$@"; OSSL_PREFIX="$2"; shift 2 ;; --openssl-prefix=*) OSSL_PREFIX="${1#*=}"; shift ;;
     --openssl-version) need_value "$@"; OSSL_VERSION="$2"; shift 2 ;; --openssl-version=*) OSSL_VERSION="${1#*=}"; shift ;;
     --openssl-no-docs) OSSL_DOCS=0; shift ;;
+    --no-path) ADDPATH=0; shift ;;
     --openssl-jobs) need_value "$@"; OSSL_JOBS="$2"; shift 2 ;; --openssl-jobs=*) OSSL_JOBS="${1#*=}"; shift ;;
     --unblock) UNBLOCK=1; shift ;;
     *) die "Unknown option $1. See ./Install-DevEnvironment.sh --help" 1 ;;
@@ -300,6 +303,24 @@ build_openssl() {   # FULL build: FIPS, shared, headers, docs
   return 0
 }
 
+# PATH: the bin folder of the OpenSSL 4 found/built goes FIRST on the PATH of login shells, so that "openssl version" says 4.x in a NEW terminal.
+add_openssl_path() {
+  [ "$ADDPATH" = 1 ] || { info "PATH not changed (--no-path). Use the full path or  openssl4."; return 0; }
+  local bin; bin="$(dirname "$OPENSSL")"
+  case "$bin" in /usr/bin|/bin) return 0 ;; esac
+  local line="export PATH=\"$bin:\$PATH\"   # added by Install-DevEnvironment.sh (OpenSSL 4)"
+  if [ "$DRYRUN" = 1 ]; then dry "write /etc/profile.d/openssl4.sh: $line"; return 0; fi
+  if [ -n "$SUDO" ] || [ "$(id -u)" = 0 ]; then
+    printf '%s\n' "$line" | priv tee /etc/profile.d/openssl4.sh >/dev/null && { ok "PATH: $bin is first in /etc/profile.d/openssl4.sh (new terminals; or now: source /etc/profile.d/openssl4.sh)"; return 0; }
+  fi
+  local rc
+  for rc in "$HOME/.profile" "$HOME/.bashrc"; do
+    [ -f "$rc" ] || [ "$rc" = "$HOME/.profile" ] || continue
+    grep -q 'Install-DevEnvironment.sh (OpenSSL 4)' "$rc" 2>/dev/null || printf '\n%s\n' "$line" >> "$rc"
+  done
+  ok "PATH: $bin is first in ~/.profile and ~/.bashrc (new terminals; or now: export PATH=\"$bin:\$PATH\")"
+}
+
 install_openssl() {
   if find_openssl; then ok "OpenSSL: $OSSL_TEXT already installed at $OPENSSL"
   else
@@ -310,6 +331,7 @@ install_openssl() {
       find_openssl || { err "OpenSSL was built but cannot be found."; return 1; }
     else return 1; fi
   fi
+  add_openssl_path
   info "Proving $OPENSSL"
   openssl_ready "$OPENSSL"
 }

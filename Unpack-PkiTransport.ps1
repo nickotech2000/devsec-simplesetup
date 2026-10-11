@@ -14,7 +14,7 @@
     Works on Windows, Linux and macOS with PowerShell 7. No operating-system restriction (the Windows 11 25H2 rule is
     for installing the trust: PkiTransport.ps1 -Install). Zip packages need no other program; a 7z package needs 7-Zip.
 
-    Full help:  .\Unpack-PkiTransport.ps1 -Help        Manual: PkiTransport-MANUAL.txt
+    Full help:  .\Unpack-PkiTransport.ps1 -Help        Manual: docs\PkiTransport-MANUAL.txt
 
 .EXAMPLE
     .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked
@@ -45,12 +45,12 @@ function Show-PkiUnpackHelp {
     @'
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiTransport-MANUAL.txt   Needs: PowerShell 7+ (Windows, Linux or macOS)
+ Manual : docs\PkiTransport-MANUAL.txt   Needs: PowerShell 7+ (Windows, Linux or macOS)
 
 WHAT IT DOES
   Opens a .certpacked (a password-protected zip or 7z made by PkiTransport.ps1), checks the SHA-256 of every file
@@ -158,7 +158,7 @@ try {
     $m = $script:PackageOpened.Manifest
     Write-PkiLog "Package opened: $($script:PackageOpened.Verified) file(s), every SHA-256 matches. Made $($m['createdUtc']) on $($m['source']['machine']), $($m['archive']['encryption'])." 'OK'
     $scope = $m['scope']
-    Write-PkiLog "Scope: CA certificates$(if ($scope['leafcerts']) { ' + leaf certificates (private keys)' })$(if ($scope['caPrivateKeys']) { ' + the whole PKI (CA private keys)' })." 'INFO'
+    Write-PkiLog "Scope: CA certificates$(if ($scope['leafcerts']) { ' + leaf certificates (private keys)' })$(if ($scope['caPrivateKeys']) { if ($scope.Contains('issuingKeysOnly') -and $scope['issuingKeysOnly']) { ' + the PKI folder with the keys of the ISSUING (intermediate) CAs only (no root key)' } else { ' + the whole PKI (CA private keys)' } })." 'INFO'
     if ($m['comment']) { Write-PkiLog "Comment: $($m['comment'])" 'INFO' }
 
     if ($List) {

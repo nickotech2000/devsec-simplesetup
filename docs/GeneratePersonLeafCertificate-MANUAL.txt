@@ -1,11 +1,12 @@
 ============================================================
  GeneratePersonLeafCertificate.ps1 - certificates of PERSONS (e-mail + client authentication)
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : GeneratePersonLeafCertificate-MANUAL.txt     Design : PKI-Design-with-FIPS-and-PQC.txt (10.59)
+ Manual : docs\GeneratePersonLeafCertificate-MANUAL.txt     Design : docs\PKI-Design-with-FIPS-and-PQC.txt (10.59)
+ Ubuntu : GeneratePersonLeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl + python3.
  Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.
 
 WHAT IT MAKES   (the form of a national ID card certificate; NOT a qualified certificate)
@@ -40,13 +41,13 @@ MANY PERSONS - A JSON FILE  (JSON only; CSV is not accepted)
   { "persons": [ { "isGenerate": true, "idCode": "3674010101900001", "serialNumber": "3674010101900001", "givenName": "Budi", "surname": "Santoso",
                    "email": "budi.santoso@example.co.id", "country": "ID" }, { ... } ] }
   Keys (any spelling or case):  idCode  givenName  surname  email   (required)       isGenerate (true | false; default true; false = skipped, not even checked)
-  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail   (optional)
+  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  noCrl  noOcsp  noRevocationInfo   (optional)
   Keys that start with _ are comments. A missing optional key takes the default / the command line value.
   Every person with isGenerate true is checked BEFORE anything is written: one error = nothing is issued, every error is listed. A person is then issued
   on its own; a failure removes that person's folder and the run goes on (-StopOnError stops at the first failure). Exit 1 when one failed.
 
 CERTIFICATE OPTIONS
-  -Level OV|EV           OV (default: q1-ov).  EV: issuer q1-ev, limited to 398 days.  There is no DV.
+  -Level OV|EV           OV (default: q1-ov).  EV: issuer q1-ev, limited to 397 days.  There is no DV.
   -Quadrant 1|2, -Fips   1 Classic non-FIPS (default), 2 Classic FIPS.  The Quantum quadrants are not used for persons.
   -KeyType RSA|ECDSA  -KeyBits  -Curve  as in GenerateLeafCertificate.ps1.   -Hash sha256|sha384|sha512   signature digest, default SHA-512 (the ID-card sample).
                          The sample is ECC P-384 (ECDH_P384) signed ecdsa-with-SHA-512: the leaf here has exactly that key and digest. The SIGNATURE ALGORITHM
@@ -57,6 +58,14 @@ CERTIFICATE OPTIONS
                          1.3.6.1.4.1.<PEN>.1.5 - each with the CPS pointer.
   -QcStatements          Adds the qcStatements extension with QcType eSign (ETSI 0.4.0.1862.1.6.1) like the ID card. It is NOT QcCompliance: this PKI is
                          private and does not issue qualified certificates.
+  REVOCATION INFORMATION  (4.9.4)   by default the certificate has the CRL distribution point, the OCSP URL and the CA issuer URL of the issuing CA.
+  -NoCrl                 No CRL distribution point (crlDistributionPoints extension) in the certificate.
+  -NoOcsp                No OCSP URL (the OCSP method of Authority Information Access); the CA issuer URL stays.
+  -NoRevocationInfo      Both: no CRL and no OCSP. Use it when Word / Excel / Outlook say "cannot connect to the revocation server" because the URLs of this
+                         private PKI cannot be reached from the machine that checks the signature. Without any revocation URL a client has nothing to check:
+                         it accepts the certificate until it expires. The certificate is still recorded in the CA database (PkiRevocation.ps1 can still revoke it
+                         and the CRL lists it), but a client that has no URL will not learn about it. Per signer in the JSON file: "noCrl", "noOcsp", "noRevocationInfo"
+                         (true | false). Defaults for all: [ person ] NoCrl / NoOcsp in agantra_pki.cnf.
   -KeepCase              Do not convert the names to capitals.
   -Password <text>       Password of the PFX (default Abc12345!; the password key of a person replaces it). CHANGE IT for real use.
   -Format <list>         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)
@@ -64,6 +73,6 @@ CERTIFICATE OPTIONS
   -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then stop.
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
 
-DEFAULTS IN agantra_pki.cnf   [ person ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  Curve  DnsFromEmail
+DEFAULTS IN agantra_pki.cnf   [ person ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  Curve  DnsFromEmail  NoCrl  NoOcsp
 EXIT CODES   0 ok   1 an error or a failed person
 ============================================================

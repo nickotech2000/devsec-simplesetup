@@ -223,21 +223,23 @@ function Add-PkiPolicySections {
 
 function Add-PkiLocationSections {
     # CRL distribution points and Authority Information Access for a given issuer slug.
-    param([System.Collections.Generic.List[string]]$Lines, [string]$IssuerSlug, [string]$Prefix)
+    # -NoCrl: no crlDistributionPoints extension.  -NoOcsp: no OCSP access method (the caIssuers URL stays).
+    param([System.Collections.Generic.List[string]]$Lines, [string]$IssuerSlug, [string]$Prefix, [switch]$NoCrl, [switch]$NoOcsp)
     $c = $script:Pki
     $hasCrl = $false; $hasAia = $false
-    if ($c.CrlUrls.Count -gt 0) {
+    $ocspUrls = @(); if (-not $NoOcsp) { $ocspUrls = @($c.OcspUrls) }
+    if ($c.CrlUrls.Count -gt 0 -and -not $NoCrl) {
         $hasCrl = $true
         [void]$Lines.Add("[ ${Prefix}_crl ]")
         $n = 0
         foreach ($u in $c.CrlUrls) { $n++; [void]$Lines.Add("URI.$n = $(ConvertTo-PkiConfValue ($u -replace '\{ca\}', $IssuerSlug))") }
         [void]$Lines.Add('')
     }
-    if (($c.OcspUrls.Count + $c.CaIssuerUrls.Count) -gt 0) {
+    if (($ocspUrls.Count + $c.CaIssuerUrls.Count) -gt 0) {
         $hasAia = $true
         [void]$Lines.Add("[ ${Prefix}_aia ]")
         $n = 0
-        foreach ($u in $c.OcspUrls) { $n++; [void]$Lines.Add("OCSP;URI.$n = $(ConvertTo-PkiConfValue ($u -replace '\{ca\}', $IssuerSlug))") }
+        foreach ($u in $ocspUrls) { $n++; [void]$Lines.Add("OCSP;URI.$n = $(ConvertTo-PkiConfValue ($u -replace '\{ca\}', $IssuerSlug))") }
         $n = 0
         foreach ($u in $c.CaIssuerUrls) { $n++; [void]$Lines.Add("caIssuers;URI.$n = $(ConvertTo-PkiConfValue ($u -replace '\{ca\}', $IssuerSlug))") }
         [void]$Lines.Add('')

@@ -1,0 +1,486 @@
+====================================================================================================
+ DevKit  -  USER MANUAL   (PkiTransport.ps1 -DevKit: one zip for the developers)
+====================================================================================================
+ Agantra Inovatif Enterprise PKI                    Version 4.9.5-phaseC                    2026-10-11
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Related: PkiTransport-MANUAL.txt     (the .certpacked, -Pack, -Install)
+          GenerateLeafCertificate-MANUAL.txt  GeneratePersonLeafCertificate-MANUAL.txt  GenerateOffice365LeafCertificate-MANUAL.txt  SignCsr-MANUAL.txt
+          PKI-Design-with-FIPS-and-PQC.txt   (design: 10.66 to 10.75, sections 19 and 20)
+          PKI-Acceptance-Checklists.txt      (Phase E: E9 to E14)
+
+ CONTENTS
+    1  What the DevKit is and who it is for          7  Linux / Ubuntu: step by step
+    2  Making the DevKit (the lead)                  8  What the shell generators do and do not do
+    3  What is inside                                9  Serial numbers, revocation, and the keys in the kit
+    4  What is NOT inside (keys)                    10  Troubleshooting
+    5  Sending it to the developers                 11  Limits you must know
+    6  Windows: step by step                        12  Signing the request (CSR) of a colleague: SignCsr
+                                                    13  Preparing the machine: OpenSSL 4.0.3 and the PATH
+                                                    14  The -Help / --help texts of the kit scripts
+
+====================================================================================================
+ 1  WHAT THE DEVKIT IS AND WHO IT IS FOR
+====================================================================================================
+
+ Your developers work on Windows. They must (a) trust your private PKI on their machine, and (b) make their own test certificates:
+ TLS server / client certificates, code signing, S/MIME, person certificates and Microsoft Office / 365 signing certificates. They do not need
+ to know Linux, and they must not need the whole project.
+
+ The DevKit is ONE zip file (or 7z). Unzip it, run ONE installer, then run a generator. The same kit works on Ubuntu (for the Linux machines, WSL,
+ containers): every PowerShell script has a bash twin.
+
+        PkiTransport.ps1 -DevKit        (you, on the machine that holds the PKI)
+              |
+              v
+        agantra-pki-devkit-<date>.zip   -- send to the developer (the password of the .certpacked inside: another channel)
+              |
+              +--  Windows 11 25H2+ :  .\Install-PkiTrust.ps1   then   .\GenerateLeafCertificate.ps1 ...
+              +--  Ubuntu            :  bash make-executable.sh ; ./Install-PkiTrust.sh   then   ./GenerateLeafCertificate.sh ...
+
+====================================================================================================
+ 2  MAKING THE DEVKIT  (the lead; on the machine with the pki folder)
+====================================================================================================
+
+   .\PkiTransport.ps1 -DevKit -GeneratePassword
+        writes .\transport\agantra-pki-devkit-<yyyyMMdd-HHmmss>.zip and shows the package password ONCE. Write it down; send it by another channel.
+   .\PkiTransport.ps1 -DevKit -Out D:\share\devkit.zip -PackagePassword 'a strong password 12+ characters'
+   .\PkiTransport.ps1 -DevKit -KitArchiveFormat 7z -ArchiveFormat 7z -Out D:\share\devkit.7z     (needs 7-Zip; the zip needs nothing)
+   .\PkiTransport.ps1 -DevKit -DevKitNoKeys        CA certificates only: developers can trust the PKI but cannot issue
+
+   Options   -Out <file>   -GeneratePassword | -PackagePassword <t> | PKI_TRANSPORT_PASSWORD   -ArchiveFormat zip|7z (the .certpacked inside)
+             -KitArchiveFormat zip|7z (the outer file)   -DevKitNoKeys   -Comment <text>   -SevenZipPath <exe>   -InstallMissing   -NoVerify
+   The kit is built from the CURRENT configuration (agantra_pki.cnf and the pki folder): policies, CPS URLs, the PEN and High Assurance OIDs, the CRL / OCSP /
+   CA-issuer URL templates, the subject, the development SAN and the person / Office defaults are written to devkit.env. Build the kit again when any of
+   them changes. The kit holds the version of the scripts it was built with.
+
+====================================================================================================
+ 3  WHAT IS INSIDE  (one folder; its name = the zip name)
+====================================================================================================
+
+   <name>.certpacked                        the PKI, AES-256 (the password is NOT in the kit)
+   START-HERE.txt                           one page for the developer: Windows steps and Ubuntu steps
+   Install-PkiTrust.ps1                     Windows: unpack + put every root and intermediate in the LOCAL MACHINE store + new random serials
+   Install-PkiTrust.sh                      Ubuntu: unpack + install in the system store (update-ca-certificates) + new random serials
+   GenerateLeafCertificate.ps1 / .sh        TLS server / client, code signing, S/MIME, time stamping, OCSP certificates (set or single)
+   GeneratePersonLeafCertificate.ps1 / .sh  people, from a JSON file (isGenerate per person; any ID; SAN e-mail + DNS)
+   GenerateOffice365LeafCertificate.ps1 / .sh   Office / 365 document signing + encryption, from a JSON file
+   SignCsr.ps1 / .sh                        sign the CSR of a colleague / another department (DV default, OV, EV; every intermediate of the kit), with the spec check
+   Install-DevEnvironment.ps1 / .sh         prepare the machine: OpenSSL 4.0.3 or newer (FIPS + ML-DSA), 7-Zip ..., and put OpenSSL on the PATH
+   Make-ShExecutable.ps1                    Windows: LF line endings + executable bit for the .sh (WSL chmod), no Linux knowledge needed
+   make-executable.sh                       Linux: the same, on the Ubuntu machine
+   devkit.env, lib\ (pki-lib.sh, pki-person.sh, pki-persons.py, pki-csr.py), examples\ (persons.example.json, office365.example.json)
+   PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh, Install-DevEnvironment.ps1 / .sh, agantra_pki.cnf, scripts\ (the PowerShell modules)
+   docs\   the manuals (this one, PkiTransport, the three generators, SignCsr, Install-DevEnvironment)         SHA256SUMS   every file with its SHA-256
+
+ After Install-PkiTrust it also holds   ca\ (CA certificates, bundles, chains, CRLs)   pki\ (the issuing CAs: certificate, KEY, database)   certpack.json
+ and later   leafcerts\ (what the developer issued).
+
+====================================================================================================
+ 4  WHAT IS NOT INSIDE  (keys)
+====================================================================================================
+
+   The .certpacked of a DevKit holds the pki folder with the PRIVATE KEYS OF THE ISSUING (INTERMEDIATE) CAs ONLY - the six DV / OV / EV CAs of Quadrants 1 and 2 -
+   because those are what signs a leaf certificate. NEVER inside:
+     * the Enterprise Root, Track Root and Quadrant Root keys (a stolen root key would let the thief build a new hierarchy under your trust);
+     * the OCSP responder and time stamping keys, old leaf keys, any .pfx / .p12 (they carry keys too).
+   The package scope says so: certpack.json  "scope": { "caPrivateKeys": true, "issuingKeysOnly": true }.   -DevKitNoKeys leaves out every key.
+   Consequence: a developer can issue certificates your clients trust - until you revoke the intermediate. Treat the kit like a signing key: send it to named
+   people, use a long password, send the password separately, and delete kits you no longer need. If a kit is lost: revoke the intermediate (PkiRevocation.ps1)
+   and build a new one. (A CA key in a developer's hands is the price of "every developer makes his own certificates"; the alternative is a signing service
+   on the PKI server that takes CSRs - PKI-Server-Design.txt - and no key leaves the server.)
+
+====================================================================================================
+ 5  SENDING IT TO THE DEVELOPERS
+====================================================================================================
+
+   1. Send the zip (mail, share, Teams). The zip is not encrypted; the .certpacked inside is (AES-256).
+   2. Send the password by ANOTHER channel (phone, a password manager, a different chat).
+   3. Tell the developer the SHA-256 of the zip (shown at the end of the build) so he can compare:  Get-FileHash .\file.zip   /   sha256sum file.zip
+   4. Keep a list of who received which kit (the file name carries the date).
+
+====================================================================================================
+ 6  WINDOWS: STEP BY STEP  (Windows 11 25H2 or newer, PowerShell 7)
+====================================================================================================
+
+   1. Unzip (right click > Extract All) to a folder with a short path, for example C:\pki-devkit. Do not unzip into OneDrive or Downloads.
+   2. Start PowerShell 7 AS ADMINISTRATOR:    cd C:\pki-devkit ; .\Install-PkiTrust.ps1
+      (No OpenSSL 4 yet? First, once:  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip  - section 13.)
+      (Windows blocks downloaded scripts?  Unblock-File .\*.ps1   or   .\PkiTransport.ps1 -Unblock   - every script also unblocks its own folder.)
+      It asks for the password, scans the machine (Windows 11 25H2+, OpenSSL 4.0.1+; -InstallMissing installs OpenSSL and 7-Zip), checks every SHA-256, unpacks to
+      this folder, puts the roots in Local Machine \ Trusted Root Certification Authorities and the intermediates in Local Machine \ Intermediate Certification
+      Authorities, proves the chains with OpenSSL, and gives every issuing CA a NEW RANDOM serial counter (section 9).
+   3. From now on a normal PowerShell is enough:
+        .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com                         7 certificates (one per purpose) in leafcerts\www.example.com\
+        .\GenerateLeafCertificate.ps1 -OV -DnsName app.example.com -Purpose ServerAuth -AddDevelopmentSAN -NoRevocationInfo
+        .\GeneratePersonLeafCertificate.ps1 -ExampleFile persons.json ; (edit) ; .\GeneratePersonLeafCertificate.ps1 -File persons.json
+        .\GenerateOffice365LeafCertificate.ps1 -ExampleFile office365.json ; (edit) ; .\GenerateOffice365LeafCertificate.ps1 -File office365.json -NoRevocationInfo
+   4. A colleague sends you a request (.csr)?   .\SignCsr.ps1 -Csr .\web01.csr   (section 12).
+   5. The shell scripts (.sh) in the folder are for Ubuntu / WSL. To use them from WSL:  .\Make-ShExecutable.ps1   (LF endings + chmod +x through WSL).
+   6. Install-PkiTrust.ps1 again later? It reinstalls the trust and leaves pki\ and leafcerts\ alone. -Reset unpacks pki\ anew (new serials; leafcerts kept).
+   Remove the trust:   .\PkiTransport.ps1 -RemoveTrust -Package .\<name>.certpacked
+
+====================================================================================================
+ 7  LINUX / UBUNTU: STEP BY STEP  (copy and paste)
+====================================================================================================
+
+   1. unzip agantra-pki-devkit-*.zip && cd agantra-pki-devkit-*
+   2. bash make-executable.sh            (the executable bit is lost when the zip was made on Windows or unpacked by a Windows tool; this restores it and
+                                          converts Windows line endings. Any script also runs as  bash ./name.sh  without the bit.)
+   3. ./Install-PkiTrust.sh              asks for the password; sudo only for the system store and for missing packages (7-Zip); --yes answers yes.
+   4. ./GenerateLeafCertificate.sh --ov --dns www.example.com
+      ./GeneratePersonLeafCertificate.sh --example-file persons.json ; ./GeneratePersonLeafCertificate.sh --file persons.json
+      ./GenerateOffice365LeafCertificate.sh --example-file office365.json ; ./GenerateOffice365LeafCertificate.sh --file office365.json --no-revocation-info
+   5. ./SignCsr.sh --csr web01.csr                      sign a colleague's request (section 12)
+   Needs: bash, openssl 3.0+ (4.0.1+ recommended; Install-PkiTrust.sh --install-openssl builds it, or ./Install-DevEnvironment.sh --yes --only openssl), python3 (JSON files only), sudo for the store.
+   Tested here on Ubuntu 24.04 (real store, real 7-Zip install, all three generators, chain verification).
+
+====================================================================================================
+ 8  WHAT THE SHELL GENERATORS DO AND DO NOT DO
+====================================================================================================
+
+   Same certificates as the PowerShell generators (compared extension by extension with openssl x509 -text): subject by level (DV: CN; OV: C ST L postalCode O CN name
+   emailAddress telephoneNumber; EV: + businessCategory, jurisdiction, serialNumber), SAN, key usage / EKU per purpose, certificate policies (level OID, company PEN policy,
+   level PEN policy, High Assurance for OV; CPS pointer per policy: EV ev-cps.pdf, others https://nextmantra.com/security/certs), CRL distribution points, Authority
+   Information Access (OCSP + caIssuers), digest of the issuer, ECDSA P-384 + SHA-512 for person / development e-mail certificates, RSA 4096 for Office, code signing raised to
+   RSA 4096 / P-384, EV limited to 397 days, no wildcard / IP in EV (unless --add-development-san).
+   --no-crl / --no-ocsp / --no-revocation-info leave the revocation information out; the script proves it by reading the finished certificate.
+   Not in the shell GENERATORS: Quantum quadrants (ML-DSA, Q3 / Q4) - they need the PowerShell generator (SignCsr.sh does sign Quantum requests: the key is the department's, nothing is generated); the other formats (.cer .der .p7b .rfc7468.pem
+   and convert-formats.ps1) - the shell version writes .crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json (convert with openssl); -Format, -Policy, -Password per call
+   are --pfx-password only; the guidance files (tls-guidance.txt); the leaf-index.json of the PKI server (the shell version appends to leafcerts/issued-by-devkit.tsv).
+   Signing: openssl x509 -req with the issuing CA key, a random 128-bit serial, extensions from the per-certificate .cnf (kept next to the certificate).
+
+====================================================================================================
+ 9  SERIAL NUMBERS, REVOCATION, AND THE KEYS IN THE KIT
+====================================================================================================
+
+   Two copies of the PKI that continue the same serial counter issue the SAME serial numbers: two different certificates with one serial under one CA breaks CRL and
+   OCSP. Therefore:
+     * Install-PkiTrust (ps1 and sh) writes a new random 128-bit value into the 'serial' file of every issuing CA of THIS copy (pki\classical\q?\{dv,ov,ev}\serial), and
+       pki\.devkit-instance.json records the instance. The shell generators use a random serial for every certificate.
+     * The master PKI keeps its own counter. The chance of a collision between random 128-bit numbers is negligible.
+   Revocation: a certificate issued from a DevKit copy is NOT in the index.txt of the master PKI, so the master CRL does not list it and the master OCSP responder
+   answers "unknown". Nobody can revoke it centrally. These are DEVELOPMENT certificates: do not use them for production. The log of what a developer issued is
+   leafcerts\ (PowerShell: leaf-index.json) and leafcerts/issued-by-devkit.tsv (shell). To bring them under the master: hand the folder to the lead, who can
+   merge the entries (PkiRevocation.ps1) - not automated.
+   Paths: the CA configuration files hold absolute paths (dir = ...). Install-PkiTrust rewrites them (and pki-manifest.json) to the kit folder; so the kit works
+   anywhere, and never touches the database of the machine it was built on. Do not move the folder after the install (run Install-PkiTrust.ps1 -Reset in the new place).
+
+====================================================================================================
+ 10  TROUBLESHOOTING
+====================================================================================================
+
+   "must be run as Administrator" (Install-PkiTrust.ps1)   Start PowerShell 7 with 'Run as administrator'. The Local Machine store needs it.
+   "Operating system FAIL ... Windows 11 25H2"           PkiTransport.ps1 -Install needs Windows 11 25H2+. On an older Windows: .\Unpack-PkiTransport.ps1 -Package <file> unpacks the
+                                                        CA certificates; import the roots yourself (certlm.msc). Issuing then needs the OpenSSL-4 scan to pass too.
+   "OpenSSL FAIL"                                        .\Install-PkiTrust.ps1 -InstallMissing  (or Install-DevEnvironment.ps1 -Only OpenSSL).
+   "wrong password" / exit 5                             The password is that of the .certpacked (not of the PFX). Ask the sender.
+   $'\r': command not found  /  bad interpreter ...^M    A Windows line ending in a .sh. Run  .\Make-ShExecutable.ps1  (Windows) or  bash make-executable.sh  (Linux).
+   Permission denied (a .sh)                              bash make-executable.sh   or   bash ./script.sh
+   "devkit.env not found"                                 Run the .sh from the kit folder (they find lib\ and devkit.env next to themselves).
+   "private key of the issuing CA ... not here"           The kit was built with -DevKitNoKeys, or Install-PkiTrust was run with -TrustOnly / --trust-only.
+   python3: command not found                             sudo apt install python3 (only the person / Office .sh need it).
+   Word / Excel: "cannot connect to the revocation server"   Make the certificates with -NoRevocationInfo / --no-revocation-info (or -NoCrl -NoOcsp).
+   The browser does not trust the certificate             Firefox has its own store (Settings > Certificates > Import the root); Chrome / Edge use the Windows store.
+
+====================================================================================================
+ 11  LIMITS YOU MUST KNOW
+====================================================================================================
+
+   * Windows and the Windows store part (Install-PkiTrust.ps1 on Windows 11, Make-ShExecutable.ps1 through WSL) were written and parse-checked, but NOT run on Windows here.
+     What was run: the whole chain on Ubuntu 24.04 (build the kit, unzip, install, generate, verify) with PowerShell 7 and bash, including the PowerShell generators
+     on the relocated, key-restricted kit.
+   * The zip made on Windows has no unix permissions (the .NET zip library marks the entries as Windows): that is why make-executable exists. A zip made on Linux keeps the bit.
+   * The kit is not encrypted as a whole; only the .certpacked is. Do not put secrets next to it.
+   * One kit = one PKI at one moment. After a re-build of the PKI (pki_setup -Clean) all earlier kits are obsolete.
+   * A DevKit with keys makes every holder a CA operator for the issuing CAs (section 4).
+
+====================================================================================================
+ 12  SIGNING THE REQUEST (CSR) OF A COLLEAGUE: SignCsr.ps1 / SignCsr.sh
+====================================================================================================
+
+   A colleague or another department makes his OWN key and a request (.csr) and sends you only the request. You sign it with the kit and send back the folder:
+        .\SignCsr.ps1 -Csr .\web01.csr                          DV (default), Classic non-FIPS, TLS server        ./SignCsr.sh --csr web01.csr
+        .\SignCsr.ps1 -Csr .\web01.csr -OV -Purpose ServerClientAuth                                               ./SignCsr.sh --csr web01.csr --ov --purpose ServerClientAuth
+        .\SignCsr.ps1 -Csr .\web01.csr -EV -FIPS -Check         only the report                                    ./SignCsr.sh --csr web01.csr --ev --fips --check
+   * Level -DV (default) -OV -EV; track -Classic (default) -Quantum; -FIPS = the FIPS quadrant; -Purpose ServerAuth (default) ClientAuth ServerClientAuth CodeSigning
+     EmailProtection TimeStamping OcspSigning; -Days (EV at most 397); -NoCrl -NoOcsp -NoRevocationInfo; -Check; -Strict; -NoColor.
+   * The request is checked against the specification of the PKI first. ERROR (red) = nothing is signed, exit code 2; WARN (yellow) = signed, read it; every line says the field,
+     the reason and the fix. The full list of rules and codes is in SignCsr-MANUAL.txt (section B).
+   * The kit signs with ALL of its intermediate keys (DV / OV / EV, Classic Q1 / Q2 and, when the PKI has them, Quantum Q3 / Q4). It can NEVER sign a root or a CA certificate:
+     a request for a CA goes to the owner of the original PKI (SignExternalCa.ps1 is not in the kit).
+   * Result: csr-signed\<name>_<date-time>\  with the certificate (.crt .cer), -fullchain.crt, -chain.crt, .p7b, root.crt, our-ca-bundle.crt, README.txt for HIM. Never a key.
+   * Like the generators: certificates signed from the kit are in the kit's own index.txt with random serials; not in the master CRL / OCSP (section 9).
+   * SignCsr.sh needs python3 (the checker) in addition to bash and openssl.
+
+====================================================================================================
+ 13  PREPARING THE MACHINE: OPENSSL 4.0.3 AND THE PATH  (Install-DevEnvironment.ps1 / .sh, independent of everything else in the kit)
+====================================================================================================
+
+   The two scripts are in the kit folder and need nothing else from the kit. They prepare the destination machine for OpenSSL 4.0.3 or newer (4.0.1 is the minimum)
+   with the FIPS provider and ML-DSA / ML-KEM, prove it, and put it on the PATH:
+        Windows (PowerShell 7, Administrator)     .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip        then open a NEW PowerShell
+            FireDaemon.OpenSSL by WinGet (upgraded when older than 4.0.1), fipsmodule.cnf, OPENSSL_MODULES, OPENSSL_CONF; the bin folder goes on the MACHINE Path.
+        Ubuntu / Linux / macOS                    ./Install-DevEnvironment.sh --yes --only openssl         then open a NEW terminal
+            a FULL build of OpenSSL 4.0.3 from the official release (hash checked) in /opt/openssl-4.0.3 (--openssl-version, --openssl-prefix change it); the system openssl
+            is not replaced; the link openssl4 is made; the bin folder goes FIRST on the PATH of login shells: /etc/profile.d/openssl4.sh (with sudo) or ~/.profile and
+            ~/.bashrc (without). --no-path leaves the PATH alone. --check only scans (exit 0 = ready, 4 = not ready).  --dry-run prints what would change.
+   Both scripts have -Help / --help and the manual Install-DevEnvironment-MANUAL.txt. Install-PkiTrust.ps1 -InstallMissing / Install-PkiTrust.sh --install-openssl call the same logic.
+
+====================================================================================================
+ 14  THE -HELP / --HELP TEXTS OF THE KIT SCRIPTS
+====================================================================================================
+ (The PowerShell generators' -Help texts are in their own manuals: GenerateLeafCertificate-MANUAL.txt section 13, GeneratePersonLeafCertificate-MANUAL.txt,
+  GenerateOffice365LeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt. Below: the scripts that exist only in the kit, identical to what they print.)
+
+ ---- Install-PkiTrust.ps1 -Help ----------------------------------------------------------------
+============================================================
+ Install-PkiTrust.ps1 - DevKit installer for Windows
+ Version 4.9.5-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : docs\DevKit-MANUAL.txt     Linux twin: Install-PkiTrust.sh
+
+WHAT IT DOES
+  1. Finds the .certpacked next to this script (or -Package) and asks for its password.
+  2. Scans this machine (Windows 11 25H2+, OpenSSL 4.0.1+, administrator) - PkiTransport.ps1 -Install does it.
+  3. Unpacks the CA certificates (folder ca\) AND the pki\ folder with the ISSUING CA keys into THIS folder, checks every SHA-256.
+  4. Puts every root in Local Machine \ Trusted Root Certification Authorities and every intermediate in
+     Local Machine \ Intermediate Certification Authorities, and proves the chains with OpenSSL.
+  5. Gives every intermediate CA a NEW RANDOM serial counter, so certificates you issue never repeat a serial number of the
+     master PKI or of another developer.
+
+USAGE   (PowerShell 7, started as Administrator, in the folder of the kit)
+  .\Install-PkiTrust.ps1
+  .\Install-PkiTrust.ps1 -TrustOnly              only the CA certificates; no issuing keys are unpacked
+  .\Install-PkiTrust.ps1 -InstallMissing         install OpenSSL 4 / 7-Zip when they are missing (asks otherwise)
+  .\Install-PkiTrust.ps1 -Reset                  unpack pki\ again (your issued certificates in leafcerts\ are kept)
+
+OPTIONS
+  -Package <file>   -PackagePassword <text>   (or PKI_TRANSPORT_PASSWORD)   -TrustOnly   -Reset   -InstallMissing
+  -SkipOpenSslCheck (not recommended)   -OpenSslPath <exe>   -SevenZipPath <exe>   -Help
+EXIT  0 ok   other: see the message (not Windows 11 25H2+, not elevated, wrong password, OpenSSL missing)
+
+ ---- Install-PkiTrust.sh --help ----------------------------------------------------------------
+============================================================
+ Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu
+ Version 4.9.5-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : docs/DevKit-MANUAL.txt     Windows twin: Install-PkiTrust.ps1
+
+USAGE   (run as your normal user: the script asks sudo only for the system store and for missing packages)
+  ./Install-PkiTrust.sh                      or:  bash Install-PkiTrust.sh        (no executable bit needed)
+  ./Install-PkiTrust.sh --trust-only         only the CA certificates; no issuing keys are unpacked
+  ./Install-PkiTrust.sh --yes                install what is missing (7-Zip, ca-certificates) without asking
+  ./Install-PkiTrust.sh --reset              unpack pki/ again (your issued certificates in leafcerts/ are kept)
+
+WHAT IT DOES
+  1. Finds the .certpacked of the kit (or --package FILE); the password: prompt, --password-file FILE, or PKI_TRANSPORT_PASSWORD.
+  2. Scans the machine; installs 7-Zip and the certificate-store tools when missing (needs sudo); OpenSSL 3.0+ is enough for the
+     generators, 4.0.1+ is needed for the chain proof of pki-transport.sh (--install-openssl builds it).
+  3. Unpacks the CA certificates (ca/) and the pki/ folder with the ISSUING CA keys into THIS folder, checks every SHA-256.
+  4. Installs the roots in the system store (/usr/local/share/ca-certificates + update-ca-certificates) and proves the chains.
+  5. Gives every intermediate CA a NEW RANDOM serial counter (copies must not issue the same serial numbers).
+
+OPTIONS
+  --package FILE  --password-file FILE  --trust-only  --reset  --yes  --install-openssl  --skip-openssl-check  --openssl FILE
+  --7z FILE  --trust roots|enterprise|all-ca|none  --version  --help
+
+ ---- Make-ShExecutable.ps1 -Help ---------------------------------------------------------------
+============================================================
+ Make-ShExecutable.ps1 - make the .sh files executable (Windows developers)
+ Version 4.9.5-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : docs\DevKit-MANUAL.txt     Linux twin: make-executable.sh
+
+ .\Make-ShExecutable.ps1                    all *.sh and lib\*.sh of this folder
+ .\Make-ShExecutable.ps1 -Path <folder>     another folder (recursive)
+ .\Make-ShExecutable.ps1 -LineEndingsOnly   only CRLF -> LF
+
+ 1. CRLF -> LF in every .sh / .py / .env  (the usual reason why a script copied from Windows fails on Ubuntu).
+ 2. chmod +x: through WSL (wsl chmod) or, when pwsh runs on Linux / macOS, chmod. Without WSL on Windows the bit cannot be
+    set; use  bash ./GenerateLeafCertificate.sh ...  (works without the bit) or run  bash make-executable.sh  on the Ubuntu machine.
+
+ ---- make-executable.sh --help -----------------------------------------------------------------
+make-executable.sh [folder]     folder = this script's folder by default
+  1. CRLF -> LF in every *.sh, *.py, *.env (sed; a CRLF script fails with  $'\r': command not found)
+  2. chmod +x on every *.sh
+
+ ---- GenerateLeafCertificate.sh --help ---------------------------------------------------------
+============================================================
+ GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu)
+ Version 4.9.5-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateLeafCertificate.ps1
+ Needs  : bash, openssl 3.0+ (4.0.1+ recommended). The PKI must be installed first: ./Install-PkiTrust.sh
+
+USAGE
+  ./GenerateLeafCertificate.sh --dns www.example.com                         OV set: one certificate per purpose
+  ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth
+  ./GenerateLeafCertificate.sh --dns app.example.com --add-development-san --no-revocation-info
+  ./GenerateLeafCertificate.sh --purpose EmailProtection --email me@example.com
+
+LEVEL AND TRACK
+  --ov (default)  --ev  --dv          Level. EV: 397 days at most, CPS = ev-cps.pdf, no High Assurance policy.
+  --quadrant 1|2   1 = Classic non-FIPS (default, RSA)    2 = Classic FIPS (ECDSA).   --fips = --quadrant 2
+  (The Quantum quadrants 3 and 4 need the PowerShell generator.)
+
+PURPOSES
+  none given            the SET: one certificate per purpose (ServerAuth, ClientAuth, ServerClientAuth, CodeSigning,
+                        EmailProtection, TimeStamping, OcspSigning), each in its own folder
+  --purpose A,B         ONE certificate with these purposes (ServerAuth ClientAuth ServerClientAuth CodeSigning
+                        EmailProtection TimeStamping OcspSigning; TimeStamping and OcspSigning stand alone)
+  --exclude-purpose A,B take these out of the set
+
+NAMES
+  --dns a,b   --ip a,b   --email a,b   --cn TEXT
+  --add-development-san    merge the development list (DNS, IP, e-mail of devkit.env) into the SAN. S/MIME gets the
+                           e-mail addresses only, and ECDSA P-384 / SHA-512 by default (like GeneratePersonLeafCertificate).
+
+KEY AND SIGNATURE
+  --key-type rsa|ecdsa   --key-bits 2048|3072|4096|8192   --curve P-256|P-384|P-521   --hash sha256|sha384|sha512
+  Defaults: Quadrant 1 RSA 2048, Quadrant 2 ECDSA P-256; code signing is raised to RSA 4096 / ECDSA P-384.
+  --days N                 validity (default: OV and DV from the configuration, EV 397)
+
+REVOCATION INFORMATION
+  --no-crl                 no CRL distribution point in any generated certificate
+  --no-ocsp                no OCSP URL (the caIssuers URL stays)
+  --no-revocation-info     both
+
+OUTPUT
+  --out DIR                default ./leafcerts          --pfx-password TEXT   default Abc12345! (the lab password)
+  --openssl FILE           use this openssl             --help, -h   this text      --version
+
+Each folder: <name>.crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json. Every certificate is verified against the
+roots (chain, and no CRL / OCSP when you asked for none) before the script reports it. Serial numbers are random 128-bit.
+Certificates made from a DevKit copy are NOT in the CRL / OCSP database of the master PKI: they are development certificates.
+
+ ---- GeneratePersonLeafCertificate.sh --help ---------------------------------------------------
+============================================================
+ GeneratePersonLeafCertificate.sh - person certificates from a JSON file (Linux / Ubuntu, DevKit)
+ Version 4.9.5-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : docs/DevKit-MANUAL.txt      Windows twin: GeneratePersonLeafCertificate.ps1
+
+USAGE
+  ./GeneratePersonLeafCertificate.sh --example-file persons.json     write an example (5 made-up people, isGenerate true / false)
+  ./GeneratePersonLeafCertificate.sh --file persons.json             issue the certificates
+  ./GeneratePersonLeafCertificate.sh --file persons.json --validate-only
+  ./GeneratePersonLeafCertificate.sh --file persons.json --ev --no-revocation-info
+
+RULES  (same as the PowerShell generator)
+  * JSON only. isGenerate true / false per person. The ID (idCode) is ANY identifier: national ID, passport, driver licence ...
+  * Subject: serialNumber (= the ID), givenName, surname, CN, C (default EE). SAN: rfc822Name = the e-mail, DNS = the domain of the
+    e-mail and *.domain (switch off: --no-dns-from-email or "dnsFromEmail": false).
+  * Level OV (default) or EV, never DV. Classic only: Quadrant 1 non-FIPS (default) or 2 (--fips). ECDSA P-384 + SHA-512 by default.
+
+OPTIONS
+  --file F  --example-file F  --validate-only  --stop-on-error  --check-estonian-id  --non-repudiation  --qc-statements
+  --level OV|EV (--ev)  --quadrant 1|2 (--fips)  --key-type rsa|ecdsa  --key-bits N  --curve P-256|P-384|P-521  --hash sha256|sha384|sha512  --days N
+  --no-crl  --no-ocsp  --no-revocation-info     leave the CRL / OCSP information out of every certificate
+  --no-dns-from-email  --out DIR (default ./leafcerts)  --pfx-password TEXT  --openssl FILE  --help  --version
+Output: leafcerts/persons/<folder>/  (.crt .key .pub .pfx -chain -fullchain person-info.json) and a batch summary (.tsv).
+
+ ---- GenerateOffice365LeafCertificate.sh --help ------------------------------------------------
+============================================================
+ GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux / Ubuntu, DevKit)
+ Version 4.9.5-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateOffice365LeafCertificate.ps1
+
+USAGE
+  ./GenerateOffice365LeafCertificate.sh --example-file office365.json
+  ./GenerateOffice365LeafCertificate.sh --file office365.json --no-revocation-info
+
+CERTIFICATE
+  EKU : Document Encryption (1.3.6.1.4.1.311.80.1) + Secure Email (emailProtection) + Document Signing (1.3.6.1.4.1.311.10.3.12;
+        --no-document-signing-eku leaves the last one out).
+  KU  : digitalSignature + nonRepudiation + keyEncipherment (RSA) / keyAgreement (ECDSA: signs, cannot encrypt documents).
+  Key : RSA 4096 by default (Office minimum RSA 2048 / ECDSA P-256), SHA-2 only. Folder: leafcerts/office365/.
+  Subject: serialNumber (optional ID), givenName, surname, CN "Given Surname", C. SAN: rfc822Name = the e-mail.
+
+OPTIONS
+  --file F  --example-file F  --validate-only  --stop-on-error  --no-document-signing-eku  --dns-from-email
+  --level OV|EV (--ev)  --quadrant 1|2 (--fips)  --key-type rsa|ecdsa  --key-bits N  --curve P-256|P-384|P-521  --hash sha256|sha384|sha512  --days N
+  --no-crl  --no-ocsp  --no-revocation-info     use these when Word / Excel say "cannot connect to the revocation server"
+  --out DIR (default ./leafcerts)  --pfx-password TEXT  --openssl FILE  --help  --version
+
+ ---- SignCsr.sh --help -------------------------------------------------------------------------
+============================================================
+ SignCsr.sh - sign the certificate request (CSR) of another department with our PKI
+ Version 4.9.5-phaseC
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+ Manual : docs/SignCsr-MANUAL.txt   Design: docs/PKI-Design-with-FIPS-and-PQC.txt (10.72, section 20)   The PowerShell twin: SignCsr.ps1 (same rules)
+ Needs  : bash, openssl 3.0+ (4.0.1+ recommended; ML-DSA / Quantum needs 4.x), python3. The DevKit unpacked by Install-PkiTrust, or the
+          project of the original PKI after  SignCsr.ps1 -WriteShellEnv  (then run  devkit/SignCsr.sh ).
+
+WHAT IT DOES
+  1. READS the request and CHECKS it against the specification of this PKI, printing every finding in colour with the reason and the fix:
+        red ERROR   yellow WARN   green OK   cyan INFO
+  2. refuses it when there is an ERROR (exit code 2, nothing is signed), or signs it with the right INTERMEDIATE CA,
+  3. writes the result into a NEW folder  csr-signed/<name>_<yyyymmdd-HHMMSS>/ :
+        <name>.crt <name>.cer       his certificate (PEM and DER)          <name>-fullchain.crt  certificate + our CA chain (his server file)
+        <name>-chain.crt            our CA chain                           <name>.p7b            certificate + chain for Windows
+        root.crt  our-ca-bundle.crt the trust anchor / chain + root        <name>.csr  sign-info.json  README.txt (tells HIM what to do)
+     and one line in csr-signed/signed-csr.tsv. Send him the folder. He keeps his private key; we never see it.
+  The certificate is recorded in the index.txt of the issuing CA (in the DevKit: of the DevKit copy; certificates signed here are NOT in the
+  CRL / OCSP of the original PKI - the owner of the original PKI can revoke the intermediate if the kit leaks).
+
+WHO SIGNS
+  --dv (default) | --ov | --ev     level  =  CA q<N>-dv | q<N>-ov | q<N>-ev
+  --classic (default) | --quantum  track.   --fips   FIPS quadrant (Classic Q2 / Quantum Q4). Without --fips: Q1 / Q3, non-FIPS.
+  The roots never sign here. A request for a CA certificate is signed by the owner of the ORIGINAL PKI (SignExternalCa.ps1, Quadrant Root).
+
+THE SPEC A REQUEST MUST FOLLOW (see docs/SignCsr-MANUAL.txt; the report names every deviation)
+  Signature valid, SHA-256+.   Key  Classic: RSA 2048/3072/4096/8192, ECDSA P-256/P-384/P-521.  Quantum: ML-DSA-44/65/87.
+  Code signing: RSA 4096+, ECDSA P-384+, ML-DSA-65+.  Never RSA < 2048, other curves, Ed25519, DSA.
+  Subject  DV: CN only (rest dropped, WARN).  OV: C (2 letters), O, CN; ST, L recommended.
+           EV: OV + ST, L, serialNumber, businessCategory (Private Organization | Government Entity | Business Entity | Non-Commercial Entity),
+               jurisdictionC.  Code signing: C, O, CN.
+  Names    TLS: DNS and IP.  EV: no wildcard, no IP, no internal name, no e-mail.  S/MIME: e-mail only.  Code signing / TSA / OCSP: none.
+  Validity DV 5 years, OV 3 years, EV 397 days at most, time stamping 5 years, OCSP 1 year; never longer than the issuing CA.
+  Ignored  keyUsage, extendedKeyUsage, policies, CRL / OCSP URLs of the request (this PKI sets them); CA:TRUE is refused.
+
+OPTIONS
+  --csr FILE               his request (PEM).                               --purpose P   ServerAuth (default) | ClientAuth | ServerClientAuth |
+  --dv | --ov | --ev       level (default dv)                                              CodeSigning | EmailProtection | TimeStamping | OcspSigning
+  --classic | --quantum    track (default classic)                          --fips        FIPS quadrant
+  --days N                 validity in days (EV at most 397)                --name TEXT   folder / file name (default: his CN)
+  --out DIR                where the per-request folders go (default ./csr-signed)
+  --policy "OID|CPS-URL"   extra policy for this certificate
+  --no-crl --no-ocsp --no-revocation-info    leave the CRL distribution point and / or the OCSP URL out
+  --check                  only check the request, sign nothing             --strict      warnings count as errors
+  --no-color               plain text (also NO_COLOR=1)                     --list        list the earlier requests
+  --openssl FILE           the openssl to use                               --pki-home DIR   the PKI home (DevKit folder, or the project folder)
+  --help, -h               this text                                        --version
+EXAMPLES
+  ./SignCsr.sh --csr web01.csr                                   DV, Classic non-FIPS (q1-dv), TLS server
+  ./SignCsr.sh --csr web01.csr --ov --purpose ServerClientAuth   OV (q1-ov)
+  ./SignCsr.sh --csr web01.csr --ev --fips --check               would q2-ev sign it? report only
+  ./SignCsr.sh --csr pq.csr --quantum --ov                       ML-DSA request, q3-ov
+HIS SIDE
+  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out web01.key
+  openssl req -new -key web01.key -sha256 -subj "/CN=web01.dept.example" -addext "subjectAltName=DNS:web01.dept.example" -out web01.csr
+EXIT CODES   0 ok   1 error   2 the request does not follow the spec
+============================================================
+
+====================================================================================================

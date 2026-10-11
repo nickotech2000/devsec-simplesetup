@@ -1,8 +1,8 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.4-phaseC     2026-10-11
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.5-phaseC     2026-10-11
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt,
+  Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
                                                   PkiTransport-MANUAL.txt
  Run the checks of a phase on the machines named; report the output of the steps that matter and anything that fails.
 
@@ -215,7 +215,7 @@
        .\Setup-GitRepo.ps1 -Check (exit 0); git clone on Linux; ./linux/pki-server/pki-server.sh --help runs without chmod; bash linux/setup-git.sh; git config core.hooksPath = .githooks
 
 ====================================================================================================
- PHASE E  -  QUADRANT ROOT POLICY, EXTERNAL CA SIGNING, PERSON CERTIFICATES      (4.9.4, 2026-10-11)
+ PHASE E  -  QUADRANT ROOT POLICY, EXTERNAL CA SIGNING, PERSON CERTIFICATES, DEVKIT      (4.9.4 / 4.9.5, 2026-10-11)
 ====================================================================================================
  E1  Quadrant roots
        openssl x509 -in pki\classical\q1\root\q1-root.crt -noout -text | findstr /C:"Public-Key" /C:"Signature Algorithm"     expect Q1: 4096 bit; Q2: secp384r1 / ecdsa-with-SHA384 on the intermediates
@@ -247,3 +247,44 @@
        folder leafcerts\office365\<name>\ with OFFICE-NOTES.txt; import the PFX, trust the Root, Word: File > Info > Protect Document > Add a Digital Signature
  E7  Development e-mail certificate
        .\GenerateLeafCertificate.ps1 -OV -Purpose EmailProtection -AddDevelopmentSAN -EmailAddress you@example.org      key 384 bit (ECDSA P-384), sha512 signature, same policies as E4
+ E8  Without revocation information
+       .\GenerateOffice365LeafCertificate.ps1 -GivenName A -Surname B -Email a@b.example -NoRevocationInfo     (same with GeneratePersonLeafCertificate.ps1)
+       openssl x509 -in <crt> -noout -text | findstr /C:"CRL Distribution" /C:"OCSP - URI" /C:"CA Issuers"     expect: only CA Issuers; -NoCrl keeps OCSP, -NoOcsp keeps the CRL point
+       leaf-info.json: revocationInfo { crlDistributionPoints false, ocsp false };  Word / Excel no longer report the revocation server error
+
+ E9  GenerateLeafCertificate without revocation information (4.9.5)
+       .\GenerateLeafCertificate.ps1 -OV -DnsName a.example.com -NoRevocationInfo          7 certificates; then, for each:
+       openssl x509 -in <crt> -noout -text | findstr /C:"CRL Distribution" /C:"OCSP - URI" /C:"CA Issuers"     expect: only CA Issuers (3 lines)
+       .\GenerateLeafCertificate.ps1 -EV -DnsName b.example.com -Purpose ServerAuth -NoCrl -AddDevelopmentSAN     OCSP lines stay, no CRL point
+ E10 Make the DevKit (the PKI machine)
+       .\PkiTransport.ps1 -DevKit -GeneratePassword        zip in .\transport\, the password shown once, SHA-256 of the zip
+       .\PkiTransport.ps1 -List -Package <the .certpacked inside>     scope "keys of the ISSUING (intermediate) CAs only (no root key)"
+       In the unpacked pki\: keys only at pki\classical\q1|q2\dv|ov|ev\*.key (6 files); NO root.key, classic-root.key, q?-root.key, ocsp, tsa, leaf keys, .pfx
+       The zip has no pki\, leafcerts\ or external-ca\ folder and no password
+ E11 DevKit on Windows 11 25H2+ (a developer's machine; PowerShell 7 as Administrator)
+       .\Install-PkiTrust.ps1        scan PASS, "every SHA-256 matches", roots in LocalMachine\Root, intermediates in LocalMachine\CA (certlm.msc), 6 serial counters randomised
+       .\Install-PkiTrust.ps1        again: pki\ is left alone ("already unpacked"); -Reset unpacks pki\ anew
+       findstr /C:"dir " pki\classical\q1\ov\q1-ov.cnf        the path of THIS folder, not the master's
+       .\GenerateLeafCertificate.ps1 -OV -DnsName kit.example.com ; person and Office examples     the master's index.txt does not change
+       NOT TESTED by the author: this item and E12 on Windows. Report what fails with the scan output.
+ E12 Make-ShExecutable.ps1 (Windows, with WSL)
+       .\Make-ShExecutable.ps1       "converted from CRLF to LF" and "wsl chmod +x done";  wsl ls -l ./*.sh shows -rwxr-xr-x
+       without WSL: it says so and points to  bash make-executable.sh  /  bash ./script.sh
+ E13 DevKit on Ubuntu (24.04 tested by the author)
+       unzip agantra-pki-devkit-*.zip ; cd agantra-pki-devkit-* ; bash make-executable.sh ; ./Install-PkiTrust.sh
+       ls /usr/local/share/ca-certificates | grep agantra   (roots);  openssl verify -CAfile ca/ca-bundle-roots.crt -untrusted pki/classical/q1/ov/q1-ov-chain.crt <leaf>
+       ./GenerateLeafCertificate.sh --ov --dns www.example.com        7 folders; every certificate verifies; serial is random (not the master's counter)
+       ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth --add-development-san --no-revocation-info     EV: 397 days, ev-cps.pdf, no CRL / OCSP
+       ./GeneratePersonLeafCertificate.sh --example-file p.json ; ./GeneratePersonLeafCertificate.sh --file p.json     isGenerate false people skipped
+       ./GenerateOffice365LeafCertificate.sh --example-file o.json ; ./GenerateOffice365LeafCertificate.sh --file o.json --no-revocation-info
+       compare with the PowerShell output:  openssl x509 -in <crt> -noout -text     subject, SAN, KU, EKU, Policy + CPS, algorithms are the same
+ E15 CSR signing (SignCsr, SignExternalCa)
+       openssl req -new -newkey rsa:3072 -nodes -keyout t.key -out t.csr -subj "/C=ID/O=Dept/CN=app.example.com" -addext subjectAltName=DNS:app.example.com
+       .\SignCsr.ps1 -Csr t.csr -Check        coloured report; exit 0 (DV).   -OV: [OK]; -EV without serialNumber / businessCategory: [ERROR], exit 2
+       .\SignCsr.ps1 -Csr t.csr -OV           csr-signed\<name>_<time>\ has .crt -fullchain.crt .p7b sign-info.json; openssl verify -CAfile ...-chain.crt passes
+       -EV -Days 500 is rejected (VAL-EV); a signed EV certificate lasts at most 397 days.  ./SignCsr.sh gives the same codes (kit and repo mode)
+       .\SignExternalCa.ps1 -Csr dept-ca.csr  OV default: needs C, O, OU, CN, RSA 4096+/P-384+; signer q1-root (-Fips: q2-root); pathlen 0; -Quadrant 3 refused
+       PkiRevocation.ps1 -Action Revoke on a CSR-signed serial: index.txt shows R, the new CRL lists it (original PKI only; kit-signed certificates are not in the master CRL)
+ E14 Documentation folder and README
+       dir docs\*.txt   all manuals, PKI-Design..., PKI-Acceptance-Checklists, PKI-Server-Design, PUBLIC-CA-ENTERPRISE-ROOT, scripts-README, linux-README, PKI-SERVER-MANUAL, DevKit-MANUAL
+       .\<script>.ps1 -Help | findstr docs\     the Manual / Design lines name docs\...        README.md renders on GitHub

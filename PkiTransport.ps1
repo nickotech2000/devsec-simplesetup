@@ -15,9 +15,12 @@
     -Pack     makes it from the pki folder (and, if you say so, the leafcerts folder).
     -Install  DESTINATION, Windows 11 25H2 or newer only: scans the machine (Windows version, OpenSSL 4.0.1+),
               and only when the scan passes unpacks the package and installs the CAs in the Windows stores.
+    -DevKit   SOURCE: ONE zip (or 7z) for the developers: the .certpacked (CA certificates + the keys of the ISSUING CAs, no root key),
+              Install-PkiTrust.ps1 / .sh, the leaf / person / Office 365 generators and SignCsr as .ps1 and .sh, Make-ShExecutable.ps1 /
+              make-executable.sh, devkit.env, the manuals. Manual: docs\DevKit-MANUAL.txt
     Unpack only (any machine with PowerShell 7):  Unpack-PkiTransport.ps1.   Linux and macOS:  pki-transport.sh.
 
-    Full help:  .\PkiTransport.ps1 -Help        Manual: PkiTransport-MANUAL.txt
+    Full help:  .\PkiTransport.ps1 -Help        Manual: docs\PkiTransport-MANUAL.txt
 
 .EXAMPLE
     .\PkiTransport.ps1 -Pack -GeneratePassword
@@ -26,11 +29,15 @@
     .\PkiTransport.ps1 -Pack -IncludeLeafCerts -Out D:\share\dev.certpacked -Kit
 .EXAMPLE
     .\PkiTransport.ps1 -Install -Package .\dev.certpacked
+.EXAMPLE
+    .\PkiTransport.ps1 -DevKit -GeneratePassword
+        The developer kit: agantra-pki-devkit-<date>.zip (the password of the .certpacked inside is shown once)
 #>
 # No [CmdletBinding()]: it would reserve short aliases of common parameters. -Verbose is declared below.
 param(
     # ---- what to do ----
     [switch]$Pack,
+    [switch]$DevKit,
     [switch]$Install,
     [switch]$Check,
     [switch]$List,
@@ -53,6 +60,8 @@ param(
     [string[]]$LeafName,
     [switch]$IncludeCaKeys,
     [switch]$Kit,
+    [switch]$DevKitNoKeys,
+    [ValidateSet('zip', '7z')][string]$KitArchiveFormat = 'zip',
 
     # ---- what comes out (destination) ----
     [string]$Destination,
@@ -81,16 +90,18 @@ function Show-PkiTransportHelp {
     @'
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiTransport-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt (section 17)
+ Manual : docs\PkiTransport-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt (section 17)
  Needs  : PowerShell 7+. Source: the PKI made by pki_setup.ps1. Destination: see -Install.
 
 WHAT IT DOES
   -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
+  -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1, Ubuntu sh), the leaf / person /
+             Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
   -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes it unpacks the
              package and installs the CA certificates in the Windows certificate stores.
   -Check     DESTINATION. The scan only (nothing is changed): READY or NOT READY.
@@ -131,6 +142,23 @@ PACK  (source)
   The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
   ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains (one fullchain file per intermediate), ca\publish,
   certpack.json, certpack.tsv, SHA256SUMS, README.txt. Every file has its SHA-256 listed.
+
+DEVKIT  (source: one zip for the developers)
+  .\PkiTransport.ps1 -DevKit -GeneratePassword                    zip + the .certpacked (zip AES-256) with the ISSUING CA keys
+  .\PkiTransport.ps1 -DevKit -Out D:\share\devkit.zip -KitArchiveFormat 7z -ArchiveFormat 7z
+  .\PkiTransport.ps1 -DevKit -DevKitNoKeys                        trust only: the generators then cannot issue
+  The kit holds, in one folder:
+      <name>.certpacked                           CA certificates + the pki folder with the keys of the intermediate (issuing) CAs.
+                                                  NO root key: Enterprise, Track and Quadrant root keys, OCSP / TSA and old leaf keys are left out.
+      Install-PkiTrust.ps1 / .sh                  unpack it and put the PKI in the Local Machine store (Windows) / the Ubuntu store;
+                                                  give every intermediate a NEW RANDOM serial counter (copies must not issue the same serials)
+      GenerateLeafCertificate.ps1 / .sh           GeneratePersonLeafCertificate.ps1 / .sh        GenerateOffice365LeafCertificate.ps1 / .sh
+      Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (and LF line endings); Windows developers need no Linux
+      devkit.env  examples\  docs\  START-HERE.txt  SHA256SUMS  scripts\ (the PowerShell modules)
+  -KitArchiveFormat zip|7z   the outer archive (default zip, not encrypted: the .certpacked inside is).
+  -ArchiveFormat zip|7z      the .certpacked inside (AES-256).        -DevKitNoKeys   no private keys at all.
+  -Out <file>   -GeneratePassword / -PackagePassword   as for -Pack.   Manual: docs\DevKit-MANUAL.txt
+  Certificates issued from a DevKit copy are NOT in the CRL / OCSP database of the master PKI (see the manual).
 
 INSTALL  (destination: Windows 11 25H2 or newer)
   .\PkiTransport.ps1 -Install -Package .\dev.certpacked
@@ -207,14 +235,14 @@ catch { Write-Host "[WARN] Automatic unblock / unlock failed: $($_.Exception.Mes
 $script:PackageOpened = $null
 try {
     # ---------------- what is asked ----------------
-    $modes = @($Pack, $Install, $Check, $List, $RemoveTrust, $Unblock | Where-Object { $_ })
-    if ($modes.Count -eq 0) { throw 'Say what to do: -Pack, -Install, -Check, -List, -RemoveTrust or -Unblock. See .\PkiTransport.ps1 -Help.' }
-    if ($modes.Count -gt 1 -and -not ($Check -and ($Install -or $List)) ) { throw 'Use only one of -Pack, -Install, -Check, -List, -RemoveTrust and -Unblock.' }
-    if ($IncludeCaKeys -and -not $Pack) { throw '-IncludeCaKeys is a -Pack option.' }
+    $modes = @($Pack, $DevKit, $Install, $Check, $List, $RemoveTrust, $Unblock | Where-Object { $_ })
+    if ($modes.Count -eq 0) { throw 'Say what to do: -Pack, -DevKit, -Install, -Check, -List, -RemoveTrust or -Unblock. See .\PkiTransport.ps1 -Help.' }
+    if ($modes.Count -gt 1 -and -not ($Check -and ($Install -or $List)) ) { throw 'Use only one of -Pack, -DevKit, -Install, -Check, -List, -RemoveTrust and -Unblock.' }
+    if ($IncludeCaKeys -and -not $Pack) { throw '-IncludeCaKeys is a -Pack option (-DevKit packs the issuing CA keys by itself).' }
     if ($Pack -and ($Install -or $RemoveTrust)) { throw '-Pack cannot be combined with -Install or -RemoveTrust.' }
 
     # module set: pack needs the whole library, everything else only the small destination kit
-    $PkiModuleSet = if ($Pack) { 'Library' } else { 'Transport' }
+    $PkiModuleSet = if ($Pack -or $DevKit) { 'Library' } else { 'Transport' }
     . (Join-Path $script:ScriptRoot 'scripts/PkiModules.ps1')
 
     # =========================================================================================== -Unblock
@@ -241,6 +269,48 @@ try {
             if ($problems.Count -gt 0) { throw ("The package password is not accepted: " + ($problems -join '; ') + '. Use -GeneratePassword for a strong one.') }
         }
         return [ordered]@{ Password = $pw; Generated = $generated }
+    }
+
+    # =========================================================================================== -DevKit
+    if ($DevKit) {
+        Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:([bool]$Verbose)
+        $c = $script:Pki
+        [void](Import-PkiExisting -SkipProviders)
+        $leafRoot = Get-PkiLeafRoot
+        if ($ArchiveFormat -eq '7z' -or $KitArchiveFormat -eq '7z') {
+            if (-not (Find-PkiSevenZip -Explicit $SevenZipPath)) {
+                $doInstall = [bool]$InstallMissing
+                if (-not $doInstall) { $doInstall = Confirm-PkiInstall '7-Zip is needed for a 7z archive and was not found. Install it now?' }
+                if ($doInstall) { [void](Install-PkiSevenZip) }
+            }
+            if (-not (Find-PkiSevenZip -Explicit $SevenZipPath)) { throw '7z needs 7-Zip and none was found (winget install 7zip.7zip, or -SevenZipPath). The default zip needs nothing.' }
+        }
+        if (-not $DevKitNoKeys) { Write-PkiLog 'The DevKit will contain the PRIVATE KEYS OF THE ISSUING (intermediate) CAs (inside the encrypted .certpacked). No root key. Whoever opens it can issue certificates your clients trust, until you revoke the intermediates.' 'WARN' }
+        $pw = & $getPassword $true
+        $kitFile = if ($Out) { $Out } else { Join-Path (Join-Path $script:ScriptRoot 'transport') ("agantra-pki-devkit-{0}" -f (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+        $want = if ($KitArchiveFormat -eq '7z') { '.7z' } else { '.zip' }
+        $ext = [System.IO.Path]::GetExtension($kitFile)
+        if ($ext -ne $want) { $kitFile = $(if ($ext -in '.zip', '.7z', '.certpacked') { [System.IO.Path]::ChangeExtension($kitFile, $want) } else { $kitFile + $want }) }
+        $kitFile = [System.IO.Path]::GetFullPath($kitFile)
+        Write-PkiLog "Building the DevKit -> $kitFile  (kit: $KitArchiveFormat, .certpacked inside: $ArchiveFormat AES-256)"
+        $r = New-PkiDevKit -Root $script:ScriptRoot -OutFile $kitFile -Password $pw.Password -KitFormat $KitArchiveFormat -PackageFormat $ArchiveFormat `
+            -SevenZipPath $SevenZipPath -Comment ([string]$Comment) -LeafRoot $leafRoot -WithKeys:(-not $DevKitNoKeys) -NoVerify:$NoVerify
+        $sha = Get-PkiFileSha256 -Path $r.Path
+        Write-Host ''
+        Write-Host 'DEVKIT' -ForegroundColor Cyan
+        Write-Host ("  File        : {0}" -f $r.Path)
+        Write-Host ("  Size        : {0:N0} bytes, {1} files in folder {2}\" -f $r.Bytes, $r.Files, $r.Folder)
+        Write-Host ("  Contains    : the .certpacked ({0}, {1}) with {2}" -f $r.Package.Format, $r.Package.Encryption, $(if ($DevKitNoKeys) { 'the CA certificates only' } else { 'the CA certificates + the issuing CA keys (no root key)' }))
+        Write-Host ("                Install-PkiTrust.ps1 / .sh, Generate{Leaf,PersonLeaf,Office365Leaf}Certificate + SignCsr .ps1 / .sh, Make-ShExecutable.ps1, make-executable.sh, docs, START-HERE.txt")
+        Write-Host ("  SHA-256     : {0}   (of the kit file: compare it after the transfer)" -f $sha)
+        if ($pw.Generated) {
+            Write-Host ''
+            Write-Host '  PASSWORD of the .certpacked inside (shown once; send it by another channel than the kit):' -ForegroundColor Yellow
+            Write-Host "      $($pw.Password)" -ForegroundColor Yellow
+        }
+        Write-Host ''
+        Write-PkiLog 'Next: send the kit to the developer. Windows: unzip, open PowerShell 7 as Administrator in the folder, run .\Install-PkiTrust.ps1. Ubuntu: unzip, bash make-executable.sh, ./Install-PkiTrust.sh.' 'INFO'
+        exit 0
     }
 
     # =========================================================================================== -Pack
@@ -368,7 +438,7 @@ try {
     $m = $script:PackageOpened.Manifest
     Write-PkiLog "Package opened: $($script:PackageOpened.Verified) file(s), every SHA-256 matches. Made $($m['createdUtc']) on $($m['source']['machine']), $($m['archive']['encryption'])." 'OK'
     $scope = $m['scope']
-    Write-PkiLog "Scope: CA certificates$(if ($scope['leafcerts']) { ' + leaf certificates (private keys)' })$(if ($scope['caPrivateKeys']) { ' + the whole PKI (CA private keys)' })." 'INFO'
+    Write-PkiLog "Scope: CA certificates$(if ($scope['leafcerts']) { ' + leaf certificates (private keys)' })$(if ($scope['caPrivateKeys']) { if ($scope.Contains('issuingKeysOnly') -and $scope['issuingKeysOnly']) { ' + the PKI folder with the keys of the ISSUING (intermediate) CAs only (no root key)' } else { ' + the whole PKI (CA private keys)' } })." 'INFO'
     if ($m['comment']) { Write-PkiLog "Comment: $($m['comment'])" 'INFO' }
 
     if ($Check) {

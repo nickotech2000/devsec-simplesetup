@@ -16,7 +16,7 @@
 #              EV: OV + serialNumber, businessCategory, jurisdiction*, optional D-U-N-S.
 #   Key rules  RSA >= 2048, ECDSA >= P-256, hash >= SHA-256 (anything lower is REJECTED).
 #              Code signing is forced to RSA >= 4096 / ECDSA >= P-384 / ML-DSA >= 65.
-#   Validity   EV 397 days (max 398), OV 3 years, DV 5 years, or -Days; never beyond the issuer.
+#   Validity   EV 397 days (the maximum, also for time stamping and OCSP), OV 3 years, DV 5 years, or -Days; never beyond the issuer.
 #   Formats    PEM, DER, CER, CERT, P7B, RFC 7468, PFX (always .crt .key -fullchain.crt -chain.crt)
 #   Purposes   ServerAuth, ClientAuth, ServerClientAuth (both EKUs in ONE certificate), CodeSigning, EmailProtection,
 #              TimeStamping, OcspSigning. A SET makes one certificate per purpose in one go (Invoke-PkiLeafSet), each in
@@ -511,11 +511,14 @@ function New-PkiLeafSpec {
 
     # validity
     $days = [int](& $get 'Days' 0)
-    # a time stamp must stay verifiable long after it was made: the TSA certificate lives longer than a TLS certificate (private PKI, no 398-day rule)
+    # a time stamp must stay verifiable long after it was made: the TSA certificate lives longer than a TLS certificate (private PKI); an EV certificate is capped at 397 days below
     if ($days -le 0 -and $null -ne $tsaSet) { $days = [int]$tsaSet.Days }
     if ($days -le 0 -and ($eku -contains 'OcspSigning')) { $days = [int]$c.OcspDays }
     if ($days -le 0) { $days = Get-PkiLeafDays -Level $level }
-    if ($level -eq 'EV' -and $days -gt 398 -and $eku -notcontains 'TimeStamping' -and $eku -notcontains 'OcspSigning') { throw "An EV leaf certificate may not be valid longer than 398 days (asked $days)." }
+    if ($level -eq 'EV' -and $days -gt 397) {
+        if ($null -ne $tsaSet -or ($eku -contains 'OcspSigning')) { [void]$notes.Add("EV: validity limited to 397 days (the TSA / OCSP default was $days)"); $days = 397 }
+        else { throw "An EV certificate may not be valid longer than 397 days (asked $days)." }
+    }
     $room = Get-PkiIssuerRemainingDays -IssuerId $ca.Id
     if ($null -ne $room -and $days -gt $room) { [void]$notes.Add("validity limited by the issuer: $days -> $room days"); $days = $room }
     if ($days -lt 1) { throw "The issuer $($ca.Id) has expired or ends within a day: no leaf can be issued." }
@@ -549,6 +552,7 @@ function New-PkiLeafSpec {
         San = $san; DnPairs = $dn; Policies = $policies; Days = $days
         Primary = $primary; Folder = $names.Folder; PurposeFolder = $names.PurposeFolder; SetMode = $setMode; Stem = $stem; OutputFolder = $names.OutputFolder; UniqueSuffix = $names.UniqueSuffix
         Formats = @($fm); Notes = $notes; Tokens = $tokens
+        NoCrl = [bool](& $get 'NoCrl' $false); NoOcsp = [bool](& $get 'NoOcsp' $false)
         DevSan = $devSan; EvSanOverride = $evSanOverride; TimestampPolicyOid = $tsaOid
         OutDir = $null; Extras = $true
     }
@@ -642,7 +646,7 @@ function New-PkiLeafCertificate {
     foreach ($pair in $Spec.DnPairs) { [void]$L.Add("$($pair[0]) = $(ConvertTo-PkiConfValue $pair[1])") }
     [void]$L.Add('')
     $policyRefs = Add-PkiPolicySections -Lines $L -Policies $Spec.Policies -Prefix 'lp'
-    $loc = Add-PkiLocationSections -Lines $L -IssuerSlug $ca.Slug -Prefix 'll'
+    $loc = Add-PkiLocationSections -Lines $L -IssuerSlug $ca.Slug -Prefix 'll' -NoCrl:([bool]$Spec['NoCrl']) -NoOcsp:([bool]$Spec['NoOcsp'])
     [void]$L.Add('[ san ]')
     $i = 0; foreach ($d in $san.Dns)   { $i++; [void]$L.Add("DNS.$i = $(ConvertTo-PkiConfValue $d)") }
     $i = 0; foreach ($a in $san.Ip)    { $i++; [void]$L.Add("IP.$i = $a") }
@@ -760,6 +764,8 @@ function Test-PkiLeafResult {
     }
     if ($Spec.Eku -contains 'OcspSigning' -and $t -notmatch 'OCSP No Check') { [void]$problems.Add('the OCSP no-check extension is missing') }
     if ($Spec.Eku -contains 'TimeStamping' -and $t -notmatch '(?s)Extended Key Usage:\s*critical') { [void]$problems.Add('the time stamping extended key usage is not critical') }
+    if ([bool]$Spec['NoCrl'] -and $t -match 'CRL Distribution Points') { [void]$problems.Add('-NoCrl: the certificate still has a CRL distribution point') }
+    if ([bool]$Spec['NoOcsp'] -and $t -match 'OCSP - URI') { [void]$problems.Add('-NoOcsp: the certificate still has an OCSP URL') }
     foreach ($p in $Spec.Policies) { if ($t -notmatch [regex]::Escape($p.Oid)) { [void]$problems.Add("policy $($p.Oid) ($($p.Label)) is missing") } }
     foreach ($d in $Spec.San.Dns) { if ($t -notmatch [regex]::Escape("DNS:$d")) { [void]$problems.Add("SAN DNS:$d is missing") } }
     foreach ($m in $Spec.San.Email) { if ($t -notmatch [regex]::Escape("email:$m")) { [void]$problems.Add("SAN email:$m is missing") } }
@@ -867,7 +873,7 @@ function New-PkiLeafSetSpecs {
     foreach ($p in $Purposes) {
         $prof = $script:PkiPurposeProfiles[$p]
         $o = @{}
-        foreach ($k in 'Level', 'Quadrant', 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash', 'Days', 'Policy', 'Format', 'AddDevelopmentSan', 'CodeSigningCompany') { if ($Base.ContainsKey($k)) { $o[$k] = $Base[$k] } }
+        foreach ($k in 'Level', 'Quadrant', 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash', 'Days', 'Policy', 'Format', 'AddDevelopmentSan', 'CodeSigningCompany', 'NoCrl', 'NoOcsp') { if ($Base.ContainsKey($k)) { $o[$k] = $Base[$k] } }
         $o.Eku = $(if ($prof.Contains('Eku')) { @($prof['Eku']) } else { @($p) }); $o.SetMode = $true; $o.NameOverride = $setName
         if ($prof.Web) {
             $o.DnsName = @($Base.DnsName); $o.IpAddress = @($Base.IpAddress); $o.EmailAddress = @($Base.EmailAddress)
@@ -936,7 +942,7 @@ function Add-PkiLeafIndex {
     $entry = [ordered]@{
         folder = $FolderName; set = $Set; path = $R.Dir; stem = $R.Stem; level = $Spec.Level; quadrant = $Spec.Quadrant; track = $Spec.Track; fips = $Spec.Fips
         issuer = $Spec.Ca.Id; keyAlgorithm = $R.Actual.Algorithm; signatureDigest = $R.Md; purposes = @($Spec.Eku)
-        dns = @($Spec.San.Dns); ip = @($Spec.San.Ip); email = @($Spec.San.Email); developmentSan = [bool]$Spec.DevSan; evSanOverride = [bool]$Spec.EvSanOverride
+        dns = @($Spec.San.Dns); ip = @($Spec.San.Ip); email = @($Spec.San.Email); developmentSan = [bool]$Spec.DevSan; revocationInfo = [ordered]@{ crlDistributionPoints = (-not [bool]$Spec['NoCrl']); ocsp = (-not [bool]$Spec['NoOcsp']) }; evSanOverride = [bool]$Spec.EvSanOverride
         days = $R.Days; notAfter = $R.NotAfter; timestampPolicyOid = [string]$Spec.TimestampPolicyOid
         sha1 = $R.Sha1; sha256 = $R.Sha256; formats = @($Spec.Formats); files = @($R.Files)
         createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "GenerateLeafCertificate.ps1 $($script:PkiGeneratorVersion)"

@@ -21,7 +21,7 @@
     not it says so and suggests running Install-DevEnvironment.ps1.
     At every start the script UNBLOCKS and UNLOCKS its folder, children and recursive.
 
-    Full help:  .\GenerateLeafCertificate.ps1 -Help      Manual: GenerateLeafCertificate-MANUAL.txt
+    Full help:  .\GenerateLeafCertificate.ps1 -Help      Manual: docs\GenerateLeafCertificate-MANUAL.txt
 
 .EXAMPLE
     .\GenerateLeafCertificate.ps1 -DnsName www.example.com
@@ -54,6 +54,11 @@ param(
     [string[]]$EmailAddress,
     [string]$CommonName,
     [switch]$AddDevelopmentSAN,
+
+    # ---- revocation information (4.9.5) ----
+    [switch]$NoCrl,
+    [switch]$NoOcsp,
+    [switch]$NoRevocationInfo,
     [Alias('CodesignCompany')][string]$CodeSigningCompany,
 
     # ---- key and signature ----
@@ -121,12 +126,13 @@ function Show-PkiLeafHelp {
     @'
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : GenerateLeafCertificate-MANUAL.txt   Design : PKI-Design-with-FIPS-and-PQC.txt (section 15)
+ Manual : docs\GenerateLeafCertificate-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt (section 15)
+ Ubuntu : GenerateLeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl, no PowerShell needed.
  Needs  : PowerShell 7+, OpenSSL 4.x with the FIPS module and ML-DSA, and a PKI made by pki_setup.ps1.
 
 WHAT IT DOES
@@ -206,6 +212,13 @@ TIME STAMPING CERTIFICATE (RFC 3161)
   Config: [ timestamp ] Quadrant / PolicyOid / Days in agantra_pki.cnf.  Keys of the OCSP / TSA certificates can also be made on the
   server (pki-server.sh csr) and signed with PkiRevocation.ps1 -Action SignCsr.
 
+REVOCATION INFORMATION   (4.9.5)
+  -NoCrl             no CRL distribution point in ANY generated certificate (the whole set, or the one certificate)
+  -NoOcsp            no OCSP URL (Authority Information Access OCSP) in any generated certificate
+  -NoRevocationInfo  both. The CA issuer URL (caIssuers) stays. Use it for development / Office / offline systems that say "cannot connect
+                     to the revocation server". Such a certificate cannot be checked or revoked by CRL / OCSP; leaf-info.json records
+                     revocationInfo {crlDistributionPoints, ocsp}.   Same switches: GeneratePersonLeafCertificate.ps1, GenerateOffice365LeafCertificate.ps1.
+
 NAMES
   -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
   Given on the command line = exactly these names. -CommonName replaces the CN of the TLS certificates and is the
@@ -229,7 +242,7 @@ DEVELOPMENT SAN   (-AddDevelopmentSAN)
   EmailProtection: the e-mail addresses only. CodeSigning, TimeStamping, OcspSigning: nothing (they carry no SAN).
   EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are
   deliberately NOT applied, so an EV leaf with -AddDevelopmentSAN is the way to make EV-looking certificates for
-  development. The EV subject, the EV policy and the 398-day limit stay. A warning is printed and leaf-info.json says
+  development. The EV subject, the EV policy and the 397-day limit stay. A warning is printed and leaf-info.json says
   developmentSan / evSanOverride = true. FOR DEVELOPMENT ONLY: a public CA would not issue such a certificate.
   Change the list in [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); without
   that section the built-in list above is used. A range may have at most 1024 addresses.
@@ -252,7 +265,7 @@ KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
   Code signing is FORCED up: RSA >= 4096, ECDSA >= P-384, ML-DSA >= 65, SHA-256 or stronger (a note says so).
 
 VALIDITY AND POLICIES
-  -Days <n>            Default: EV 397 days (maximum 398), OV 3 years, DV 5 years. Never longer than the issuer.
+  -Days <n>            Default: EV 397 days (the maximum, for every purpose), OV 3 years, DV 5 years. Never longer than the issuer.
   -Policy <list>       Extra certificate policies: "OID" or "OID|CPS-URL". The level policy (EV 2.23.140.1.1,
                        OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [ policy_oids ] / [ iana_pen ] and these are written.
   -CpsUrl <url>        CPS pointer on every policy of a DV / OV certificate (default https://nextmantra.com/security/certs).
@@ -303,8 +316,8 @@ INFORMATION, UNBLOCK AND UNLOCK
 LIMITATIONS
   * ML-DSA leaves (-Quantum) work with OpenSSL 3.5+ services and mutual TLS. Windows Schannel (Kestrel / IIS on
     Windows), Java 25 and the browsers do not accept them for HTTPS today: use a Classic leaf there.
-  * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. Public TLS leaves are
-    limited to 398 days.
+  * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. EV certificates are
+    capped at 397 days.
   * -AddDevelopmentSAN makes certificates that are NOT EV-conformant in their SAN (by intent); development only.
     A SAN with 428 entries makes every TLS certificate about 6 KB larger than usual.
   * A set is all or nothing: if one certificate fails, the new set folder is removed.
@@ -420,7 +433,9 @@ try {
         CommonName = $CommonName; KeyType = $KeyType; KeyBits = $KeyBits; Curve = $Curve
         PqcAlgorithm = $PqcAlgorithm; Hash = $Hash; Days = $Days; Policy = $Policy; Format = $Format
         AddDevelopmentSan = [bool]$AddDevelopmentSAN; CodeSigningCompany = $CodeSigningCompany
+        NoCrl = [bool]($NoCrl -or $NoRevocationInfo); NoOcsp = [bool]($NoOcsp -or $NoRevocationInfo)
     }
+    if ($base.NoCrl -or $base.NoOcsp) { Write-PkiLog ('Revocation information left OUT of every generated certificate: ' + $(if ($base.NoCrl) { 'no CRL distribution point' }) + $(if ($base.NoCrl -and $base.NoOcsp) { ', ' }) + $(if ($base.NoOcsp) { 'no OCSP URL' }) + '. These certificates cannot be revoked by CRL/OCSP; development / Office use only.') 'WARN' }
     if ($purposes -contains 'CodeSigning') {
         $csDn = Get-PkiCodeSigningDn -Company $CodeSigningCompany -Level $level
         Write-PkiLog ('Code signing subject: ' + (($csDn | ForEach-Object { '{0}={1}' -f $_[0], $_[1] }) -join ', '))
@@ -428,7 +443,7 @@ try {
     if ($AddDevelopmentSAN) {
         $devList = Get-PkiDevelopmentSan
         Write-PkiLog "-AddDevelopmentSAN: $($devList.Dns.Count) DNS names, $($devList.Ip.Count) IP addresses and $($devList.Email.Count) e-mail addresses ($($devList.Source)) are added to the SAN of the TLS certificates (S/MIME: the e-mail addresses only; code signing, time stamping and OCSP carry no SAN)." 'WARN'
-        if ($level -eq 'EV') { Write-PkiLog 'EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are deliberately NOT applied. The subject, the EV policy and the 398-day limit stay. For development only; no public CA would issue this.' 'WARN' }
+        if ($level -eq 'EV') { Write-PkiLog 'EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail address) are deliberately NOT applied. The subject, the EV policy and the 397-day limit stay. For development only; no public CA would issue this.' 'WARN' }
     }
     if ($purposes -contains 'TimeStamping') {
         $ts = Get-PkiTimestampSettings

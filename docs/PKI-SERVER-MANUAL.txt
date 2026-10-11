@@ -1,0 +1,113 @@
+====================================================================================================================================
+ Agantra Inovatif Enterprise PKI  -  PKI SERVER KIT (Ubuntu 24.04 / 26.04)                                   Version 1.1.0   2026-10-11
+ Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+====================================================================================================================================
+
+1. WHAT YOU GET
+   One Ubuntu VM that serves your private PKI to the developers' machines, all on plain HTTP port 80 (revocation data must not need TLS):
+
+     CRL + CA certificates   http://crl-01.nextmantra.com/<ca>.crl , http://crl-02..., http://crl-dev.nextmantra.internal/..., crt-01 / crt-02 / crt-dev
+                             (the host names are read from the [crl_urls] and [ca_issuer_urls] of agantra_pki.cnf)
+     OCSP                    http://ocsp.nextmantra.internal   and   http://ocsp.nextmantra.com        ([ocsp_urls])
+                             ONE URL for all CAs: one "openssl ocsp" responder per CA behind a small dispatcher
+     Time stamping RFC 3161  http://tsa.nextmantra.internal   and   http://timestamp.nextmantra.internal
+                             "openssl ts -reply" signed with your TimeStamping certificate (Authenticode /code signing, jarsigner, openssl ts)
+
+   Software: nginx from YOUR PPA (default ppa:nickotech2000/nicko-su-prod), OpenSSL 4.0.x (PPA package, an existing build, or
+   built by Install-DevEnvironment.sh), python3 (the dispatcher and the TSA service use only the standard library).
+
+2. WHAT STAYS WHERE
+   * The CA PRIVATE KEYS never go to the server. Only: publish\ (CA certificates, CRLs), the index.txt of each CA (OCSP status),
+     and the key + certificate of the OCSP-signing and time-stamping certificates (best: made on the server by 'csr', so no key travels).
+   * CRLs are made where the CA keys are (pki_setup.ps1 / openssl ca -gencrl). They expire (365 days by default).
+     After a new CRL, or after issuing or revoking a certificate: copy the pki folder again and run  "update".
+     A daily timer (crl-check) warns in the journal when a CRL has less than 14 days left.
+
+3. PREPARE ON THE CA MACHINE (Windows 11)
+   a. Your PKI exists (pki_setup.ps1). Certificates carry the URLs above ([crl_urls], [ocsp_urls], [ca_issuer_urls] of agantra_pki.cnf).
+      pki_setup.ps1 also made the revocation information (pki\revocation-info.json, REVOCATION-INFO.txt, pki\ocsp, pki\tsa).
+   b. Build the package (NO private key inside, LF text, .sh executable):
+          .\New-PkiServerPackage.ps1                (zip)        .\New-PkiServerPackage.ps1 -Tar        (also .tar.gz)
+      -> agantra-pki-server-<date>.zip: linux\ (this kit, pki-transport.sh, Install-DevEnvironment.sh), pki\ (public files, index.txt of each CA),
+         agantra_pki.cnf, the documents, SHA256SUMS. Copy it to the Ubuntu VM (scp, or the WSL path /mnt/c/Users/<you>/...).
+   c. THE KEYS OF THE OCSP RESPONDERS AND THE TIME STAMP SERVER stay on the server (recommended):
+         server:   sudo ./linux/pki-server/pki-server.sh csr --source ./pki --out ./csr
+         CA side:  .\PkiRevocation.ps1 -Action SignCsr -Csr .\ocsp-q1-ev.csr -For Ocsp -Ca q1-ev      (repeat per CA; -For Tsa -Ca q1-ev for tsa-q1-ev.csr)
+         server:   sudo ./linux/pki-server/pki-server.sh import-cert --cert ocsp-q1-ev.crt --cert ocsp-q1-ov.crt --cert tsa-q1-ev.crt
+      Lab shortcut instead: New-PkiServerPackage.ps1 -IncludeServiceKeys (the OCSP / TSA keys made by pki_setup travel in the package; never a CA key), or
+      --ocsp-leaf / --tsa-leaf folders of a GenerateLeafCertificate.ps1 set.
+
+4. INSTALL ON UBUNTU
+      unzip agantra-pki-server-*.zip && cd agantra-pki-server
+      bash linux/fix-permissions.sh                    (only if "Permission denied"; the zip keeps the execute bits)
+      sudo ./linux/pki-server/pki-server.sh install --source ./pki
+   (--source finds <source>/ocsp and <source>/tsa and the imported certificates by itself; --cnf is found next to the package.)
+
+   What it does: apt update; adds the PPA; shows what the PPA publishes; installs nginx (package found in the PPA, else "nginx"; override
+   --nginx-package), python3, curl; finds OpenSSL 4 (an existing one, or the PPA package, or --build-openssl); creates the service user
+   pki-server; publishes the files to /srv/agantra-pki/www; sets up one OCSP responder per CA (matching each OCSP certificate to its issuing
+   CA by issuer hash, and refusing a key that does not match its certificate); sets up the TSA (policy OID from the certificate, default
+   1.3.6.1.4.1.67096.1.4); writes the nginx site (sites-available/agantra-pki-server.conf + symlink, or conf.d/), runs nginx -t and ROLLS BACK when it
+   fails; writes and starts the systemd units; runs the self-test; prints the DNS records.
+   THE PPA (read from the Launchpad API, 2026-10-11): ppa:nickotech2000/nicko-su-prod publishes for Ubuntu 24.04 (noble) and 26.04
+   (resolute), amd64 only:   nicko-su-nginx 1.31.6-nicko-su-8     nicko-su-openssl4 4.0.3-nicko-su-4
+   These are the defaults. The kit finds the nginx binary, service name and configuration folder, and the OpenSSL binary and its private
+   library folder, from the package file lists (dpkg -L), so it does not matter where the packages put them. Options if you rename things:
+      --ppa ppa:owner/name   --no-ppa   --nginx-package <name>   --openssl-package <name>   --openssl /path/to/openssl
+   If your nginx.conf does not include sites-enabled or conf.d, the kit says so and prints the include line to add.
+
+   TEST IN WSL (Ubuntu 24.04 / 26.04) FROM WINDOWS 11 PRO
+      1  wsl --install -d Ubuntu-24.04   (or Ubuntu-26.04).  Work in the Linux file system (~), not in /mnt/c: unzip there, so that the execute bit and LF stay.
+      2  systemd: WSL needs  [boot] systemd=true  in /etc/wsl.conf (then  wsl --shutdown). Without it use  --no-systemd  and  ... pki-server.sh run.
+      3  In WSL:  ./linux/pki-server/pki-server.sh dns     prints the host names. WSL's IP:  hostname -I
+      4  Windows: Notepad as ADMINISTRATOR -> C:\Windows\System32\drivers\etc\hosts, add one line per name, e.g.
+              172.20.x.x   crl-01.nextmantra.com crl-02.nextmantra.com crl-dev.nextmantra.internal crt-01.nextmantra.com ocsp.nextmantra.internal tsa.nextmantra.internal
+         Windows 11 22H2+ with  [wsl2] networkingMode=mirrored  (in %UserProfile%\.wslconfig): use 127.0.0.1. With the default NAT mode the WSL IP changes at
+         every start; localhost forwarding also reaches port 80 on 127.0.0.1. Run  ipconfig /flushdns  after editing.
+      5  Windows: curl.exe http://crl-01.nextmantra.com/agantra-q1-ev-g1.crl -o t.crl   certutil -URL <leaf.crt>   (the Windows revocation test)
+         openssl ocsp ... -url http://ocsp.nextmantra.internal   and the time stamp commands of chapter 7.
+      6  Port 80 busy on Windows (IIS, World Wide Web Publishing Service)? Stop it, or use the WSL IP in the hosts file.
+
+5. DNS (your Wi-Fi router)
+      ./pki-server.sh dns          prints the list. Create an A record for each name pointing to the VM's IP.
+   crl-01.nextmantra.com and ocsp.nextmantra.com are public names: the override exists only on your internal DNS.
+
+6. DAILY WORK
+      sudo ./pki-server.sh update --source ./pki     new CRLs, new index.txt (OCSP follows at once); after every New-PkiServerPackage.ps1
+      sudo ./pki-server.sh csr | import-cert         keys on the server (chapter 3c)           ./pki-server.sh info   status + DNS
+      ./pki-server.sh status                 services, certificate dates, CRL expiry
+      ./pki-server.sh test                   CRL download via nginx, OCSP query per CA (signature verified), time stamp create + verify
+      ./pki-server.sh crl-check              CRL expiry only
+      ./pki-server.sh check                  OpenSSL / nginx / python readiness, nothing changed
+      sudo ./pki-server.sh uninstall [--purge]
+   Without systemd (container, WSL):   sudo ./pki-server.sh install ... --no-systemd   then   sudo /opt/agantra-pki-server/pki-server.sh run
+
+7. TESTS FROM A CLIENT
+      OCSP     openssl ocsp -issuer ca.crt -cert leaf.crt -url http://ocsp.nextmantra.internal -CAfile ca-bundle.crt
+      Stamp    openssl ts -query -data file -sha256 -cert -out q.tsq
+               curl -H 'Content-Type: application/timestamp-query' --data-binary @q.tsq http://tsa.nextmantra.internal/ -o r.tsr
+               openssl ts -verify -data file -in r.tsr -CAfile ca-bundle.crt
+      Windows  signtool sign /fd sha256 /tr http://tsa.nextmantra.internal /td sha256 /f code.pfx file.exe
+      CRL      curl -O http://crl-01.nextmantra.com/agantra-q1-ev-g1.crl ; openssl crl -inform DER -in agantra-q1-ev-g1.crl -noout -text
+
+8. FILES ON THE SERVER
+      /opt/agantra-pki-server/     pki-server.sh, pki-ocsp-dispatch.py, pki-tsa.py, ocsp-run, tsa-run, dispatch-run
+      /etc/agantra-pki-server/     kit.conf, tsa.cnf, ocsp-backends, ocsp/<ca>.env, keys/  (responder + TSA keys: 640 root:pki-server)
+      /var/lib/agantra-pki-server/ ocsp/<ca>/index.txt + ca.crt (the OCSP copy), tsa.serial
+      /srv/agantra-pki/www/        everything published (CRLs, CA certificates, ca-bundle.crt, root.crt, index.html)
+      /etc/nginx/sites-available/agantra-pki-server.conf    systemd: agantra-ocsp-<ca>, agantra-ocsp-dispatch, agantra-tsa, agantra-crl-check.timer
+
+9. LIMITS AND SECURITY NOTES (read them)
+   * The OCSP dispatcher chooses the responder by the issuer key hash of the request (OpenSSL 4 answers 'unknown' for a foreign CA's certificate).
+   * The time stamp certificate is the normal TimeStamping leaf (critical, alone), Classic non-FIPS by default; see PKI-Server-Design.txt D6.
+   * "openssl ocsp -port" listens on ALL interfaces (it has no bind address). Ports 25001 and up, then answer plain OCSP. Block them from
+     the LAN:   sudo ufw allow 80/tcp ; sudo ufw deny 25001:25099/tcp ; sudo ufw deny 2559:2560/tcp   (the dispatcher and the TSA bind 127.0.0.1 only).
+   * openssl ocsp is a simple responder: fine for a private PKI, no load balancing, answers valid for 1 day, signed on request.
+   * The OCSP copy of index.txt replaces the subject column by the serial (OpenSSL refuses duplicate subjects of valid entries; the
+     answer needs only serial and status). The CA's own index.txt is not touched.
+   * Time stamping: RSA or ECDSA TSA keys, SHA-256 signature. A post-quantum (ML-DSA) TSA is not supported by this kit. Policy OID default
+     1.3.6.1.4.1.67096.1.4 (your PEN arc; taken from the TSA certificate, --tsa-policy overrides). The time comes from the VM clock: run chrony / systemd-timesyncd.
+   * Plain HTTP only, as CRL / OCSP / AIA require. Do not put these hosts behind a redirect to HTTPS.
+   * TESTED: the whole chain (CRL via nginx, OCSP good / revoked / unknown, time stamp create + verify, nginx -t rollback) on Ubuntu 24.04 with
+     OpenSSL 4.0.3 and the Ubuntu nginx 1.24, WITHOUT systemd (the units are written by the same code but were not started here), and
+     WITHOUT your PPA packages (the PPA is not reachable from the build machine; the package names come from the Launchpad API). First run on your VM: ./pki-server.sh check, then install, then test.

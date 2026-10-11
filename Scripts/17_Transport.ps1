@@ -187,7 +187,7 @@ function Get-PkiPackagePlan {
     #>
     param(
         [Parameter(Mandatory)][string]$LeafRoot, [bool]$IncludeLeafCerts = $false, [bool]$IncludeCaKeys = $false,
-        [string[]]$LeafName = @(), [Parameter(Mandatory)][string]$Staging
+        [string[]]$LeafName = @(), [Parameter(Mandatory)][string]$Staging, [bool]$IssuingKeysOnly = $false
     )
     $c = $script:Pki
     Ensure-PkiDirectory -Path $Staging
@@ -270,7 +270,23 @@ function Get-PkiPackagePlan {
     # the whole PKI folder with the CA private keys
     if ($IncludeCaKeys) {
         $root = $c.PkiRoot.TrimEnd('\', '/')
+        # -IssuingKeysOnly (DevKit): private keys only inside the folders of the INTERMEDIATE (issuing) CAs. No root, track-root,
+        # quadrant-root, OCSP, TSA or old leaf key, and no .pfx/.p12 (they hold keys too). Certificates, CRLs, databases stay.
+        $issuingDirs = [System.Collections.Generic.List[string]]::new()
+        if ($IssuingKeysOnly) {
+            foreach ($ca in $c.Catalog) {
+                if ($ca.Kind -in 'root', 'track', 'quadrant') { continue }
+                [void]$issuingDirs.Add(([System.IO.Path]::GetFullPath((Split-Path -Parent (Get-PkiCaPaths -Ca $ca).Crt))).TrimEnd('\', '/'))
+            }
+        }
+        $isSecret = { param($f) ($f.Extension -in '.key', '.pfx', '.p12', '.p8', '.pk8') -or ($f.Name -match '(?i)private|\.key\.') }
         foreach ($f in Get-ChildItem -LiteralPath $c.PkiRoot -Recurse -File -Force | Where-Object { $_.Extension -notin '.tmp' -and $_.Name -notlike '*.untrusted.tmp' -and $_.Name -ne 'telemetry.json' }) {
+            if ($IssuingKeysOnly -and (& $isSecret $f)) {
+                $dir = [System.IO.Path]::GetFullPath($f.DirectoryName).TrimEnd('\', '/')
+                $inIssuing = $f.Extension -in '.key' -and ($issuingDirs -contains $dir)
+                if (-not $inIssuing) { continue }
+            }
+            elseif ($IssuingKeysOnly -and $f.Extension -eq '.pem' -and ((Get-Content -LiteralPath $f.FullName -TotalCount 40 -ErrorAction SilentlyContinue) -match 'PRIVATE KEY')) { continue }
             $rel = $f.FullName.Substring($root.Length).TrimStart('\', '/')
             & $add $f.FullName "pki/$rel" 'pki' $null
         }
@@ -286,13 +302,13 @@ function New-PkiCertPackage {
     param(
         [Parameter(Mandatory)][string]$OutFile, [Parameter(Mandatory)][string]$Password,
         [ValidateSet('zip', '7z')][string]$ArchiveFormat = 'zip', [ValidateSet('Aes256', 'ZipCrypto')][string]$ZipEncryption = 'Aes256',
-        [bool]$IncludeLeafCerts = $false, [bool]$IncludeCaKeys = $false, [string[]]$LeafName = @(), [string]$LeafRoot,
+        [bool]$IncludeLeafCerts = $false, [bool]$IncludeCaKeys = $false, [bool]$IssuingKeysOnly = $false, [string[]]$LeafName = @(), [string]$LeafRoot,
         [string]$Comment = '', [string]$SevenZipPath, [switch]$NoVerify
     )
     $c = $script:Pki
     $staging = Join-Path ([System.IO.Path]::GetTempPath()) "certpacked-$([guid]::NewGuid().ToString('N'))"
     try {
-        $plan = Get-PkiPackagePlan -LeafRoot $LeafRoot -IncludeLeafCerts $IncludeLeafCerts -IncludeCaKeys $IncludeCaKeys -LeafName $LeafName -Staging (Join-Path $staging 'gen')
+        $plan = Get-PkiPackagePlan -LeafRoot $LeafRoot -IncludeLeafCerts $IncludeLeafCerts -IncludeCaKeys $IncludeCaKeys -IssuingKeysOnly $IssuingKeysOnly -LeafName $LeafName -Staging (Join-Path $staging 'gen')
         $entries = $plan.Entries
         # de-duplicate by entry name
         $seen = @{}; $uniq = [System.Collections.Generic.List[hashtable]]::new()
@@ -302,7 +318,7 @@ function New-PkiCertPackage {
         $files = foreach ($e in $entries) {
             [ordered]@{ path = $e.Entry; sha256 = (Get-PkiFileSha256 -Path $e.Source); size = ([System.IO.FileInfo]::new($e.Source)).Length; role = $e.Role }
         }
-        $scope = [ordered]@{ caCertificates = $true; leafcerts = $IncludeLeafCerts; caPrivateKeys = $IncludeCaKeys }
+        $scope = [ordered]@{ caCertificates = $true; leafcerts = $IncludeLeafCerts; caPrivateKeys = $IncludeCaKeys; issuingKeysOnly = ($IncludeCaKeys -and $IssuingKeysOnly) }
         $manifest = [ordered]@{
             format = 'agantra-certpacked'; formatVersion = 1
             createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "PkiTransport.ps1 $($script:PkiGeneratorVersion)"
@@ -343,7 +359,7 @@ CERTPACKED - Agantra Inovatif Enterprise PKI transport package
 ==============================================================
 Created : $([DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) UTC on $([Environment]::MachineName)
 Archive : $($manifest.archive.format), $($manifest.archive.encryption)
-Scope   : CA certificates$(if ($IncludeLeafCerts) { ', LEAF CERTIFICATES (with private keys)' })$(if ($IncludeCaKeys) { ', the whole PKI with the CA PRIVATE KEYS' })
+Scope   : CA certificates$(if ($IncludeLeafCerts) { ', LEAF CERTIFICATES (with private keys)' })$(if ($IncludeCaKeys -and $IssuingKeysOnly) { ', the PKI folder with the PRIVATE KEYS OF THE ISSUING (intermediate) CAs only - no root key' } elseif ($IncludeCaKeys) { ', the whole PKI with the CA PRIVATE KEYS' })
 $(if ($Comment) { "Comment : $Comment`n" })
 This file is a password-protected archive. Rename it to .zip or .7z and open it with 7-Zip, or use:
   Windows 11 25H2+   PkiTransport.ps1 -Install -Package <file>      (unpacks and installs the trust)
@@ -512,6 +528,26 @@ function Export-PkiPackageSelection {
         $m2 = ConvertTo-PkiRebasedValue -Value $m -OldRoot $old -NewRoot (Join-Path $Destination 'pki')
         Write-Utf8NoBom -Path $pm -Content ($m2 | ConvertTo-Json -Depth 20)
     }
+    # The CA configuration files (dir = <absolute path>) and the revocation notes hold the OLD pki path too: without this the
+    # unpacked PKI would still read and WRITE the database of the machine it came from (or fail when that path does not exist).
+    $pkiDest = Join-Path $Destination 'pki'
+    if (Test-Path -LiteralPath $pkiDest -PathType Container) {
+        $oldRoot = [string]$Opened.Manifest['source']['pkiRoot']
+        if ($oldRoot) {
+            $pairs = [System.Collections.Generic.List[object]]::new()
+            $oF = ($oldRoot -replace '\\', '/').TrimEnd('/'); $nF = ($pkiDest -replace '\\', '/').TrimEnd('/')
+            [void]$pairs.Add(@($oF, $nF)); [void]$pairs.Add(@($oldRoot.TrimEnd('\', '/'), $pkiDest.TrimEnd('\', '/')))
+            [void]$pairs.Add(@(($oldRoot.TrimEnd('\', '/') -replace '\\', '\\'), ($pkiDest.TrimEnd('\', '/') -replace '\\', '\\')))
+            $nRewritten = 0
+            foreach ($f in Get-ChildItem -LiteralPath $pkiDest -Recurse -File | Where-Object { $_.Extension -in '.cnf', '.txt', '.json' -and $_.Name -ne 'pki-manifest.json' -and $_.Length -lt 5MB }) {
+                $t = [System.IO.File]::ReadAllText($f.FullName); $t2 = $t
+                $doneOld = @{}
+                foreach ($pr in $pairs) { if ($pr[0] -and -not $doneOld.ContainsKey([string]$pr[0])) { $doneOld[[string]$pr[0]] = $true; $t2 = $t2.Replace([string]$pr[0], [string]$pr[1], [StringComparison]::OrdinalIgnoreCase) } }
+                if ($t2 -ne $t) { Write-Utf8NoBom -Path $f.FullName -Content $t2; $nRewritten++ }
+            }
+            if ($nRewritten -gt 0) { Write-PkiLog "The old PKI path ($oldRoot) was replaced by the new one in $nRewritten configuration / note file(s)." 'INFO' }
+        }
+    }
     [void](Unblock-PkiTree -Path @($Destination)); [void](Unlock-PkiTree -Path @($Destination))
     return @($written)
 }
@@ -576,7 +612,12 @@ function Write-PkiTransportKit {
     Ensure-PkiDirectory -Path $KitDirectory
     $scripts = Join-Path $KitDirectory 'scripts'
     Ensure-PkiDirectory -Path $scripts
-    $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt'
+    $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh'
+    $kitDocs = Join-Path $KitDirectory 'docs'
+    foreach ($d in 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt') {
+        $dsrc = Join-Path (Join-Path $Root 'docs') $d
+        if (Test-Path -LiteralPath $dsrc -PathType Leaf) { Ensure-PkiDirectory -Path $kitDocs; Copy-Item -LiteralPath $dsrc -Destination $kitDocs -Force }
+    }
     foreach ($f in $top) {
         # the shell scripts are in <root>/linux/; the kit is flat
         $src = @((Join-Path $Root $f), (Join-Path (Join-Path $Root 'linux') $f)) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1

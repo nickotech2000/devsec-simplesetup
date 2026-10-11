@@ -40,6 +40,9 @@ param(
     [string]$CommonNameFormat,
     [string]$SerialNumberFormat,
     [switch]$KeepCase,
+    [switch]$NoCrl,
+    [switch]$NoOcsp,
+    [switch]$NoRevocationInfo,
     [switch]$DnsFromEmail,
     [switch]$NoDocumentSigningEku,
     [ValidateSet('RSA', 'ECDSA')][string]$KeyType,
@@ -76,12 +79,13 @@ function Show-PersonHelp {
     @'
 ============================================================
  GenerateOffice365LeafCertificate.ps1 - Microsoft Office / Microsoft 365 DOCUMENT SIGNING certificates
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : GenerateOffice365LeafCertificate-MANUAL.txt     Design : PKI-Design-with-FIPS-and-PQC.txt (10.63)
+ Manual : docs\GenerateOffice365LeafCertificate-MANUAL.txt     Design : docs\PKI-Design-with-FIPS-and-PQC.txt (10.63)
+ Ubuntu : GenerateOffice365LeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl + python3.
  Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.   Same mechanism as GeneratePersonLeafCertificate.ps1.
 
 WHAT IT MAKES   (a certificate to sign Word / Excel / PowerPoint / PDF documents; NOT a qualified certificate)
@@ -109,6 +113,14 @@ ONE SIGNER
                          -SerialNumberFormat "{IdType}{Country}-{IdCode}" builds it).   -IdType <code>  optional label.
   -Country <CC>          Two letters, default EE ([ office365 ] Country).
   -CommonName <text>     Replaces the CN.   -CommonNameFormat "{Given} {Surname}"  tokens {Given} {Surname} {SurnameFirst} {IdCode} {Country}; max 64 characters.
+  REVOCATION INFORMATION  (4.9.4)   by default the certificate has the CRL distribution point, the OCSP URL and the CA issuer URL of the issuing CA.
+  -NoCrl                 No CRL distribution point (crlDistributionPoints extension) in the certificate.
+  -NoOcsp                No OCSP URL (the OCSP method of Authority Information Access); the CA issuer URL stays.
+  -NoRevocationInfo      Both: no CRL and no OCSP. Use it when Word / Excel / Outlook say "cannot connect to the revocation server" because the URLs of this
+                         private PKI cannot be reached from the machine that checks the signature. Without any revocation URL a client has nothing to check:
+                         it accepts the certificate until it expires. The certificate is still recorded in the CA database (PkiRevocation.ps1 can still revoke it
+                         and the CRL lists it), but a client that has no URL will not learn about it. Per signer in the JSON file: "noCrl", "noOcsp", "noRevocationInfo"
+                         (true | false). Defaults for all: [ office365 ] NoCrl / NoOcsp in agantra_pki.cnf.
   -KeepCase              Names are kept as given (default for Office; [ office365 ] KeepCase).
 
 MANY SIGNERS - A JSON FILE  (JSON only; CSV is not accepted)
@@ -117,7 +129,7 @@ MANY SIGNERS - A JSON FILE  (JSON only; CSV is not accepted)
   .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json
   { "persons": [ { "isGenerate": true, "givenName": "Budi", "surname": "Santoso", "email": "budi.santoso@example.co.id", "country": "ID" }, { ... } ] }
   Keys (any spelling or case):  givenName  surname  email  (required)     isGenerate (true | false; default true; false = skipped, not even checked)
-  idCode  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  (optional)
+  idCode  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  noCrl  noOcsp  noRevocationInfo  (optional)
   Keys that start with _ are comments. Every signer with isGenerate true is checked BEFORE anything is written: one error = nothing is issued, all errors
   are listed. A signer is then issued on its own; a failure removes that signer's folder and the run goes on (-StopOnError stops). Exit 1 when one failed.
 
@@ -132,13 +144,14 @@ CERTIFICATE OPTIONS
 
 USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
   1  Import the .pfx into Current User > Personal (double click, or -InstallPfx). Office finds the private key there.
+  1b Word / Excel say "cannot connect to the revocation server"? Issue the certificate with -NoRevocationInfo (no CRL / OCSP URL), or make the CRL / OCSP host reachable.
   2  The Root CA of this PKI must be trusted on the machine that OPENS the document (pki_setup.ps1 -InstallTrust, or the Root in Trusted Root Certification Authorities);
      otherwise Office shows the signature as "not trusted".
   3  Word / Excel / PowerPoint: File > Info > Protect Document > Add a Digital Signature.  PDF signing in Adobe needs the same trust on that machine.
   4  The certificate is also an encryption certificate (Document Encryption, Secure Email, Key Encipherment): publish the .cer for people who encrypt for you.
   This is an own-PKI certificate: Microsoft 365 does not treat it as a certificate of a public trust list.
 
-DEFAULTS IN agantra_pki.cnf   [ office365 ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  KeyBits  Curve  DnsFromEmail  KeepCase
+DEFAULTS IN agantra_pki.cnf   [ office365 ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  KeyBits  Curve  DnsFromEmail  KeepCase  NoCrl  NoOcsp
 EXIT CODES   0 ok   1 an error or a failed signer
 ============================================================
 '@
@@ -198,6 +211,7 @@ try {
         Country = $(if ($Country) { $Country } else { $set.Country }); IdType = $(if ($IdType) { $IdType } else { '' })
         Level = $(if ($Level) { $Level } else { $set.Level }); Days = $(if ($Days) { $Days } else { $set.Days }); DaysGiven = [bool]$Days
         Quadrant = $Quadrant; Password = $Password
+        NoCrl = ([bool]$NoCrl -or [bool]$NoRevocationInfo -or [bool]$set.NoCrl); NoOcsp = ([bool]$NoOcsp -or [bool]$NoRevocationInfo -or [bool]$set.NoOcsp)
     }
     if (-not $PSBoundParameters.ContainsKey('KeyType') -and -not $PSBoundParameters.ContainsKey('KeyBits')) { $defaults['KeyBits'] = $set.KeyBits }
     foreach ($k in 'KeyType', 'KeyBits', 'Curve') { if ($PSBoundParameters.ContainsKey($k)) { $defaults[$k] = $PSBoundParameters[$k] } }
@@ -305,6 +319,7 @@ Purposes: Document Encryption (1.3.6.1.4.1.311.80.1), Secure Email / S/MIME (1.3
 2. The Root CA of this PKI must be in Trusted Root Certification Authorities on every machine that opens the signed document
    (pki_setup.ps1 -InstallTrust, or import the root.crt of the PKI). Without it Office says "signature not trusted".
 3. Word / Excel / PowerPoint: File > Info > Protect Document > Add a Digital Signature, and choose this certificate.
+   Revocation info in this certificate: CRL $(if ($spec.NoCrl) { 'no' } else { 'yes' }), OCSP $(if ($spec.NoOcsp) { 'no' } else { 'yes' }). If Office reports that it cannot connect to the revocation server, issue the certificate again with -NoRevocationInfo.
 4. Give the .cer to people who want to encrypt documents or e-mail for you.
 5. Change the PFX password if it is still the default (Abc12345!).
 This is a certificate of a private PKI, not of a public trust list and not a qualified certificate.

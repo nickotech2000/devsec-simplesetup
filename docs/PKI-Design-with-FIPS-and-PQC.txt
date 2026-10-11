@@ -2,13 +2,15 @@
  AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
 ====================================================================================================
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 4.9.4-phaseC                      Updated: 2026-10-11
+ Version : 4.9.5-phaseC                      Updated: 2026-10-11
  Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
-           GenerateLeafCertificate.ps1, pki_reuse.ps1, transport script  (Phases B and C, not started)
+           GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office generators  (Phases B, C and the 4.9.x additions: built)
+ Folder  : since 4.9.5 every documentation text file is in docs\ (this file too); the README of the project is README.md in the project root.
  Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help   .\GenerateLeafCertificate.ps1 -Help
- Manuals : pki_setup-MANUAL.txt   GenerateLeafCertificate-MANUAL.txt   PkiTransport-MANUAL.txt   Install-DevEnvironment-MANUAL.txt   (each with its -Help)
+ Manuals : pki_setup-MANUAL.txt   SignCsr-MANUAL.txt   GenerateLeafCertificate-MANUAL.txt   GeneratePersonLeafCertificate-MANUAL.txt   GenerateOffice365LeafCertificate-MANUAL.txt
+           PkiTransport-MANUAL.txt   DevKit-MANUAL.txt   PkiRevocation-MANUAL.txt   SignExternalCa-MANUAL.txt   Install-DevEnvironment-MANUAL.txt   (each with its -Help)
  Checks  : PKI-Acceptance-Checklists.txt  (what to run on your machines)       This file: DESIGN only
- Also    : PUBLIC-CA-ENTERPRISE-ROOT.txt (Enterprise Root signed by a public CA)   scripts\README.txt (modules)
+ Also    : PUBLIC-CA-ENTERPRISE-ROOT.txt (Enterprise Root signed by a public CA)   scripts-README.txt (modules)   PKI-Server-Design.txt   PKI-SERVER-MANUAL.txt   linux-README.txt
 
  This file is rewritten with every delivery. Section 12 is the change log, section 10 the decisions
  and open questions, section 9 the limitations, section 14 the Phase A acceptance checklist, section 15 the
@@ -27,6 +29,8 @@
                                                16  PHASE B ACCEPTANCE CHECKLIST (moved)
                                                17  Transport design (Phase C)
                                                18  Developer bootstrap design (Install-DevEnvironment.ps1 / .sh)
+                                               19  DevKit design (PkiTransport.ps1 -DevKit, 4.9.5)
+                                               20  CSR signing design (SignCsr.ps1 / .sh, SignExternalCa.ps1, 4.9.5)
 
 
 ====================================================================================================
@@ -153,7 +157,7 @@
         Track Root           500 years     -TrackYears
         Quadrant Root        400 years     -QuadrantYears
         Intermediates        250 years     -IntYears
-        Leaf EV              397 days      -LeafDays         (EV maximum 398)
+        Leaf EV              397 days      -LeafDays         (EV maximum 397: every EV certificate, 10.74)
         Leaf OV                3 years     -OvLeafYears      (default when not given)
         Leaf DV                5 years     -DvLeafYears      (default when not given)
       pki_setup.ps1 issues EV leaves (397 days). The OV and DV defaults are stored in agantra_pki.cnf
@@ -245,7 +249,7 @@
    subjectKeyIdentifier | authorityKeyIdentifier keyid:always | certificatePolicies |
    crlDistributionPoints + authorityInfoAccess (CA Issuers, OCSP) pointing to the issuer.
  EV leaf         CA:false | digitalSignature (+ keyEncipherment for RSA) | EKU serverAuth + clientAuth |
-   SAN (DNS, IP, e-mail; a wildcard prints a warning) | policies | CRL | AIA | at most 398 days.
+   SAN (DNS, IP, e-mail; a wildcard prints a warning) | policies | CRL | AIA | at most 397 days (EV).
  Locations       [ crl_urls ] [ ocsp_urls ] [ ca_issuer_urls ]; "{ca}" = the issuing CA's slug.
    Files go to pki\publish\; you copy them to the hosts. Windows reports "revocation server offline"
    for client certificates until one URL answers. CRL lifetime 365 days.
@@ -540,7 +544,7 @@
       offline or in an HSM. The PFX password defaults to Abc12345!: change it with -Password.
  L15  Revocation. CRL / OCSP / CA Issuers URLs help only after you publish pki\publish at those hosts.
       No OCSP responder is provided. An ML-DSA CRL can only be checked by a client that supports ML-DSA.
- L16  Leaf lifetime. EV 397 days, OV 3 years, DV 5 years by default. Chrome and Apple apply the 398-day
+ L16  Leaf lifetime. EV 397 days (the maximum for every EV certificate since 4.9.5, 10.74), OV 3 years, DV 5 years by default. Chrome and Apple apply the 398-day
       limit to publicly trusted roots only (private roots are exempt), Windows and Firefox do not
       enforce it, but your own security policy or a customer's scanner may. Phase A issues EV leaves.
  L17  Phase A has only the default EV leaves. DV / OV leaves, formats (DER, P7B, ...), custom leaf
@@ -715,7 +719,7 @@
                  address (at most 1024 per range). The user's own names stay first.
  10.41 DECIDED   -AddDevelopmentSAN deliberately overrides the SAN rules of EV (no wildcard, IP address, internal name, e-mail address) at -EV, by the owner's intent.
                  The generator never had such rules to disable; the override is therefore a warning plus markers (developmentSan, evSanOverride) in the output, not a code path.
-                 EV subject, EV policy OID and 398 days are kept. The certificates are for development only.
+                 EV subject, EV policy OID and 397 days are kept. The certificates are for development only.
  10.42 DECIDED   "*.nextmantra,ldap" of the request is read as *.nextmantra.ldap (typing error); the owner is asked to confirm.
  10.43 DECIDED   Enterprise Root and Track Roots carry All issuance policies (anyPolicy 2.5.29.32.0, Windows: "All issuance policies") + EV 2.23.140.1.1 and nothing else, and no extended
                  key usage (Windows: all application policies). OV, DV, the PEN and custom policies start at the Quadrant Roots. (Implemented in the policy model; the documentation
@@ -734,7 +738,7 @@
  10.51 DECIDED   Time stamping certificate = the normal TimeStamping leaf (no special type): EKU timeStamping, critical and alone; Classic non-FIPS Quadrant 1 by default, never quantum
                  by default (no verifier in the field handles ML-DSA time stamps), 1825 days, RSA. Parameters for the future exist: -TimestampQuadrant 1-4, -TimestampPolicyOid,
                  -TimestampDays, agantra_pki.cnf [ timestamp ]. If the chosen quadrant is quantum, the key options of the classic default are dropped and a warning says that the server
-                 kit cannot sign with it. The 398-day cap of EV leaves does not apply to TimeStamping / OcspSigning.
+                 kit cannot sign with it. (4.9.5: the 397-day cap of EV now ALSO applies to TimeStamping / OcspSigning of level EV, 10.74.)
  10.52 DECIDED   Time stamp policy OID default 1.3.6.1.4.1.67096.1.4 (arc .1 EV, .1.2 OV, .1.3 DV, .1.4 time stamping; the owner's PEN 67096). It is an extra certificate policy of the
                  TSA certificate and the default_policy of the server's tsa.cnf (taken from the certificate unless --tsa-policy). Changeable: [ timestamp ] PolicyOid.
  10.53 DECIDED   Linux package: New-PkiServerPackage.ps1 builds a zip (+ .tar.gz) with the linux/ scripts and the PKI WITHOUT any private key, all text LF without BOM, .sh / .py mode
@@ -758,7 +762,7 @@
                  Certificate: CA:TRUE critical, pathlen 0 (default; limited to signer pathlen - 1), keyUsage keyCertSign + cRLSign, policies of -Level (default OV), CDP/AIA of the signer,
                  optional critical nameConstraints (-PermitDns, -PermitEmail), validity default 1825 days and never beyond the signer. Result in external-ca\<name>_<date-time>\:
                  <name>.csr, <name>.crt, <name>-fullchain.crt (his CA + our chain), <name>-chain.crt, root.crt, our-ca-bundle.crt, ca-info.json, README.txt; one new folder per signing.
-                 No CA private key of ours leaves the machine; the external CA keeps its own key.
+                 No CA private key of ours leaves the machine; the external CA keeps its own key. (4.9.5: restricted to Classic Quadrant Roots, OV default, spec checked - see 10.73.)
  10.59 DECIDED   (4.9.4) GeneratePersonLeafCertificate.ps1 issues person e-mail certificates in the form of a national ID-card certificate: Subject serialNumber, givenName,
                  surname, CN "SURNAME,GIVENNAME,ID" (upper case, max 64), C (default EE; any ISO country). The ID is ANY identifier (national ID, passport, driver licence, tax
                  number ...): no country-specific check by default (-CheckEstonianId is opt-in), serialNumber = the ID as it is (SerialNumberFormat "{IdType}{Country}-{IdCode}"
@@ -792,6 +796,47 @@
                  signature only where the Root CA is trusted.
  10.64 DECIDED   (4.9.4) GenerateLeafCertificate.ps1 -AddDevelopmentSAN with the purpose EmailProtection: default algorithm = the person certificates (ECDSA P-384, SHA-512; Quadrants 1 and 2;
                  -KeyType -Curve -Hash win). Every ECDSA e-mail certificate has keyAgreement in its key usage (S/MIME with ECDH). Policies and CPS URLs are the shared ones (10.60, 10.61).
+ 10.65 DECIDED   (4.9.4) Revocation information can be left out of person and Office certificates: -NoCrl (no crlDistributionPoints), -NoOcsp (no OCSP method in Authority Information
+                 Access), -NoRevocationInfo (both); per signer in the JSON file (noCrl, noOcsp, noRevocationInfo) and as defaults in [ person ] / [ office365 ] (NoCrl, NoOcsp).
+                 The caIssuers URL stays. Reason: Word / Excel report "cannot connect to the revocation server" when the CRL / OCSP hosts of a private PKI are not reachable
+                 from the checking machine. Consequence: a client without a URL cannot learn about a revocation and accepts the certificate until it expires; the certificate is still
+                 in the CA database (PkiRevocation.ps1 revokes it, the CRL lists it). Implemented in Add-PkiLocationSections (-NoCrl / -NoOcsp), the spec fields NoCrl / NoOcsp of
+                 New-PkiLeafSpec (any leaf can use them), checked in Test-PkiLeafResult, recorded as revocationInfo in leaf-info.json.
+ 10.66 DECIDED   (4.9.5) GenerateLeafCertificate.ps1 gets -NoCrl, -NoOcsp and -NoRevocationInfo (both) with the meaning of 10.65, for EVERY certificate of the run: the whole set (7 certificates)
+                 or the single certificate, also with -AddDevelopmentSAN. The switches go into the option table ($base), are copied into every spec of the set (New-PkiLeafSetSpecs copies
+                 NoCrl / NoOcsp), reach Add-PkiLocationSections and are proved by Test-PkiLeafResult; leaf-info.json records revocationInfo. A warning says what was left out. Tested on a
+                 fresh PKI: -OV -NoRevocationInfo (7 certificates, no CRL distribution point and no OCSP URL, three caIssuers kept); -EV -NoCrl -AddDevelopmentSAN (OCSP kept, no CRL).
+ 10.67 DECIDED   (4.9.5) THE DEVKIT. Your developers are on Windows, are not Linux people, and need two things: trust the PKI on their machine, and issue their own test certificates.
+                 PkiTransport.ps1 -DevKit makes ONE zip (-KitArchiveFormat 7z: a 7z) that holds the .certpacked (AES-256), Install-PkiTrust.ps1 / .sh, the three generators in .ps1 and .sh,
+                 Make-ShExecutable.ps1 / make-executable.sh, devkit.env, examples, docs and START-HERE.txt (section 19). The kit is laid out like the project (scripts\, agantra_pki.cnf,
+                 the generators in the root, the unpacked pki\ next to them), so the PowerShell generators run in it UNCHANGED; the shell generators read devkit.env, which is written from
+                 the LIVE configuration at build time (policies, CPS URLs, PEN / High Assurance, CRL / OCSP / AIA templates, subject, validity, development SAN, person / Office defaults,
+                 the issuing CAs), so the two families produce the same certificates. Source of the kit's own files: devkit\ of the project; module 21_DevKit.ps1 builds. The outer archive is not
+                 encrypted (the .certpacked inside is; the password goes by another channel). Rejected: a kit per OS (two downloads, two versions), PowerShell-only (the Ubuntu machines and WSL
+                 would need pwsh + the whole project), copying the project (the developers would get Setup-GitRepo, the server kit, the design files).
+ 10.68 DECIDED   (4.9.5) KEYS IN THE KIT: the pki folder of the DevKit contains the private keys of the ISSUING (intermediate) CAs ONLY - the six DV / OV / EV CAs of Quadrants 1 and 2 - because
+                 they are what signs a leaf. Never: Enterprise Root, Track Root, Quadrant Root, OCSP and TSA keys, old leaf keys, any .pfx / .p12 / PKCS#8 file (Get-PkiPackagePlan -IssuingKeysOnly;
+                 certpack.json scope.issuingKeysOnly = true). Reason: a developer who may issue must hold the issuing key; a stolen root key would let the thief build a new hierarchy under your
+                 trust, a stolen intermediate is revoked by the root. -DevKitNoKeys: certificates only. Rejected: a root key in the kit (never); a CSR-signing service on the PKI server (the cleanest
+                 - no key leaves the server and everything is in the master CRL - but it needs a server every developer can reach; PKI-Server-Design.txt; the DevKit is the offline answer).
+                 Accepted risk, said in the manual: whoever opens a kit can issue certificates until you revoke the intermediate (PkiRevocation.ps1) and build a new kit.
+ 10.69 DECIDED   (4.9.5) SERIAL NUMBERS, REVOCATION AND PATHS of a copy. (a) Two copies that continue the same serial counter would issue the same serial: Install-PkiTrust (ps1 and sh) writes a new
+                 random 128-bit value into the 'serial' file of every issuing CA (the files that sit next to a .key), pki\.devkit-instance.json records the instance; the shell generators use a
+                 random 128-bit serial per certificate. (b) A copy's certificates are not in the master index.txt: the master CRL does not list them and the master OCSP answers 'unknown' - they are
+                 DEVELOPMENT certificates and the manual says so. Bringing their records to the master is possible later (merge index.txt entries); not automated. (c) FOUND while testing: the CA
+                 configuration files hold 'dir = <absolute path>' and the leaf generator signs with them, so an unpacked PKI kept issuing into the pki folder it came from (and, on another machine,
+                 failed). Export-PkiPackageSelection (Windows, Unpack-PkiTransport.ps1) and Install-PkiTrust.sh now rewrite the old path to the new one in the .cnf, notes and revocation-info
+                 files as well as in pki-manifest.json. Proved: after the install the master's index.txt was not touched by a kit's generator run.
+ 10.70 DECIDED   (4.9.5) SHELL GENERATORS (GenerateLeafCertificate.sh, GeneratePersonLeafCertificate.sh, GenerateOffice365LeafCertificate.sh). bash + openssl 3.0+ (4.0.1+ recommended) + python3 only for
+                 the JSON files (lib\pki-persons.py, standard library, same rules and aliases as 20_PersonLeaf.ps1). They sign with 'openssl x509 -req -CA -CAkey -set_serial 0x<random>' and a
+                 per-certificate .cnf (kept next to the certificate) instead of 'openssl ca': no CA database is needed, so no lock or index to corrupt on a developer's disk (they write
+                 leafcerts/issued-by-devkit.tsv instead). Classic Quadrants 1 and 2 only; ML-DSA needs the PowerShell generator and OpenSSL 4 providers. Every certificate is verified against the
+                 roots (chain), and -NoCrl / -NoOcsp are proved by reading the finished certificate. Compared extension by extension with the PowerShell output (subject, SAN, KU, EKU, policies +
+                 CPS, CRL / AIA, digest, algorithms of person / Office / development e-mail). The shell scripts carry LF line endings (the builder converts), mode 755 in a zip made on Linux; on
+                 Windows-made zips the bit is lost, so Make-ShExecutable.ps1 (CRLF -> LF, wsl chmod +x) and make-executable.sh exist, and 'bash script.sh' works without the bit.
+ 10.71 DECIDED   (4.9.5) DOCUMENTATION FOLDER. Every documentation text file (manuals, design, checklists, PUBLIC-CA..., PKI-Server-Design, PKI-SERVER-MANUAL, scripts-README, linux-README) moved to docs\;
+                 README.md (new, short and structured) stays in the project root. Code that names a document says docs\<file> (help texts, comments); New-PkiServerPackage.ps1 and -Kit put the
+                 documents in docs\ of the package / kit; Setup-GitRepo.ps1 describes the new layout. The manuals that embed a -Help text were regenerated from the scripts.
  10.46 DECIDED   Key pair per certificate: every purpose folder (serverauth, clientauth, serverauth-clientauth, codesigning, emailprotection, timestamping, ocspsigning) has
                  its own <stem>.key (PKCS#8), <stem>.pub (public key PEM) and <stem>.pub.der. All PEM files (.key .crt .pem .cert -fullchain.crt -chain.crt .pub) are written with LF
                  line endings and no BOM: OpenSSL on Windows writes CRLF, and OpenSSL 3.5+ on Linux (nginx on Ubuntu 26.04) then fails with "PEM_read_bio_PrivateKey() failed ...
@@ -802,6 +847,27 @@
                  track word and the generation.
  10.46 DECIDED   Code signing subject: C, ST, L, O, CN with CN = O = the company (-CodeSigningCompany; empty = the Organization, default Agantra Inovatif OU), C = EE, ST = L = Tallinn,
                  at every level; no OU, street, contact or EV-only fields. -CommonName does not apply to code signing.
+ 10.72 DECIDED   (4.9.5) SignCsr.ps1 / SignCsr.sh sign the CSR of another department (a LEAF: server, client, S/MIME, code signing, time stamping, OCSP) with an INTERMEDIATE CA. Default
+                 level DV (-OV, -EV), Classic non-FIPS (-FIPS = Q2, -Quantum = Q3, -Quantum -FIPS = Q4), purpose ServerAuth (-Purpose). The request is CHECKED against the spec of this PKI before
+                 anything is signed (scripts\22_CsrSigning.ps1, devkit\lib\pki-csr.py: the same rules and the same finding codes) and the report is printed in colour (ERROR red, WARN yellow, OK green,
+                 INFO cyan) with, for every deviation, the field, the reason and the fix; one ERROR = nothing signed, exit code 2 (-Check prints the report only, -Strict makes warnings errors).
+                 The request only supplies subject, public key and names: key usage, extended key usage, policies, CRL / OCSP URLs, basicConstraints (CA:FALSE) and validity are decided by this PKI;
+                 CA:TRUE is refused. DV drops everything but the CN (WARN). The same script runs in the original PKI and, unchanged, in the DevKit (all intermediate keys of the kit, no root key).
+                 Issued through "openssl ca": recorded in the index.txt of the issuing CA, so in the original PKI the certificate can be revoked (PkiRevocation.ps1) and is in the CRL / OCSP;
+                 in a DevKit it is in the kit's own index.txt (not in the master CRL), with the random serial counter of the kit. Result in csr-signed\<name>_<date-time>\ (never overwritten): .crt .cer
+                 -fullchain.crt -chain.crt .p7b root.crt our-ca-bundle.crt .csr sign-info.json README.txt, one line in csr-signed\signed-csr.tsv. SignCsr.sh needs bash, openssl, python3 (the checker);
+                 it reaches the original PKI through devkit.env written by  SignCsr.ps1 -WriteShellEnv  (devkit.env now lists all intermediates, Classic and Quantum, RSA_PSS, TSA_POLICY_OID).
+ 10.73 DECIDED   (4.9.5) SignExternalCa.ps1 (departments that want their OWN CA) is restricted: the signer is ONLY a Classic Quadrant Root, q1-root (non-FIPS, default) or q2-root (-Fips / -Quadrant 2).
+                 -SignWith, -Ca, Quantum quadrants and intermediates are gone; the DevKit has no root key and no copy of this script, so a CA is signed only by the owner of the original PKI.
+                 Default level OV: the subject of the request MUST contain C (2 letters), O, OU and CN, otherwise it is rejected; ST and L are recommended. EV: also ST, L, serialNumber, businessCategory
+                 (4 values), jurisdictionC, and a validity of at most 397 days. DV: CN only. The CA key must be RSA 4096+/ECDSA P-384+ (a Classic CA: ML-DSA is rejected), the request signed with
+                 SHA-256+, and its CN may not be the name of one of our CAs. Same colour report and exit code 2 as 10.72; -Check, -Strict, -NoColor. Certificate as in 10.58 (pathlen 0, name constraints).
+ 10.74 DECIDED   (4.9.5) EV VALIDITY: 397 days is the MAXIMUM of every EV certificate made by this PKI: leaves of GenerateLeafCertificate.ps1/.sh (also TimeStamping and OcspSigning, which were
+                 exempt before: they are cut to 397 with a note), person and Office certificates, certificates signed by SignCsr, CA certificates signed by SignExternalCa -Level EV, pki_setup -LeafDays
+                 (1..397). An explicit -Days above 397 for EV is an error. The EV INTERMEDIATE CAs of the hierarchy keep their CA lifetime (a CA that lives 397 days could not issue 397-day leaves).
+ 10.75 DECIDED   (4.9.5) Install-DevEnvironment.ps1 / .sh are part of the DevKit and independent of the original machine. They prepare the destination machine for OpenSSL 4.0.3 or newer (Windows:
+                 FireDaemon.OpenSSL by WinGet, upgraded when older than 4.0.1; Linux / macOS: a full build of 4.0.3 from the official release, hash-checked) and PUT IT ON THE PATH: Windows machine Path;
+                 Linux /etc/profile.d/openssl4.sh (sudo) or ~/.profile + ~/.bashrc, bin folder FIRST, plus the link openssl4; --no-path leaves the PATH alone.
  10.16 OPEN      Which public CA, product and level you will really use. Ask for pathlen >= 3 at level 0; if
                  only pathlen 0 / 1 is offered tell me: the signed level has to move (document, section 5).
 
@@ -907,12 +973,24 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
+ 4.9.5-phaseC  2026-10-11
+   + SignCsr.ps1 / SignCsr.sh (+ module 22_CsrSigning.ps1, devkit\lib\pki-csr.py): sign the CSR of another department with an intermediate CA, default DV, parameters for level / quadrant / purpose,
+     the request checked against the PKI spec with a colour report (10.72, section 20). Also in the DevKit (all intermediate keys of the kit).
+   + SignExternalCa.ps1: Quadrant Root only (Classic, -Fips), default OV with C, O, OU, CN required, EV fields for EV, same colour report (10.73).
+   + EV certificates: 397 days maximum everywhere (10.74). Install-DevEnvironment.sh puts OpenSSL 4 on the PATH (10.75).
+   + GenerateLeafCertificate.ps1: -NoCrl / -NoOcsp / -NoRevocationInfo for every certificate of the run (10.66).
+   + PkiTransport.ps1 -DevKit (+ module 21_DevKit.ps1, devkit\): ONE zip with the .certpacked (CA certificates + the keys of the issuing CAs only), Install-PkiTrust.ps1 / .sh, the leaf / person /
+     Office 365 generators and SignCsr as .ps1 and .sh, Make-ShExecutable.ps1 / make-executable.sh, devkit.env, examples, docs (10.67 to 10.70, section 19).
+   + New: scope.issuingKeysOnly in certpack.json; Get-PkiPackagePlan -IssuingKeysOnly; -DevKitNoKeys; -KitArchiveFormat.
+   + FIX: an unpacked PKI (pki\) now has the old absolute path replaced in the CA configuration files and notes, not only in pki-manifest.json (10.69).
+   + Documentation moved to docs\; README.md rewritten; manuals that embed a -Help text regenerated (10.71).
  4.9.4-phaseC  2026-10-11
    + Quadrant roots: Q1 RSA 4096 / SHA-384, Q2 ECDSA P-384 / SHA-384 (QuadrantRsaBits, QuadrantCurve); intermediates and leaves unchanged (10.56). IntermediatePathLen option (10.57).
    + SignExternalCa.ps1 (+ module 19): sign the CSR of another private CA, default signer q1-root, minimum RSA 4096 / P-384 / ML-DSA-65, one folder per CA (10.58).
    + GeneratePersonLeafCertificate.ps1 (+ module 20): ID-card style person e-mail certificates (any ID, SAN e-mail + DNS from the e-mail, Classic only, OV/EV) from parameters or a JSON file with isGenerate (10.59). [ person ] in agantra_pki.cnf.
    + CPS pointers on every policy (https://nextmantra.com/security/certs, EV ev-cps.pdf) (10.60); High Assurance policy 1.3.6.1.4.1.67096.1.5 in every OV certificate (10.61); person certificates ECDSA P-384 + SHA-512 (10.62).
    + GenerateOffice365LeafCertificate.ps1: Office / 365 document signing certificates from parameters or a JSON file (10.63). -AddDevelopmentSAN e-mail certificates use ECDSA P-384 + SHA-512 (10.64).
+   + -NoCrl / -NoOcsp / -NoRevocationInfo for the person and Office 365 scripts (10.65).
    + GenerateLeafCertificate core: options KeyUsage, PersonDn, ExtraExt, ExtraConfig (used by the person script).
  4.9.3-phaseC  2026-10-06
    + GenerateLeafCertificate.ps1 -CodeSigningCompany (alias -CodesignCompany): code signing subject C=EE, ST=Tallinn, L=Tallinn, O=CN=<company>; empty = the Organization.
@@ -1075,7 +1153,7 @@
       Key        RSA 2048 | 3072 | 4096 | 8192 (below 2048 REJECTED).  ECDSA P-256 | P-384 | P-521 (smaller REJECTED).
                  ML-DSA 44 | 65 | 87.  Hash SHA-256 | 384 | 512 (SHA-1, SHA-224, MD5 REJECTED); the issuer's digest
                  by default.  Code signing FORCED: RSA >= 4096, ECDSA >= P-384, ML-DSA >= 65.
-      Validity   EV 397 days (<= 398), OV 3 years, DV 5 years, -Days n; never beyond the issuer.
+      Validity   EV 397 days (maximum, every purpose), OV 3 years, DV 5 years, -Days n; never beyond the issuer.
       Policies   level OID + [ policy_oids ] / [ iana_pen ] policies + -Policy "OID|CPS".
       Purposes   One certificate EACH (the set, 7; code signing has its own short subject, 15.9): ServerAuth, ClientAuth, ServerClientAuth (both EKUs), CodeSigning,
                  EmailProtection, TimeStamping (EKU critical, alone, RFC 3161), OcspSigning (+ id-pkix-ocsp-nocheck). Key usage follows (RSA adds
@@ -1226,4 +1304,86 @@
    install of 7-Zip with verification, dry runs (Ubuntu, Rocky, openSUSE, macOS), pwsh lookup, OpenSSL download + checksum + Configure + the start of the
    compile (542 objects in two minutes on 1 core), --unblock. PowerShell: -InstallMissing installs 7-Zip through the companion script; kit contents;
    Install-DevEnvironment.ps1 -Help / -Unblock and the readiness functions. NOT run: Windows, macOS, the finished compile.
+====================================================================================================
+
+====================================================================================================
+ 19  DEVKIT DESIGN  (PkiTransport.ps1 -DevKit, devkit\, scripts\21_DevKit.ps1)
+====================================================================================================
+
+ 19.1 Flow
+   SOURCE (the PKI machine)                                      DEVELOPER
+   PkiTransport.ps1 -DevKit                                      Windows 11 25H2+ : Install-PkiTrust.ps1  -> PkiTransport.ps1 -Install -Extract ca,pki -Destination <kit>
+     Initialize-PkiConfiguration + Import-PkiExisting              -> serial counters randomised -> Generate*.ps1 (pki\ is the kit's own)
+     New-PkiDevKit                                               Ubuntu / Linux   : make-executable.sh -> Install-PkiTrust.sh -> pki-transport.sh --extract ca,pki
+       Copy-PkiDevKitTree   scripts, generators, devkit\*, docs        -> path rewrite, serial counters randomised -> Generate*.sh (devkit.env + pki\)
+       Write-PkiDevKitEnv   devkit.env from the live configuration
+       New-PkiCertPackage -IncludeCaKeys -IssuingKeysOnly  -> <name>.certpacked
+       LF line endings, SHA256SUMS, New-PkiDevKitArchive -> .zip | .7z
+
+ 19.2 Kit layout (the kit folder is named like the zip)
+   <name>.certpacked  START-HERE.txt  SHA256SUMS  devkit.env  Install-PkiTrust.ps1/.sh  Make-ShExecutable.ps1  make-executable.sh
+   GenerateLeafCertificate.ps1/.sh  GeneratePersonLeafCertificate.ps1/.sh  GenerateOffice365LeafCertificate.ps1/.sh  SignCsr.ps1/.sh
+   PkiTransport.ps1  Unpack-PkiTransport.ps1  pki-transport.sh  Install-DevEnvironment.ps1/.sh  agantra_pki.cnf  scripts\*.ps1  lib\{pki-lib.sh, pki-person.sh, pki-persons.py, pki-csr.py}
+   examples\{persons.example.json, office365.example.json}  docs\{DevKit, PkiTransport, three generator manuals, Install-DevEnvironment}
+   after the install:  ca\  pki\ (+ .devkit-instance.json)  certpack.json     after use:  leafcerts\
+
+ 19.3 devkit.env (sourced by bash; single-quoted values; written by Write-PkiDevKitEnv)
+   PKI_KIT_VERSION ORG_NAME CPS_URL CPS_URL_EV  POLICIES_DV|OV|EV ("oid|cps" entries, level policy first)  DAYS_DV|OV|EV  DN_DV|OV|EV ("key=value|..." with __CN__)
+   CRL_URLS OCSP_URLS CA_ISSUER_URLS ({ca} = issuer slug)  LEAF_SAN_DNS|IP|EMAIL  DEV_SAN_DNS|IP|EMAIL  CONTACT_EMAIL TSA_DAYS TSA_POLICY_OID OCSP_DAYS RSA_PSS
+   PERSON_* and OFFICE_* (DAYS LEVEL COMMON_NAME_FORMAT SERIAL_NUMBER_FORMAT COUNTRY KEY_TYPE KEY_BITS CURVE DNS_FROM_EMAIL NO_CRL NO_OCSP KEEP_CASE)
+   CA_<id> = "<dir>/<id>|<slug>|<family>|<digest>" for q1|q2|q3|q4-dv|ov|ev (the Quantum ones only when the PKI has them), CA_IDS.   The file is regenerated by every build; a change of the configuration needs a new kit.
+
+ 19.4 Scripts (options in DevKit-MANUAL.txt and in each script's -Help / --help)
+   Install-PkiTrust.ps1  -Package -PackagePassword -TrustOnly -Reset -InstallMissing -SkipOpenSslCheck -OpenSslPath -SevenZipPath -Help   (calls PkiTransport.ps1 in-process with a splatted
+                         hashtable: 'pwsh -File' would pass -Extract ca,pki as one string). Re-run: pki\ stays (serials, issued certificates) unless -Reset.
+   Install-PkiTrust.sh   --package --password-file --trust-only --reset --yes --install-openssl --skip-openssl-check --openssl --7z --trust --help
+   Generate*.sh          see 10.70.      Make-ShExecutable.ps1 -Path -LineEndingsOnly -Help      make-executable.sh [folder]
+
+ 19.5 Tests run (Ubuntu 24.04, PowerShell 7.5.4, OpenSSL 4.0.3) / not run
+   RUN: build of the kit from a fresh PKI (Q1, Q2); contents of the .certpacked (only the six issuing keys; no root, OCSP, TSA, leaf, pfx); unzip + Install-PkiTrust.sh (7-Zip installed on demand, SHA-256 of
+   all files, path rewrite in 12 files, 6 serial counters); GenerateLeafCertificate.sh (set of 7; EV + development SAN + no revocation info; Q2 FIPS e-mail + development SAN + no CRL; DV);
+   person and Office .sh from the example files (isGenerate true / false, EV, ECDSA warning, no revocation info); openssl x509 -text and chain verification of the results; the PowerShell
+   generators in the relocated, key-restricted kit (serial from the randomised counter, master index.txt untouched); Make-ShExecutable.ps1 and make-executable.sh on CRLF files; the
+   wrapper call of PkiTransport.ps1 (splat, exit code) in the -Check variant; parse checks of every new ps1.
+   NOT RUN: Windows (Install-PkiTrust.ps1 with the Local Machine store, Make-ShExecutable.ps1 with WSL, a zip made on Windows), macOS, other Linux distributions.
+====================================================================================================
+
+====================================================================================================
+ 20  CSR SIGNING DESIGN  (SignCsr.ps1 / SignCsr.sh, SignExternalCa.ps1, scripts\22_CsrSigning.ps1, scripts\19_ExternalCaSigning.ps1, devkit\lib\pki-csr.py, 4.9.5)
+====================================================================================================
+
+ 20.1 Two jobs, two scripts
+   LEAF request (server, person, code signer ...)  -> SignCsr       -> intermediate q<N>-dv|ov|ev     original PKI and DevKit
+   CA request of a department                      -> SignExternalCa -> Classic Quadrant Root q1|q2-root   original PKI only
+   Enterprise / Track Roots sign nothing here. The DevKit can not sign a CA: no root key, and SignExternalCa.ps1 is not in the kit.
+
+ 20.2 Flow of SignCsr
+   Read-PkiCsr (openssl req -text / -subject -nameopt multiline,sname / -verify)  ->  Test-PkiCsrSpec (Key, Subject, Names, Extensions, Validity -> findings)
+   ->  Write-PkiCsrFindings (colour)  ->  ERROR? exit 2 | -Check? stop  ->  extensions written by THIS PKI (EKU / KU from the purpose and the key type, policies, CRL / AIA, SAN from the
+   validated names)  ->  openssl ca -preserveDN (DV: -subj /CN=)  ->  chain files, .cer, .p7b, verify (-x509_strict), sign-info.json, README.txt, signed-csr.tsv.
+   SignCsr.sh: pki-csr.py prints the same report and writes csr.env (names, key, counts); bash builds the extension file with the functions of lib\pki-lib.sh and calls openssl ca with a
+   temporary copy of the CA configuration (default provider only: signing does not need the FIPS module, and the .include of fipsmodule.cnf of another machine is not a problem).
+
+ 20.3 The specification (single definition; the finding codes are the same in PowerShell and Python)
+   Signature      valid, SHA-256+ (MD5 / SHA-1 / SHA-224 rejected; ML-DSA without digest)
+   Key            Classic RSA 2048 / 3072 / 4096 / 8192, ECDSA P-256 / P-384 / P-521 | Quantum ML-DSA-44 / 65 / 87 | code signing RSA 4096+, P-384+, ML-DSA-65+ | CA key RSA 4096+, P-384+
+   Subject        DV CN | OV C O CN (+OU) | EV OV + ST L serialNumber businessCategory jurisdictionC | code signing C O CN | CA OV: C O OU CN ; CA EV: + the EV fields
+   Names          TLS DNS / IP (EV: no wildcard, IP, internal, e-mail) | S/MIME e-mail | code signing, TSA, OCSP none
+   Validity       DV 5 y | OV 3 y | EV 397 d max | TSA 5 y (EV 397 d) | OCSP 1 y | never beyond the issuer
+   Ignored        keyUsage, EKU, policies, CRL / OCSP of the request.  Refused: CA:TRUE (leaf), the CN of one of our CAs (CA request).
+
+ 20.4 Decisions inside
+   * One checker for leaf and CA requests (profile Leaf | Ca), so that the rules of both scripts can not drift apart.
+   * Everything the request may influence is validated first and written by us; nothing is copied from the request but subject (OV / EV), SAN and the key.
+   * A SAN-less TLS request is not refused when the CN is a host name: the CN becomes the DNS name, with a WARN (many tools make such requests).
+   * Findings are collected, not thrown at the first one: the department fixes everything in one round.
+   * Exit codes: 0 ok, 1 tool error, 2 the request does not follow the spec (scripts can tell them apart).
+
+ 20.5 Tests run (Ubuntu 24.04, PowerShell 7.5, OpenSSL 4.0.3; fresh PKI Q1,Q2 and fresh PKI Q1-Q4)
+   RUN: SignCsr.ps1 -Check and signing for DV / OV / EV, FIPS, ServerAuth, ServerClientAuth, EmailProtection, CodeSigning, TimeStamping, OcspSigning, -NoRevocationInfo, Quantum (q3-ov, q4-ov);
+   rejected: missing C, EV without serialNumber / jurisdictionC, lower-case C, wrong businessCategory, EV internal name / wildcard / IP, RSA 1024, Ed25519, ECDSA P-256 for code signing,
+   ML-DSA-44 for code signing, SHA-1, CA:TRUE, Classic key on a Quantum request and the reverse, EV -Days 400; openssl verify of every result; revocation of a signed certificate (CRL);
+   SignCsr.sh in the unpacked DevKit (random serials, index.txt of the kit) and in the original PKI folder through devkit.env (Classic and Quantum); SignExternalCa.ps1 OV / EV / DV, q1-root /
+   q2-root, name constraints, missing OU, small key, the name of our own CA, EV -Days 500, Quantum quadrant refused.
+   NOT RUN: Windows (certreq requests, the Windows-made zip), macOS, other Linux distributions.
 ====================================================================================================

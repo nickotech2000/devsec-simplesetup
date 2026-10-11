@@ -58,6 +58,9 @@
           (openssl fipsinstall), OPENSSL_MODULES, OPENSSL_CONF and a master openssl.cnf that activates default and FIPS.
           oqsprovider is OPTIONAL (-WithOqsProvider): OpenSSL 4 has native ML-DSA and ML-KEM, and the master configuration mentions
           oqsprovider only when its DLL exists (a missing DLL named in the configuration makes every openssl command print errors).
+ PATH     Windows: the OpenSSL bin folder is added to the MACHINE Path (new terminals). Linux / macOS: the bin folder of OpenSSL 4 is put FIRST
+          on the PATH of login shells: /etc/profile.d/openssl4.sh (with sudo) or a marked block in ~/.profile and ~/.bashrc; the system
+          openssl files are not touched; a link  openssl4  is also made. --no-path leaves the PATH alone. Open a NEW terminal afterwards.
  LINUX / MACOS  A FULL build from https://github.com/openssl/openssl/releases (4.0.3; --openssl-version changes it):
      * the tarball is checked against the .sha256 file of the same release page; nothing is built when it differs;
      * ./Configure --prefix=<prefix> --openssldir=<prefix>/ssl --libdir=lib enable-fips -Wl,-rpath,<prefix>/lib   (no "no-docs" unless you ask)
@@ -166,7 +169,7 @@
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
 ============================================================
- Manual : Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling: Install-DevEnvironment.sh
+ Manual : docs\Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling: Install-DevEnvironment.sh
 
 WHAT IT DOES   (run in an ELEVATED PowerShell; -Check, -Help and -Unblock need no elevation)
   Installs through WinGet what is missing: PowerShell 7, .NET 10 and 8 SDK, Node.js, Go, PHP, Python, Git, 7-Zip, FireDaemon
@@ -206,7 +209,7 @@ EXIT CODES   0 ok   1 error (for example not elevated)   4 OpenSSL not ready
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : Install-DevEnvironment-MANUAL.txt     Windows sibling: Install-DevEnvironment.ps1
+ Manual : docs/Install-DevEnvironment-MANUAL.txt     Windows sibling: Install-DevEnvironment.ps1
 
 WHAT IT DOES
   Installs what is MISSING, verifies each component, and prints a summary. Nothing that is already there is replaced.
@@ -220,12 +223,12 @@ WHAT IT DOES
     git python go node php dotnet pwsh     developer tools (distribution packages; pwsh from the PowerShell GitHub release)
 
 USAGE
-  ./linux/Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; changes nothing
-  ./linux/Install-DevEnvironment.sh --yes                        install everything that is missing
-  ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip    only these (what the PKI scripts need)
-  ./linux/Install-DevEnvironment.sh --yes --skip php,dotnet      everything except these
-  ./linux/Install-DevEnvironment.sh --dry-run --only openssl     show the commands, run nothing
-  ./linux/Install-DevEnvironment.sh --unblock                    UNBLOCK + UNLOCK this folder, then stop
+  ./Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; changes nothing
+  ./Install-DevEnvironment.sh --yes                        install everything that is missing
+  ./Install-DevEnvironment.sh --yes --only openssl,7zip    only these (what the PKI scripts need)
+  ./Install-DevEnvironment.sh --yes --skip php,dotnet      everything except these
+  ./Install-DevEnvironment.sh --dry-run --only openssl     show the commands, run nothing
+  ./Install-DevEnvironment.sh --unblock                    UNBLOCK + UNLOCK this folder, then stop
 
 OPTIONS
   --only LIST            Comma-separated components (above). Default: all.      --skip LIST   All except these.

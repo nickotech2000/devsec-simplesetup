@@ -13,7 +13,7 @@
 #            issuer), root key policy (RSA 8192 | ECDSA P-521 | ML-DSA-87), RSA floor 3072 below the roots,
 #            private key matches certificate, policy OIDs,
 #            chain verifies up to the Enterprise Root (-x509_strict)
-#   Leaf   : EKU serverAuth+clientAuth, CA:FALSE, EV policy, validity <= 398 days,
+#   Leaf   : EKU serverAuth+clientAuth, CA:FALSE, EV policy, validity <= 397 days,
 #            RSA >= 2048, chain verifies, key matches
 #   PFX    : opens with the configured password
 # ============================================================
@@ -179,7 +179,7 @@ function Test-PkiLeaf {
         $inv = [Globalization.CultureInfo]::InvariantCulture
         $nb = [DateTime]::ParseExact((($Matches['a'] -replace ' GMT', '') -replace '\s+', ' ').Trim(), $fmt, $inv)
         $na = [DateTime]::ParseExact((($Matches['b'] -replace ' GMT', '') -replace '\s+', ' ').Trim(), $fmt, $inv)
-        if (($na - $nb).TotalDays -gt 398.5) { throw "[$id] validity exceeds 398 days." }
+        if (($na - $nb).TotalDays -gt 397.5) { throw "[$id] validity exceeds 397 days." }
     }
     if ($Leaf.keyAlgorithm -like 'RSA-*') {
         if ([int]($Leaf.keyAlgorithm -replace 'RSA-', '') -lt 2048) { throw "[$id] RSA key below 2048 bits." }

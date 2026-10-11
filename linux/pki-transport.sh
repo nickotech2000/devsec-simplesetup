@@ -12,10 +12,10 @@
 # Written for bash 3.2 (the bash of macOS) and newer: no associative arrays, no ${var,,}, no mapfile.
 # Platforms: Ubuntu / Debian, RHEL / CentOS Stream / Rocky / Oracle / Alma Linux, SLES / openSUSE (Leap, Tumbleweed),
 #            macOS (Apple Silicon M2 / M4 and Intel). Other Linux: --store-dir and --update-cmd.
-# Manual : PkiTransport-MANUAL.txt        Help: ./pki-transport.sh --help
+# Manual : docs/PkiTransport-MANUAL.txt        Help: ./pki-transport.sh --help
 # ============================================================
 
-VERSION="4.9.4-phaseC"
+VERSION="4.9.5-phaseC"
 PREFIX_NAME="agantra-pki-"                 # every file this script puts in the system store starts with this
 OSSL_MIN_MAJOR=4; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=1
 OSSL_BUILD_VERSION="4.0.3"                 # the version --install-openssl builds
@@ -26,12 +26,12 @@ usage() {
 cat <<'EOF'
 ============================================================
  pki-transport.sh - DESTINATION script for Linux and macOS
- Version 4.9.4-phaseC
+ Version 4.9.5-phaseC
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : PkiTransport-MANUAL.txt     Help: ./pki-transport.sh --help
+ Manual : docs/PkiTransport-MANUAL.txt     Help: ./pki-transport.sh --help
 
 WHAT IT DOES  (and nothing else)
   1. SCAN         the platform, privileges, OpenSSL 4.0.1+, the certificate-store tools, an archive tool.
@@ -66,7 +66,7 @@ OPTIONS
                           chains         ca/chains/*-fullchain.crt (each intermediate + its parents) and the bundles
                           ca             roots + intermediates + chains + bundles + CRLs   (default)
                           leafcerts      the leafcerts folders (leaf certificates AND their private keys), if packed
-                          pki            the whole PKI folder with the CA private keys, if packed
+                          pki            the PKI folder with the CA private keys (a DevKit: only the issuing CAs' keys), if packed
                           all            everything in the package;  fullchain is the same
   --leaf WILDCARD       With leafcerts: only these leaf sets (top-level folder names), e.g. 'www*'. Several: comma.
   --trust MODE          Which CAs go into the system store:
@@ -502,9 +502,10 @@ read_manifest() {
   [ "$bad" -eq 0 ] || die "The package does not match its own list of files ($bad problem(s))." 1
   ok "Package opened: $n file(s), every SHA-256 matches."
   local created; created="$(grep -m1 '"createdUtc"' "$TMP/certpack.json" | sed 's/.*: *"\(.*\)".*/\1/')"
-  local scope_leaf scope_keys
+  local scope_leaf scope_keys scope_issuing
   scope_leaf="$(grep -A4 '"scope"' "$TMP/certpack.json" | grep '"leafcerts"' | grep -c true)"; scope_keys="$(grep -A4 '"scope"' "$TMP/certpack.json" | grep '"caPrivateKeys"' | grep -c true)"
-  info "Made $created. Scope: CA certificates$([ "$scope_leaf" = 1 ] && echo ' + leaf certificates (private keys)')$([ "$scope_keys" = 1 ] && echo ' + the whole PKI (CA private keys)')."
+  scope_issuing="$(grep -A5 '"scope"' "$TMP/certpack.json" | grep '"issuingKeysOnly"' | grep -c true)"
+  info "Made $created. Scope: CA certificates$([ "$scope_leaf" = 1 ] && echo ' + leaf certificates (private keys)')$([ "$scope_keys" = 1 ] && { [ "$scope_issuing" = 1 ] && echo ' + the PKI folder with the keys of the ISSUING (intermediate) CAs only (no root key)' || echo ' + the whole PKI (CA private keys)'; })."
 }
 
 want_role() {   # is this role selected by --extract ?  uses $SELECT_LIST (comma separated)

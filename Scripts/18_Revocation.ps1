@@ -412,7 +412,7 @@ function Write-PkiRevocationInfo {
     & $w ('{0,-13} {1,-9} {2,-19} {3,-17} {4,-7} {5}' -f 'CA', 'CRL NO.', 'LAST UPDATE', 'NEXT UPDATE', 'DAYS', 'REVOKED/ISSUED')
     foreach ($r in $st.cas) { $k = $r.crl; & $w ('{0,-13} {1,-9} {2,-19} {3,-17} {4,-7} {5}' -f $r.ca, $k.number, $k.lastUpdate, $k.nextUpdate, $k.daysLeft, "$($k.revoked)/$($k.issued)") }
     & $w ''
-    & $w "OCSP RESPONDER CERTIFICATES  (folder pki\ocsp\<ca>\ ; served by the PKI server kit, see PKI-SERVER-MANUAL.txt)"
+    & $w "OCSP RESPONDER CERTIFICATES  (folder pki\ocsp\<ca>\ ; served by the PKI server kit, see docs\PKI-SERVER-MANUAL.txt)"
     foreach ($r in $st.cas) { if ($r.kind -eq 'intermediate') { $o = $r.ocspResponder; & $w $(if ($null -eq $o) { "  $($r.ca): none  (PkiRevocation.ps1 -Action NewOcsp -Ca $($r.ca))" } else { "  $($r.ca): serial $($o.serial)  until $($o.notAfter) ($($o.daysLeft) days)" }) } }
     & $w ''
     & $w "TIME STAMPING  (folder pki\tsa\<ca>\)   Quadrant $($st.timestamp.quadrant) (1 = Classic non-FIPS)   policy OID $($st.timestamp.policyOid)"
