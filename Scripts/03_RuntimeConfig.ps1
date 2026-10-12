@@ -56,7 +56,10 @@ function Find-PkiFipsModuleConfig {
         'C:\Program Files\OpenSSL\ssl\fipsmodule.cnf',
         'C:\Program Files\OpenSSL-Win64\ssl\fipsmodule.cnf',
         '/etc/ssl/fipsmodule.cnf',
-        '/usr/local/ssl/fipsmodule.cnf'
+        '/usr/local/ssl/fipsmodule.cnf',
+        '/etc/agantra-pki/fipsmodule.cnf',                                  # made by Install-DevEnvironment.sh / pki-transport.sh when a package has fips.so only
+        (Join-Path ([Environment]::GetFolderPath('UserProfile')) '.config/agantra-pki/fipsmodule.cnf'),
+        '/etc/ssl/openssl4/fipsmodule.cnf', '/etc/openssl4/fipsmodule.cnf', '/usr/lib/ssl/fipsmodule.cnf'
     )
     foreach ($c in $candidates) { if (Test-Path -LiteralPath $c -PathType Leaf) { return $c } }
     return $null

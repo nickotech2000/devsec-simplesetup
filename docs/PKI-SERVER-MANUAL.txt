@@ -1,5 +1,5 @@
 ====================================================================================================================================
- Agantra Inovatif Enterprise PKI  -  PKI SERVER KIT (Ubuntu 24.04 / 26.04)                                   Version 1.1.0   2026-10-11
+ Agantra Inovatif Enterprise PKI  -  PKI SERVER KIT (Ubuntu 24.04 / 26.04)                                   Version 1.2.0   2026-10-12
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================================================
 
@@ -86,6 +86,43 @@
       sudo ./pki-server.sh uninstall [--purge]
    Without systemd (container, WSL):   sudo ./pki-server.sh install ... --no-systemd   then   sudo /opt/agantra-pki-server/pki-server.sh run
 
+6a. CRL SERVER ONLY (4.9.5)  -  the small package, three commands, Ubuntu 24.04 / 26.04
+   When you only need the CRLs and the CA certificates on the network (Word / Excel / Outlook signatures, certutil -urlfetch, browsers), and not OCSP or time
+   stamping, use the SMALL package. It has no private key, needs no OpenSSL 4 and no python:
+     Windows (CA machine):   .\PkiTransport.ps1 -CrlServer            -> .\transport\agantra-pki-crl-server-<date>.zip   (-Release 2, -Tar, -NoCaRevocationInfo, -Out, -Force as for -Server)
+     Ubuntu:                 unzip agantra-pki-crl-server-*.zip && cd agantra-pki-crl-server
+                             sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+                             ./linux/pki-server/pki-server.sh dns            the hosts-file lines and the router A records for crl. / crt.nextmantra.internal
+   What --crl-only does: installs nginx (the PPA nicko-su-nginx; --no-ppa = the Ubuntu nginx), publishes pki/publish, writes the nginx site for the CRL / CA-issuer
+   hosts, a daily CRL expiry timer, runs the self-test (every CRL and CA-issuer URL of the PKI is asked). It is remembered: update / test / crl-check / dns follow it.
+   The system openssl 3.x is enough. WSL without systemd: add --no-systemd and start nginx yourself (sudo nginx).
+   New CRL (they expire, see CRL_DAYS in server\server.env): on the CA machine  .\PkiRevocation.ps1 -Action NewCrl , build the package again, copy, unzip, then
+     sudo ./linux/pki-server/pki-server.sh update --crl-only --source ./pki
+   Later you want OCSP and time stamping too: build the full package (-Server) and run install WITHOUT --crl-only (the CRL host stays the same).
+
+6b. CRL + OCSP SERVER, NO TIME STAMPING (4.9.5)
+   Windows (CA machine):   .\PkiTransport.ps1 -CrlOcspServer      -> .\transport\agantra-pki-crl-ocsp-server-<date>.zip  (-Release, -Tar, -NoCaRevocationInfo, -Out, -Force)
+   Ubuntu 24.04 / 26.04:   unzip agantra-pki-crl-ocsp-server-*.zip && cd agantra-pki-crl-ocsp-server
+     sudo ./linux/pki-server/pki-server.sh csr --no-tsa --source ./pki --out ./csr        OCSP keys are made on the server (no TSA key, no TSA CSR)
+     (CA machine)  .\PkiRevocation.ps1 -Action SignCsr -Csr ocsp-q1-ev.csr -For Ocsp -Ca q1-ev        one per issuing CA
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-q1-ev.crt --cert ...
+     sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+     ./linux/pki-server/pki-server.sh dns          crl. / crt. / ocsp.nextmantra.internal (no tsa. names)
+   --no-tsa is remembered (update, test, dns). New CRL or new certificates: build the package again, copy, unzip, then  update --no-tsa --source ./pki.
+   Time stamping later: install again without --no-tsa (with the TSA certificate imported). Only CRLs: chapter 6a (-CrlServer).
+
+6c. TIME STAMP SERVER ONLY (4.9.5)
+   Windows (CA machine):   .\PkiTransport.ps1 -TimestampServer      -> .\transport\agantra-pki-timestamp-server-<date>.zip  (-Release, -Tar, -NoCaRevocationInfo, -Out, -Force)
+   Ubuntu 24.04 / 26.04:   unzip agantra-pki-timestamp-server-*.zip && cd agantra-pki-timestamp-server
+     sudo ./linux/pki-server/pki-server.sh csr --tsa-only --source ./pki --out ./csr          one TSA key + CSR (--tsa-ca <id>: the CA that signs it, default the first -ev CA)
+     (CA machine)  .\PkiRevocation.ps1 -Action SignCsr -Csr tsa-q1-ev.csr -For Tsa -Ca q1-ev
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/tsa-q1-ev.crt
+     sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
+     ./linux/pki-server/pki-server.sh dns          tsa. and timestamp.nextmantra.internal only
+   nginx answers on those two names and forwards to the TSA service (python3 + openssl ts); no CRL host, no OCSP. --tsa-only is remembered (update, test, dns).
+   The clients still need the CRL (or OCSP) of the PKI to check the time stamp certificate: run -CrlServer / -CrlOcspServer / -Server on this or another machine.
+   Cannot be combined with --crl-only or --no-tsa.
+
 7. TESTS FROM A CLIENT
       OCSP     openssl ocsp -issuer ca.crt -cert leaf.crt -url http://ocsp.nextmantra.internal -CAfile ca-bundle.crt
       Stamp    openssl ts -query -data file -sha256 -cert -out q.tsq
@@ -93,6 +130,10 @@
                openssl ts -verify -data file -in r.tsr -CAfile ca-bundle.crt
       Windows  signtool sign /fd sha256 /tr http://tsa.nextmantra.internal /td sha256 /f code.pfx file.exe
       CRL      curl -O http://crl.nextmantra.internal/agantra-q1-ev-g1.crl ; openssl crl -inform DER -in agantra-q1-ev-g1.crl -noout -text
+      Windows chain check (Word / Excel "Recoverable Signature", after the hosts file or router DNS is set):
+               certutil -urlcache * delete                                   clears what Windows remembered about failed downloads
+               certutil -verify -urlfetch <leaf>-fullchain.crt               no REVOCATION_STATUS_UNKNOWN, the CRL line "Verified"
+      (These two lines are NOT printed by Start-PkiCrlServer.ps1 any more: antivirus programs treat the certutil download-cache switch as a suspicious pattern in a script.)
 
 8. FILES ON THE SERVER
       /opt/agantra-pki-server/     pki-server.sh, pki-ocsp-dispatch.py, pki-tsa.py, ocsp-run, tsa-run, dispatch-run

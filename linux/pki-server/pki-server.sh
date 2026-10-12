@@ -2,7 +2,7 @@
 # pki-server.sh - Agantra private PKI SERVER KIT for Ubuntu 24.04 / 26.04
 # Publishes the CRLs and CA certificates, answers OCSP and RFC 3161 time stamp requests, all through YOUR nginx (PPA) and OpenSSL 4.
 # Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
-KIT_VERSION="1.1.0"
+KIT_VERSION="1.2.0"
 set -u
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -20,6 +20,7 @@ NGINX_PKG="nicko-su-nginx"; OPENSSL_PKG="nicko-su-openssl4"; OPENSSL_BIN=""
 NGINX_BIN=""; NGINX_SVC="nginx"
 SOURCE=""; CNF=""; SERVER_IP=""; TSA_POLICY="1.3.6.1.4.1.67096.1.4"; TSA_POLICY_SET=0
 OCSP_LEAVES=(); TSA_LEAF=""; CERTS=(); OUTDIR=""; KEYALGO="rsa"; TSA_CA=""
+CRL_ONLY=0; NO_TSA=0; TSA_ONLY=0
 DRY=0; YES=0; NO_PPA=0; NO_SYSTEMD=0; NO_PACKAGES=0; BUILD_OPENSSL=0; PURGE=0
 OCSP_BASE_PORT=25001; DISPATCH_PORT=2559; TSA_PORT=2560
 CMD=""
@@ -49,6 +50,8 @@ WHAT IT DOES
 USAGE
   sudo ./pki-server.sh install --source <pki folder> --ocsp-leaf <leafcerts folder> --tsa-leaf <leafcerts folder> [options]
   sudo ./pki-server.sh update  --source <pki folder> ...        new CRLs / certificates / index.txt, keeps everything else
+  sudo ./pki-server.sh install --crl-only --source <pki folder>      CRL + CA-certificate server ONLY (nginx; no OCSP, no time stamping,
+                                                                      no OpenSSL 4, no keys): the small package of  PkiTransport.ps1 -CrlServer
   ./pki-server.sh status | info | test | dns | crl-check | run | uninstall [--purge] | check
 
   KEYS STAY ON THE SERVER (recommended; the package from New-PkiServerPackage.ps1 has no private keys at all):
@@ -73,6 +76,13 @@ COMMANDS
   uninstall    removes services, nginx site, helpers (--purge also keys, indexes and published files)
 
 OPTIONS
+  --tsa-only           install / update / csr: ONLY the RFC 3161 time stamp server (nginx on tsa. / timestamp.nextmantra.internal + the TSA service): no CRL host, no OCSP. Remembered.
+                       The package of  PkiTransport.ps1 -TimestampServer. Needs OpenSSL 4 and python3.
+  --no-tsa             install / update / csr: CRL + OCSP only, no time stamp service (no TSA key, no TSA CSR, no TSA host in the DNS list). Remembered.
+                       The package of  PkiTransport.ps1 -CrlOcspServer. Time stamping later: install again without --no-tsa.
+  --crl-only           install / update: serve only the CRLs and CA certificates (http://crl.nextmantra.internal/... and crt.nextmantra.internal/...).
+                       Needs only nginx and the system openssl (3.x is fine); the package needs only <pki>/publish and <pki>/server. Remembered for
+                       later update / test / crl-check runs. Adding OCSP / time stamping later: run  install  again WITHOUT --crl-only.
   --source DIR         the PKI folder made by pki_setup.ps1 (the one that holds publish\ and the CA folders). Required.
   --ocsp-leaf DIR      a folder with OCSP-signing certificate(s) + .key (a leafcerts set, e.g. leafcerts\nextmantra.com).
                        Repeat for more CAs. Optional: <source>/ocsp, <source>/tsa and the imported certificates are found by themselves. Every certificate with the OCSP Signing purpose is matched to its issuing CA.
@@ -126,6 +136,9 @@ while [ $# -gt 0 ]; do
     --tsa-ca) need "$@"; TSA_CA="$2"; shift 2 ;;
     --no-packages) NO_PACKAGES=1; shift ;;
     --no-systemd) NO_SYSTEMD=1; shift ;;
+    --crl-only) CRL_ONLY=1; shift ;;
+    --no-tsa) NO_TSA=1; shift ;;
+    --tsa-only) TSA_ONLY=1; shift ;;
     --purge) PURGE=1; shift ;;
     --dry-run) DRY=1; shift ;;
     --yes|-y) YES=1; shift ;;
@@ -136,18 +149,18 @@ done
 
 # ---------------------------------------------------------------- helpers
 SAVED="$ETC_DIR/kit.conf"
-load_saved() { [ -f "$SAVED" ] && . "$SAVED"; return 0; }
+load_saved() { local keep="$CRL_ONLY" keept="$NO_TSA" keepo="$TSA_ONLY"; [ -f "$SAVED" ] && . "$SAVED"; [ "$keep" = 1 ] && CRL_ONLY=1; [ "$keept" = 1 ] && NO_TSA=1; [ "$keepo" = 1 ] && TSA_ONLY=1; return 0; }
 cert_fp() {  # sha256 of the DER of a certificate file (PEM or DER)
   local f="$1" o="${OPENSSL_BIN:-openssl}"
   { "$o" x509 -in "$f" -outform DER 2>/dev/null || "$o" x509 -inform DER -in "$f" -outform DER 2>/dev/null; } | sha256sum | cut -d' ' -f1
 }
 lf() { sed -i 's/\r$//' "$@"; }
-ver_ok() { local v; v="$("$1" version 2>/dev/null)"; [[ "$v" =~ ^OpenSSL\ ([0-9]+)\. ]] && [ "${BASH_REMATCH[1]}" -ge 4 ]; }
+ver_ok() { local v min=4; [ "$CRL_ONLY" = 1 ] && min=3; v="$("$1" version 2>/dev/null)"; [[ "$v" =~ ^OpenSSL\ ([0-9]+)\. ]] && [ "${BASH_REMATCH[1]}" -ge "$min" ]; }
 
 find_openssl() {
   local c
   local pk; pk="$(dpkg -L "$OPENSSL_PKG" 2>/dev/null | grep -E '/bin/openssl$' | head -1)"
-  for c in "$OPENSSL_BIN" "$pk" "$(command -v openssl4 2>/dev/null)" /opt/openssl-4*/bin/openssl /usr/local/openssl-4*/bin/openssl /opt/openssl4/bin/openssl "$(command -v openssl 2>/dev/null)"; do
+  for c in "$OPENSSL_BIN" "$pk" "$(command -v openssl4 2>/dev/null)" /usr/bin/openssl4 /usr/local/bin/openssl4 /opt/openssl-4*/bin/openssl /usr/local/openssl-4*/bin/openssl /opt/openssl4/bin/openssl "$(command -v openssl 2>/dev/null)"; do
     [ -n "$c" ] && [ -x "$c" ] && ver_ok "$c" && { OPENSSL_BIN="$c"; return 0; }
   done
   return 1
@@ -226,7 +239,8 @@ install_packages() {
   have apt-get || die "apt-get not found: this kit is for Ubuntu / Debian." 2
   export DEBIAN_FRONTEND=noninteractive
   priv apt-get update -y >/dev/null 2>&1 || warn "apt-get update reported errors"
-  priv apt-get install -y ca-certificates curl python3 software-properties-common gnupg || die "base packages failed" 6
+  if [ "$CRL_ONLY" = 1 ]; then priv apt-get install -y ca-certificates curl openssl software-properties-common gnupg || die "base packages failed" 6
+  else priv apt-get install -y ca-certificates curl python3 software-properties-common gnupg || die "base packages failed" 6; fi
   if [ "$NO_PPA" = 0 ]; then
     local vid arch; vid="$(. /etc/os-release 2>/dev/null; echo "${VERSION_ID:-}")"; arch="$(dpkg --print-architecture 2>/dev/null)"
     case "$vid" in 24.04|26.04) ;; *) warn "Ubuntu $vid: the PPA publishes for 24.04 (noble) and 26.04 (resolute) only";; esac
@@ -241,11 +255,11 @@ install_packages() {
   fi
   info "nginx package: $NGINX_PKG"
   run priv apt-get install -y "$NGINX_PKG" || die "cannot install $NGINX_PKG" 6
-  if ! find_openssl && [ -n "$OPENSSL_PKG" ]; then
+  if [ "$CRL_ONLY" = 0 ] && ! find_openssl && [ -n "$OPENSSL_PKG" ]; then
     info "OpenSSL 4 package: $OPENSSL_PKG"; run priv apt-get install -y "$OPENSSL_PKG" || warn "cannot install $OPENSSL_PKG"
   fi
   detect_nginx
-  if ! find_openssl && [ "$BUILD_OPENSSL" = 1 ]; then
+  if [ "$CRL_ONLY" = 0 ] && ! find_openssl && [ "$BUILD_OPENSSL" = 1 ]; then
     [ -x "$KIT_DIR/../Install-DevEnvironment.sh" ] || die "--build-openssl needs ../Install-DevEnvironment.sh next to this kit" 6
     run bash "$KIT_DIR/../Install-DevEnvironment.sh" --yes --only openssl --openssl-source build || die "OpenSSL build failed" 6
   fi
@@ -257,6 +271,7 @@ CA_IDS=(); declare -A CA_DIR CA_CRT CA_SLUG CA_PORT CA_RCRT CA_RKEY
 scan_source() {
   [ -d "$SOURCE" ] || die "--source must be the pki folder (not found: '$SOURCE')"
   [ -d "$SOURCE/publish" ] || die "$SOURCE\\publish does not exist: this is not a pki folder made by pki_setup.ps1"
+  if [ "$CRL_ONLY" = 1 ]; then ok "CRL-only source: $(ls "$SOURCE"/publish/*.crl 2>/dev/null | wc -l) CRL(s), $(ls "$SOURCE"/publish/*.crt 2>/dev/null | wc -l) CA certificate file(s) in publish/"; return 0; fi
   local f fp; declare -A SLUGFP
   for f in "$SOURCE"/publish/*.crt "$SOURCE"/publish/*.pem; do [ -f "$f" ] || continue; case "$f" in *.crl.pem|*/ca-bundle.crt|*/root.crt) continue;; esac
     fp="$(cert_fp "$f")"; [ -n "$fp" ] && SLUGFP[$fp]="$(basename "${f%.*}")"; done
@@ -403,7 +418,7 @@ TSA_OK=0
 
 write_helpers() {
   mkdir -p "$OPT_DIR"
-  cp -f "$KIT_DIR/pki-ocsp-dispatch.py" "$KIT_DIR/pki-tsa.py" "$OPT_DIR/"; chmod 755 "$OPT_DIR"/*.py
+  if [ "$CRL_ONLY" = 0 ]; then [ "$NO_TSA" = 1 ] || cp -f "$KIT_DIR/pki-tsa.py" "$OPT_DIR/"; [ "$TSA_ONLY" = 1 ] || cp -f "$KIT_DIR/pki-ocsp-dispatch.py" "$OPT_DIR/"; chmod 755 "$OPT_DIR"/*.py; fi
   cat > "$OPT_DIR/ocsp-run" <<EOF
 #!/usr/bin/env bash
 # starts the OCSP responder of one CA:  ocsp-run <ca-id>
@@ -433,6 +448,7 @@ write_nginx() {
   [ -f "$conf" ] && cp -f "$conf" "$conf.bak"
   {
     echo "# Agantra PKI server kit $KIT_VERSION - written by pki-server.sh (re-written on every install / update)"
+    if [ "$TSA_ONLY" = 0 ]; then
     echo "# CRL + CA certificates"
     echo "server {"
     echo "    listen 80;$V6"
@@ -444,6 +460,7 @@ write_nginx() {
     echo "    location / { try_files \$uri \$uri/ =404; add_header Cache-Control \"public, max-age=3600\"; limit_except GET HEAD { deny all; } }"
     echo "    access_log /var/log/nginx/pki-crl.access.log; error_log /var/log/nginx/pki-crl.error.log;"
     echo "}"
+    fi
     if [ "${#CA_IDS_OCSP[@]}" -gt 0 ]; then
       echo "# OCSP: one URL, the dispatcher asks every CA responder"
       echo "server {"
@@ -572,14 +589,20 @@ do_install() {
   load_saved
   if [ "$CMD" = install ]; then install_packages; else info "update: packages are not touched"; fi
   [ "$CMD" = update ] || [ "$NO_PACKAGES" = 1 ] && detect_nginx
-  find_openssl || die "OpenSSL 4.x not found. Install it from the PPA (--openssl-package), or --openssl PATH, or --build-openssl." 4
+  [ "$TSA_ONLY" = 1 ] && [ "$CRL_ONLY" = 1 -o "$NO_TSA" = 1 ] && die "--tsa-only cannot be combined with --crl-only or --no-tsa"
+  if [ "$CRL_ONLY" = 1 ]; then find_openssl || die "openssl not found (sudo apt install openssl)" 4
+  else find_openssl || die "OpenSSL 4.x not found. Install it from the PPA (--openssl-package), or --openssl PATH, or --build-openssl." 4; fi
   LIBDIR_OSSL="$(openssl_libdir)"
   ok "OpenSSL: $("$OPENSSL_BIN" version | cut -d'(' -f1)  [$OPENSSL_BIN]"
   id "$SVC_USER" >/dev/null 2>&1 || run useradd --system --home-dir "$LIB_DIR" --shell /usr/sbin/nologin "$SVC_USER" || true
   mkdir -p "$ETC_DIR" "$LIB_DIR"
   [ "$DRY" = 1 ] && { info "dry-run: stopping here"; return 0; }
   scan_source; keep_pki_info; compute_hosts
-  publish_files; setup_ocsp; setup_tsa; write_helpers; write_nginx; write_units
+  if [ "$CRL_ONLY" = 1 ]; then
+    ls "$SOURCE"/publish/*.crl >/dev/null 2>&1 || warn "no .crl file in $SOURCE/publish: the CRLs are made on the CA machine (pki_setup.ps1 / PkiRevocation.ps1 -Action NewCrl)"
+    publish_files; write_helpers; write_nginx; write_units
+  elif [ "$TSA_ONLY" = 1 ]; then setup_tsa; write_helpers; write_nginx; write_units
+  else publish_files; setup_ocsp; { [ "$NO_TSA" = 1 ] && info "time stamping: skipped (--no-tsa)" || setup_tsa; }; write_helpers; write_nginx; write_units; fi
   cat > "$SAVED" <<EOF
 OPENSSL_BIN="$OPENSSL_BIN"
 SAVED_CNF="${CNF}"
@@ -588,6 +611,9 @@ NGINX_SVC="$NGINX_SVC"
 NGINX_ETC="$NGINX_ETC"
 NGINX_PKG="$NGINX_PKG"
 OPENSSL_PKG="$OPENSSL_PKG"
+CRL_ONLY="$CRL_ONLY"
+NO_TSA="$NO_TSA"
+TSA_ONLY="$TSA_ONLY"
 EOF
   chmod 600 "$SAVED"
   if [ -n "$NGINX_BIN" ] && [ "$NO_SYSTEMD" = 0 ] && have systemctl; then systemctl enable "$NGINX_SVC" >/dev/null 2>&1; systemctl reload "$NGINX_SVC" 2>/dev/null || systemctl restart "$NGINX_SVC"; fi
@@ -603,7 +629,10 @@ do_dns() {
   local ip="$SERVER_IP" all h dir="$ETC_DIR/dns"
   local ips; ips="$(hostname -I 2>/dev/null | xargs)"
   [ -n "$ip" ] || ip="$(echo "$ips" | awk '{print $1}')"; [ -n "$ip" ] || ip="<this VM's IP>"
-  all="$({ echo "$HOSTS_CRL"; echo "$HOSTS_OCSP"; echo "$HOSTS_TSA"; } | sort -u | grep -v '^$')"
+  if [ "$CRL_ONLY" = 1 ]; then all="$(echo "$HOSTS_CRL" | sort -u | grep -v '^$')"
+  elif [ "$TSA_ONLY" = 1 ]; then all="$(echo "$HOSTS_TSA" | sort -u | grep -v '^$')"
+  elif [ "$NO_TSA" = 1 ]; then all="$({ echo "$HOSTS_CRL"; echo "$HOSTS_OCSP"; } | sort -u | grep -v '^$')"
+  else all="$({ echo "$HOSTS_CRL"; echo "$HOSTS_OCSP"; echo "$HOSTS_TSA"; } | sort -u | grep -v '^$')"; fi
   echo
   echo "DNS NAMES OF THIS PKI SERVER  (server IP: $ip)"
   [ "$(echo "$ips" | wc -w)" -gt 1 ] && echo "  This machine has several addresses ($ips). Another one: ./pki-server.sh dns --server-ip <IP>"
@@ -625,7 +654,10 @@ do_dns() {
     echo "   Saved: $dir/hosts.txt   $dir/dns-records.csv   $dir/dnsmasq.conf   (show again: ./pki-server.sh dns)"
   fi
   echo
+  if [ "$TSA_ONLY" = 1 ]; then echo "TEST FROM A CLIENT after the names are set:  openssl ts -query -data file.txt -sha256 -cert -out q.tsq ; curl -H 'Content-Type: application/timestamp-query' --data-binary @q.tsq http://$(echo "$HOSTS_TSA" | grep '^tsa\.' | head -1)/ -o r.tsr"
+  else
   echo "TEST FROM A CLIENT after the names are set:  curl -I http://$(echo "$HOSTS_CRL" | grep '^crl\.' | head -1)/<slug>.crl     certutil -verify -urlfetch <leaf>-fullchain.crt"
+  fi
 }
 
 http_get() { curl -sS -m 10 -o "$2" -w '%{http_code}' -H "Host: $1" "http://127.0.0.1${3:-}"; }
@@ -635,18 +667,23 @@ do_test() {
   [ -n "$SAVED_CNF" ] && [ -z "$CNF" ] && CNF="$SAVED_CNF"; compute_hosts
   local fails=0 t="$(mktemp -d)" host id
   host="$(echo "$HOSTS_CRL" | head -1)"
-  if have curl && (ss -ltn 2>/dev/null | grep -q ':80 '); then
+  if [ "$TSA_ONLY" = 0 ] && have curl && (ss -ltn 2>/dev/null | grep -q ':80 '); then
     local f; for f in "$WWW_DIR"/*.crl; do [ -f "$f" ] || continue
       if [ "$(http_get "$host" "$t/x" "/$(basename "$f")")" = 200 ] && "$OPENSSL_BIN" crl -inform DER -in "$t/x" -noout 2>/dev/null; then ok "CRL via nginx: $(basename "$f")"; else warn "CRL not served: $(basename "$f")"; fails=$((fails+1)); fi; done
-  else warn "nginx is not listening on port 80: CRL download not tested"; fi
+  elif [ "$TSA_ONLY" = 0 ]; then warn "nginx is not listening on port 80: CRL download not tested"; fi
   # every URL that the certificates of the installed PKIs contain (pki/server/expected-urls.tsv): same host name, same path
-  if have curl && (ss -ltn 2>/dev/null | grep -q ':80 '); then
-    local et typ h url pth okn=0 badn=0
+  if [ "$TSA_ONLY" = 0 ] && have curl && (ss -ltn 2>/dev/null | grep -q ':80 '); then
+    local et typ h url pth okn=0 badn=0 valid
     for et in "$ETC_DIR"/pki-info/*/expected-urls.tsv; do [ -f "$et" ] || continue
       while IFS=$'\t' read -r typ h url; do
         case "$typ" in crl|ca-issuer) ;; *) continue;; esac
         pth="/${url#*://*/}"
-        if [ "$(http_get "$h" "$t/y" "$pth")" = 200 ] && { [ "$typ" = crl ] && "$OPENSSL_BIN" crl -inform DER -in "$t/y" -noout 2>/dev/null || [ "$typ" = ca-issuer ] && "$OPENSSL_BIN" x509 -inform DER -in "$t/y" -noout 2>/dev/null; }; then okn=$((okn+1))
+        valid=1
+        if [ "$(http_get "$h" "$t/y" "$pth")" = 200 ]; then
+          if [ "$typ" = crl ]; then "$OPENSSL_BIN" crl -inform DER -in "$t/y" -noout 2>/dev/null && valid=0
+          else { "$OPENSSL_BIN" x509 -inform DER -in "$t/y" -noout 2>/dev/null || "$OPENSSL_BIN" x509 -in "$t/y" -noout 2>/dev/null; } && valid=0; fi
+        fi
+        if [ "$valid" = 0 ]; then okn=$((okn+1))
         else warn "$typ not served: $url"; badn=$((badn+1)); fi
       done < <(grep -v '^#' "$et")
     done
@@ -754,7 +791,8 @@ do_csr() {
   if [ -z "$tsaca" ]; then for id in "${CA_IDS[@]}"; do case "$id" in *-ev) tsaca="$id"; break;; esac; done; [ -n "$tsaca" ] || tsaca="${CA_IDS[0]}"; fi
   [[ " ${CA_IDS[*]} " == *" $tsaca "* ]] || die "--tsa-ca $tsaca is not a CA of this PKI (${CA_IDS[*]})"
   local list=() x; for x in "${CA_IDS[@]}"; do case "$x" in *root*) ;; *) list+=("$x");; esac; done   # root CAs sign CAs only: no OCSP responder for them
-  for id in "${list[@]}" "TSA:$tsaca"; do
+  local items=("${list[@]}"); [ "$NO_TSA" = 1 ] || items+=("TSA:$tsaca"); [ "$TSA_ONLY" = 1 ] && items=("TSA:$tsaca")
+  for id in "${items[@]}"; do
     case "$id" in TSA:*) id="${id#TSA:}"; name="tsa-$id"; subj="/C=EE/O=Agantra Inovatif OÜ/CN=$(csr_cn tsa "$id")";;
       *) name="ocsp-$id"; subj="/C=EE/O=Agantra Inovatif OÜ/CN=$(csr_cn ocsp "$id")";; esac
     if [ -f "$pend/$name.key" ]; then info "$name: key already exists, the CSR is made again from it"; else
@@ -765,7 +803,7 @@ do_csr() {
   done
   echo
   echo "Next: copy the .csr files to the CA machine (they hold no secret) and sign them there:"
-  echo "  .\\PkiRevocation.ps1 -Action SignCsr -Csr ocsp-<ca>.csr -For Ocsp -Ca <ca>        (the TSA one: -For Tsa -Ca $tsaca)"
+  [ "$TSA_ONLY" = 1 ] && echo "  .\\PkiRevocation.ps1 -Action SignCsr -Csr tsa-$tsaca.csr -For Tsa -Ca $tsaca" || echo "  .\\PkiRevocation.ps1 -Action SignCsr -Csr ocsp-<ca>.csr -For Ocsp -Ca <ca>        $([ "$NO_TSA" = 1 ] || echo "(the TSA one: -For Tsa -Ca $tsaca)")"
   echo "Then copy the .crt files back and run:  sudo ./pki-server.sh import-cert --cert <file> [--cert <file> ...]"
 }
 

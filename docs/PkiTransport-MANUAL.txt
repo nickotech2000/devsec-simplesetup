@@ -334,6 +334,10 @@ WHAT IT DOES
   -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
   -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1, Ubuntu sh), the leaf / person /
              Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
+  -CrlServer SOURCE.      ONE SMALL zip (-Tar: also .tar.gz) for a CRL / CA-certificate server ONLY on Ubuntu 24.04 / 26.04 (nginx; no OCSP, no time stamping,
+             no OpenSSL 4, no key): pki-server.sh + pki\publish + pki\server. See chapter 21.
+  -CrlOcspServer SOURCE.  ONE zip for a CRL + OCSP server on Ubuntu 24.04 / 26.04 WITHOUT time stamping (pki-server.sh install --no-tsa). No key inside. See chapter 22.
+  -TimestampServer SOURCE. ONE zip for a TIME STAMP server only (RFC 3161) on Ubuntu 24.04 / 26.04 (pki-server.sh install --tsa-only). No key inside. See chapter 23.
   -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp server: pki-server.sh + the PKI without private keys
              (the CA keys NEVER go there) + the server\ files of the PKI. No password: the package holds nothing secret. See SERVER.
   -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes it unpacks the
@@ -665,3 +669,31 @@ PkiTransport.ps1 -Server  -  the server package from the transport script  (4.9.
   It runs New-PkiServerPackage.ps1 (same checks: no private key, LF text, execute bits; the package is opened again and scanned, one key = deleted)
   and prints the SHA-256. No password: the package holds nothing secret. Inside: linux\ (pki-server kit, pki-transport.sh, Install-DevEnvironment.sh),
   pki\ (the PKI WITHOUT keys, with server\), agantra_pki.cnf, the documents. On Ubuntu:  unzip; sudo ./linux/pki-server/pki-server.sh install --source ./pki
+
+
+====================================================================================================
+ 21  -CrlServer: THE SMALL CRL SERVER PACKAGE  (4.9.5)
+====================================================================================================
+PkiTransport.ps1 -CrlServer  -  CRLs and CA certificates on Ubuntu 24.04 / 26.04, nothing else
+  .\PkiTransport.ps1 -CrlServer                 .\transport\agantra-pki-crl-server-<date>.zip   (latest release, normal family)
+  .\PkiTransport.ps1 -CrlServer -Release 2 -Tar  also a .tar.gz     -NoCaRevocationInfo  the NoCR family     -PkiRoot <folder>  one folder     -Out <file.zip>  -Force
+  (-IncludeServiceKeys is refused: this package carries no key of any kind.) It runs New-PkiServerPackage.ps1 -CrlOnly (same checks, the package is opened again and
+  scanned) and prints the SHA-256. Inside: linux\pki-server\pki-server.sh, pki\publish, pki\server, docs\PKI-SERVER-MANUAL.txt, README-CRL-SERVER.txt.
+  On Ubuntu:  unzip; sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki ; ./linux/pki-server/pki-server.sh dns
+  Renewing CRLs: PkiRevocation.ps1 -Action NewCrl, build again, copy, unzip, pki-server.sh update --crl-only --source ./pki. Manual: PKI-SERVER-MANUAL.txt chapter 6a.
+
+====================================================================================================
+ 22  -CrlOcspServer: CRL + OCSP SERVER PACKAGE, NO TIME STAMPING  (4.9.5)
+====================================================================================================
+  .\PkiTransport.ps1 -CrlOcspServer           .\transport\agantra-pki-crl-ocsp-server-<date>.zip    (-Release n, -Tar, -NoCaRevocationInfo, -PkiRoot, -Out, -Force)
+  Same checks as -Server (no private key, LF text, execute bits, SHA-256 printed); without pki-tsa.py and pki\tsa. It cannot be combined with -Server or -CrlServer.
+  Ubuntu: csr --no-tsa -> sign with PkiRevocation.ps1 -Action SignCsr -For Ocsp -> import-cert -> sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+  Manual: PKI-SERVER-MANUAL.txt chapter 6b. The three packages: -CrlServer (CRL only), -CrlOcspServer (CRL + OCSP), -Server (CRL + OCSP + time stamping).
+
+====================================================================================================
+ 23  -TimestampServer: TIME STAMP SERVER PACKAGE  (4.9.5)
+====================================================================================================
+  .\PkiTransport.ps1 -TimestampServer         .\transport\agantra-pki-timestamp-server-<date>.zip    (-Release n, -Tar, -NoCaRevocationInfo, -PkiRoot, -Out, -Force)
+  Same checks as -Server (no private key, LF text, execute bits, SHA-256 printed); without pki-ocsp-dispatch.py and pki\ocsp. Not combinable with the other server modes;
+  -IncludeServiceKeys is refused. Ubuntu: csr --tsa-only -> sign with PkiRevocation.ps1 -Action SignCsr -For Tsa -> import-cert -> sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
+  Manual: PKI-SERVER-MANUAL.txt chapter 6c. The four packages: -CrlServer, -CrlOcspServer, -TimestampServer, -Server (all three services).

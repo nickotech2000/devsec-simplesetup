@@ -23,6 +23,9 @@ param(
     [string]$RootName = 'agantra-pki-server',
     [switch]$IncludeServiceKeys,
     [switch]$NoPki,
+    [switch]$CrlOnly,
+    [switch]$NoTsa,
+    [switch]$TsaOnly,
     [switch]$Tar,
     [switch]$Force,
     [switch]$Help
@@ -62,7 +65,7 @@ NEVER IN THE PACKAGE
   stamp certificates found in pki\ocsp and pki\tsa (never a CA key).
 
 USAGE
-  .\New-PkiServerPackage.ps1 [-PkiRoot <folder>] [-Release <n>] [-NoCaRevocationInfo] [-Output <file.zip>] [-RootName <name>] [-IncludeServiceKeys] [-NoPki] [-Tar] [-Force]
+  .\New-PkiServerPackage.ps1 [-PkiRoot <folder>] [-Release <n>] [-NoCaRevocationInfo] [-Output <file.zip>] [-RootName <name>] [-IncludeServiceKeys] [-NoPki] [-CrlOnly] [-NoTsa] [-TsaOnly] [-Tar] [-Force]
 
 ALSO AS PkiTransport.ps1 -Server (same package, same checks, lands in .\transport\).
 
@@ -76,6 +79,13 @@ PARAMETERS
   -Output <file.zip>     default: .\agantra-pki-server-<yyyyMMdd-HHmmss>.zip next to this script
   -RootName <name>       the folder inside the zip (default agantra-pki-server)
   -IncludeServiceKeys    lab only: include the OCSP / TSA private keys (see above)
+  -CrlOnly               the SMALL package of a CRL / CA-certificate server (no OCSP, no time stamping): pki-server.sh only, pki\publish + pki\server
+                         of the PKI, README-CRL-SERVER.txt. On Ubuntu:  sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+                         (also as PkiTransport.ps1 -CrlServer). Default file name agantra-pki-crl-server-<date>.zip
+  -NoTsa                 the package of a CRL + OCSP server (no time stamping): no pki-tsa.py, no pki\tsa, README-CRL-OCSP-SERVER.txt; on Ubuntu
+                         install with --no-tsa. Default file name agantra-pki-crl-ocsp-server-<date>.zip (also PkiTransport.ps1 -CrlOcspServer)
+  -TsaOnly               the package of a TIME STAMP server only (RFC 3161): no OCSP dispatcher, no pki\ocsp, README-TIMESTAMP-SERVER.txt; on Ubuntu
+                         install with --tsa-only. Default file name agantra-pki-timestamp-server-<date>.zip (also PkiTransport.ps1 -TimestampServer)
   -NoPki                 only the Linux scripts and documents (the kit scripts for a repository check-out, no certificates)
   -Tar                   also write a .tar.gz with the same content (tar keeps the mode bits on every tool)
   -Force                 overwrite an existing output file
@@ -166,7 +176,12 @@ if (-not $pkiDir) {
 if (-not $NoPki -and -not (Test-Path -LiteralPath (Join-Path $pkiDir 'publish') -PathType Container)) {
     Write-Msg "PKI folder not found or no publish\ inside: $pkiDir  (-PkiRoot <folder>, or -NoPki)" 'ERROR'; exit 4
 }
-if (-not $Output) { $Output = Join-Path $root ("agantra-pki-server-{0}.zip" -f (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+if ($CrlOnly -and $NoTsa) { Write-Msg '-CrlOnly and -NoTsa cannot be combined (-CrlOnly has no OCSP either).' 'ERROR'; exit 1 }
+if ($TsaOnly -and ($CrlOnly -or $NoTsa)) { Write-Msg '-TsaOnly cannot be combined with -CrlOnly or -NoTsa.' 'ERROR'; exit 1 }
+if ($TsaOnly -and $RootName -eq 'agantra-pki-server') { $RootName = 'agantra-pki-timestamp-server' }
+if ($NoTsa -and $RootName -eq 'agantra-pki-server') { $RootName = 'agantra-pki-crl-ocsp-server' }
+if ($CrlOnly) { if ($NoPki) { Write-Msg '-CrlOnly needs the PKI (publish\ and server\): do not combine it with -NoPki.' 'ERROR'; exit 1 }; if ($IncludeServiceKeys) { Write-Msg '-CrlOnly carries no keys at all: -IncludeServiceKeys is not allowed with it.' 'ERROR'; exit 1 }; if ($RootName -eq 'agantra-pki-server') { $RootName = 'agantra-pki-crl-server' } }
+if (-not $Output) { $Output = Join-Path $root ("{0}-{1}.zip" -f $(if ($CrlOnly) { 'agantra-pki-crl-server' } elseif ($NoTsa) { 'agantra-pki-crl-ocsp-server' } elseif ($TsaOnly) { 'agantra-pki-timestamp-server' } else { 'agantra-pki-server' }), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
 $Output = [System.IO.Path]::GetFullPath($Output)
 $tarOut = [System.IO.Path]::ChangeExtension($Output, '.tar.gz')
 foreach ($o in @($Output) + @($(if ($Tar) { $tarOut }))) { if (Test-Path -LiteralPath $o) { if ($Force) { Remove-Item -LiteralPath $o -Force } else { Write-Msg "Exists: $o  (use -Force)" 'ERROR'; exit 1 } } }
@@ -178,11 +193,15 @@ if (-not (Test-Path -LiteralPath $linuxDir -PathType Container)) { Write-Msg "li
 Get-ChildItem -LiteralPath $linuxDir -Recurse -File -Force | ForEach-Object {
     $rel = $_.FullName.Substring($linuxDir.Length).TrimStart('\', '/')
     if ($rel -match '(^|[\\/])(\.git|__pycache__)([\\/]|$)') { return }
+    if ($NoTsa -and $rel -match 'pki-tsa\.py$') { return }
+    if ($TsaOnly -and $rel -match 'pki-ocsp-dispatch\.py$') { return }
+    if ($CrlOnly -and ($rel -replace '\\', '/') -ne 'pki-server/pki-server.sh') { return }
     Add-File -Path $_.FullName -Name "$RootName/linux/$rel"
 }
 $cn = Join-Path $root 'agantra_pki.cnf'
-if (Test-Path -LiteralPath $cn) { Add-File -Path $cn -Name "$RootName/agantra_pki.cnf" } else { Write-Msg 'not found, not packed: agantra_pki.cnf' 'WARN' }
-foreach ($d in @('PKI-Server-Design.txt', 'PKI-SERVER-MANUAL.txt', 'PkiRevocation-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'linux-README.txt')) {
+if ($CrlOnly) { }
+elseif (Test-Path -LiteralPath $cn) { Add-File -Path $cn -Name "$RootName/agantra_pki.cnf" } else { Write-Msg 'not found, not packed: agantra_pki.cnf' 'WARN' }
+foreach ($d in $(if ($CrlOnly) { @('PKI-SERVER-MANUAL.txt') } else { @('PKI-Server-Design.txt', 'PKI-SERVER-MANUAL.txt', 'PkiRevocation-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'linux-README.txt') })) {
     $p = Join-Path (Join-Path $root 'docs') $d
     if (Test-Path -LiteralPath $p) { Add-File -Path $p -Name "$RootName/docs/$d" } else { Write-Msg "not found, not packed: docs\$d" 'WARN' }
 }
@@ -195,6 +214,9 @@ if (-not $NoPki) {
         $rel = $_.FullName.Substring($pkiFull.Length).TrimStart('\', '/') -replace '\\', '/'
         $parts = $rel.Split('/'); $ext = $_.Extension.ToLowerInvariant(); $fn = $_.Name
         $inSvc = ($parts[0] -in @('ocsp', 'tsa'))
+        if ($NoTsa -and $parts[0] -eq 'tsa') { return }
+        if ($TsaOnly -and $parts[0] -eq 'ocsp') { return }
+        if ($CrlOnly -and $parts[0] -notin @('publish', 'server')) { return }
         $dirParts = if ($parts.Length -gt 1) { $parts[0..($parts.Length - 2)] } else { @() }
         if ($dirParts | Where-Object { $skipDirs -contains $_.ToLowerInvariant() }) { $skipped.Add($rel); return }
         if ($fn -in @('telemetry.json')) { return }
@@ -227,7 +249,78 @@ For Ubuntu 24.04 / 26.04 (or WSL with Ubuntu 24.04 / 26.04). All text files are 
 
 Documents: docs\PKI-SERVER-MANUAL.txt, docs\PKI-Server-Design.txt, docs\PkiRevocation-MANUAL.txt.   Check the files: sha256sum -c SHA256SUMS
 "@
-Add-Item -Name "$RootName/README-SERVER-PACKAGE.txt" -Bytes $utf8.GetBytes($readme) -Ext '.txt'
+if ($CrlOnly) {
+    $readme = @"
+Agantra Inovatif PKI - CRL server package (built $((Get-Date).ToString('yyyy-MM-dd HH:mm')) with New-PkiServerPackage.ps1 $script:Version)
+==========================================================================================================
+A small web server for the CRLs and CA certificates of the PKI, on Ubuntu 24.04 / 26.04 (or WSL with Ubuntu 24.04 / 26.04). No OCSP, no time stamping,
+NO private key in this package, no OpenSSL 4 needed. All text files are LF.
+
+1  unzip, then (only if the execute bit is missing):   chmod +x linux/pki-server/pki-server.sh
+2  sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+      installs nginx (your PPA ppa:nickotech2000/nicko-su-prod; --no-ppa uses the Ubuntu nginx), publishes pki/publish, writes the nginx site,
+      runs a self-test. Without systemd (WSL):  add  --no-systemd  (nginx is started by you:  sudo nginx )
+3  ./linux/pki-server/pki-server.sh dns
+      prints the lines for the Windows hosts file and the records for the Wi-Fi router (crl / crt host names -> this server's IP)
+4  on a client:  curl -I http://crl.nextmantra.internal/<ca>.crl        certutil -verify -urlfetch <leaf>-fullchain.crt
+
+NEW CRL (they expire; CRL_DAYS in pki/server/server.env):  on the CA machine  .\PkiRevocation.ps1 -Action NewCrl , then build this package again
+(.\PkiTransport.ps1 -CrlServer), copy it, unzip, and  sudo ./linux/pki-server/pki-server.sh update --crl-only --source ./pki
+Check the expiry any time:  ./linux/pki-server/pki-server.sh crl-check      (a daily systemd timer does it too)
+OCSP and time stamping later: use the full package  .\PkiTransport.ps1 -Server  and  install  without --crl-only.
+
+Documents: docs\PKI-SERVER-MANUAL.txt.   Check the files: sha256sum -c SHA256SUMS
+"@
+}
+if ($TsaOnly) {
+    $readme = @"
+Agantra Inovatif PKI - TIME STAMP server package (built $((Get-Date).ToString('yyyy-MM-dd HH:mm')) with New-PkiServerPackage.ps1 $script:Version)
+==========================================================================================================
+An RFC 3161 time stamp server on Ubuntu 24.04 / 26.04 (or WSL with Ubuntu 24.04 / 26.04): http://tsa.nextmantra.internal and http://timestamp.nextmantra.internal.
+No CRL host, no OCSP, NO CA key. All text files are LF.
+
+1  unzip, then (only if the execute bits are missing):   bash linux/fix-permissions.sh
+2  the time stamp key is made HERE, on the server (no key travels):
+     sudo ./linux/pki-server/pki-server.sh csr --tsa-only --source ./pki --out ./csr           (--tsa-ca <id> chooses the CA, default the first -ev CA)
+   copy ./csr/tsa-*.csr to the CA machine and sign it:
+     .\PkiRevocation.ps1 -Action SignCsr -Csr tsa-q1-ev.csr -For Tsa -Ca q1-ev
+   copy the signed .crt back:
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/tsa-q1-ev.crt
+3  sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
+      (nginx and OpenSSL 4 from the PPA, python3; WSL without systemd: add --no-systemd, then  sudo /opt/agantra-pki-server/pki-server.sh run)
+4  ./linux/pki-server/pki-server.sh dns         -> hosts-file lines / router records for tsa. and timestamp.nextmantra.internal
+5  ./linux/pki-server/pki-server.sh test        -> one time stamp request: created and verified against the chain
+
+A time stamp is checked by the client against the CA chain and (for revocation) the CRL / OCSP of the PKI: run the CRL server (.\PkiTransport.ps1 -CrlServer) or the
+full server (-Server) too, on this or another machine.
+Documents: docs\PKI-SERVER-MANUAL.txt.   Check the files: sha256sum -c SHA256SUMS
+"@
+}
+if ($NoTsa) {
+    $readme = @"
+Agantra Inovatif PKI - CRL + OCSP server package (built $((Get-Date).ToString('yyyy-MM-dd HH:mm')) with New-PkiServerPackage.ps1 $script:Version)
+==========================================================================================================
+CRL, CA certificates and OCSP on Ubuntu 24.04 / 26.04 (or WSL with Ubuntu 24.04 / 26.04). NO time stamping, NO CA key. All text files are LF.
+
+1  unzip, then (only if the execute bits are missing):   bash linux/fix-permissions.sh
+2  the OCSP responder keys are made HERE, on the server (no key travels):
+     sudo ./linux/pki-server/pki-server.sh csr --no-tsa --source ./pki --out ./csr
+   copy ./csr/*.csr to the machine that holds the CA keys and sign them:
+     .\PkiRevocation.ps1 -Action SignCsr -Csr ocsp-q1-ev.csr -For Ocsp -Ca q1-ev          (one per issuing CA)
+   copy the signed .crt files back:
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-q1-ev.crt [--cert ...]
+3  sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+      (nginx from the PPA, OpenSSL 4 from the PPA, python3 for the OCSP dispatcher; WSL without systemd: add --no-systemd, then  sudo /opt/agantra-pki-server/pki-server.sh run)
+4  ./linux/pki-server/pki-server.sh dns         -> hosts-file lines / router records for crl., crt. and ocsp.nextmantra.internal
+5  ./linux/pki-server/pki-server.sh test        -> CRL and CA-issuer downloads, one OCSP query per responder
+
+NEW CRL / NEW CERTIFICATES: build this package again on the CA machine (.\PkiTransport.ps1 -CrlOcspServer), copy, unzip, and
+  sudo ./linux/pki-server/pki-server.sh update --no-tsa --source ./pki
+Only the CRL is needed (no OCSP)?  .\PkiTransport.ps1 -CrlServer.   Time stamping too?  .\PkiTransport.ps1 -Server.
+Documents: docs\PKI-SERVER-MANUAL.txt.   Check the files: sha256sum -c SHA256SUMS
+"@
+}
+Add-Item -Name "$RootName/README-$(if ($CrlOnly) { 'CRL-SERVER' } elseif ($NoTsa) { 'CRL-OCSP-SERVER' } elseif ($TsaOnly) { 'TIMESTAMP-SERVER' } else { 'SERVER-PACKAGE' }).txt" -Bytes $utf8.GetBytes($readme) -Ext '.txt'
 
 $sumLines = foreach ($it in ($items | Sort-Object Name)) {
     $h = [System.Security.Cryptography.SHA256]::HashData([byte[]]$it.Bytes)
@@ -300,5 +393,6 @@ if ($bad -gt 0) {
 Write-Msg ("Package: {0}  ({1:N0} KB, {2} files, PKI files {3}, skipped {4})" -f $Output, ((Get-Item -LiteralPath $Output).Length / 1KB), ($items.Count), $nPki, $skipped.Count) 'OK'
 if ($Tar) { Write-Msg "Package: $tarOut" 'OK' }
 Write-Msg $(if ($IncludeServiceKeys) { 'Checked: no CA key; OCSP / TSA keys included on request; all text LF; .sh / .py executable.' } else { 'Checked: no private key, no CR in any text file, .sh / .py executable.' }) 'OK'
-Write-Msg 'Copy it to Ubuntu / WSL:  unzip <zip>; cd agantra-pki-server; see README-SERVER-PACKAGE.txt' 'INFO'
+$rd = if ($CrlOnly) { 'README-CRL-SERVER.txt' } elseif ($NoTsa) { 'README-CRL-OCSP-SERVER.txt' } elseif ($TsaOnly) { 'README-TIMESTAMP-SERVER.txt' } else { 'README-SERVER-PACKAGE.txt' }
+Write-Msg "Copy it to Ubuntu / WSL:  unzip <zip>; cd $RootName; see $rd" 'INFO'
 exit 0

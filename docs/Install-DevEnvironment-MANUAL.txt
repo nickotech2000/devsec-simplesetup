@@ -141,6 +141,12 @@
  The build seems to hang                            It is compiling: hundreds of files; one core needs over an hour. Use a machine with cores
  "SHA-256 of the tarball does not match"            Nothing was built. Retry (corrupt download) or check the proxy; never override
  7zip not installable on RHEL / Rocky / Oracle      Enable EPEL (and CRB), or install 7-Zip by hand and give --7z to pki-transport.sh
+ pwsh: "SHA-256 does not match hashes.sha256"     (4.9.5 and older) the release hash file has Windows line ends; fixed in this version. There is no apt package "pwsh"
+                                                      on Ubuntu. A failed check prints expected / real hash; with the .NET SDK installed the script then tries
+                                                      dotnet tool install PowerShell (untested). This script unpacks the official release to /opt/microsoft/powershell and links /usr/local/bin/pwsh.
+ FIPS provider: "no fipsmodule.cnf / fips.so found"   WARN, not a failure: the FIPS quadrants (Q2 / Q4) are unavailable with this OpenSSL. The script looks in the package files
+                                                      and makes fipsmodule.cnf with "openssl fipsinstall" when only fips.so exists (/etc/agantra-pki or ~/.config/agantra-pki).
+                                                      By hand:  openssl4 fipsinstall -out fipsmodule.cnf -module <.../ossl-modules/fips.so>  then  -FipsModuleConfig <path>.
  pwsh: "could not read the latest release"          GitHub unreachable or rate limited: retry later or install PowerShell 7 by hand
  "Not root and no sudo"                             Run with sudo or as root (only --check, --dry-run and --unblock work without)
  Windows: the script window shows red text          Read the log: %ProgramData%\Agantra\WindowsDeveloperBootstrap\Logs

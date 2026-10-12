@@ -493,3 +493,18 @@ EXIT CODES   0 ok   1 error   2 the request does not follow the spec
 ============================================================
 
 ====================================================================================================
+
+
+====================================================================================================
+ THE SERVER KIT INSIDE THE DEVKIT  (4.9.5)
+====================================================================================================
+  .\PkiTransport.ps1 -DevKit now also puts the folder  server\  into the kit (-DevKitNoServer leaves it out). It is the package of New-PkiServerPackage.ps1 unpacked:
+     server\linux\pki-server\pki-server.sh (+ pki-ocsp-dispatch.py, pki-tsa.py), server\linux\fix-permissions.sh, server\pki\ (the PKI WITHOUT any private key:
+     publish, CA certificates, index.txt, server\ files), server\docs\PKI-SERVER-MANUAL.txt, server\README-SERVER-PACKAGE.txt.
+  One folder serves all the installs on Ubuntu 24.04 / 26.04 (copy server\ to the machine, cd server):
+     sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki      CRL + CA certificates
+     sudo ./linux/pki-server/pki-server.sh install --no-tsa   --source ./pki      CRL + OCSP
+     sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki      time stamping only
+     sudo ./linux/pki-server/pki-server.sh install            --source ./pki      all three
+  (OCSP / time stamp keys: csr, sign with PkiRevocation.ps1 -Action SignCsr on the CA machine, import-cert. See PKI-SERVER-MANUAL.txt chapters 6a-6c.)
+  The kit's own pki\ (made by Install-PkiTrust) holds the ISSUING CA KEYS: never use that folder as the server source. Use server\pki.

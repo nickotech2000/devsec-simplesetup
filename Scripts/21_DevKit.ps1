@@ -126,6 +126,27 @@ function Copy-PkiDevKitTree {
     }
 }
 
+function Add-PkiDevKitServerKit {
+    <#
+    .SYNOPSIS
+        Puts the SERVER KIT into the DevKit as the folder  server\ : server\linux\pki-server\pki-server.sh (+ the OCSP dispatcher and the time stamp service),
+        server\pki\ = this PKI WITHOUT any private key (publish, CA certificates, index.txt, server\ files), the manuals and README-SERVER-PACKAGE.txt.
+        It is the package of  New-PkiServerPackage.ps1  (no key is ever in it; the package is scanned) unpacked into the kit. ONE kit serves all four
+        installs on Ubuntu 24.04 / 26.04:  CRL only (--crl-only), CRL + OCSP (--no-tsa), time stamp only (--tsa-only), everything (no flag).
+    #>
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit, [Parameter(Mandatory)][string]$PkiRoot, [Parameter(Mandatory)][string]$Work)
+    $np = Join-Path $Root 'New-PkiServerPackage.ps1'
+    if (-not (Test-Path -LiteralPath $np -PathType Leaf)) { throw "DevKit: $np is missing (the server kit goes into the DevKit; -DevKitNoServer leaves it out)." }
+    $zip = Join-Path $Work 'server-kit.zip'
+    $pw = (Get-Process -Id $PID).Path
+    $out = & $pw -NoProfile -File $np -PkiRoot $PkiRoot -Output $zip -RootName 'server' -Force 2>&1
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $zip)) { throw "DevKit: the server kit could not be made (exit $LASTEXITCODE): $((@($out) | Select-Object -Last 3) -join ' | ')" }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $Kit)
+    Remove-Item -LiteralPath $zip -Force
+    Write-PkiLog 'DevKit: the server kit is in the folder server\ (pki-server.sh: CRL, OCSP, time stamping; no private key).' 'OK'
+}
+
 function ConvertTo-PkiLf {
     # shell scripts must have LF line endings: a CRLF file fails on Linux with  $'\r': command not found
     param([Parameter(Mandatory)][string]$Path)
@@ -177,7 +198,7 @@ function New-PkiDevKit {
     param(
         [Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$OutFile, [Parameter(Mandatory)][string]$Password,
         [ValidateSet('zip', '7z')][string]$KitFormat = 'zip', [ValidateSet('zip', '7z')][string]$PackageFormat = 'zip',
-        [string]$SevenZipPath, [string]$Comment = '', [string]$LeafRoot, [bool]$WithKeys = $true, [switch]$NoVerify
+        [string]$SevenZipPath, [string]$Comment = '', [string]$LeafRoot, [bool]$WithKeys = $true, [switch]$NoVerify, [bool]$WithServer = $true
     )
     $c = $script:Pki
     $work = Join-Path ([System.IO.Path]::GetTempPath()) "devkit-$([guid]::NewGuid().ToString('N'))"
@@ -185,6 +206,7 @@ function New-PkiDevKit {
     $kit = Join-Path $work $kitName
     try {
         Copy-PkiDevKitTree -Root $Root -Kit $kit
+        if ($WithServer) { Add-PkiDevKitServerKit -Root $Root -Kit $kit -PkiRoot ([string]$c.PkiRoot) -Work $work }
         Write-PkiDevKitEnv -Path (Join-Path $kit 'devkit.env')
         $ex = Join-Path $kit 'examples'; Ensure-PkiDirectory -Path $ex
         [void](Write-PkiPersonExample -Path (Join-Path $ex 'persons.example.json'))

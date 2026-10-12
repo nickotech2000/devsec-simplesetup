@@ -17,9 +17,16 @@
               and only when the scan passes unpacks the package and installs the CAs in the Windows stores.
     -DevKit   SOURCE: ONE zip (or 7z) for the developers: the .certpacked (CA certificates + the keys of the ISSUING CAs, no root key),
               Install-PkiTrust.ps1 / .sh, the leaf / person / Office 365 generators and SignCsr as .ps1 and .sh, Make-ShExecutable.ps1 /
-              make-executable.sh, devkit.env, the manuals. Manual: docs\DevKit-MANUAL.txt
+              make-executable.sh, devkit.env, the manuals, and the folder server\ (the SERVER KIT, no private key: server\linux\pki-server\pki-server.sh + the PKI public data:
+              CRL, OCSP and time stamp server on Ubuntu 24.04 / 26.04; -DevKitNoServer leaves it out). Manual: docs\DevKit-MANUAL.txt
     -Server   SOURCE: ONE zip for the CRL / OCSP / time stamp server on Ubuntu 24.04 / 26.04 (pki-server.sh, the PKI WITHOUT any private key, the
               server\ files of the PKI: hosts, CA list, expected URLs). Built by New-PkiServerPackage.ps1. Manual: docs\PKI-SERVER-MANUAL.txt
+    -CrlServer SOURCE: ONE small zip for a CRL / CA-certificate server ONLY on Ubuntu 24.04 / 26.04 (no OCSP, no time stamping, no OpenSSL 4, no key): pki-server.sh +
+              pki\publish + pki\server. On Ubuntu:  sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+    -CrlOcspServer SOURCE: ONE zip for a CRL + OCSP server on Ubuntu 24.04 / 26.04 WITHOUT time stamping (pki-server.sh, the PKI without keys, OCSP dispatcher).
+              On Ubuntu:  sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+    -TimestampServer SOURCE: ONE zip for a TIME STAMP server only (RFC 3161) on Ubuntu 24.04 / 26.04 (pki-server.sh, the PKI without keys, the TSA service).
+              On Ubuntu:  sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
     Unpack only (any machine with PowerShell 7):  Unpack-PkiTransport.ps1.   Linux and macOS:  pki-transport.sh.
 
     Full help:  .\PkiTransport.ps1 -Help        Manual: docs\PkiTransport-MANUAL.txt
@@ -41,6 +48,9 @@ param(
     [switch]$Pack,
     [switch]$DevKit,
     [switch]$Server,
+    [switch]$CrlServer,
+    [switch]$CrlOcspServer,
+    [switch]$TimestampServer,
     [switch]$Install,
     [switch]$Check,
     [switch]$List,
@@ -64,6 +74,7 @@ param(
     [switch]$IncludeCaKeys,
     [switch]$Kit,
     [switch]$DevKitNoKeys,
+    [switch]$DevKitNoServer,
     [switch]$Tar,
     [switch]$IncludeServiceKeys,
     [ValidateSet('zip', '7z')][string]$KitArchiveFormat = 'zip',
@@ -109,6 +120,10 @@ WHAT IT DOES
   -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
   -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1, Ubuntu sh), the leaf / person /
              Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
+  -CrlServer SOURCE.      ONE SMALL zip (-Tar: also .tar.gz) for a CRL / CA-certificate server ONLY on Ubuntu 24.04 / 26.04: nginx, no OCSP, no time stamping, no
+             OpenSSL 4, no key. Holds pki-server.sh + pki\publish + pki\server. See CRL SERVER.
+  -CrlOcspServer SOURCE.  ONE zip for a CRL + OCSP server on Ubuntu 24.04 / 26.04 WITHOUT time stamping (install --no-tsa). No key inside.
+  -TimestampServer SOURCE. ONE zip for a TIME STAMP server only (RFC 3161) on Ubuntu 24.04 / 26.04 (install --tsa-only). No key inside.
   -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp server: pki-server.sh + the PKI without private keys
              (the CA keys NEVER go there) + the server\ files of the PKI. No password: the package holds nothing secret. See SERVER.
   -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes it unpacks the
@@ -148,6 +163,26 @@ PACK  (source)
                          needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
   -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
+CRL SERVER   (-CrlServer)
+  .\PkiTransport.ps1 -CrlServer                               .\transport\agantra-pki-crl-server-<date>.zip (latest release of the normal family)
+  .\PkiTransport.ps1 -CrlServer -Release 2 -Tar              release R2, and also a .tar.gz
+  On Ubuntu 24.04 / 26.04 (no Linux knowledge needed, 3 commands):
+     unzip agantra-pki-crl-server-*.zip && cd agantra-pki-crl-server
+     sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+     ./linux/pki-server/pki-server.sh dns            -> the hosts-file lines / router DNS records for crl.* and crt.nextmantra.internal
+  New CRL later: .\PkiRevocation.ps1 -Action NewCrl, build the package again, copy, unzip,  sudo ./linux/pki-server/pki-server.sh update --crl-only --source ./pki
+  Same host names as the certificates carry: http://crl.nextmantra.internal/<ca>.crl and http://crt.nextmantra.internal/<ca>.crt
+
+CRL + OCSP SERVER   (-CrlOcspServer)
+  .\PkiTransport.ps1 -CrlOcspServer                           .\transport\agantra-pki-crl-ocsp-server-<date>.zip   (-Release, -Tar, -NoCaRevocationInfo, -Out, -Force)
+  On Ubuntu 24.04 / 26.04:  sudo ./linux/pki-server/pki-server.sh csr --no-tsa --source ./pki --out ./csr   (sign the CSRs on the CA machine: PkiRevocation.ps1 -Action SignCsr -For Ocsp)
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-<ca>.crt ...     then   sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+
+TIME STAMP SERVER   (-TimestampServer)
+  .\PkiTransport.ps1 -TimestampServer                         .\transport\agantra-pki-timestamp-server-<date>.zip   (-Release, -Tar, -NoCaRevocationInfo, -Out, -Force)
+  On Ubuntu 24.04 / 26.04:  sudo ./linux/pki-server/pki-server.sh csr --tsa-only --source ./pki --out ./csr     (sign: PkiRevocation.ps1 -Action SignCsr -For Tsa -Ca <ca>)
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/tsa-<ca>.crt      then   sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
+
 SERVER   (-Server)
   .\PkiTransport.ps1 -Server                                  .\transport\agantra-pki-server-<date>.zip (latest release of the normal family)
   .\PkiTransport.ps1 -Server -Release 2 -Tar                  release R2, and also a .tar.gz (mode bits kept on every tool)
@@ -169,6 +204,7 @@ DEVKIT  (source: one zip for the developers)
   .\PkiTransport.ps1 -DevKit -GeneratePassword                    zip + the .certpacked (zip AES-256) with the ISSUING CA keys
   .\PkiTransport.ps1 -DevKit -Out D:\share\devkit.zip -KitArchiveFormat 7z -ArchiveFormat 7z
   .\PkiTransport.ps1 -DevKit -DevKitNoKeys                        trust only: the generators then cannot issue
+  .\PkiTransport.ps1 -DevKit -DevKitNoServer                      without the server\ folder (the server kit: pki-server.sh, no key)
   The kit holds, in one folder:
       <name>.certpacked                           CA certificates + the pki folder with the keys of the intermediate (issuing) CAs.
                                                   NO root key: Enterprise, Track and Quadrant root keys, OCSP / TSA and old leaf keys are left out.
@@ -178,7 +214,7 @@ DEVKIT  (source: one zip for the developers)
       Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (and LF line endings); Windows developers need no Linux
       devkit.env  examples\  docs\  START-HERE.txt  SHA256SUMS  scripts\ (the PowerShell modules)
   -KitArchiveFormat zip|7z   the outer archive (default zip, not encrypted: the .certpacked inside is).
-  -ArchiveFormat zip|7z      the .certpacked inside (AES-256).        -DevKitNoKeys   no private keys at all.
+  -ArchiveFormat zip|7z      the .certpacked inside (AES-256).        -DevKitNoKeys   no private keys at all.   -DevKitNoServer   leave the server\ folder out.
   -Out <file>   -GeneratePassword / -PackagePassword   as for -Pack.   Manual: docs\DevKit-MANUAL.txt
   Certificates issued from a DevKit copy are NOT in the CRL / OCSP database of the master PKI (see the manual).
 
@@ -257,24 +293,32 @@ catch { Write-Host "[WARN] Automatic unblock / unlock failed: $($_.Exception.Mes
 $script:PackageOpened = $null
 try {
     # ---------------- what is asked ----------------
-    $modes = @($Pack, $DevKit, $Server, $Install, $Check, $List, $RemoveTrust, $Unblock | Where-Object { $_ })
-    if ($modes.Count -eq 0) { throw 'Say what to do: -Pack, -DevKit, -Server, -Install, -Check, -List, -RemoveTrust or -Unblock. See .\PkiTransport.ps1 -Help.' }
-    if ($modes.Count -gt 1 -and -not ($Check -and ($Install -or $List)) ) { throw 'Use only one of -Pack, -DevKit, -Server, -Install, -Check, -List, -RemoveTrust and -Unblock.' }
+    $modes = @($Pack, $DevKit, $Server, $CrlServer, $CrlOcspServer, $TimestampServer, $Install, $Check, $List, $RemoveTrust, $Unblock | Where-Object { $_ })
+    if ($modes.Count -eq 0) { throw 'Say what to do: -Pack, -DevKit, -Server, -CrlServer, -CrlOcspServer, -TimestampServer, -Install, -Check, -List, -RemoveTrust or -Unblock. See .\PkiTransport.ps1 -Help.' }
+    if ($modes.Count -gt 1 -and -not ($Check -and ($Install -or $List)) ) { throw 'Use only one of -Pack, -DevKit, -Server, -CrlServer, -CrlOcspServer, -TimestampServer, -Install, -Check, -List, -RemoveTrust and -Unblock.' }
     if ($IncludeCaKeys -and -not $Pack) { throw '-IncludeCaKeys is a -Pack option (-DevKit packs the issuing CA keys by itself).' }
     if ($Pack -and ($Install -or $RemoveTrust)) { throw '-Pack cannot be combined with -Install or -RemoveTrust.' }
 
     # =========================================================================================== -Server (no module needed: New-PkiServerPackage.ps1 does the work)
-    if ($Server) {
-        if ($Pack -or $DevKit -or $Install -or $Check -or $List -or $RemoveTrust -or $Unblock) { throw '-Server cannot be combined with another mode.' }
+    if ($Server -or $CrlServer -or $CrlOcspServer -or $TimestampServer) {
+        $what = if ($CrlServer) { '-CrlServer' } elseif ($CrlOcspServer) { '-CrlOcspServer' } elseif ($TimestampServer) { '-TimestampServer' } else { '-Server' }
+        if (@($Server, $CrlServer, $CrlOcspServer, $TimestampServer | Where-Object { $_ }).Count -gt 1) { throw 'Use only one of -Server, -CrlServer, -CrlOcspServer and -TimestampServer.' }
+        if ($TimestampServer -and $IncludeServiceKeys) { throw '-TimestampServer carries no keys at all: -IncludeServiceKeys is not allowed with it.' }
+        if ($Server -and $CrlServer) { throw 'Use only one of -Server, -CrlServer and -CrlOcspServer.' }
+        if ($CrlServer -and $IncludeServiceKeys) { throw '-CrlServer carries no keys at all: -IncludeServiceKeys is not allowed with it. Use -Server for the OCSP / time stamp server.' }
+        if ($Pack -or $DevKit -or $Install -or $Check -or $List -or $RemoveTrust -or $Unblock) { throw "$what cannot be combined with another mode." }
         $np = Join-Path $script:ScriptRoot 'New-PkiServerPackage.ps1'
         if (-not (Test-Path -LiteralPath $np)) { throw "New-PkiServerPackage.ps1 not found next to this script: $np" }
-        $outZip = if ($Out) { $Out } else { Join-Path (Join-Path $script:ScriptRoot 'transport') ("agantra-pki-server-{0}.zip" -f (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+        $outZip = if ($Out) { $Out } else { Join-Path (Join-Path $script:ScriptRoot 'transport') ("{0}-{1}.zip" -f $(if ($CrlServer) { 'agantra-pki-crl-server' } elseif ($CrlOcspServer) { 'agantra-pki-crl-ocsp-server' } elseif ($TimestampServer) { 'agantra-pki-timestamp-server' } else { 'agantra-pki-server' }), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
         if ([System.IO.Path]::GetExtension($outZip).ToLowerInvariant() -ne '.zip') { $outZip += '.zip' }
         $outZip = [System.IO.Path]::GetFullPath($outZip)
         $na = @('-NoProfile', '-File', $np, '-Output', $outZip)
         if ($PkiRoot) { $na += @('-PkiRoot', $PkiRoot) }
         if ($Release -gt 0) { $na += @('-Release', [string]$Release) }
         if ($NoCaRevocationInfo) { $na += '-NoCaRevocationInfo' }
+        if ($CrlServer) { $na += '-CrlOnly' }
+        if ($CrlOcspServer) { $na += '-NoTsa' }
+        if ($TimestampServer) { $na += '-TsaOnly' }
         if ($Tar) { $na += '-Tar' }
         if ($IncludeServiceKeys) { $na += '-IncludeServiceKeys' }
         if ($Force) { $na += '-Force' }
@@ -284,7 +328,10 @@ try {
         if ($rc -ne 0) { exit $rc }
         $h = (Get-FileHash -LiteralPath $outZip -Algorithm SHA256).Hash.ToLowerInvariant()
         Write-Host "  SHA-256     : $h   (compare it after the transfer)" -ForegroundColor Gray
-        Write-Host '  The server package holds NO private key (a CA key never). Ubuntu: unzip; sudo ./linux/pki-server/pki-server.sh install --source ./pki' -ForegroundColor Gray
+        if ($CrlServer) { Write-Host '  The CRL server package holds NO private key. Ubuntu: unzip; sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki ; then  pki-server.sh dns' -ForegroundColor Gray }
+        elseif ($TimestampServer) { Write-Host '  The time stamp package holds NO private key. Ubuntu: unzip; csr --tsa-only, sign (-For Tsa), import-cert, then  sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki  (README-TIMESTAMP-SERVER.txt)' -ForegroundColor Gray }
+        elseif ($CrlOcspServer) { Write-Host '  The CRL + OCSP package holds NO private key. Ubuntu: unzip; csr --no-tsa, sign, import-cert, then  sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki  (README-CRL-OCSP-SERVER.txt)' -ForegroundColor Gray }
+        else { Write-Host '  The server package holds NO private key (a CA key never). Ubuntu: unzip; sudo ./linux/pki-server/pki-server.sh install --source ./pki' -ForegroundColor Gray }
         exit 0
     }
 
@@ -342,14 +389,14 @@ try {
         $kitFile = [System.IO.Path]::GetFullPath($kitFile)
         Write-PkiLog "Building the DevKit -> $kitFile  (kit: $KitArchiveFormat, .certpacked inside: $ArchiveFormat AES-256)"
         $r = New-PkiDevKit -Root $script:ScriptRoot -OutFile $kitFile -Password $pw.Password -KitFormat $KitArchiveFormat -PackageFormat $ArchiveFormat `
-            -SevenZipPath $SevenZipPath -Comment ([string]$Comment) -LeafRoot $leafRoot -WithKeys:(-not $DevKitNoKeys) -NoVerify:$NoVerify
+            -SevenZipPath $SevenZipPath -Comment ([string]$Comment) -LeafRoot $leafRoot -WithKeys:(-not $DevKitNoKeys) -NoVerify:$NoVerify -WithServer:(-not $DevKitNoServer)
         $sha = Get-PkiFileSha256 -Path $r.Path
         Write-Host ''
         Write-Host 'DEVKIT' -ForegroundColor Cyan
         Write-Host ("  File        : {0}" -f $r.Path)
         Write-Host ("  Size        : {0:N0} bytes, {1} files in folder {2}\" -f $r.Bytes, $r.Files, $r.Folder)
         Write-Host ("  Contains    : the .certpacked ({0}, {1}) with {2}" -f $r.Package.Format, $r.Package.Encryption, $(if ($DevKitNoKeys) { 'the CA certificates only' } else { 'the CA certificates + the issuing CA keys (no root key)' }))
-        Write-Host ("                Install-PkiTrust.ps1 / .sh, Generate{Leaf,PersonLeaf,Office365Leaf}Certificate + SignCsr .ps1 / .sh, Make-ShExecutable.ps1, make-executable.sh, docs, START-HERE.txt")
+        Write-Host ("                Install-PkiTrust.ps1 / .sh, Generate{Leaf,PersonLeaf,Office365Leaf}Certificate + SignCsr .ps1 / .sh, Make-ShExecutable.ps1, make-executable.sh, docs, START-HERE.txt$(if (-not $DevKitNoServer) { ", server\ (the server kit: pki-server.sh for CRL / OCSP / time stamping, no private key)" })")
         Write-Host ("  SHA-256     : {0}   (of the kit file: compare it after the transfer)" -f $sha)
         if ($pw.Generated) {
             Write-Host ''

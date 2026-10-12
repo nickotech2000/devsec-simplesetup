@@ -66,7 +66,7 @@ Every script has `-Help` (PowerShell) or `--help` (shell). The manuals are in [`
 | `PkiRevocation.ps1` | revoke, CRL, OCSP and TSA certificates | `docs/PkiRevocation-MANUAL.txt` |
 | `SignCsr.ps1` (+ `SignCsr.sh` in the DevKit) | sign a colleague's CSR with a DV / OV / EV intermediate; `-Check` only reports | `docs/SignCsr-MANUAL.txt` |
 | `SignExternalCa.ps1` | sign a department CA with a Classic Quadrant Root (`-Quadrant 1`, `-Fips` = Q2; default OV; O, OU, C required) | `docs/SignExternalCa-MANUAL.txt` |
-| `PkiTransport.ps1` | `-Pack`, `-Install`, `-DevKit`, `-Server` (zip for the Ubuntu CRL / OCSP server), `-Check`, `-List`, `-RemoveTrust` | `docs/PkiTransport-MANUAL.txt`, `docs/DevKit-MANUAL.txt` |
+| `PkiTransport.ps1` | `-Pack`, `-Install`, `-DevKit`, `-Server` (zip for the Ubuntu CRL / OCSP server), `-CrlServer` (small zip for an Ubuntu CRL-only server), `-CrlOcspServer` (CRL + OCSP, no time stamping), `-TimestampServer` (RFC 3161 time stamp server only), `-Check`, `-List`, `-RemoveTrust` | `docs/PkiTransport-MANUAL.txt`, `docs/DevKit-MANUAL.txt` |
 | `Install-DevEnvironment.ps1` / `.sh` | OpenSSL (Linux default: the distribution's 3.x; `--openssl-source ppa\|build` for 4), nginx from the PPA, 7-Zip, git ... | `docs/Install-DevEnvironment-MANUAL.txt` |
 | `New-PkiServerPackage.ps1`, `linux/pki-server/` | CRL / OCSP / TSA server for Ubuntu (nginx and OpenSSL 4 from the PPA); reads `pki/R<n>/server/` of the PKI | `docs/PKI-SERVER-MANUAL.txt` |
 | `Setup-GitRepo.ps1`, `linux/setup-git.sh` | execute bit, hooks and LF in Git | `-Help` |
@@ -106,6 +106,10 @@ All PKIs live in `pki/`, one subfolder each: `pki/R1`, `pki/R2`, `pki/NoCR-R1` .
 
 - File names of the CRL and CA-issuer URLs follow the CA names: `agantra-root-g1.crl`, `agantra-classic-root-g1.crt`, `agantra-pqc-root-g2.crl`, `agantra-q1-root-g1.crl`, `agantra-q1-ov-g1.crl` (`-nocr`, `-r2` for the NoCR family / release 2). The OCSP responder and time stamp certificates are named the same way (`Agantra EV RSA-4096 G1 CA (NoCR) R2 OCSP Responder`).
 - `pki_setup.ps1` and every `PkiRevocation.ps1` action write `pki/R<n>/server/` (`server-info.json`, `ca-list.tsv`, `server.env`, `expected-urls.tsv`, `DNS-RECORDS.txt`): the hosts, the CAs and every URL that the certificates of that PKI contain.
+- `PkiTransport.ps1 -CrlServer` builds the SMALL package for a CRL / CA-certificate server only (no OCSP, no time stamping, no OpenSSL 4): on Ubuntu `sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki`, then `pki-server.sh dns`.
+- `PkiTransport.ps1 -DevKit` also carries the folder `server\` (the server kit, no private key): `server\linux\pki-server\pki-server.sh` for the CRL, OCSP and time stamp installs (`-DevKitNoServer` leaves it out).
+- `PkiTransport.ps1 -TimestampServer` builds the package for a time stamp server only: on Ubuntu `csr --tsa-only`, sign with `-For Tsa`, `import-cert`, then `sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki`.
+- `PkiTransport.ps1 -CrlOcspServer` builds the package for CRL + OCSP without time stamping: on Ubuntu `csr --no-tsa`, sign, `import-cert`, then `sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki`.
 - `PkiTransport.ps1 -Server` (or `New-PkiServerPackage.ps1`) packs that PKI **without any private key** with `linux/pki-server/` into one zip. On Ubuntu 24.04 / 26.04: `sudo ./linux/pki-server/pki-server.sh install --source ./pki`. The server reads the hosts and CA list from the PKI, installs nginx and OpenSSL 4 from the PPA `ppa:nickotech2000/nicko-su-prod`, and `pki-server.sh test` asks every URL of the PKI.
 - `Install-DevEnvironment.sh` on Linux uses the distribution's OpenSSL by default (Ubuntu 26.04: 3.5.x, 24.04: 3.0.x); nginx comes from the PPA (`--only nginx`); OpenSSL 4 from the PPA with `--openssl-source ppa`.
 

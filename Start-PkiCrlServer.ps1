@@ -48,9 +48,8 @@ STEPS (Windows 11, elevated PowerShell = "Run as administrator")
   1. Use the NORMAL PKI for the signer (its CA certificates carry the CRL URLs). Issue the certificate WITHOUT -NoRevocationInfo:
         .\GenerateOffice365LeafCertificate.ps1 -File persons.json
   2. Add the printed lines to the hosts file (Notepad as Administrator), then  .\Start-PkiCrlServer.ps1   leave the window open (Ctrl+C stops it)
-  3. In another window, clear what Windows remembered about the failed downloads, then check:
-        certutil -urlcache * delete
-        certutil -verify -urlfetch <the leaf>-fullchain.crt          (no "REVOCATION_STATUS_UNKNOWN" now, CDP "Verified")
+  3. In another window, clear what Windows remembered about the failed downloads and check the chain: the two certutil commands are in
+     docs\PKI-SERVER-MANUAL.txt (chapter 7) and docs\GenerateOffice365LeafCertificate-MANUAL.txt. This script prints no download-cache commands.
   4. Open the document in Word again. When you are done: Ctrl+C, and delete the lines from the hosts file.
 
 OPTIONS
@@ -62,7 +61,7 @@ NOTES
   * Real use: pki\R<n>\server\ + linux\pki-server\pki-server.sh serve the same files with nginx, and the DNS records of
     server\DNS-RECORDS.txt point to that server. This script is the one-machine shortcut.
   * The CRLs are valid for the days set when the PKI was built (CRL_DAYS in server.env); renew: PkiRevocation.ps1 -Action NewCrl.
-  * Windows caches downloads: after a change run  certutil -urlcache * delete.
+  * Windows caches downloads: after a change clear its URL cache (command in docs\PKI-SERVER-MANUAL.txt, chapter 7).
 '@ | Write-Host
     return
 }
@@ -104,7 +103,7 @@ Write-Host ("Host names  : " + ($hostNames -join ', '))
 
 # The hosts file is NOT changed by this script (security software rightly flags scripts that write to it): add the lines yourself.
 Write-Host ''
-Write-Host 'HOSTS FILE (Notepad as Administrator -> C:\Windows\System32\drivers\etc\hosts; add these lines, then  ipconfig /flushdns):' -ForegroundColor Cyan
+Write-Host 'HOSTS FILE (open Notepad as Administrator, then open the file named hosts in the Windows drivers\etc folder; add these lines, then  ipconfig /flushdns):' -ForegroundColor Cyan
 foreach ($h in $hostNames) { Write-Host ("  127.0.0.1        {0}" -f $h) }
 Write-Host '  (another machine on the network serves the CRLs? use its IP instead of 127.0.0.1)'
 Write-Host ''
@@ -117,10 +116,10 @@ if ($IsWindows) { foreach ($h in $hostNames) { $listener.Prefixes.Add("http://${
 $listener.Prefixes.Add("http://localhost:$Port/"); $listener.Prefixes.Add("http://127.0.0.1:$Port/")
 try { $listener.Start() }
 catch {
-    throw "Cannot listen on port ${Port}: $($_.Exception.Message.Split("`n")[0])`n  Port 80 needs an elevated PowerShell, and no other web server (IIS, nginx, Skype ...) may use it:  netstat -ano | findstr :${Port}"
+    throw "Cannot listen on port ${Port}: $($_.Exception.Message.Split("`n")[0])`n  Port 80 needs an elevated PowerShell, and no other web server (IIS, nginx, Skype ...) may use it."
 }
 Write-Host "[OK] Serving CRL / CA files on port $Port. Ctrl+C stops it." -ForegroundColor Green
-Write-Host '     Next: certutil -urlcache * delete    then    certutil -verify -urlfetch <leaf>-fullchain.crt'
+Write-Host '     Next: check the chain from another window (commands: docs\PKI-SERVER-MANUAL.txt, chapter 7).'
 try {
     while ($listener.IsListening) {
         $ctx = $listener.GetContext()

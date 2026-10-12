@@ -342,6 +342,32 @@
  [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
 
 ====================================================================================================
+ E24  Server kit inside the DevKit (4.9.5)
+====================================================================================================
+ [ ] .\PkiTransport.ps1 -DevKit: the kit has server\linux\pki-server\pki-server.sh and server\pki (no .key file, no PRIVATE KEY text); -DevKitNoServer leaves server\ out.
+ [ ] Ubuntu: from server\ the four installs work (--crl-only, --no-tsa, --tsa-only, none); START-HERE.txt describes them.
+
+====================================================================================================
+ E23  Time stamp server package (4.9.5)
+====================================================================================================
+ [ ] .\PkiTransport.ps1 -TimestampServer writes agantra-pki-timestamp-server-<date>.zip: no pki-ocsp-dispatch.py, no pki\ocsp, no key; combined with another server mode or -IncludeServiceKeys it is refused.
+ [ ] Ubuntu: csr --tsa-only makes ONE tsa CSR; import-cert; install --tsa-only: DNS block lists tsa. and timestamp. only; test: a time stamp is created and verified.
+
+====================================================================================================
+ E22  CRL + OCSP server package (4.9.5)
+====================================================================================================
+ [ ] .\PkiTransport.ps1 -CrlOcspServer writes agantra-pki-crl-ocsp-server-<date>.zip: no pki-tsa.py, no pki\tsa, no key; -CrlOcspServer with -Server or -CrlServer is refused.
+ [ ] Ubuntu: csr --no-tsa makes OCSP CSRs only; install --no-tsa ends with the DNS block crl / crt / ocsp (no tsa); test: CRL, CA-issuer and one OCSP query per responder pass.
+
+====================================================================================================
+ E21  CRL-only server package (4.9.5)
+====================================================================================================
+ [ ] .\PkiTransport.ps1 -CrlServer writes agantra-pki-crl-server-<date>.zip: pki-server.sh, pki\publish, pki\server, README-CRL-SERVER.txt; no key, no CR, execute bit.
+ [ ] -CrlServer -IncludeServiceKeys is refused.
+ [ ] Ubuntu 24.04 / 26.04: sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki installs nginx, publishes, ends with the DNS block (crl / crt only), self-test passed.
+ [ ] pki-server.sh update --crl-only with a new CRL; crl-check shows the days left; test asks every CRL and CA-issuer URL of the PKI: all answer.
+
+====================================================================================================
  E20  Internal-only names, DNS lists (4.9.5)
 ====================================================================================================
  [ ] A new PKI: every leaf / CA certificate has CRL http://crl.nextmantra.internal/<slug>.crl, OCSP http://ocsp.nextmantra.internal, CA issuer http://crt.nextmantra.internal/<slug>.crt - and no nextmantra.com URL.

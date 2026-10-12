@@ -287,6 +287,32 @@ ver_ok() {      # "maj min pat" >= minimum ?
 }
 
 # ------------------------------------------------------------------------------------------------ OpenSSL 4
+# Finds fipsmodule.cnf for the OpenSSL binary $1 (prints the path). Looks next to the install, in OPENSSLDIR, in the files of the package that owns the binary,
+# and in /etc/agantra-pki; when the package ships fips.so but no fipsmodule.cnf it makes one with "openssl fipsinstall" (own user: ~/.config/agantra-pki, root: /etc/agantra-pki).
+find_fips_cnf() {
+  local o="$1" prefix bin odir mdir c pkg fso d dest real
+  real="$(readlink -f "$o" 2>/dev/null || echo "$o")"; bin="$(dirname "$o")"; prefix="$(cd "$bin/.." 2>/dev/null && pwd)"
+  odir="$("$o" version -d 2>/dev/null | sed -n 's/^OPENSSLDIR: *"\(.*\)"/\1/p')"
+  mdir="$("$o" version -m 2>/dev/null | sed -n 's/^MODULESDIR: *"\(.*\)"/\1/p')"
+  for c in "$prefix/ssl/fipsmodule.cnf" "$prefix/etc/ssl/fipsmodule.cnf" "$bin/fipsmodule.cnf" "${odir:+$odir/fipsmodule.cnf}" "${odir:+$(dirname "$odir")/fipsmodule.cnf}" \
+           /etc/agantra-pki/fipsmodule.cnf "${XDG_CONFIG_HOME:-$HOME/.config}/agantra-pki/fipsmodule.cnf" /etc/ssl/openssl4/fipsmodule.cnf /etc/openssl4/fipsmodule.cnf /etc/ssl/fipsmodule.cnf /usr/lib/ssl/fipsmodule.cnf /usr/local/ssl/fipsmodule.cnf; do
+    [ -n "$c" ] && [ -f "$c" ] && { echo "$c"; return 0; }
+  done
+  if command -v dpkg >/dev/null 2>&1; then
+    pkg="$(dpkg -S "$real" 2>/dev/null | head -1 | cut -d: -f1)"
+    if [ -n "$pkg" ]; then
+      c="$(dpkg -L "$pkg" 2>/dev/null | grep 'fipsmodule\.cnf$' | head -1)"; [ -n "$c" ] && [ -f "$c" ] && { echo "$c"; return 0; }
+      fso="$(dpkg -L "$pkg" 2>/dev/null | grep '/fips\.so$' | head -1)"
+    fi
+  fi
+  if [ -z "$fso" ]; then for d in "$mdir" "$prefix/lib/ossl-modules" "$prefix/lib64/ossl-modules" "$prefix/lib/x86_64-linux-gnu/ossl-modules" "$prefix/lib/aarch64-linux-gnu/ossl-modules"; do [ -n "$d" ] && [ -f "$d/fips.so" ] && { fso="$d/fips.so"; break; }; done; fi
+  if [ -n "$fso" ] && [ -f "$fso" ]; then
+    if [ "$(id -u)" = 0 ]; then dest=/etc/agantra-pki/fipsmodule.cnf; else dest="${XDG_CONFIG_HOME:-$HOME/.config}/agantra-pki/fipsmodule.cnf"; fi
+    mkdir -p "$(dirname "$dest")" 2>/dev/null && "$o" fipsinstall -out "$dest" -module "$fso" >/dev/null 2>&1 && [ -s "$dest" ] && { echo "$dest"; return 0; }
+  fi
+  return 1
+}
+
 # The proof: version, FIPS provider active, ML-DSA sign + verify, ML-KEM key generation, ML-DSA inside the FIPS provider.
 openssl_ready() {   # $1 = openssl binary, $2 = quiet ; returns 0 when ALL checks pass
   local o="$1" q="$2" t fips="" ok_all=0 prefix cnf v
@@ -295,11 +321,11 @@ openssl_ready() {   # $1 = openssl binary, $2 = quiet ; returns 0 when ALL check
   v="$("$o" version 2>/dev/null | head -1)"
   if ver_ok "$(ver_parts "$v")"; then row "$C_G" PASS "version" "$(echo "$v" | cut -d'(' -f1)"; else row "$C_R" FAIL "version" "${v:-not runnable}"; ok_all=1; fi
   prefix="$(cd "$(dirname "$o")/.." 2>/dev/null && pwd)"
-  for cnf in "$prefix/ssl/fipsmodule.cnf" "$prefix/etc/ssl/fipsmodule.cnf" "$(dirname "$o")/fipsmodule.cnf"; do [ -f "$cnf" ] && { fips="$cnf"; break; }; done
+  fips="$(find_fips_cnf "$o")"
   if [ -n "$fips" ]; then
     printf 'openssl_conf = openssl_init\n.include %s\n[openssl_init]\nproviders = provider_sect\n[provider_sect]\nfips = fips_sect\nbase = base_sect\n[base_sect]\nactivate = 1\n' "$fips" > "$t/fips.cnf"
     if OPENSSL_CONF="$t/fips.cnf" "$o" list -providers -provider fips -provider base 2>&1 | grep -q 'fips'; then row "$C_G" PASS "FIPS provider" "active ($fips)"; else row "$C_R" FAIL "FIPS provider" "does not load"; ok_all=1; fips=""; fi
-  else row "$C_R" FAIL "FIPS provider" "no fipsmodule.cnf: a stripped build"; ok_all=1; fi
+  else row "$C_Y" WARN "FIPS provider" "no fipsmodule.cnf / fips.so found: the FIPS quadrants (Q2 / Q4) are not available with this OpenSSL (trust install and signing of the other quadrants work)"; fi
   echo hello > "$t/d.txt"
   if "$o" genpkey -algorithm ML-DSA-65 -out "$t/k.pem" >/dev/null 2>&1 && "$o" pkeyutl -sign -inkey "$t/k.pem" -rawin -in "$t/d.txt" -out "$t/s.bin" >/dev/null 2>&1 \
      && "$o" pkeyutl -verify -inkey "$t/k.pem" -rawin -in "$t/d.txt" -sigfile "$t/s.bin" >/dev/null 2>&1; then row "$C_G" PASS "ML-DSA" "ML-DSA-65 sign and verify"; else row "$C_R" FAIL "ML-DSA" "ML-DSA-65 failed"; ok_all=1; fi
@@ -315,7 +341,10 @@ OPENSSL=""; OSSL_TEXT=""; OSSL_OLD=""
 find_openssl() {
   OPENSSL=""; OSSL_TEXT=""; OSSL_OLD=""
   local c v p
-  for c in "$OSSL_BIN" $(command -v openssl 2>/dev/null) "$OSSL_PREFIX/bin/openssl" \
+  local ppa=""
+  if command -v dpkg >/dev/null 2>&1; then ppa="$(dpkg -L nicko-su-openssl4 2>/dev/null | grep -E '/bin/openssl[0-9]*$' | head -3)"; fi
+  for c in "$OSSL_BIN" $(command -v openssl4 2>/dev/null) /usr/bin/openssl4 /usr/local/bin/openssl4 $ppa /opt/openssl4/bin/openssl \
+           $(command -v openssl 2>/dev/null) "$OSSL_PREFIX/bin/openssl" \
            /opt/openssl-4*/bin/openssl /usr/local/openssl-4*/bin/openssl "$HOME"/.local/openssl-4*/bin/openssl \
            /opt/homebrew/opt/openssl@4/bin/openssl /usr/local/opt/openssl@4/bin/openssl /opt/homebrew/bin/openssl /usr/local/bin/openssl \
            /opt/openssl/bin/openssl; do

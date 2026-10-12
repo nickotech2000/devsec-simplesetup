@@ -14,6 +14,7 @@ WHAT IS IN THIS FOLDER
   GenerateOffice365LeafCertificate.ps1  /  .sh       Microsoft Office / 365 document signing, from a JSON file
   SignCsr.ps1  /  .sh                                sign the certificate request (CSR) of a colleague with the intermediate CAs in this kit
   Make-ShExecutable.ps1  /  make-executable.sh       make the .sh files executable (you do not need to know Linux)
+  server\                                            the SERVER KIT (no private key): server\linux\pki-server\pki-server.sh + server\pki. See SERVER KIT below.
   devkit.env, lib\, scripts\, examples\, docs\       what the scripts use; docs\ has the manuals. SHA256SUMS lists every file.
 
 THE PASSWORD of the package comes from the person who sent you this kit, by another channel (not with the kit).
@@ -73,6 +74,17 @@ THE PASSWORD of the package comes from the person who sent you this kit, by anot
   * -NoCrl / -NoOcsp / -NoRevocationInfo (--no-crl / --no-ocsp / --no-revocation-info) leave the revocation URLs out: use them when
     Word / Excel / a tool says "cannot connect to the revocation server".
   * Trouble? docs\DevKit-MANUAL.txt has the list of messages and what to do.
+
+SERVER KIT (CRL, OCSP, time stamping on an Ubuntu 24.04 / 26.04 machine)
+  The folder server\ holds everything for the PKI servers; copy THAT folder (not the rest of this kit) to the Ubuntu machine, then:
+     cd server && bash linux/fix-permissions.sh
+     sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki        CRL + CA certificates only
+     sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki          CRL + OCSP (first: csr --no-tsa, sign, import-cert)
+     sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki        time stamp server only (first: csr --tsa-only, sign, import-cert)
+     sudo ./linux/pki-server/pki-server.sh install --source ./pki                   all three (first: csr, sign, import-cert)
+     ./linux/pki-server/pki-server.sh dns                                           hosts-file lines / router DNS records
+  server\README-SERVER-PACKAGE.txt and server\docs\PKI-SERVER-MANUAL.txt have every step. The server\pki folder has NO private key; the OCSP / time stamp
+  keys are made on the server and signed on the CA machine (PkiRevocation.ps1 -Action SignCsr). A new CRL: build the kit (or a server package) again.
 
 RELEASE OF THIS KIT
   The kit holds ONE PKI (see PKI_RELEASE / PKI_VARIANT in devkit.env). The generators use it automatically; --release / -Release and

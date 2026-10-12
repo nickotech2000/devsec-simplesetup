@@ -251,6 +251,32 @@ find_openssl() {
   return 1
 }
 
+# Finds fipsmodule.cnf for the OpenSSL binary $1 (prints the path). Looks next to the install, in OPENSSLDIR, in the files of the package that owns the binary,
+# and in /etc/agantra-pki; when the package ships fips.so but no fipsmodule.cnf it makes one with "openssl fipsinstall" (own user: ~/.config/agantra-pki, root: /etc/agantra-pki).
+find_fips_cnf() {
+  local o="$1" prefix bin odir mdir c pkg fso d dest real
+  real="$(readlink -f "$o" 2>/dev/null || echo "$o")"; bin="$(dirname "$o")"; prefix="$(cd "$bin/.." 2>/dev/null && pwd)"
+  odir="$("$o" version -d 2>/dev/null | sed -n 's/^OPENSSLDIR: *"\(.*\)"/\1/p')"
+  mdir="$("$o" version -m 2>/dev/null | sed -n 's/^MODULESDIR: *"\(.*\)"/\1/p')"
+  for c in "$prefix/ssl/fipsmodule.cnf" "$prefix/etc/ssl/fipsmodule.cnf" "$bin/fipsmodule.cnf" "${odir:+$odir/fipsmodule.cnf}" "${odir:+$(dirname "$odir")/fipsmodule.cnf}" \
+           /etc/agantra-pki/fipsmodule.cnf "${XDG_CONFIG_HOME:-$HOME/.config}/agantra-pki/fipsmodule.cnf" /etc/ssl/openssl4/fipsmodule.cnf /etc/openssl4/fipsmodule.cnf /etc/ssl/fipsmodule.cnf /usr/lib/ssl/fipsmodule.cnf /usr/local/ssl/fipsmodule.cnf; do
+    [ -n "$c" ] && [ -f "$c" ] && { echo "$c"; return 0; }
+  done
+  if command -v dpkg >/dev/null 2>&1; then
+    pkg="$(dpkg -S "$real" 2>/dev/null | head -1 | cut -d: -f1)"
+    if [ -n "$pkg" ]; then
+      c="$(dpkg -L "$pkg" 2>/dev/null | grep 'fipsmodule\.cnf$' | head -1)"; [ -n "$c" ] && [ -f "$c" ] && { echo "$c"; return 0; }
+      fso="$(dpkg -L "$pkg" 2>/dev/null | grep '/fips\.so$' | head -1)"
+    fi
+  fi
+  if [ -z "$fso" ]; then for d in "$mdir" "$prefix/lib/ossl-modules" "$prefix/lib64/ossl-modules" "$prefix/lib/x86_64-linux-gnu/ossl-modules" "$prefix/lib/aarch64-linux-gnu/ossl-modules"; do [ -n "$d" ] && [ -f "$d/fips.so" ] && { fso="$d/fips.so"; break; }; done; fi
+  if [ -n "$fso" ] && [ -f "$fso" ]; then
+    if [ "$(id -u)" = 0 ]; then dest=/etc/agantra-pki/fipsmodule.cnf; else dest="${XDG_CONFIG_HOME:-$HOME/.config}/agantra-pki/fipsmodule.cnf"; fi
+    mkdir -p "$(dirname "$dest")" 2>/dev/null && "$o" fipsinstall -out "$dest" -module "$fso" >/dev/null 2>&1 && [ -s "$dest" ] && { echo "$dest"; return 0; }
+  fi
+  return 1
+}
+
 # The proof: version, FIPS provider active, ML-DSA sign + verify, ML-KEM key generation, ML-DSA inside the FIPS provider.
 openssl_ready() {   # $1 = openssl binary; prints one line per check; returns 0 when ALL pass
   local o="$1" t fips ok_all=0 prefix cnf
@@ -258,12 +284,12 @@ openssl_ready() {   # $1 = openssl binary; prints one line per check; returns 0 
   local v; v="$("$o" version 2>/dev/null | head -1)"
   if ver_ok "$(ver_parts "$v")"; then row "$C_G" PASS "version" "$(echo "$v" | cut -d'(' -f1)"; else row "$C_R" FAIL "version" "${v:-not runnable} ($OSSL_MIN_MAJOR.$OSSL_MIN_MINOR.$OSSL_MIN_PATCH or newer is required for --openssl-source $OSSL_SOURCE)"; ok_all=1; fi
   prefix="$(cd "$(dirname "$o")/.." 2>/dev/null && pwd)"
-  fips=""; for cnf in "$prefix/ssl/fipsmodule.cnf" "$prefix/etc/ssl/fipsmodule.cnf" "$(dirname "$o")/fipsmodule.cnf"; do [ -f "$cnf" ] && { fips="$cnf"; break; }; done
+  fips="$(find_fips_cnf "$o")"
   if [ -n "$fips" ]; then
     printf 'openssl_conf = openssl_init\n.include %s\n[openssl_init]\nproviders = provider_sect\n[provider_sect]\nfips = fips_sect\nbase = base_sect\n[base_sect]\nactivate = 1\n' "$fips" > "$t/fips.cnf"
     if OPENSSL_CONF="$t/fips.cnf" "$o" list -providers -provider fips -provider base 2>&1 | grep -q 'fips'; then row "$C_G" PASS "FIPS provider" "active ($fips)"; else row "$C_R" FAIL "FIPS provider" "does not load with $fips"; ok_all=1; fips=""; fi
   elif [ "$OSSL_SOURCE" = system ]; then row "$C_Y" NOTE "FIPS provider" "no fipsmodule.cnf next to the distribution's OpenSSL: the FIPS quadrants (Q2 / Q4) need --openssl-source ppa or build"
-  else row "$C_R" FAIL "FIPS provider" "fipsmodule.cnf not found (the build needs enable-fips; Windows: Install-DevEnvironment.ps1)"; ok_all=1; fi
+  else row "$C_Y" WARN "FIPS provider" "no fipsmodule.cnf / fips.so found for this OpenSSL: the FIPS quadrants (Q2 / Q4) are not available with it; everything else works (trust install, signing, ML-DSA). Find it: sudo find / -name 'fipsmodule.cnf' -o -name fips.so 2>/dev/null"; fi
   echo hello > "$t/d.txt"
   if "$o" genpkey -algorithm ML-DSA-65 -out "$t/k.pem" >/dev/null 2>&1 && "$o" pkeyutl -sign -inkey "$t/k.pem" -rawin -in "$t/d.txt" -out "$t/s.bin" >/dev/null 2>&1 \
      && "$o" pkeyutl -verify -inkey "$t/k.pem" -rawin -in "$t/d.txt" -sigfile "$t/s.bin" >/dev/null 2>&1; then row "$C_G" PASS "ML-DSA" "ML-DSA-65 key, sign and verify (post-quantum signatures)"; else
@@ -446,7 +472,7 @@ install_7zip() {
     macos)  pkg_any "sevenzip" "p7zip" ;;
   esac
 }
-install_pwsh() {
+install_pwsh_release() {
   local arch os tag file url hashes want got dir
   case "$ARCH" in x86_64|amd64) arch=x64 ;; aarch64|arm64) arch=arm64 ;; *) warn "pwsh: architecture $ARCH not handled"; return 1 ;; esac
   os=linux; [ "$PLATFORM" = macos ] && os=osx
@@ -459,13 +485,36 @@ install_pwsh() {
   if [ "$DRYRUN" = 1 ]; then dry "download $url, check it against hashes.sha256 of that release, unpack to /opt/microsoft/powershell/$tag, link /usr/local/bin/pwsh"; return 0; fi
   local w; w="$(mktemp -d "${TMPDIR:-/tmp}/pwsh.XXXXXX")"
   curl -fL --retry 3 -o "$w/$file" "$url" && curl -fsSL -o "$w/hashes.sha256" "https://github.com/PowerShell/PowerShell/releases/download/v$tag/hashes.sha256" || { rm -rf "$w"; return 1; }
-  want="$(grep " $file\$" "$w/hashes.sha256" | awk '{print $1}' | tr 'A-F' 'a-f')"; got="$(sha256_of "$w/$file")"
-  [ -n "$want" ] && [ "$want" = "$got" ] || { err "pwsh: SHA-256 does not match hashes.sha256 of the release."; rm -rf "$w"; return 1; }
+  # hashes.sha256 of the release: the layout differs between releases ("<hash> *<file>", "<hash>  <file>", CR LF line ends, BSD style "SHA256 (<file>) = <hash>").
+  # Take the line that names OUR file exactly (not a longer name such as <file>.sig) and read the first 64-hex-digit word in it.
+  local fre; fre="$(printf '%s' "$file" | sed 's/[.]/\\./g')"
+  want="$(tr -d '\r' < "$w/hashes.sha256" | grep -E "(^|[^A-Za-z0-9._-])${fre}([^A-Za-z0-9._-]|\$)" | grep -oiE '[0-9a-f]{64}' | head -1 | tr 'A-F' 'a-f')"
+  got="$(sha256_of "$w/$file")"
+  if [ -z "$want" ]; then
+    err "pwsh: $file is not listed in hashes.sha256 of release v$tag (lines that mention linux-x64 follow)."; grep -i "linux-x64" "$w/hashes.sha256" | tr -d '\r' | head -5 >&2
+    rm -rf "$w"; return 1
+  fi
+  if [ "$want" != "$got" ]; then
+    err "pwsh: SHA-256 of the download does not match hashes.sha256 of the release (not installed)."; echo "  expected: $want" >&2; echo "  got     : $got" >&2; echo "  file    : $file ($(wc -c < "$w/$file") bytes)" >&2
+    rm -rf "$w"; return 1
+  fi
   dir="/opt/microsoft/powershell/$tag"; [ "$PLATFORM" = macos ] && dir="/usr/local/microsoft/powershell/$tag"
   priv mkdir -p "$dir" && priv tar xzf "$w/$file" -C "$dir" && priv chmod +x "$dir/pwsh" && priv ln -sf "$dir/pwsh" /usr/local/bin/pwsh
   rm -rf "$w"
   case "$FAMILY" in debian) pkg_any "libicu-dev" >/dev/null 2>&1 ;; rhel|suse) pkg_any "libicu" >/dev/null 2>&1 ;; esac
   have pwsh
+}
+install_pwsh() {
+  # 1. the official release archive, checksum verified.  2. when that fails and the .NET SDK is installed: the official NuGet package "PowerShell" as a .NET tool
+  #    (NuGet verifies the package itself).  No apt package called "pwsh" exists on Ubuntu.
+  install_pwsh_release && return 0
+  if [ "$DRYRUN" != 1 ] && have dotnet; then
+    warn "pwsh: the release archive could not be used. Trying the .NET tool package (dotnet tool install PowerShell) ..."
+    local td=/opt/microsoft/powershell-dotnet
+    priv mkdir -p "$td" && { priv dotnet tool install --tool-path "$td" PowerShell || priv dotnet tool update --tool-path "$td" PowerShell; } \
+      && priv ln -sf "$td/pwsh" /usr/local/bin/pwsh && have pwsh && return 0
+  fi
+  return 1
 }
 install_component() {
   case "$1" in
