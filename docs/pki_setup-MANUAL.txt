@@ -1,7 +1,7 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 5.0.0          2026-10-13
+ Agantra Inovatif Enterprise PKI generator          Version 5.0.2          2026-10-13
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PKI-Design-with-FIPS-and-PQC.txt (design, diagrams, limitations)
           PUBLIC-CA-ENTERPRISE-ROOT.txt        (Enterprise Root signed by DigiCert / GlobalSign / Sectigo)
@@ -641,7 +641,7 @@
 ====================================================================================================
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 5.0.0
+ Version 5.0.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -1139,6 +1139,13 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   A NoCR PKI has no URL in its CA certificates; the server is still needed for the leaf certificates (they keep their CRL / OCSP URLs).
   NAMES of the CRL and CA-issuer files (the {ca} of the URLs) follow the CA names: Root CA -> agantra-root-g1, Classic Root -> agantra-classic-root-g1,
   PQC Root -> agantra-pqc-root-g2, Q1 / Q2 roots -> agantra-q1-root-g1 / -g2, intermediates -> agantra-q1-ov-g1 ; NoCR adds -nocr, release 2+ adds -r2.
+
+5.0.2  REVISION
+  * .gitignore: other companies' <short>_pki.cnf files are not committed (only agantra_pki.cnf).
+
+5.0.1  REVISION
+  * -Pki <other company> -InstallTrust: the Windows store read-back now recognises that company's own certificates (it only knew Agantra's before).
+  * Every .ps1 and .sh prints "<script> version x.y.z" at start; versions are major.minor.revision (design note 10.117).
 
 5.0.0  MAJOR UPDATE  -  PKI profiles, folders, platforms
   * -Pki <name>, -ListPki, New-PkiConfig.ps1: one PKI per company (raksaka_pki.cnf ...). Full text: PkiProfiles-MANUAL.txt.

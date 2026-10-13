@@ -28,6 +28,10 @@
 # ============================================================
 Set-StrictMode -Version Latest
 
+# The version of the whole tool set. Raise it together with the VERSION / 'Version' lines (see docs/PKI-Design-with-FIPS-and-PQC.txt, versioning rule 10.117).
+$script:PkiToolVersion = '5.0.2'
+function Get-PkiToolVersion { return $script:PkiToolVersion }
+
 function Get-PkiPlatformInfo {
     $r = [ordered]@{ Kind = 'Other'; Tier = 'Refused'; ClassicOnly = $false; Name = ''; Build = 0; Edition = ''; Message = '' }
     $supportedWin = 'Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; Server 2022 builds the CLASSIC track only)'
@@ -122,6 +126,11 @@ function Assert-PkiPlatform {
     if ($p.Tier -eq 'Refused') {
         [Console]::Error.WriteLine("[ERROR] $($p.Message) Nothing was done.")
         exit 5
+    }
+    if (-not $Quiet) {
+        $cs = @(Get-PSCallStack | Where-Object { $_.ScriptName } | Select-Object -Last 1)
+        $nm = if ($cs.Count -gt 0) { Split-Path -Leaf $cs[0].ScriptName } else { 'PKI script' }
+        Write-Host "[INFO] $nm version $script:PkiToolVersion" -ForegroundColor DarkGray
     }
     if ($p.ClassicOnly -and -not $Quiet) {
         Write-Host "[WARN] $($p.Name): Windows Server 2022 builds the CLASSIC track only (no Quantum / ML-DSA CAs or leaves); FIPS and non-FIPS, DV / OV / EV are available." -ForegroundColor Yellow

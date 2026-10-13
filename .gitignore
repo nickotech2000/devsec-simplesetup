@@ -19,3 +19,6 @@ PKI-DevSecOps-*.zip
 external-ca/
 csr-signed/
 devkit.env
+# Other companies' PKI profiles (New-PkiConfig.ps1) stay local; only the default agantra_pki.cnf is committed
+*_pki.cnf
+!agantra_pki.cnf

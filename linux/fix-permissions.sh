@@ -24,6 +24,7 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
+    PKI_TOOL_VERSION="5.0.2"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
@@ -31,6 +32,7 @@ set -u
 case "${1:-}" in -h|--help)
 cat <<'TXT'
 fix-permissions.sh [FOLDER]
+  Version 5.0.2
   Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
   Makes *.sh and *.py executable (chmod 755), converts CRLF to LF and removes a BOM in *.sh, *.py, *.txt, *.cnf, *.json, *.crt, *.pem,

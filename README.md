@@ -5,8 +5,8 @@ It builds a root → track → quadrant → DV / OV / EV hierarchy (classic **RS
 issues TLS, code-signing, S/MIME, person and Microsoft Office / 365 certificates, runs CRL / OCSP / time stamping on Ubuntu,
 and hands your developers one zip that installs the trust and makes their own certificates on **Windows or Ubuntu**.
 
-> Version **5.0.0** (major update: PKI profiles for several companies) · Author: Nicko Satria Utama · Agantra Inovatif OÜ (NextMantra) · nicko@nextmantra.com
-> Private repository. The PKI itself (`pki/`, `leafcerts/`, any `*.key`) is in `.gitignore` and never goes to Git.
+> Version **5.0.2** (revision; 5.0.0 was the major update with PKI profiles) · Author: Nicko Satria Utama · Agantra Inovatif OÜ (NextMantra) · nicko@nextmantra.com
+> Private repository. The PKI itself (`pki/`, `leafcerts/`, any `*.key`, and every `<company>_pki.cnf` except `agantra_pki.cnf`) is in `.gitignore` and never goes to Git.
 
 ---
 
@@ -38,6 +38,10 @@ On the machine that holds the PKI (Windows 11 or Linux with PowerShell 7 and Ope
 ```
 
 Every script has `-Help` (PowerShell) or `--help` (shell). The manuals are in [`docs/`](docs/).
+
+## Version numbers
+
+`major.minor.revision`. A **major** update (new architecture) raises the first number, a **minor** update (new feature) the second, a **revision** (bug fix, or an update that is not called major or minor) the third. The zip is named `PKI-DevSecOps-<yyyymmdd>-<version>.zip`. Every `.ps1` and `.sh` prints `<script> version x.y.z` when it starts, and shows the version at the top of `-Help` / `--help`.
 
 ## Several companies: PKI profiles (5.0.0)
 
@@ -196,6 +200,7 @@ All documentation text files are in [`docs/`](docs/).
 
 ## Security notes
 
+- **Other companies' profiles stay local:** `.gitignore` ignores every `*_pki.cnf` except `agantra_pki.cnf`, so `raksaka_pki.cnf` etc. never go to Git (company data, contact e-mail). Remove the line if you want to commit one.
 - **Never commit** `pki/`, `leafcerts/`, `*.key`, `*.pfx`, `*.certpacked`. The pre-commit hook refuses private keys, CRLF and BOM.
 - Root keys stay on the PKI machine. A DevKit holds issuing-CA keys only; send it to named people, send the password by another channel, revoke the intermediate if a kit is lost.
 - Keys that were uploaded to chats or tickets are exposed: treat them as test keys and rebuild the PKI for production.

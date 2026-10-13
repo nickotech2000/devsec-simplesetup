@@ -27,10 +27,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
+    PKI_TOOL_VERSION="5.0.2"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="5.0.0"; TOOL="GenerateOffice365LeafCertificate.sh"
+VERSION="5.0.2"; TOOL="GenerateOffice365LeafCertificate.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/pki-lib.sh"; . "$HERE/lib/pki-person.sh"
 
@@ -38,7 +39,7 @@ usage() {
 cat <<'EOF'
 ============================================================
  GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux / Ubuntu, DevKit)
- Version 5.0.0
+ Version 5.0.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.0.0     2026-10-13
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.0.2     2026-10-13
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
@@ -342,12 +342,22 @@
  [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
 
 ====================================================================================================
+ E29  Revisions 5.0.1 / 5.0.2: version display, Raksaka trust-store fix, .gitignore
+====================================================================================================
+ [ ] Every .ps1 and .sh prints "[INFO] <name> version 5.0.2" when it starts (-Help / --help show "Version 5.0.2" in their header instead).
+ [ ] git status shows agantra_pki.cnf but NOT raksaka_pki.cnf (git check-ignore -v raksaka_pki.cnf names the .gitignore line).
+ [ ] The zip is named PKI-DevSecOps-<yyyymmdd>-5.0.2.zip.
+ [ ] Windows, elevated: .\pki_setup.ps1 -InstallTrust -Pki raksaka : 7 of 7 roots, 12 of 12 intermediates, no ERROR (see E28).
+
+====================================================================================================
  E28  PKI profiles, platform rules, tools configuration (5.0.0 MAJOR)
 ====================================================================================================
  [ ] .\New-PkiConfig.ps1 -CompanyName 'PT Raksaka Teknologi Indonesia' ... : raksaka_pki.cnf is written (short name raksaka, CA prefix Raksaka). 'PT Bumi Daya Sakti' -> bumi_pki.cnf.
      ArgÜwilis -> arguwilis_pki.cnf. A second 'Tecooli ...' company -> tecooli002_pki.cnf (CA prefix Tecooli002). The website https://www.x.co.id is stored as www.x.co.id.
  [ ] .\pki_setup.ps1 -ListPki lists agantra (default) and raksaka. .\pki_setup.ps1 -InstallTrust builds pki\pki-default-01, again -> pki-default-02. -Pki raksaka -InstallTrust -> pki-raksaka-01.
      Windows: the store holds 'Agantra ...' and 'Raksaka ...' roots side by side; -NoCaRevocationInfo gives pki-raksaka-nocr-01.
+ [ ] Windows, elevated: -Pki raksaka -InstallTrust after the Agantra one: "Trusted Root ... 7 of 7", "Intermediate ... 12 of 12", no ERROR, no Agantra certificate listed as leftover; the
+     same for agantra afterwards (no Raksaka certificate listed).
  [ ] -Pki Tab-completes the names. GenerateLeafCertificate / SignCsr / SignExternalCa / PkiTransport -Pack / -Server / -DevKit / PkiRevocation / New-PkiTrustKit with -Pki raksaka use the Raksaka
      CAs and file names raksaka-pki-...; without -Pki the Agantra PKI. -Pki unknown = error listing the known names.
  [ ] .\pki_remove.ps1 -List; -Pki raksaka -Release 1 -DeleteFiles; -Pki raksaka -All (Agantra stays); -AllPki and pki_setup -RemoveAllTrust remove every company from the files AND from

@@ -38,13 +38,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$script:Version = '5.0.0'
+$script:Version = '5.0.2'
 
 if ($Help) {
 @'
 ============================================================
  New-PkiTrustKit.ps1 - trust kits (CA certificates + a standalone installer) for Windows, Ubuntu, Red Hat family, SUSE family
- Version 5.0.0
+ Version 5.0.2
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 FOR WHOM

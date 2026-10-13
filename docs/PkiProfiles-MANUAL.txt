@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI PROFILES, PLATFORMS AND THE TOOLS CONFIGURATION  -  USER MANUAL              Version 5.0.0     2026-10-13
+ PKI PROFILES, PLATFORMS AND THE TOOLS CONFIGURATION  -  USER MANUAL              Version 5.0.2     2026-10-13
 ====================================================================================================
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
@@ -153,3 +153,7 @@
  * pki_remove.ps1 -All without -Pki still removes everything; with -Pki <name> only that PKI.
  * PkiTransport -Install runs on Windows 11 24H2+ and Windows Server 2022 / 2025 (was Windows 11 25H2 client only).
  * Windows 10, Windows 11 before 24H2, specialised editions and macOS are no longer accepted by any script.
+
+
+GIT (5.0.2)
+  .gitignore ignores every *_pki.cnf except agantra_pki.cnf: your raksaka_pki.cnf stays on your machine and is not committed. Remove the lines from .gitignore to commit one.

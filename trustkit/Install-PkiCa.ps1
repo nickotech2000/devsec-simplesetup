@@ -39,6 +39,8 @@ function Show-Help {
  Install-PkiCa.ps1  -  install the CA certificates of the PKI on this Windows machine
  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
+Version 5.0.2
+
 WHAT IT DOES
   Opens the .certpacked file(s) that came in the same zip (it asks for the password; a kit of ALL releases has one per release), and installs the CA certificates:
     * every ROOT (top root, track roots, quadrant roots)  -> Trusted Root Certification Authorities
@@ -78,6 +80,7 @@ NOTES
 '@ | Write-Host
 }
 if ($Help) { Show-Help; return }
+$script:KitVersion = '5.0.2'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }
@@ -334,6 +337,7 @@ try {
             if ($osEd -and $osEd -notmatch '^(Core|CoreN|CoreSingleLanguage|Professional|ProfessionalN|ProfessionalWorkstation|ProfessionalWorkstationN|ProfessionalEducation|ProfessionalEducationN|Education|EducationN|Enterprise|EnterpriseN)$') { Stop-Kit "This computer is ${osName}: this Windows edition is NOT supported (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise). Nothing was changed." 5 }
             if ($osBuild -lt 26100) { Stop-Kit "This computer is ${osName}: Windows 11 before 24H2 is NOT supported (needs Windows 11 24H2 = build 26100 or newer). Nothing was changed." 5 }
         }
+        Say 'INFO' ("Install-PkiCa.ps1 version $script:KitVersion")
         Say 'INFO' ("Windows: {0} - {1}" -f $osName, $(if ($osMode -eq 'classic') { 'Windows Server 2022: only the CLASSIC certificates are installed (the post-quantum ones are skipped)' } else { 'supported, all certificates are installed' }))
     }
 

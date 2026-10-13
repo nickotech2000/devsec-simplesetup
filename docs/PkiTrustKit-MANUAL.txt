@@ -1,5 +1,5 @@
 ====================================================================================================================================
- Agantra Inovatif Enterprise PKI  -  TRUST KIT (CA certificates + ONE standalone installer)                  Version 5.0.0   2026-10-13
+ Agantra Inovatif Enterprise PKI  -  TRUST KIT (CA certificates + ONE standalone installer)                  Version 5.0.2   2026-10-13
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================================================
 

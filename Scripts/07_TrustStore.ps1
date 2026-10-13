@@ -50,11 +50,28 @@ function Open-PkiStore {
     }
 }
 
+function Get-PkiCurrentIdentityMarkers {
+    # Words that identify the certificates of the CURRENT profile only (5.0.0): its organization and its CA prefix.
+    # The default profile (agantra) also keeps the legacy markers. Other companies' certificates are NOT ours.
+    $m = [System.Collections.Generic.List[string]]::new()
+    $isDefault = $true
+    if ($null -ne (Get-Variable -Name Pki -Scope Script -ErrorAction SilentlyContinue) -and $null -ne $script:Pki) {
+        if ($script:Pki.Contains('Profile') -and $script:Pki.Profile -and $script:Pki.Profile -ne 'agantra') { $isDefault = $false }
+        if ($script:Pki.Contains('Organization') -and $script:Pki.Organization) { [void]$m.Add([string]$script:Pki.Organization) }
+        if ($null -ne $script:Pki.Naming -and $script:Pki.Naming.Prefix) { [void]$m.Add("$($script:Pki.Naming.Prefix) ") }
+    }
+    if ($isDefault) { foreach ($w in $script:PkiIdentityMarkers) { if ($m -notcontains $w) { [void]$m.Add($w) } } }
+    return @($m)
+}
+
 function Test-PkiCertificateIdentity {
     param([Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate)
     $text = (Normalize-PkiIdentity "$($Certificate.Subject) | $($Certificate.Issuer)")
-    foreach ($m in $script:PkiIdentityMarkers) {
-        if ($text.Contains((Normalize-PkiIdentity $m))) { return $true }
+    foreach ($m in (Get-PkiCurrentIdentityMarkers)) {
+        # a prefix marker ("Raksaka ") must start the common name, so "Raksaka" never matches "XRaksaka"
+        $n = (Normalize-PkiIdentity $m)
+        if ($m.EndsWith(' ')) { if ($text.Contains("cn=$n")) { return $true } }
+        elseif ($text.Contains($n)) { return $true }
     }
     return $false
 }

@@ -8,10 +8,12 @@
 PKI_PREFIX="__PKI_PREFIX__"      # written by New-PkiTrustKit.ps1; the files in the system store start with it
 PKI_TARGET="__PKI_TARGET__"      # ubuntu | redhat | suse  (auto = found from this machine)
 set -u
+VERSION="5.0.2"
 
 usage() {
 cat <<'EOF'
 install-pki-ca.sh  -  install the CA certificates of the PKI on this Linux machine (Ubuntu / Debian, RHEL family, SUSE family)
+Version 5.0.2
 Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 
 WHAT IT DOES
@@ -56,6 +58,7 @@ warn() { printf '%s[WARN]%s %s\n' "$C_W" "$C_0" "$*" >&2; }
 die()  { printf '%s[ERROR]%s %s\n' "$C_E" "$C_0" "$1" >&2; exit "${2:-1}"; }
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+case "${1:-}" in -h|--help) : ;; *) echo "[INFO] install-pki-ca.sh version $VERSION" >&2 ;; esac
 PASS="${PKI_PACKAGE_PASSWORD:-}"; PKG=""; PKGS=(); TARGET="$PKI_TARGET"; FIREFOX=0; CHECK=0
 while [ $# -gt 0 ]; do
   case "$1" in
