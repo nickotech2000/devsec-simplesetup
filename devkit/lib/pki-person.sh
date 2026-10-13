@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
 # PKI Script - DevKit shell library for the person / Office 365 generators (sourced; not run on its own)
 # Author : Nicko Satria Utama <nicko@nextmantra.com>   Company: Agantra Inovatif OU (NextMantra)
+# ---- Platform gate (5.0.0): Linux only (VM, bare metal or WSL). Accepted: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+,
+#      SUSE Linux Enterprise (SLES / SLED) 15+, openSUSE Leap 15+ / Tumbleweed. Everything else: error, exit 5, nothing is done.  (-h / --help work everywhere.)
+if [ -z "${PKI_GATE_DONE:-}" ]; then
+  case "${1:-}" in -h|--help|-help|--Help|help) : ;; *)
+    __osrel="${PKI_OS_RELEASE_FILE:-/etc/os-release}"; __id=""; __ver=""; __pretty=""
+    if [ -r "$__osrel" ]; then __id="$(. "$__osrel"; echo "${ID:-}")"; __ver="$(. "$__osrel"; echo "${VERSION_ID:-}")"; __pretty="$(. "$__osrel"; echo "${PRETTY_NAME:-${NAME:-}}")"; fi
+    __maj="${__ver%%.*}"; case "$__maj" in ''|*[!0-9]*) __maj=0 ;; esac
+    __ok=0
+    case "$__id" in
+      ubuntu) [ "$__maj" -ge 24 ] && __ok=1 ;;
+      centos|rhel|rocky|ol) [ "$__maj" -ge 10 ] && __ok=1 ;;
+      sles|sles_sap|sled|opensuse-leap) [ "$__maj" -ge 15 ] && __ok=1 ;;
+      opensuse-tumbleweed) __ok=1 ;;
+    esac
+    [ "$(uname -s 2>/dev/null)" = Linux ] || __ok=0
+    if [ "$__ok" != 1 ]; then
+      echo "[ERROR] This system is '${__pretty:-$(uname -s 2>/dev/null)}' (ID=${__id:-?} VERSION_ID=${__ver:-?}): NOT supported. Nothing was done." >&2
+      echo "        Supported: Linux on a VM, bare metal or WSL - Ubuntu 24.04 / 26.04 or newer; CentOS Stream 10+; RHEL 10+; Rocky Linux 10+; Oracle Linux 10+;" >&2
+      echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
+      exit 5
+    fi
+    export PKI_GATE_DONE=1 ;;
+  esac
+fi
 
 # person_main <person|office365> "$@"      (the caller has sourced pki-lib.sh and defined VERSION, TOOL, usage)
 person_main() {
@@ -83,7 +107,7 @@ person_main() {
     local ktag; if [ "$kt" = rsa ]; then ktag="rsa$kb"; else ktag="ecdsa-$(printf '%s' "$curve" | tr -d '-' | tr 'P' 'p')"; fi
     local dir="$root/$folder"; [ -e "$dir" ] && dir="$dir-$(date +%H%M%S)"
     local stem="$folder-$(pki_lc "$level")-q$q-$ktag"
-    mkdir -p "$dir"; local cnf="$dir/$stem.cnf"; : > "$cnf"
+    mkdir -p "$dir"; local cnf="$dir/$stem.cnf"; pki_author_hdr > "$cnf"
     local dn=""; [ -n "$serial" ] && dn="serialNumber=$serial|"; dn="${dn}givenName=$given|surname=$sur|CN=$cn|C=$country"
     pki_write_dn "$cnf" "$dn"
     pki_write_policies "$cnf" "$level"
@@ -114,11 +138,12 @@ person_main() {
     ok=$((ok+1))
   done <<< "$rows"
   if [ "$PROFILE" = office365 ] && [ $ok -gt 0 ]; then
-    cat > "$root/OFFICE-NOTES.txt" <<'EON'
+    { printf '============================================================\n Author : Nicko Satria Utama\n Company: Agantra Inovatif OU (NextMantra)\n Email  : nicko@nextmantra.com\n============================================================\n\n'; cat <<'EON'
 Microsoft Office / 365: install the .pfx (Abc12345! unless the file says otherwise) in the user's "Personal" store, and the CA chain
 (ca\roots, ca\intermediates) in Trusted Root / Intermediate. Word / Excel: File > Info > Protect > Add a Digital Signature.
 Word / Excel say "cannot connect to the revocation server": make the certificates with --no-revocation-info.
 EON
+    } > "$root/OFFICE-NOTES.txt"
   fi
   echo
   [ $bad -gt 0 ] && pki_warn "$bad person(s) failed"

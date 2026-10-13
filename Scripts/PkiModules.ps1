@@ -28,6 +28,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:PkiModuleCatalog = @(
+    @{ File = '00a_Platform.ps1';            Sets = 'All', 'Library', 'Trust', 'Transport'; Purpose = 'where the scripts may run: Windows 11 24H2+, Server 2022 (classic only) / 2025, editions, Linux distributions' }
+    @{ File = '00b_Profiles.ps1';            Sets = 'All', 'Library', 'Trust', 'Transport'; Purpose = 'PKI profiles (one <short>_pki.cnf per company) and the tools configuration file pki_tools.cnf' }
     @{ File = '00_Common.ps1';               Sets = 'All', 'Library', 'Trust', 'Transport'; Purpose = 'logging, steps, telemetry, PEM helpers, minimal context' }
     @{ File = '01_Configuration.ps1';        Sets = 'All', 'Library';          Purpose = 'configuration, CA catalog (the hierarchy), policies' }
     @{ File = '01b_CaNaming.ps1';            Sets = 'All', 'Library';          Purpose = 'names of all roots and intermediates' }

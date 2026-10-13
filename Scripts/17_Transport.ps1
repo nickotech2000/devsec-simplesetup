@@ -8,7 +8,7 @@
 #
 # SOURCE        PkiTransport.ps1 -Pack            makes the .certpacked (this module: plan, manifest, pack)
 # DESTINATION   Unpack-PkiTransport.ps1           unpacks only (this module: open, verify, export)
-#               PkiTransport.ps1 -Install         Windows 11 25H2 or newer ONLY: scan, unpack, install the trust
+#               PkiTransport.ps1 -Install         Windows 11 24H2 or newer, Windows Server 2025 / 2022: scan, unpack, install the trust
 #               pki-transport.sh                  Linux and macOS: unpack and install the trust (own script)
 #
 # What goes into a package (the "scope"):
@@ -36,8 +36,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:PkiPackageExtension = '.certpacked'
-$script:PkiMinWindowsBuild = 26200                  # Windows 11 25H2
-$script:PkiMinWindowsName = 'Windows 11 25H2'
+$script:PkiMinWindowsBuild = 26100                  # Windows 11 24H2 / Windows Server 2025 (5.0.0; before: 25H2). Windows Server 2022 (20348) is allowed too: classic only
+$script:PkiMinWindowsName = 'Windows 11 24H2'
 $script:PkiMinOpenSsl = [version]'4.0.1'
 $script:PkiTestedOpenSslMax = [version]'4.0.3'
 $script:PkiPackageSelections = @('roots', 'intermediates', 'chains', 'ca', 'leafcerts', 'pki', 'all', 'fullchain')
@@ -54,8 +54,8 @@ function Write-PkiScanLine {
 function Get-PkiWindowsSupport {
     <#
     .SYNOPSIS
-        Is this machine a supported destination for installing the trust? Only Windows 11 25H2 (build 26200) or newer,
-        client edition. Windows 11 24H2 and older, Windows 10, 8.1, 7, Windows Server and everything else: not supported.
+        Is this machine a supported destination for installing the trust? Windows 11 24H2 (build 26100) or newer, Windows Server 2025, or Windows Server 2022
+        (classic certificates only). Windows 10 and older, Windows 11 before 24H2, Windows Server before 2022: not supported.
     .PARAMETER Simulate
         For tests: @{ IsWindows; Major; Minor; Build; ProductType; Caption; DisplayVersion; Ubr }
     #>
@@ -85,18 +85,22 @@ function Get-PkiWindowsSupport {
     if (-not $i.IsWindows) { $reason = 'This is not Windows. On Linux and macOS use pki-transport.sh.' }
     elseif ($i.Major -lt 10) {
         $old = switch ("$($i.Major).$($i.Minor)") { '6.1' { 'Windows 7' } '6.2' { 'Windows 8' } '6.3' { 'Windows 8.1' } '6.0' { 'Windows Vista' } '5.1' { 'Windows XP' } default { "Windows $($i.Major).$($i.Minor)" } }
-        $reason = "$old (and every Windows before Windows 11 25H2) is not supported."
+        $reason = "$old (and every Windows before Windows 11 24H2 / Windows Server 2022) is not supported."
     }
-    elseif ($i.ProductType -ne 1) { $reason = 'Windows Server and domain controllers are not supported: Windows 11 client only.' }
+    elseif ($i.ProductType -ne 1) {
+        # Windows Server (Server 2022 build 20348 = classic certificates only; Server 2025 = everything). The edition rules are in scripts\00a_Platform.ps1.
+        if ($i.Build -lt 20348) { $reason = "Windows Server before 2022 (build $($i.Build)) is not supported." }
+        elseif ($i.Build -ge 22000 -and $i.Build -lt $script:PkiMinWindowsBuild) { $reason = "This Windows Server build ($($i.Build)) is not supported: Windows Server 2022 (RTM) or Windows Server 2025 (build 26100 or newer)." }
+    }
     elseif ($i.Build -lt 22000) { $reason = "Windows 10 (build $($i.Build)) is not supported." }
-    elseif ($i.Build -lt $script:PkiMinWindowsBuild) { $reason = "Windows 11 before 25H2 (build $($i.Build); 24H2 is 26100) is not supported. Update to Windows 11 25H2 (build $($script:PkiMinWindowsBuild)) or newer." }
+    elseif ($i.Build -lt $script:PkiMinWindowsBuild) { $reason = "Windows 11 before 24H2 (build $($i.Build)) is not supported. Update to Windows 11 24H2 (build $($script:PkiMinWindowsBuild)) or newer." }
     $name = if (-not $i.IsWindows) { $i.Caption }
             elseif ($i.Build -ge 22000) { "Windows 11 $(if ($i.DisplayVersion) { $i.DisplayVersion } else { 'build ' + $i.Build })" }
             elseif ($i.Major -ge 10) { 'Windows 10' } else { "Windows $($i.Major).$($i.Minor)" }
     return [ordered]@{
         Supported = ($reason -eq ''); Reason = $reason; Name = $name; Caption = $i.Caption; Build = $i.Build; Ubr = $i.Ubr
         DisplayVersion = $i.DisplayVersion; ProductType = $i.ProductType; IsWindows = $i.IsWindows
-        Required = "$($script:PkiMinWindowsName) (build $($script:PkiMinWindowsBuild)) or newer, client edition"
+        Required = "$($script:PkiMinWindowsName) (build $($script:PkiMinWindowsBuild)) or newer, Windows Server 2025, or Windows Server 2022 (classic certificates only)"
     }
 }
 
@@ -362,7 +366,7 @@ Archive : $($manifest.archive.format), $($manifest.archive.encryption)
 Scope   : CA certificates$(if ($IncludeLeafCerts) { ', LEAF CERTIFICATES (with private keys)' })$(if ($IncludeCaKeys -and $IssuingKeysOnly) { ', the PKI folder with the PRIVATE KEYS OF THE ISSUING (intermediate) CAs only - no root key' } elseif ($IncludeCaKeys) { ', the whole PKI with the CA PRIVATE KEYS' })
 $(if ($Comment) { "Comment : $Comment`n" })
 This file is a password-protected archive. Rename it to .zip or .7z and open it with 7-Zip, or use:
-  Windows 11 25H2+   PkiTransport.ps1 -Install -Package <file>      (unpacks and installs the trust)
+  Windows 11 24H2+ / Server 2025 / 2022   PkiTransport.ps1 -Install -Package <file>      (unpacks and installs the trust)
   any pwsh 7         Unpack-PkiTransport.ps1 -Package <file>        (unpacks only)
   Linux, macOS       pki-transport.sh --package <file>              (unpacks and installs the trust)
 
@@ -566,7 +570,16 @@ function Install-PkiPackageWindows {
         [Parameter(Mandatory)]$Opened, [Parameter(Mandatory)][string]$Destination,
         [switch]$InstallLeafPfx, [string]$PfxPassword = 'Abc12345!'
     )
-    $cas = foreach ($c in @($Opened.Manifest['certificateAuthorities'])) {
+    # Windows Server 2022 cannot use post-quantum (ML-DSA) certificates: only the classic CAs are installed there
+    $plat = if ($null -ne (Get-Variable -Name PkiPlatform -Scope Global -ErrorAction SilentlyContinue)) { $global:PkiPlatform } else { $null }
+    $classicOnly = ($null -ne $plat -and [bool]$plat.ClassicOnly)
+    $allCas = @($Opened.Manifest['certificateAuthorities'])
+    if ($classicOnly) {
+        $skip = @($allCas | Where-Object { [string]$_['track'] -eq 'Quantum' -or [string]$_['id'] -match '^(quantum-root|q[34]-)' })
+        if ($skip.Count -gt 0) { Write-PkiLog "Windows Server 2022: $($skip.Count) post-quantum (ML-DSA) CA certificate(s) of the package are NOT installed (only the classic PKI is)." 'WARN' }
+        $allCas = @($allCas | Where-Object { $skip -notcontains $_ })
+    }
+    $cas = foreach ($c in $allCas) {
         [ordered]@{
             id = $c['id']; kind = $c['kind']; commonName = $c['commonName']; sha1 = $c['sha1']; externallySigned = [bool]$c['externallySigned']
             certificate = (Join-Path $Destination (([string]$c['file']) -replace '/', [System.IO.Path]::DirectorySeparatorChar))
@@ -623,7 +636,7 @@ function Write-PkiTransportKit {
         $src = @((Join-Path $Root $f), (Join-Path (Join-Path $Root 'linux') $f)) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
         if ($src) { Copy-Item -LiteralPath $src -Destination $KitDirectory -Force }
     }
-    foreach ($f in 'PkiModules.ps1', '00_Common.ps1', '02_OpenSSL.ps1', '07_TrustStore.ps1', '09_Administrator.ps1', '16_CertPack.ps1', '17_Transport.ps1') {
+    foreach ($f in 'PkiModules.ps1', '00a_Platform.ps1', '00b_Profiles.ps1', '00_Common.ps1', '02_OpenSSL.ps1', '07_TrustStore.ps1', '09_Administrator.ps1', '16_CertPack.ps1', '17_Transport.ps1') {
         $src = Join-Path (Join-Path $Root 'scripts') $f
         if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination $scripts -Force } else { throw "Kit: $src is missing." }
     }

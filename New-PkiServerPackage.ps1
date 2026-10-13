@@ -16,11 +16,13 @@
     .\New-PkiServerPackage.ps1 -PkiRoot D:\pki -Output D:\out\agantra-pki-server.zip -Tar
 #>
 param(
+    # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
+    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     [string]$PkiRoot,
     [ValidateRange(1, 99)][int]$Release,
     [switch]$NoCaRevocationInfo,
     [string]$Output,
-    [string]$RootName = 'agantra-pki-server',
+    [string]$RootName,
     [switch]$IncludeServiceKeys,
     [switch]$NoPki,
     [switch]$CrlOnly,
@@ -33,14 +35,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$script:Version = '4.9.5-phaseC'
+$script:Version = '5.0.0'
 $root = $PSScriptRoot
 
 function Show-PackageHelp {
     @'
 ============================================================
  New-PkiServerPackage.ps1 - the PKI + the Linux scripts as ONE zip for Ubuntu 24.04 / 26.04
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
@@ -72,7 +74,7 @@ ALSO AS PkiTransport.ps1 -Server (same package, same checks, lands in .\transpor
 PARAMETERS
   -PkiRoot <folder>      one PKI folder made by pki_setup.ps1 (default: the latest release in .\pki\ next to this script)
   -Release <n>           the release to pack (R1, R2 ...). Default: the LATEST. A release that no longer exists = the latest, with a warning.
-  -NoCaRevocationInfo    pack the NoCR family (pki\NoCR-R<n>). Default: the normal family (the NoCR one when it is the only one).
+  -NoCaRevocationInfo    pack the NoCR family (pki\pki-<name>-nocr-<NN>). Default: the normal family (the NoCR one when it is the only one).
                          ONE PKI per package (inside the zip it is always pki\). The CRL and CA files of several releases can all be installed
                          on one server (the file stems differ: ...-r2, ...-nocr); the OCSP responders and the time stamp server serve the
                          release of the package that was installed LAST.
@@ -104,9 +106,27 @@ ON UBUNTU / WSL
 
 EXIT CODES   0 ok   1 error   4 PKI folder not found   5 a private key was found in the package (deleted)
 ============================================================
+
+WHICH PKI  (-Pki, 5.0.0)
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
+                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
+                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 if ($Help) { Show-PackageHelp; exit 0 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
+. (Join-Path $PSScriptRoot 'scripts/00b_Profiles.ps1')
 
 function Write-Msg { param([string]$Text, [string]$Level = 'INFO') $c = switch ($Level) { 'OK' { 'Green' } 'WARN' { 'Yellow' } 'ERROR' { 'Red' } default { 'Cyan' } }; Write-Host "[$Level] $Text" -ForegroundColor $c }
 
@@ -139,6 +159,13 @@ function Test-PrivateKey { param([byte[]]$Bytes)
     return $pkRegex.IsMatch([System.Text.Encoding]::Latin1.GetString($Bytes))
 }
 
+# Author / Company / Email block at the top of every text file this script generates ('#' style for SHA256SUMS, banner style otherwise).
+function Get-AuthorBlock {
+    param([switch]$Comment)
+    $l = @('Author : Nicko Satria Utama', 'Company: Agantra Inovatif OU (NextMantra)', 'Email  : nicko@nextmantra.com')
+    if ($Comment) { return (($l | ForEach-Object { "# $_" }) -join "`n") + "`n" }
+    return ('=' * 60) + "`n " + ($l -join "`n ") + "`n" + ('=' * 60) + "`n`n"
+}
 function Add-Item {
     param([string]$Name, [byte[]]$Bytes, [string]$Ext, [bool]$AllowKey = $false)
     $Name = $Name -replace '\\', '/'
@@ -161,13 +188,16 @@ function Add-File { param([string]$Path, [string]$Name, [bool]$AllowKey = $false
 }
 
 # ---------------------------------------------------------------- inputs
+try { $profile = Resolve-PkiProfile -ScriptRoot $root -Name $PkiProfile } catch { Write-Msg $_.Exception.Message 'ERROR'; exit 1 }
+$profName = $profile.Name
+$stem = Get-PkiFileStem -Name $profName                       # agantra-pki | raksaka-pki ...
 $pkiDir = $PkiRoot
 if (-not $pkiDir) {
     $rel01c = Join-Path $root 'scripts\01c_Releases.ps1'
     if (Test-Path -LiteralPath $rel01c) {
         if (-not (Get-Command Write-PkiLog -ErrorAction SilentlyContinue)) { function Write-PkiLog { param([string]$Message, [string]$Level = 'INFO') Write-Msg $Message $Level } }
         . $rel01c
-        $choice = Resolve-PkiRootChoice -ScriptRoot $root -NoCr ([bool]$NoCaRevocationInfo) -NoCrExplicit ([bool]$NoCaRevocationInfo) -Release $(if ($Release) { $Release } else { 0 }) -Mode Use
+        $choice = Resolve-PkiRootChoice -ScriptRoot $root -NoCr ([bool]$NoCaRevocationInfo) -NoCrExplicit ([bool]$NoCaRevocationInfo) -Release $(if ($Release) { $Release } else { 0 }) -Mode Use -Profile $profName
         $pkiDir = $choice.Path
         if ($choice.Exists) { Write-Msg "PKI: release R$($choice.Release)$(if ($choice.NoCr) { ' (NoCR)' })  $pkiDir" 'INFO' }
     }
@@ -178,10 +208,11 @@ if (-not $NoPki -and -not (Test-Path -LiteralPath (Join-Path $pkiDir 'publish') 
 }
 if ($CrlOnly -and $NoTsa) { Write-Msg '-CrlOnly and -NoTsa cannot be combined (-CrlOnly has no OCSP either).' 'ERROR'; exit 1 }
 if ($TsaOnly -and ($CrlOnly -or $NoTsa)) { Write-Msg '-TsaOnly cannot be combined with -CrlOnly or -NoTsa.' 'ERROR'; exit 1 }
-if ($TsaOnly -and $RootName -eq 'agantra-pki-server') { $RootName = 'agantra-pki-timestamp-server' }
-if ($NoTsa -and $RootName -eq 'agantra-pki-server') { $RootName = 'agantra-pki-crl-ocsp-server' }
+if (-not $RootName) { $RootName = "$stem-server" }
+if ($TsaOnly -and $RootName -eq "$stem-server") { $RootName = "$stem-timestamp-server" }
+if ($NoTsa -and $RootName -eq "$stem-server") { $RootName = "$stem-crl-ocsp-server" }
 if ($CrlOnly) { if ($NoPki) { Write-Msg '-CrlOnly needs the PKI (publish\ and server\): do not combine it with -NoPki.' 'ERROR'; exit 1 }; if ($IncludeServiceKeys) { Write-Msg '-CrlOnly carries no keys at all: -IncludeServiceKeys is not allowed with it.' 'ERROR'; exit 1 }; if ($RootName -eq 'agantra-pki-server') { $RootName = 'agantra-pki-crl-server' } }
-if (-not $Output) { $Output = Join-Path $root ("{0}-{1}.zip" -f $(if ($CrlOnly) { 'agantra-pki-crl-server' } elseif ($NoTsa) { 'agantra-pki-crl-ocsp-server' } elseif ($TsaOnly) { 'agantra-pki-timestamp-server' } else { 'agantra-pki-server' }), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+if (-not $Output) { $Output = Join-Path $root ("{0}-{1}.zip" -f $(if ($CrlOnly) { "$stem-crl-server" } elseif ($NoTsa) { "$stem-crl-ocsp-server" } elseif ($TsaOnly) { "$stem-timestamp-server" } else { "$stem-server" }), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
 $Output = [System.IO.Path]::GetFullPath($Output)
 $tarOut = [System.IO.Path]::ChangeExtension($Output, '.tar.gz')
 foreach ($o in @($Output) + @($(if ($Tar) { $tarOut }))) { if (Test-Path -LiteralPath $o) { if ($Force) { Remove-Item -LiteralPath $o -Force } else { Write-Msg "Exists: $o  (use -Force)" 'ERROR'; exit 1 } } }
@@ -198,9 +229,9 @@ Get-ChildItem -LiteralPath $linuxDir -Recurse -File -Force | ForEach-Object {
     if ($CrlOnly -and ($rel -replace '\\', '/') -ne 'pki-server/pki-server.sh') { return }
     Add-File -Path $_.FullName -Name "$RootName/linux/$rel"
 }
-$cn = Join-Path $root 'agantra_pki.cnf'
+$cn = $profile.ConfigPath
 if ($CrlOnly) { }
-elseif (Test-Path -LiteralPath $cn) { Add-File -Path $cn -Name "$RootName/agantra_pki.cnf" } else { Write-Msg 'not found, not packed: agantra_pki.cnf' 'WARN' }
+elseif (Test-Path -LiteralPath $cn) { Add-File -Path $cn -Name "$RootName/$(Split-Path -Leaf $cn)" } else { Write-Msg "not found, not packed: $cn" 'WARN' }
 foreach ($d in $(if ($CrlOnly) { @('PKI-SERVER-MANUAL.txt') } else { @('PKI-Server-Design.txt', 'PKI-SERVER-MANUAL.txt', 'PkiRevocation-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'linux-README.txt') })) {
     $p = Join-Path (Join-Path $root 'docs') $d
     if (Test-Path -LiteralPath $p) { Add-File -Path $p -Name "$RootName/docs/$d" } else { Write-Msg "not found, not packed: docs\$d" 'WARN' }
@@ -320,17 +351,17 @@ Only the CRL is needed (no OCSP)?  .\PkiTransport.ps1 -CrlServer.   Time stampin
 Documents: docs\PKI-SERVER-MANUAL.txt.   Check the files: sha256sum -c SHA256SUMS
 "@
 }
-Add-Item -Name "$RootName/README-$(if ($CrlOnly) { 'CRL-SERVER' } elseif ($NoTsa) { 'CRL-OCSP-SERVER' } elseif ($TsaOnly) { 'TIMESTAMP-SERVER' } else { 'SERVER-PACKAGE' }).txt" -Bytes $utf8.GetBytes($readme) -Ext '.txt'
+Add-Item -Name "$RootName/README-$(if ($CrlOnly) { 'CRL-SERVER' } elseif ($NoTsa) { 'CRL-OCSP-SERVER' } elseif ($TsaOnly) { 'TIMESTAMP-SERVER' } else { 'SERVER-PACKAGE' }).txt" -Bytes $utf8.GetBytes((Get-AuthorBlock) + $readme) -Ext '.txt'
 
 $sumLines = foreach ($it in ($items | Sort-Object Name)) {
     $h = [System.Security.Cryptography.SHA256]::HashData([byte[]]$it.Bytes)
     "{0}  {1}" -f ([BitConverter]::ToString($h).Replace('-', '').ToLowerInvariant()), $it.Name.Substring($RootName.Length + 1)
 }
-Add-Item -Name "$RootName/SHA256SUMS" -Bytes $utf8.GetBytes((($sumLines -join "`n") + "`n")) -Ext '.txt'
+Add-Item -Name "$RootName/SHA256SUMS" -Bytes $utf8.GetBytes((Get-AuthorBlock -Comment) + (($sumLines -join "`n") + "`n")) -Ext '.txt'
 $man = @("Package : $RootName   built $((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')) UTC   by New-PkiServerPackage.ps1 $script:Version",
     "Files   : $($items.Count + 1)   PKI files: $nPki   service key files: $nKeyFiles   (IncludeServiceKeys=$([bool]$IncludeServiceKeys))",
     "Skipped : $($skipped.Count)") + @($skipped | ForEach-Object { "  - $_" })
-Add-Item -Name "$RootName/PACKAGE-MANIFEST.txt" -Bytes $utf8.GetBytes((($man -join "`n") + "`n")) -Ext '.txt'
+Add-Item -Name "$RootName/PACKAGE-MANIFEST.txt" -Bytes $utf8.GetBytes((Get-AuthorBlock) + (($man -join "`n") + "`n")) -Ext '.txt'
 
 # ---------------------------------------------------------------- write the zip (unix host + mode bits)
 $zfs = [System.IO.File]::Create($Output)

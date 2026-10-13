@@ -376,6 +376,7 @@ function Invoke-PkiSignCsr {
         [switch]$Strict, [switch]$CheckOnly, [switch]$NoColor, [string[]]$Policy = @()
     )
     $c = $script:Pki
+    if ([bool]$c.ClassicOnly -and $Quadrant -ge 3) { throw 'Quadrant 3 / 4 is the Quantum track (ML-DSA): this computer is Windows Server 2022, which can issue the CLASSIC track only. Leave out -Quantum.' }
     $track = if ($Quadrant -in 3, 4) { 'Quantum' } else { 'Classic' }
     $info = Read-PkiCsr -Path $Csr
     Write-Host ''

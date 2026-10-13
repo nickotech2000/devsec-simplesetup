@@ -2,6 +2,30 @@
 # pki-server.sh - Agantra private PKI SERVER KIT for Ubuntu 24.04 / 26.04
 # Publishes the CRLs and CA certificates, answers OCSP and RFC 3161 time stamp requests, all through YOUR nginx (PPA) and OpenSSL 4.
 # Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+# ---- Platform gate (5.0.0): Linux only (VM, bare metal or WSL). Accepted: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+,
+#      SUSE Linux Enterprise (SLES / SLED) 15+, openSUSE Leap 15+ / Tumbleweed. Everything else: error, exit 5, nothing is done.  (-h / --help work everywhere.)
+if [ -z "${PKI_GATE_DONE:-}" ]; then
+  case "${1:-}" in -h|--help|-help|--Help|help) : ;; *)
+    __osrel="${PKI_OS_RELEASE_FILE:-/etc/os-release}"; __id=""; __ver=""; __pretty=""
+    if [ -r "$__osrel" ]; then __id="$(. "$__osrel"; echo "${ID:-}")"; __ver="$(. "$__osrel"; echo "${VERSION_ID:-}")"; __pretty="$(. "$__osrel"; echo "${PRETTY_NAME:-${NAME:-}}")"; fi
+    __maj="${__ver%%.*}"; case "$__maj" in ''|*[!0-9]*) __maj=0 ;; esac
+    __ok=0
+    case "$__id" in
+      ubuntu) [ "$__maj" -ge 24 ] && __ok=1 ;;
+      centos|rhel|rocky|ol) [ "$__maj" -ge 10 ] && __ok=1 ;;
+      sles|sles_sap|sled|opensuse-leap) [ "$__maj" -ge 15 ] && __ok=1 ;;
+      opensuse-tumbleweed) __ok=1 ;;
+    esac
+    [ "$(uname -s 2>/dev/null)" = Linux ] || __ok=0
+    if [ "$__ok" != 1 ]; then
+      echo "[ERROR] This system is '${__pretty:-$(uname -s 2>/dev/null)}' (ID=${__id:-?} VERSION_ID=${__ver:-?}): NOT supported. Nothing was done." >&2
+      echo "        Supported: Linux on a VM, bare metal or WSL - Ubuntu 24.04 / 26.04 or newer; CentOS Stream 10+; RHEL 10+; Rocky Linux 10+; Oracle Linux 10+;" >&2
+      echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
+      exit 5
+    fi
+    export PKI_GATE_DONE=1 ;;
+  esac
+fi
 KIT_VERSION="1.2.0"
 set -u
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +62,8 @@ priv() { if [ "$(id -u)" = 0 ]; then "$@"; elif have sudo; then sudo "$@"; else 
 usage() {
 cat <<'EOF'
 pki-server.sh  -  Agantra PKI SERVER KIT  (Ubuntu 24.04 / 26.04)
+Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
 
 WHAT IT DOES
   Turns one Ubuntu VM into the servers of your private PKI, on plain HTTP port 80 through nginx:
@@ -154,6 +180,10 @@ cert_fp() {  # sha256 of the DER of a certificate file (PEM or DER)
   local f="$1" o="${OPENSSL_BIN:-openssl}"
   { "$o" x509 -in "$f" -outform DER 2>/dev/null || "$o" x509 -inform DER -in "$f" -outform DER 2>/dev/null; } | sha256sum | cut -d' ' -f1
 }
+# Author / Company / Email at the top of every text file this script writes (comment style: # ).
+AUTHOR_HDR="# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OU (NextMantra)
+# Email  : nicko@nextmantra.com"
 lf() { sed -i 's/\r$//' "$@"; }
 ver_ok() { local v min=4; [ "$CRL_ONLY" = 1 ] && min=3; v="$("$1" version 2>/dev/null)"; [[ "$v" =~ ^OpenSSL\ ([0-9]+)\. ]] && [ "${BASH_REMATCH[1]}" -ge "$min" ]; }
 
@@ -197,7 +227,7 @@ compute_hosts() {
     HOSTS_FROM="the PKI (server/server.env)"
   done
   if [ "$HOSTS_FROM" = agantra_pki.cnf ]; then
-    if [ -z "$CNF" ]; then for c in "$SOURCE/../agantra_pki.cnf" "$SOURCE/../../agantra_pki.cnf" "$KIT_DIR/../../agantra_pki.cnf" "$SAVED_CNF"; do [ -n "$c" ] && [ -f "$c" ] && { CNF="$c"; break; }; done; fi
+    if [ -z "$CNF" ]; then for c in "$SOURCE/../agantra_pki.cnf" "$SOURCE/../../agantra_pki.cnf" "$KIT_DIR/../../agantra_pki.cnf" "$SOURCE"/../*_pki.cnf "$KIT_DIR"/../*_pki.cnf "$SAVED_CNF"; do [ -n "$c" ] && [ -f "$c" ] && { CNF="$c"; break; }; done; fi
     HOSTS_CRL="$(uri_hosts crl_urls; uri_hosts ca_issuer_urls)"; HOSTS_OCSP="$(uri_hosts ocsp_urls)"
   fi
   HOSTS_CRL="$(echo "$HOSTS_CRL" | sort -u | grep -v '^$')"; HOSTS_OCSP="$(echo "$HOSTS_OCSP" | sort -u | grep -v '^$')"
@@ -208,10 +238,12 @@ compute_hosts() {
 # the PKI folder tells the server which release / family it is: keep its server\ files (additive per release)
 PKI_LABEL=""
 keep_pki_info() {
-  local e="$SOURCE/server/server.env" rel var d
+  local e="$SOURCE/server/server.env" rel var d prof
   [ -f "$e" ] || { warn "$SOURCE/server/server.env not found: this PKI was made by an older pki_setup.ps1 (hosts are read from agantra_pki.cnf). Run .\\PkiRevocation.ps1 -Action Info on the CA machine to create it."; return 0; }
   rel="$(. "$e"; echo "$PKI_SRV_RELEASE")"; var="$(. "$e"; echo "$PKI_SRV_VARIANT")"
+  prof="$(. "$e"; echo "${PKI_SRV_PROFILE:-agantra}")"
   if [ "$var" = NoCR ]; then PKI_LABEL="NoCR-R$rel"; else PKI_LABEL="R$rel"; fi
+  [ "$prof" != agantra ] && PKI_LABEL="$prof-$PKI_LABEL"
   d="$ETC_DIR/pki-info/$PKI_LABEL"; mkdir -p "$d"
   cp -f "$SOURCE"/server/server.env "$SOURCE"/server/ca-list.tsv "$SOURCE"/server/expected-urls.tsv "$d/" 2>/dev/null
   [ -f "$SOURCE/server/server-info.json" ] && cp -f "$SOURCE/server/server-info.json" "$d/"
@@ -321,6 +353,7 @@ publish_files() {
   for f in "$SOURCE"/publish/*; do [ -f "$f" ] || continue; b="$(basename "$f")"; case "$b" in README.txt) continue;; esac
     cp -f "$f" "$WWW_DIR/$b"; case "$b" in *.pem|root.crt|ca-bundle.crt) lf "$WWW_DIR/$b";; esac; done
   {
+    echo '<!-- Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com -->'
     echo '<!doctype html><meta charset="utf-8"><title>Agantra PKI</title><body style="font:15px sans-serif;max-width:60em;margin:2em auto">'
     echo '<h1>Agantra PKI</h1><p>CA certificates and revocation lists. Install <a href="root.crt">root.crt</a> (Root CA) on clients.</p><table cellpadding="4"><tr><th align=left>File</th><th align=left>Size</th></tr>'
     for f in "$WWW_DIR"/*; do b="$(basename "$f")"; [ "$b" = index.html ] && continue; echo "<tr><td><a href=\"$b\">$b</a></td><td>$(stat -c %s "$f")</td></tr>"; done
@@ -347,6 +380,7 @@ setup_ocsp() {
     tr -d '\r' < "${CA_DIR[$id]}/index.txt" | awk -F'\t' 'BEGIN{OFS="\t"} NF>=6{$6="/CN="$4} {print}' > "$LIB_DIR/ocsp/$id/index.txt"
     cp -f "${CA_CRT[$id]}" "$LIB_DIR/ocsp/$id/ca.crt"; lf "$LIB_DIR/ocsp/$id/ca.crt"
     cat > "$ETC_DIR/ocsp/$id.env" <<EOF
+$AUTHOR_HDR
 PORT=$port
 CA_CRT=$LIB_DIR/ocsp/$id/ca.crt
 INDEX=$LIB_DIR/ocsp/$id/index.txt
@@ -392,6 +426,7 @@ setup_tsa() {
   done
   mkdir -p "$LIB_DIR"; [ -f "$LIB_DIR/tsa.serial" ] || echo 01 > "$LIB_DIR/tsa.serial"
   cat > "$ETC_DIR/tsa.cnf" <<EOF
+$AUTHOR_HDR
 [ tsa ]
 default_tsa = tsa_config1
 [ tsa_config1 ]
@@ -421,6 +456,7 @@ write_helpers() {
   if [ "$CRL_ONLY" = 0 ]; then [ "$NO_TSA" = 1 ] || cp -f "$KIT_DIR/pki-tsa.py" "$OPT_DIR/"; [ "$TSA_ONLY" = 1 ] || cp -f "$KIT_DIR/pki-ocsp-dispatch.py" "$OPT_DIR/"; chmod 755 "$OPT_DIR"/*.py; fi
   cat > "$OPT_DIR/ocsp-run" <<EOF
 #!/usr/bin/env bash
+$AUTHOR_HDR
 # starts the OCSP responder of one CA:  ocsp-run <ca-id>
 . "$ETC_DIR/ocsp/\$1.env" || exit 1
 $( [ -n "$LIBDIR_OSSL" ] && echo "export LD_LIBRARY_PATH=\"$LIBDIR_OSSL\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}\"" )
@@ -428,11 +464,13 @@ exec "$OPENSSL_BIN" ocsp -index "\$INDEX" -port "\$PORT" -rsigner "\$RCERT" -rke
 EOF
   cat > "$OPT_DIR/tsa-run" <<EOF
 #!/usr/bin/env bash
+$AUTHOR_HDR
 $( [ -n "$LIBDIR_OSSL" ] && echo "export LD_LIBRARY_PATH=\"$LIBDIR_OSSL\${LD_LIBRARY_PATH:+:\$LD_LIBRARY_PATH}\"" )
 exec python3 "$OPT_DIR/pki-tsa.py" "$OPENSSL_BIN" "$ETC_DIR/tsa.cnf" $TSA_PORT
 EOF
   cat > "$OPT_DIR/dispatch-run" <<EOF
 #!/usr/bin/env bash
+$AUTHOR_HDR
 exec python3 "$OPT_DIR/pki-ocsp-dispatch.py" "$ETC_DIR/ocsp-backends" $DISPATCH_PORT
 EOF
   chmod 755 "$OPT_DIR/ocsp-run" "$OPT_DIR/tsa-run" "$OPT_DIR/dispatch-run"
@@ -447,6 +485,7 @@ write_nginx() {
   if [ -d "$NGINX_ETC/sites-available" ] && [ -d "$NGINX_ETC/sites-enabled" ]; then conf="$NGINX_ETC/sites-available/agantra-pki-server.conf"; else mkdir -p "$NGINX_ETC/conf.d"; conf="$NGINX_ETC/conf.d/agantra-pki-server.conf"; fi
   [ -f "$conf" ] && cp -f "$conf" "$conf.bak"
   {
+    echo "$AUTHOR_HDR"
     echo "# Agantra PKI server kit $KIT_VERSION - written by pki-server.sh (re-written on every install / update)"
     if [ "$TSA_ONLY" = 0 ]; then
     echo "# CRL + CA certificates"
@@ -513,6 +552,7 @@ Restart=on-failure
 RestartSec=3"
   for id in "${CA_IDS_OCSP[@]}"; do
     cat > "$u/agantra-ocsp-$id.service" <<EOF
+$AUTHOR_HDR
 [Unit]
 Description=Agantra PKI OCSP responder ($id)
 After=network.target
@@ -525,6 +565,7 @@ WantedBy=agantra-pki.target
 EOF
   done
   if [ "${#CA_IDS_OCSP[@]}" -gt 0 ]; then cat > "$u/agantra-ocsp-dispatch.service" <<EOF
+$AUTHOR_HDR
 [Unit]
 Description=Agantra PKI OCSP dispatcher (one URL for all CAs)
 After=network.target
@@ -537,6 +578,7 @@ WantedBy=agantra-pki.target
 EOF
   fi
   if [ "$TSA_OK" = 1 ]; then cat > "$u/agantra-tsa.service" <<EOF
+$AUTHOR_HDR
 [Unit]
 Description=Agantra PKI time stamp authority (RFC 3161)
 After=network.target
@@ -549,12 +591,14 @@ WantedBy=agantra-pki.target
 EOF
   fi
   cat > "$u/agantra-pki.target" <<EOF
+$AUTHOR_HDR
 [Unit]
 Description=Agantra PKI servers (OCSP, time stamping)
 [Install]
 WantedBy=multi-user.target
 EOF
   cat > "$u/agantra-crl-check.service" <<EOF
+$AUTHOR_HDR
 [Unit]
 Description=Agantra PKI CRL expiry check
 [Service]
@@ -562,6 +606,7 @@ Type=oneshot
 ExecStart=$OPT_DIR/pki-server.sh crl-check
 EOF
   cat > "$u/agantra-crl-check.timer" <<EOF
+$AUTHOR_HDR
 [Unit]
 Description=Daily CRL expiry check
 [Timer]
@@ -604,6 +649,7 @@ do_install() {
   elif [ "$TSA_ONLY" = 1 ]; then setup_tsa; write_helpers; write_nginx; write_units
   else publish_files; setup_ocsp; { [ "$NO_TSA" = 1 ] && info "time stamping: skipped (--no-tsa)" || setup_tsa; }; write_helpers; write_nginx; write_units; fi
   cat > "$SAVED" <<EOF
+$AUTHOR_HDR
 OPENSSL_BIN="$OPENSSL_BIN"
 SAVED_CNF="${CNF}"
 NGINX_BIN="$NGINX_BIN"
@@ -646,9 +692,9 @@ do_dns() {
   echo "   All names are .internal: they never reach the Internet, so no public DNS is touched. Ports: HTTP 80 only."
   if [ "$(id -u)" = 0 ] && [ "$DRY" != 1 ]; then
     mkdir -p "$dir"
-    { echo "# Windows hosts file lines - server $ip"; echo "$all" | while read -r h; do printf '%-16s %s\n' "$ip" "$h"; done; } > "$dir/hosts.txt"
+    { echo "$AUTHOR_HDR"; echo "# Windows hosts file lines - server $ip"; echo "$all" | while read -r h; do printf '%-16s %s\n' "$ip" "$h"; done; } > "$dir/hosts.txt"
     { echo "name,type,value"; echo "$all" | while read -r h; do echo "$h,A,$ip"; done; } > "$dir/dns-records.csv"
-    { echo "# dnsmasq / Pi-hole / OpenWrt (one line per name)"; echo "$all" | while read -r h; do echo "address=/$h/$ip"; done; } > "$dir/dnsmasq.conf"
+    { echo "$AUTHOR_HDR"; echo "# dnsmasq / Pi-hole / OpenWrt (one line per name)"; echo "$all" | while read -r h; do echo "address=/$h/$ip"; done; } > "$dir/dnsmasq.conf"
     chmod 644 "$dir"/*
     echo
     echo "   Saved: $dir/hosts.txt   $dir/dns-records.csv   $dir/dnsmasq.conf   (show again: ./pki-server.sh dns)"

@@ -13,7 +13,7 @@
     Run it once, in PowerShell 7 started as Administrator, from the folder of the kit:    .\Install-PkiTrust.ps1
     It asks for the package password (or: -PackagePassword, or the environment variable PKI_TRANSPORT_PASSWORD).
     Afterwards GenerateLeafCertificate.ps1, GeneratePersonLeafCertificate.ps1 and GenerateOffice365LeafCertificate.ps1 work in this folder.
-    It is a wrapper over  PkiTransport.ps1 -Install  (Windows 11 25H2 or newer, OpenSSL 4.0.1+): the scan, the checks of every SHA-256
+    It is a wrapper over  PkiTransport.ps1 -Install  (Windows 11 24H2 or newer (Windows Server 2025 / 2022), OpenSSL 4.0.1+): the scan, the checks of every SHA-256
     and the chain proof are those of PkiTransport.ps1.   Full help:  .\Install-PkiTrust.ps1 -Help
 #>
 param(
@@ -34,7 +34,7 @@ if ($Help) {
 @'
 ============================================================
  Install-PkiTrust.ps1 - DevKit installer for Windows
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -43,7 +43,7 @@ if ($Help) {
 
 WHAT IT DOES
   1. Finds the .certpacked next to this script (or -Package) and asks for its password.
-  2. Scans this machine (Windows 11 25H2+, OpenSSL 4.0.1+, administrator) - PkiTransport.ps1 -Install does it.
+  2. Scans this machine (Windows 11 24H2+ / Server 2025 / 2022, OpenSSL 4.0.1+, administrator) - PkiTransport.ps1 -Install does it.
   3. Unpacks the CA certificates (folder ca\) AND the pki\ folder with the ISSUING CA keys into THIS folder, checks every SHA-256.
   4. Puts every root in Local Machine \ Trusted Root Certification Authorities and every intermediate in
      Local Machine \ Intermediate Certification Authorities, and proves the chains with OpenSSL.
@@ -59,10 +59,22 @@ USAGE   (PowerShell 7, started as Administrator, in the folder of the kit)
 OPTIONS
   -Package <file>   -PackagePassword <text>   (or PKI_TRANSPORT_PASSWORD)   -TrustOnly   -Reset   -InstallMissing
   -SkipOpenSslCheck (not recommended)   -OpenSslPath <exe>   -SevenZipPath <exe>   -Help
-EXIT  0 ok   other: see the message (not Windows 11 25H2+, not elevated, wrong password, OpenSSL missing)
+EXIT  0 ok   other: see the message (not Windows 11 24H2+ / Server 2025 / 2022, not elevated, wrong password, OpenSSL missing)
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@ | Write-Host
     exit 0
 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
 
 if (-not $IsWindows) { Write-Host '[ERROR] Install-PkiTrust.ps1 is for Windows. On Ubuntu / Linux use:  sudo ./Install-PkiTrust.sh' -ForegroundColor Red; exit 3 }
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -96,7 +108,7 @@ $global:LASTEXITCODE = 0
 try { & $tool @splat }
 catch { Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red; $global:LASTEXITCODE = 1 }
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "[ERROR] PkiTransport.ps1 -Install stopped (exit $LASTEXITCODE). Nothing else was changed. Read the scan above (Windows 11 25H2+, OpenSSL 4.0.1+, password)." -ForegroundColor Red
+    Write-Host "[ERROR] PkiTransport.ps1 -Install stopped (exit $LASTEXITCODE). Nothing else was changed. Read the scan above (Windows 11 24H2+ / Server 2025 / 2022, OpenSSL 4.0.1+, password)." -ForegroundColor Red
     exit $LASTEXITCODE
 }
 

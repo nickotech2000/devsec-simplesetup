@@ -452,6 +452,7 @@ function Write-PkiServerInfo {
     $envLines = @(
         '# written by pki_setup.ps1 / PkiRevocation.ps1 - read by pki-server.sh (sourced: KEY=value only)',
         "PKI_SRV_RELEASE=$([int]$c.Release)",
+        "PKI_SRV_PROFILE=$($c.Profile)",
         "PKI_SRV_VARIANT=$(& $q $(if ($c.NoCaRevocationInfo) { 'NoCR' } else { 'normal' }))",
         "PKI_SRV_NAME_SUFFIX=$(& $q (Get-PkiNameSuffix))",
         "PKI_SRV_HOSTS_CRL=$(& $q ((@($hCrl) + @($hAia) | Sort-Object -Unique) -join ' '))",

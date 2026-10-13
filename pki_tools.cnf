@@ -1,0 +1,40 @@
+# ============================================================
+# pki_tools.cnf  -  TOOLS CONFIGURATION of the PKI scripts
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OÜ (NextMantra)
+# Email  : nicko@nextmantra.com
+# Version: 5.0.0
+# ============================================================
+# This file belongs to the OWNER of the scripts (the person who builds the PKIs). It is NOT the configuration of a company
+# (that is  <short>_pki.cnf , for example agantra_pki.cnf, made by New-PkiConfig.ps1).
+# It holds the settings that all the .ps1 scripts share.
+#
+# * The file is OPTIONAL. If it is missing, or a key is missing or empty, the script uses the value that was hard-coded
+#   before 5.0.0 (shown below as the default of every key).
+# * Precedence: command line parameter > this file > built-in default.
+# * Lines start with # or ; for a comment.   Section names in [ ].   key = value
+# ============================================================
+
+[ general ]
+# The PKI (company) that is used when -Pki is not given. The name = the file  <name>_pki.cnf  next to the scripts.
+DefaultPki      = agantra
+# Folders (next to the scripts, or a full path): the PKIs, and the packages made by PkiTransport / New-PkiTrustKit / New-PkiServerPackage.
+PkiFolder       = pki
+TransportFolder = transport
+
+[ openssl ]
+# OpenSSL 4.x to use. Empty = search PATH and the usual folders (the newest 4.x wins).
+Path             =
+# fipsmodule.cnf made by "openssl fipsinstall". Empty = search next to OpenSSL.
+FipsModuleConfig =
+
+[ transport ]
+# PkiTransport.ps1 -Pack: archive format (zip | 7z) and encryption of a zip (Aes256 | ZipCrypto).
+ArchiveFormat = zip
+ZipEncryption = Aes256
+
+[ trustkit ]
+# New-PkiTrustKit.ps1: make the self-extracting files too (true | false), and which systems when -Target / -All is not given
+# (Windows,Ubuntu,Redhat,SUSE). Empty Targets = the command line must say.
+SelfExtract = false
+Targets     =

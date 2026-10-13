@@ -22,6 +22,8 @@
 #>
 [CmdletBinding()]
 param(
+    # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
+    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     # ---- configuration ----
     [string]$ConfigFile,
     [string]$PkiRoot,
@@ -117,6 +119,7 @@ param(
     [switch]$CrossSignCsr,
     [string]$ImportCrossCert,
 
+    [switch]$ListPki,
     [switch]$Help
 )
 
@@ -129,12 +132,12 @@ function Show-PkiHelp {
     @'
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : docs\pki_setup-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt
+ Manual : docs\pki_setup-MANUAL.txt   Profiles: docs\PkiProfiles-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt
  Public CA : docs\PUBLIC-CA-ENTERPRISE-ROOT.txt   Modules : docs\scripts-README.txt
  Leaf certificates (Phase B): GenerateLeafCertificate.ps1 -Help   docs\GenerateLeafCertificate-MANUAL.txt
  Transport (Phase C): PkiTransport.ps1 -Help   Unpack-PkiTransport.ps1 -Help   ./linux/pki-transport.sh --help
@@ -155,10 +158,10 @@ REQUIREMENTS
   OpenSSL 4 has no ENGINE API; this PKI uses native providers only:
     non-FIPS : -provider default
     FIPS     : -provider fips -provider base     (needs fipsmodule.cnf, see -FipsModuleConfig)
-  The script runs on Windows 10/11, Linux and macOS. Certificate-store installation
-  (-InstallTrust and the Remove options) is Windows only; other systems: see the manual.
+  Runs on Windows 11 24H2+, Windows Server 2025 / 2022 and the supported Linux distributions (see WHERE IT RUNS at the end). Certificate-store
+  installation (-InstallTrust and the Remove options) is Windows only; other systems: see the manual.
 
-HIERARCHY CREATED  (.\pki\R1 ; every PKI lives in its own subfolder of .\pki, see RELEASES AND THE NoCR VARIANT)
+HIERARCHY CREATED  (.\pki\pki-default-01 ; every PKI lives in its own subfolder of .\pki, see PKI PROFILES and RELEASES AND THE NoCR VARIANT)
   Enterprise Root CA                 RSA 8192  SHA-512   1000 years   pathlen 3
   |- Classic Track Root              RSA 8192  SHA-512    500 years   pathlen 2
   |   |- Q1 Root  Non-FIPS           RSA 4096  SHA-384    400 years   pathlen 1
@@ -206,7 +209,7 @@ QUANTUM TRACK  (post-quantum signatures, FIPS and non-FIPS)
   So: use the Quantum leaves for OpenSSL-based services and mutual TLS between your own systems.
   Sites that browsers or Windows servers must serve use the Classic leaves (quadrants 1 / 2); every browser
   and Windows 11 also negotiates the hybrid ML-KEM key exchange (X25519MLKEM768) with those.
-  Windows 10 / Server 2022: quadrants 3, 4 are not built by default (-Quadrant 1,2,3,4 overrides).
+  Windows Server 2022: only the CLASSIC track (quadrants 1, 2) is built; quadrants 3, 4 are refused (see WHERE IT RUNS).
 
 VALIDITY  (from the moment of generation; each level shorter than the one above)
   Enterprise Root 1000 years > Track Roots 500 > Quadrant Roots 400 > Intermediates 250 > leaf
@@ -252,11 +255,23 @@ COMMON NAMES
   The quadrant NUMBERS 1-4 stay in -Quadrant, in the folders and in the internal ids (q3-ev ...).
   Preview: .\pki_setup.ps1 -ShowNames.   A PKI built before 4.9.2 has the old names and policies: rebuild it.
 
+PKI PROFILES  (5.0.0: one PKI per company)
+  A PROFILE is the configuration file <short>_pki.cnf next to the scripts. agantra_pki.cnf is the default PKI (Agantra Inovatif). For another
+  company run  .\New-PkiConfig.ps1  (asks for company name, person in charge, e-mail, company ID, address, city, province, country, IANA PEN,
+  website, phone and the EV data): it writes <short>_pki.cnf, e.g. raksaka_pki.cnf for "Raksaka Teknologi Indonesia" (short name = first word,
+  small letters). The new PKI has the SAME structure as the Agantra PKI; only the company data differ.
+  -Pki <name>      build / verify / install / remove the PKI of that company (default agantra, or DefaultPki of pki_tools.cnf).
+                   Every script that works on a PKI has the same -Pki parameter (Tab completion lists the names).
+  -ListPki         list the PKIs (names, companies, folders, releases). The names are the values for -Pki.
+  -ConfigFile <f>  use a configuration file directly (the name <short>_pki.cnf gives the PKI name).
+  Each run with -InstallTrust builds the NEXT release of that PKI: pki-default-01, pki-default-02 ... / pki-raksaka-01, pki-raksaka-02 ...
+
 RELEASES AND THE NoCR VARIANT
   Every PKI is inside the folder .\pki, one subfolder each:
-      pki\R1  pki\R2 ...            normal PKI: CA certificates WITH CRL / OCSP / CA Issuers information
-      pki\NoCR-R1  pki\NoCR-R2 ...  NoCR PKI: CA certificates WITHOUT that information (-NoCaRevocationInfo)
-  A PKI made by an older version sits directly in .\pki and counts as R1 (it keeps working).
+      pki\pki-default-01  pki\pki-default-02 ...   normal PKI of agantra: CA certificates WITH CRL / OCSP / CA Issuers information
+      pki\pki-default-nocr-01 ...                  NoCR PKI of agantra: CA certificates WITHOUT that information (-NoCaRevocationInfo)
+      pki\pki-raksaka-01  pki\pki-raksaka-nocr-01 ...   the same for the PKI 'raksaka' (any other company: pki-<name>-NN)
+  A PKI made by an older version (pki\R1, pki\NoCR-R1, or directly in .\pki) belongs to the default PKI and keeps working.
   -NoCaRevocationInfo  Build the NoCR family: the Enterprise Root, Track Roots, Quadrant Roots and intermediates carry
                        no CDP, no OCSP and no caIssuers. Needed by programs that fail on an unreachable CA
                        revocation URL (for example a "recoverable" signature in Office). Leaf certificates keep their
@@ -264,7 +279,7 @@ RELEASES AND THE NoCR VARIANT
                        The NoCR family is a SEPARATE set of roots: remove the trust of the normal PKI and install this
                        one (.\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust). Leaves of the other family do not chain to it.
   -Release N           Release number (1-99) to build / verify / reinstall / remove.
-                       Building with -Release N: if R<N> already exists - as the folder pki\R<N> OR as CA certificates
+                       Building with -Release N: if R<N> already exists - as the folder pki\pki-<name>-<NN> OR as CA certificates
                        in the Windows store (LocalMachine Root / CA) - nothing is created and the script says "R<N> already
                        exists". To replace it on purpose: -Clean -Release N.
   -NewRelease          Build the next release (latest + 1) of the family: a new Enterprise Root and everything below it.
@@ -281,6 +296,8 @@ RELEASES AND THE NoCR VARIANT
   that no longer exists falls back to the latest with a warning. Remove a release: .\pki_remove.ps1 -Help.
 
 USAGE
+  .\pki_setup.ps1 -ListPki                    the PKIs (companies) and their folders; the names are the values for -Pki
+  .\pki_setup.ps1 -Pki raksaka -InstallTrust  build the PKI of another company (raksaka_pki.cnf, made by New-PkiConfig.ps1)
   .\pki_setup.ps1 -Check                      preflight: is this machine ready? (writes nothing)
   .\pki_setup.ps1 -ShowNames                  show the names of all CAs that would be created
   .\pki_setup.ps1 -ClassicPKI                 only Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV
@@ -297,8 +314,9 @@ USAGE
   .\pki_setup.ps1 -InstallTrust                run again: the next free release (R2, R3 ...) beside the existing ones
   .\pki_setup.ps1 -Release 8 -InstallTrust     R8; stops with "R8 already exists" when the folder or the Windows store has it
   .\pki_setup.ps1 -RemoveTrust -Release 2      remove the trust of release 2 (add -NoCaRevocationInfo for NoCR)
-  .\pki_setup.ps1 -RemoveAllTrust              remove EVERY release and variant from Windows
-                                               AND delete the .\pki folder with all contents
+  .\pki_setup.ps1 -RemoveAllTrust              remove EVERY PKI (all companies, all releases and variants) from the files AND from
+                                               the Windows Local Machine certificate stores, and delete the .\pki folder
+  .\pki_remove.ps1 -Pki raksaka -All           only one company's PKI (see pki_remove.ps1 -Help)
   .\pki_remove.ps1 -List                       list the installed PKIs (see its -Help)
   .\pki_setup.ps1 -Verbose                     show every OpenSSL command
   .\pki_setup.ps1 -Help
@@ -315,11 +333,11 @@ LEAF CERTIFICATES  (Phase B)
 
 CRL, OCSP AND TIME STAMPING INFORMATION  (made with the PKI unless -SkipRevocation)
   After the CAs: one OCSP responder certificate per Classic intermediate (pki\ocsp\<ca>\), the time stamping certificate (pki\tsa\<ca>\; Classic
-  non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\R<n>\publish\ and pki\R<n>\revocation-info.json + REVOCATION-INFO.txt.
+  non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\pki-<name>-<NN>\publish\ and pki\pki-<name>-<NN>\revocation-info.json + REVOCATION-INFO.txt.
   -CrlDays N  -OcspDays N  -TimestampQuadrant 1|2|3|4  -TimestampPolicyOid <oid>  -TimestampDays N  -SkipRevocation.
   Show / edit / renew / revoke later: .\PkiRevocation.ps1 -Help.   E-mail leaf certificates carry emailProtection AND clientAuth.
   Server: .\PkiTransport.ps1 -Server (or .\New-PkiServerPackage.ps1) makes a zip of the Linux scripts and the PKI WITHOUT private keys for
-  Ubuntu 24.04 / 26.04. The PKI writes pki\R<n>\server\ for it: the host names of its CRL / OCSP / CA-issuer URLs, the list of CAs with
+  Ubuntu 24.04 / 26.04. The PKI writes pki\pki-<name>-<NN>\server\ for it: the host names of its CRL / OCSP / CA-issuer URLs, the list of CAs with
   their file names, and every URL its certificates contain, so pki-server.sh serves exactly this PKI (nginx from your PPA).
   CRL and CA-issuer FILE NAMES follow the CA names: agantra-root-g1.crl, agantra-classic-root-g1.crt, agantra-pqc-root-g2.crl,
   agantra-q1-root-g1.crl, agantra-q1-ov-g1.crl (NoCR: ...-nocr, release 2: ...-r2). The OCSP and time stamp certificates are named the same way:
@@ -363,12 +381,12 @@ docs\PUBLIC-CA-ENTERPRISE-ROOT.txt
   LocalMachine\CA (it is no longer self-signed). Rehearse first with a stand-in CA (document, section 10).
 
 CONFIGURATION FILE   (agantra_pki.cnf replaces ev_pki.cnf)
-  -ConfigFile <path>   Default: agantra_pki.cnf next to this script.
+  -ConfigFile <path>   Default: <Pki>_pki.cnf (agantra_pki.cnf) next to this script.
                        Precedence: command line > file > built-in default.
                        Holds validity, intermediate algorithms, CA subject, CRL / OCSP /
                        CA Issuers URLs ({ca} = issuing CA), SAN set, leaf subject fields,
                        custom policies and the CA names ([ ca_names ]).
-  -PkiRoot <path>      Output folder of ONE PKI.            Default: .\pki\R<release> (NoCR: .\pki\NoCR-R<release>)
+  -PkiRoot <path>      Output folder of ONE PKI.            Default: .\pki\pki-<name>-<NN> (NoCR: pki-<name>-nocr-<NN>); <name> = default for agantra
   -OpenSslPath <path>  openssl.exe to use (must be 4.x).    Default: PATH, then common folders
   -FipsModuleConfig <path>
                        fipsmodule.cnf made by "openssl fipsinstall". Required when quadrant
@@ -438,7 +456,7 @@ LEAF / OUTPUT OPTIONS
   -OcspDays N          Validity of an OCSP responder certificate (default 365).
   -TimestampQuadrant 1|2|3|4   Quadrant of the time stamping certificate (default 1 = Classic non-FIPS; the rest is prepared).
   -TimestampPolicyOid <oid>    Time stamp policy OID (default <PEN arc>.4, [ timestamp ] PolicyOid).   -TimestampDays N   Its validity (1825).
-  Leaf files in .\pki\R<n>\leaf: <name>.crt .key -fullchain.crt .pfx (+ -fips.pfx for FIPS leaves:
+  Leaf files in .\pki\pki-<name>-<NN>\leaf: <name>.crt .key -fullchain.crt .pfx (+ -fips.pfx for FIPS leaves:
                        FIPS-conformant container; Windows imports the normal .pfx)
   GenerateLeafCertificate.ps1 (Phase B) issues every other kind of leaf.
 
@@ -503,7 +521,7 @@ CHECK / VERIFY  (read-only; nothing in the PKI folder or the stores is changed)
 OTHER
   -Verbose             Show OpenSSL commands.        -Help   This help.
 
-OUTPUT (.\pki\R<n>  or  .\pki\NoCR-R<n>)
+OUTPUT (.\pki\pki-<name>-<NN>  or  .\pki\pki-<name>-nocr-<NN>)
   root\root.crt/.key/.pfx                         Enterprise Root CA (public CA: external-chain.pem,
                                                   external-request.txt, cross-sign\)
   classical\root\  quantum\root\                  Track Roots
@@ -530,7 +548,7 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   * RSA 8192 CA keys are slow to sign and verify; P-521 CA keys are validated by all listed
     platforms, but some TLS stacks restrict P-521 for TLS handshakes (leaves are P-256).
   * UC Browser and QQ Browser are not verified: they may use their own certificate store.
-  * The CRL / OCSP / CA Issuers URLs help only when the files in .\pki\R<n>\publish are served there.
+  * The CRL / OCSP / CA Issuers URLs help only when the files in .\pki\pki-<name>-<NN>\publish are served there.
   * Windows: -Verify asks the Windows chain engine itself whether it accepts every leaf chain. ML-DSA
     chains need Windows 11 24H2+ / Server 2025; the result on your machine is the proof.
   * OpenSSL 4.0 is a short-support release (about May 2027); the OpenSSL 3.5 LTS runs to 2030.
@@ -540,6 +558,18 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
     automated. Tested here with a stand-in CA, not with DigiCert, GlobalSign or Sectigo.
   * pki_reuse.ps1 and GenerateLeafCertificate.ps1 still target the old single-root layout until
     Phases B and C.
+
+WHICH PKI  (-Pki, 5.0.0)
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
+                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
+                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@ | Write-Host
 }
 
@@ -547,6 +577,9 @@ if ($Help) {
     Show-PkiHelp
     exit 0
 }
+
+# Where may this script run? (Windows 11 24H2+, Windows Server 2025 / 2022, supported Linux) - error and exit 5 otherwise
+. (Join-Path $script:ScriptRoot 'scripts/00a_Platform.ps1'); Assert-PkiPlatform
 
 Write-Host '============================================================'
 Write-Host 'Author : Nicko Satria Utama'
@@ -579,6 +612,7 @@ try {
     # All modules come from ONE loader (scripts\PkiModules.ps1); later scripts load them the same way.
     $PkiModuleSet = 'All'
     . (Join-Path $script:ScriptRoot 'scripts/PkiModules.ps1')
+    if ($ListPki) { Show-PkiList -ScriptRoot $script:ScriptRoot; exit 0 }
 
     # which PKI folder: building a PKI = (variant, release) exactly; -RemoveTrust must name the release when several exist;
     # the other administration modes take the requested release or the latest

@@ -1,6 +1,6 @@
 ============================================================
  SignExternalCa.ps1 - sign the CA certificate of a department (or another organization) with our Quadrant Root
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -57,7 +57,7 @@ OPTIONS
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.   -Help   this text.
   -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
                        (deleted) is not an error: the latest release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
                        when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
 
 THE OTHER SIDE (he makes the key and the CSR himself, for example)
@@ -73,3 +73,5 @@ EXAMPLES
   .\SignExternalCa.ps1 -List
 EXIT CODES   0 ok (signed, or -Check passed)   1 error (the message says why)   2 the request does not follow the spec (the report says where)
 ============================================================
+
+5.0.0: -Pki <name> chooses the company's PKI whose Quadrant Root signs (default agantra). PkiProfiles-MANUAL.txt.

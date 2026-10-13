@@ -1,5 +1,5 @@
 ====================================================================================================================================
- Agantra Inovatif Enterprise PKI  -  DESIGN OF THE PKI SERVER (CRL, OCSP, RFC 3161 time stamping)         Version 4.9.5-phaseC 2026-10-11
+ Agantra Inovatif Enterprise PKI  -  DESIGN OF THE PKI SERVER (CRL, OCSP, RFC 3161 time stamping)         Version 5.0.0 2026-10-13
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Companion documents: linux/pki-server/PKI-SERVER-MANUAL.txt (how to use it), PkiRevocation-MANUAL.txt (CA side), PKI-Design-with-FIPS-and-PQC.txt
 ====================================================================================================================================
@@ -83,7 +83,7 @@
    * The Windows PKI keeps working without the server; the server never signs a certificate.
 ====================================================================================================================================
 
-THE PKI TELLS THE SERVER  (4.9.5; pki\R<n>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
+THE PKI TELLS THE SERVER  (4.9.5; pki\pki-<name>-<NN>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
   The server does not guess and does not depend on a file you keep in step: the PKI writes what it really contains.
       server-info.json     release, variant (normal | NoCR), name suffix, CRL days, the hosts, the URL templates, and for every CA: id, common name,
                            parent, level, track, fips, slug, crl / crt file names, CRL number and next update, "ocspResponder" yes / no

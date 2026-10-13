@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# ============================================================
+# Self-extracting zip (Linux) - __ZIPNAME__
+# Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+# ============================================================
+# Run:  bash __SHNAME__   (or  chmod +x  and  ./__SHNAME__ ). It unpacks the zip that is appended to this file into the CURRENT folder
+# (or --dir FOLDER). It only extracts. The PKI is installed afterwards by the script that comes out:  bash install-pki-ca.sh
+SKIP=__SKIP__
+DEST="$PWD"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dir) [ $# -ge 2 ] || { echo "[ERROR] --dir needs a folder" >&2; exit 1; }; DEST="$2"; shift 2 ;;
+    -h|--help)
+      cat <<'TXT'
+__SHNAME__  -  self-extracting zip: unpacks install-pki-ca.sh and the .certpacked file(s) into the current folder. Nothing is installed.
+  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+  bash __SHNAME__            extract into the current folder
+  bash __SHNAME__ --dir F    extract into folder F
+  --help                     this text
+Needs unzip, or python3, or 7z. Afterwards:  bash install-pki-ca.sh   (it asks for the password, see README.txt)
+TXT
+      exit 0 ;;
+    *) echo "[ERROR] unknown option: $1 (try --help)" >&2; exit 1 ;;
+  esac
+done
+mkdir -p "$DEST" || { echo "[ERROR] cannot create $DEST" >&2; exit 1; }
+TMPZ="$(mktemp "${TMPDIR:-/tmp}/pki-selfextract.XXXXXX")" || exit 1
+trap 'rm -f "$TMPZ"' EXIT
+tail -c +$((10#$SKIP + 1)) "$0" > "$TMPZ" || { echo "[ERROR] cannot read the archive part of this file" >&2; exit 1; }
+echo "Extracting __ZIPNAME__ into $DEST ..."
+if command -v unzip >/dev/null 2>&1; then unzip -o -q "$TMPZ" -d "$DEST"
+elif command -v python3 >/dev/null 2>&1; then python3 -m zipfile -e "$TMPZ" "$DEST"
+elif command -v 7z >/dev/null 2>&1; then 7z x -y -bd -o"$DEST" "$TMPZ" >/dev/null
+elif command -v 7zz >/dev/null 2>&1; then 7zz x -y -bd -o"$DEST" "$TMPZ" >/dev/null
+else echo "[ERROR] unzip, python3 or 7z is needed (sudo apt install unzip / sudo dnf install unzip / sudo zypper install unzip)" >&2; exit 1; fi
+[ $? -eq 0 ] || { echo "[ERROR] extraction failed" >&2; exit 1; }
+chmod 755 "$DEST"/*.sh 2>/dev/null
+echo "[OK] Extracted. Next:  cd \"$DEST\" && bash install-pki-ca.sh     (the password comes from the person who sent you this file)"
+exit 0
+__ARCHIVE_FOLLOWS__

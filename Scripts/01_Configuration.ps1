@@ -29,7 +29,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PkiGeneratorVersion = '4.9.5-phaseC'
+$script:PkiGeneratorVersion = '5.0.0'
 
 # ROOT KEY POLICY (enforced, not configurable)
 #   Every root-level CA (Enterprise Root, Track Roots, Quadrant Roots) is RSA 8192 with
@@ -351,12 +351,23 @@ function Initialize-PkiConfiguration {
     foreach ($k in $Bound.Keys) { $copy[$k] = $Bound[$k] }
     $Bound = $copy
 
-    $configPath = Join-Path $ScriptRoot 'agantra_pki.cnf'
+    # ---- which company (profile)? -Pki <short> (default: pki_tools.cnf DefaultPki = agantra) -> <short>_pki.cnf; -ConfigFile <path> names the file directly ----
+    $reqPki = if ($Bound.Contains('PkiProfile') -and -not [string]::IsNullOrWhiteSpace([string]$Bound['PkiProfile'])) { [string]$Bound['PkiProfile'] } else { '' }
+    $configPath = ''
     if ($Bound.Contains('ConfigFile') -and -not [string]::IsNullOrWhiteSpace([string]$Bound['ConfigFile'])) {
         $configPath = [string]$Bound['ConfigFile']
         if (-not [System.IO.Path]::IsPathRooted($configPath)) { $configPath = Join-Path (Get-Location).Path $configPath }
+        $leafCnf = [System.IO.Path]::GetFileName($configPath).ToLowerInvariant()
+        $profileName = if ($reqPki) { $reqPki.ToLowerInvariant() } elseif ($leafCnf -match '^(?<n>[a-z][a-z0-9]*)_pki\.cnf$') { $Matches['n'] } else { Get-PkiDefaultProfileName }
+    }
+    else {
+        $prof = Resolve-PkiProfile -ScriptRoot $ScriptRoot -Name $reqPki
+        $configPath = $prof.ConfigPath; $profileName = $prof.Name
     }
     $ini = Read-PkiIni -Path $configPath
+    if ($profileName -ne 'agantra' -and [string]::IsNullOrWhiteSpace((Get-PkiIniValue -Ini $ini -Section 'pki_settings' -Key 'Organization' -Default ''))) {
+        throw "The configuration of the PKI '$profileName' ($configPath) has no Organization in [ pki_settings ]: make it with .\New-PkiConfig.ps1."
+    }
 
     # policy OIDs: command line > [ policy_oids ] > CA/B Forum default
     $script:PkiPolicyOid.EV = Get-PkiIniValue -Ini $ini -Section 'policy_oids' -Key 'EV' -Default '2.23.140.1.1'
@@ -389,12 +400,16 @@ function Initialize-PkiConfiguration {
         if (-not [System.IO.Path]::IsPathRooted($pkiRoot)) { $pkiRoot = Join-Path (Get-Location).Path $pkiRoot }
         $fi = Get-PkiFolderInfo -Path $pkiRoot
         if ($null -ne $fi -and $RootMode -ne 'Generate') { $noCr = $fi.NoCr; $release = $fi.Release }
+        if ($null -ne $fi -and $RootMode -ne 'Generate' -and $reqPki -eq '' -and $fi.Profile -ne $profileName -and ($Bound.Contains('ConfigFile') -eq $false)) {
+            # -PkiRoot points at another company's PKI: use that company's configuration
+            try { $prof2 = Resolve-PkiProfile -ScriptRoot $ScriptRoot -Name $fi.Profile; $configPath = $prof2.ConfigPath; $profileName = $prof2.Name; $ini = Read-PkiIni -Path $configPath } catch { }
+        }
     }
     else {
         # A plain build (also with -InstallTrust): no release asked = the next free release; -Release <n> that exists (folder or Windows store) = stop.
         $otherAction = @('Clean', 'Check', 'Unblock', 'ShowNames', 'EnterpriseRootCsr', 'ImportEnterpriseRoot', 'RemoveAllTrust', 'RemoveTrust', 'Verify', 'ReinstallTrust', 'CrossSignCsr', 'ImportCrossCert') | Where-Object { & $flag $_ }
         $plainBuild = ($RootMode -eq 'Generate' -and @($otherAction).Count -eq 0)
-        $choice = Resolve-PkiRootChoice -ScriptRoot $ScriptRoot -NoCr $reqNoCr -NoCrExplicit $reqNoCr -Release $reqRelease -NewRelease $newRelease -Mode $RootMode `
+        $choice = Resolve-PkiRootChoice -ScriptRoot $ScriptRoot -NoCr $reqNoCr -NoCrExplicit $reqNoCr -Release $reqRelease -NewRelease $newRelease -Mode $RootMode -Profile $profileName `
             -AutoNew $plainBuild -CheckStore ($plainBuild -and $IsWindows)
         $pkiRoot = $choice.Path; $noCr = [bool]$choice.NoCr; $release = [int]$choice.Release
         if ($impliedNoCr) {
@@ -408,14 +423,18 @@ function Initialize-PkiConfiguration {
         if ($choice.PSObject.Properties['AutoNew'] -and $choice.AutoNew) { Write-PkiLog "A PKI of this variant already exists: building the next release, R$release (like -NewRelease). Replace one instead: -Clean -Release <n>." 'INFO' }
     }
 
-    $winBuild = Get-PkiWindowsBuild
-    $isWin10 = ($null -ne $winBuild -and $winBuild -lt 22000)
-    $quadrants = if ($isWin10) { @(1, 2) } else { @(1, 2, 3, 4) }
+    # Windows Server 2022 (5.0.0): the CLASSIC track only (quadrants 1 and 2). Windows 11 24H2+ / Server 2025 / Linux: all four.
+    $plat = if ($null -ne (Get-Variable -Name PkiPlatform -Scope Global -ErrorAction SilentlyContinue)) { $global:PkiPlatform } else { Get-PkiPlatformInfo }
+    $classicOnly = [bool]$plat.ClassicOnly
+    $quadrants = if ($classicOnly) { @(1, 2) } else { @(1, 2, 3, 4) }
     if ($Bound.Contains('ClassicPKI') -and [bool]$Bound['ClassicPKI']) {
         if ($Bound.Contains('Quadrant')) { throw '-ClassicPKI builds Enterprise Root, Classic Track Root, Q1 Root and the DV / OV / EV intermediates only. It cannot be combined with -Quadrant.' }
         $quadrants = @(1)
     }
     elseif ($Bound.Contains('Quadrant')) { $quadrants = @($Bound['Quadrant'] | ForEach-Object { [int]$_ } | Sort-Object -Unique) }
+    if ($classicOnly -and (@($quadrants | Where-Object { $_ -ge 3 }).Count -gt 0)) {
+        throw "This computer ($($plat.Name)) is Windows Server 2022: only the CLASSIC track can be generated (Quadrant 1 and 2). The Quantum track (Quadrant 3 and 4, ML-DSA) needs Windows 11 24H2 or newer / Windows Server 2025."
+    }
 
     $country = ([string](& $opt 'Country' 'Country' 'EE')).ToUpperInvariant()
     $jur = ([string](& $opt 'JurisdictionCountry' 'JurisdictionCountry' 'EE')).ToUpperInvariant()
@@ -425,6 +444,9 @@ function Initialize-PkiConfiguration {
 
     $script:Pki = [ordered]@{
         ScriptRoot = $ScriptRoot
+        Profile    = $profileName
+        ProfileToken = (Get-PkiFolderToken -Profile $profileName)
+        ClassicOnly = $classicOnly
         ConfigPath = $configPath
         Ini        = $ini
         PkiRoot    = $pkiRoot
@@ -496,13 +518,13 @@ function Initialize-PkiConfiguration {
         CpsUrlEv = [string](& $opt 'CpsUrlEv' 'CpsUrlEv' 'https://nextmantra.com/security/certs/ev-cps.pdf')
 
         # tooling
-        OpenSslPath      = [string]$(if ($Bound.Contains('OpenSslPath')) { $Bound['OpenSslPath'] } else { '' })
-        FipsModuleConfig = [string]$(if ($Bound.Contains('FipsModuleConfig')) { $Bound['FipsModuleConfig'] } else { '' })
+        OpenSslPath      = [string]$(if ($Bound.Contains('OpenSslPath')) { $Bound['OpenSslPath'] } else { Get-PkiToolSetting -Section 'openssl' -Key 'Path' -Default '' })
+        FipsModuleConfig = [string]$(if ($Bound.Contains('FipsModuleConfig')) { $Bound['FipsModuleConfig'] } else { Get-PkiToolSetting -Section 'openssl' -Key 'FipsModuleConfig' -Default '' })
         OpenSslExe = $null
         OpenSslVersion = $null
         Quadrants = $quadrants
-        WindowsBuild = $winBuild
-        Windows10 = $isWin10
+        WindowsBuild = $(if ($IsWindows) { Get-PkiWindowsBuild } else { $null })
+        Windows10 = $false
         QuadrantWasChosen = $Bound.Contains('Quadrant')
 
         # actions

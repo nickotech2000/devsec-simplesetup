@@ -150,9 +150,8 @@ function Invoke-PkiPreflight {
     # Operating system
     $os = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
     if ($IsWindows) {
-        if ($c.Windows10) { Add-PkiCheck 'Operating system' 'WARN' "${os} (build $($c.WindowsBuild)): older than Windows 11 / Server 2025: no ML-DSA certificates, no hybrid ML-KEM; quadrants 3, 4 skipped by default" }
-        elseif ($c.WindowsBuild -lt 26100) { Add-PkiCheck 'Operating system' 'WARN' "${os} (build $($c.WindowsBuild)): Windows 11 before 24H2: ML-DSA certificates need 24H2 (build 26100) or newer with the 2025-2026 updates" }
-        else { Add-PkiCheck 'Operating system' 'PASS' "${os} (build $($c.WindowsBuild)): Windows 11 / Server 2025 class: ML-DSA certificates can be stored; hybrid ML-KEM in Schannel" }
+        if ($c.ClassicOnly) { Add-PkiCheck 'Operating system' 'WARN' "${os} (build $($c.WindowsBuild)): Windows Server 2022: CLASSIC track only (quadrants 1, 2); no Quantum / ML-DSA" }
+        else { Add-PkiCheck 'Operating system' 'PASS' "${os} (build $($c.WindowsBuild)): ML-DSA certificates can be stored; hybrid ML-KEM in Schannel" }
     }
     else { Add-PkiCheck 'Operating system' 'INFO' "${os}: generation works; certificate stores are Windows only (see the manual, section 7)" }
 

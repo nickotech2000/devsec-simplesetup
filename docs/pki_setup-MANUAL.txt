@@ -1,7 +1,7 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 4.9.5-phaseC          2026-10-11
+ Agantra Inovatif Enterprise PKI generator          Version 5.0.0          2026-10-13
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PKI-Design-with-FIPS-and-PQC.txt (design, diagrams, limitations)
           PUBLIC-CA-ENTERPRISE-ROOT.txt        (Enterprise Root signed by DigiCert / GlobalSign / Sectigo)
@@ -641,7 +641,7 @@
 ====================================================================================================
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -670,7 +670,7 @@ REQUIREMENTS
   The script runs on Windows 10/11, Linux and macOS. Certificate-store installation
   (-InstallTrust and the Remove options) is Windows only; other systems: see the manual.
 
-HIERARCHY CREATED  (.\pki\R1 ; every PKI lives in its own subfolder of .\pki, see RELEASES AND THE NoCR VARIANT)
+HIERARCHY CREATED  (.\pki\pki-<name>-01 ; every PKI lives in its own subfolder of .\pki, see RELEASES AND THE NoCR VARIANT)
   Enterprise Root CA                 RSA 8192  SHA-512   1000 years   pathlen 3
   |- Classic Track Root              RSA 8192  SHA-512    500 years   pathlen 2
   |   |- Q1 Root  Non-FIPS           RSA 4096  SHA-384    400 years   pathlen 1
@@ -766,8 +766,8 @@ COMMON NAMES
 
 RELEASES AND THE NoCR VARIANT
   Every PKI is inside the folder .\pki, one subfolder each:
-      pki\R1  pki\R2 ...            normal PKI: CA certificates WITH CRL / OCSP / CA Issuers information
-      pki\NoCR-R1  pki\NoCR-R2 ...  NoCR PKI: CA certificates WITHOUT that information (-NoCaRevocationInfo)
+      pki\pki-<name>-01  pki\pki-<name>-02 ...            normal PKI: CA certificates WITH CRL / OCSP / CA Issuers information
+      pki\pki-<name>-nocr-01  pki\pki-<name>-nocr-02 ...  NoCR PKI: CA certificates WITHOUT that information (-NoCaRevocationInfo)
   A PKI made by an older version sits directly in .\pki and counts as R1 (it keeps working).
   -NoCaRevocationInfo  Build the NoCR family: the Enterprise Root, Track Roots, Quadrant Roots and intermediates carry
                        no CDP, no OCSP and no caIssuers. Needed by programs that fail on an unreachable CA
@@ -827,11 +827,11 @@ LEAF CERTIFICATES  (Phase B)
 
 CRL, OCSP AND TIME STAMPING INFORMATION  (made with the PKI unless -SkipRevocation)
   After the CAs: one OCSP responder certificate per Classic intermediate (pki\ocsp\<ca>\), the time stamping certificate (pki\tsa\<ca>\; Classic
-  non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\R<n>\publish\ and pki\R<n>\revocation-info.json + REVOCATION-INFO.txt.
+  non-FIPS Quadrant 1, 1825 days, policy OID 1.3.6.1.4.1.67096.1.4), the CRLs in pki\pki-<name>-<NN>\publish\ and pki\pki-<name>-<NN>\revocation-info.json + REVOCATION-INFO.txt.
   -CrlDays N  -OcspDays N  -TimestampQuadrant 1|2|3|4  -TimestampPolicyOid <oid>  -TimestampDays N  -SkipRevocation.
   Show / edit / renew / revoke later: .\PkiRevocation.ps1 -Help.   E-mail leaf certificates carry emailProtection AND clientAuth.
   Server: .\PkiTransport.ps1 -Server (or .\New-PkiServerPackage.ps1) makes a zip of the Linux scripts and the PKI WITHOUT private keys for
-  Ubuntu 24.04 / 26.04. The PKI writes pki\R<n>\server\ for it: the host names of its CRL / OCSP / CA-issuer URLs, the list of CAs with
+  Ubuntu 24.04 / 26.04. The PKI writes pki\pki-<name>-<NN>\server\ for it: the host names of its CRL / OCSP / CA-issuer URLs, the list of CAs with
   their file names, and every URL its certificates contain, so pki-server.sh serves exactly this PKI (nginx from your PPA).
   CRL and CA-issuer FILE NAMES follow the CA names: agantra-root-g1.crl, agantra-classic-root-g1.crt, agantra-pqc-root-g2.crl,
   agantra-q1-root-g1.crl, agantra-q1-ov-g1.crl (NoCR: ...-nocr, release 2: ...-r2). The OCSP and time stamp certificates are named the same way:
@@ -950,7 +950,7 @@ LEAF / OUTPUT OPTIONS
   -OcspDays N          Validity of an OCSP responder certificate (default 365).
   -TimestampQuadrant 1|2|3|4   Quadrant of the time stamping certificate (default 1 = Classic non-FIPS; the rest is prepared).
   -TimestampPolicyOid <oid>    Time stamp policy OID (default <PEN arc>.4, [ timestamp ] PolicyOid).   -TimestampDays N   Its validity (1825).
-  Leaf files in .\pki\R<n>\leaf: <name>.crt .key -fullchain.crt .pfx (+ -fips.pfx for FIPS leaves:
+  Leaf files in .\pki\pki-<name>-<NN>\leaf: <name>.crt .key -fullchain.crt .pfx (+ -fips.pfx for FIPS leaves:
                        FIPS-conformant container; Windows imports the normal .pfx)
   GenerateLeafCertificate.ps1 (Phase B) issues every other kind of leaf.
 
@@ -1015,7 +1015,7 @@ CHECK / VERIFY  (read-only; nothing in the PKI folder or the stores is changed)
 OTHER
   -Verbose             Show OpenSSL commands.        -Help   This help.
 
-OUTPUT (.\pki\R<n>  or  .\pki\NoCR-R<n>)
+OUTPUT (.\pki\pki-<name>-<NN>  or  .\pki\pki-<name>-nocr-<NN>)
   root\root.crt/.key/.pfx                         Enterprise Root CA (public CA: external-chain.pem,
                                                   external-request.txt, cross-sign\)
   classical\root\  quantum\root\                  Track Roots
@@ -1042,7 +1042,7 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   * RSA 8192 CA keys are slow to sign and verify; P-521 CA keys are validated by all listed
     platforms, but some TLS stacks restrict P-521 for TLS handshakes (leaves are P-256).
   * UC Browser and QQ Browser are not verified: they may use their own certificate store.
-  * The CRL / OCSP / CA Issuers URLs help only when the files in .\pki\R<n>\publish are served there.
+  * The CRL / OCSP / CA Issuers URLs help only when the files in .\pki\pki-<name>-<NN>\publish are served there.
   * Windows: -Verify asks the Windows chain engine itself whether it accepts every leaf chain. ML-DSA
     chains need Windows 11 24H2+ / Server 2025; the result on your machine is the proof.
   * OpenSSL 4.0 is a short-support release (about May 2027); the OpenSSL 3.5 LTS runs to 2030.
@@ -1057,10 +1057,10 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
 ====================================================================================================
   Every PKI lives inside the folder pki\ next to the scripts, one subfolder each:
 
-    pki\R1         release 1, CA certificates WITH CRL / OCSP / CA Issuers information   (normal family)
-    pki\R2         release 2 (a new Enterprise Root and everything below it)
-    pki\NoCR-R1    release 1 of the NoCR family: CA certificates WITHOUT that information
-    pki\NoCR-R2    release 2 of the NoCR family
+    pki\pki-<name>-01         release 1, CA certificates WITH CRL / OCSP / CA Issuers information   (normal family)
+    pki\pki-<name>-02         release 2 (a new Enterprise Root and everything below it)
+    pki\pki-<name>-nocr-01    release 1 of the NoCR family: CA certificates WITHOUT that information
+    pki\pki-<name>-nocr-02    release 2 of the NoCR family
 
   A PKI made by an older version sits directly in pki\ (pki\root, pki\classical ...). It counts as R1 and keeps working.
 
@@ -1083,7 +1083,7 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   BUILD
     .\pki_setup.ps1 -InstallTrust                            R1 the first time; run it AGAIN and it builds R2, then R3 ... (NewRelease is the default)
     .\pki_setup.ps1 -NewRelease -InstallTrust                the same, written out
-    .\pki_setup.ps1 -Release 3                               exactly R3. When R3 exists - as the folder pki\R3 or as CA certificates in the
+    .\pki_setup.ps1 -Release 3                               exactly R3. When R3 exists - as the folder pki\pki-<name>-03 or as CA certificates in the
                                                              Windows store - nothing is created: "R3 already exists". Replace it: -Clean -Release 3
     .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust        NoCR-R1;  with -NewRelease: NoCR-R2 ...
 
@@ -1106,7 +1106,7 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   REMOVE
     .\pki_remove.ps1 -List                      what is installed (release, variant, folder, CAs, expiry, trusted in Windows?)
     .\pki_remove.ps1 -Release 2                 trust of R2 out of Windows (Root, Intermediate, Personal), files stay
-    .\pki_remove.ps1 -Release 2 -DeleteFiles    and delete pki\R2
+    .\pki_remove.ps1 -Release 2 -DeleteFiles    and delete pki\pki-<name>-02
     .\pki_remove.ps1 -Release 1 -NoCaRevocationInfo -DeleteFiles      the NoCR release
     .\pki_remove.ps1 -All                       EVERY release and BOTH families: trust out of Windows and the whole pki\ folder deleted
     .\pki_setup.ps1 -RemoveTrust -Release 2     same trust removal as pki_remove (by thumbprint and by CA name)
@@ -1120,7 +1120,7 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
 
   NAMES OF THE CRL / CA-ISSUER FILES, OCSP AND TIME STAMP CERTIFICATES, SERVER FILES  (4.9.5)
 
-  THE PKI TELLS THE SERVER  (4.9.5; pki\R<n>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
+  THE PKI TELLS THE SERVER  (4.9.5; pki\pki-<name>-<NN>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
   The server does not guess and does not depend on a file you keep in step: the PKI writes what it really contains.
       server-info.json     release, variant (normal | NoCR), name suffix, CRL days, the hosts, the URL templates, and for every CA: id, common name,
                            parent, level, track, fips, slug, crl / crt file names, CRL number and next update, "ocspResponder" yes / no
@@ -1139,3 +1139,11 @@ LIMITATIONS  (details: docs\PKI-Design-with-FIPS-and-PQC.txt, section 9)
   A NoCR PKI has no URL in its CA certificates; the server is still needed for the leaf certificates (they keep their CRL / OCSP URLs).
   NAMES of the CRL and CA-issuer files (the {ca} of the URLs) follow the CA names: Root CA -> agantra-root-g1, Classic Root -> agantra-classic-root-g1,
   PQC Root -> agantra-pqc-root-g2, Q1 / Q2 roots -> agantra-q1-root-g1 / -g2, intermediates -> agantra-q1-ov-g1 ; NoCR adds -nocr, release 2+ adds -r2.
+
+5.0.0  MAJOR UPDATE  -  PKI profiles, folders, platforms
+  * -Pki <name>, -ListPki, New-PkiConfig.ps1: one PKI per company (raksaka_pki.cnf ...). Full text: PkiProfiles-MANUAL.txt.
+  * Folders: pki\pki-default-01, pki-default-nocr-01 (agantra), pki\pki-<name>-01 ... Wherever this manual says pki\R<n> / pki\NoCR-R<n> read pki\pki-<name>-<NN> / pki\pki-<name>-nocr-<NN>.
+    Old folders (R1, NoCR-R1, flat pki\) stay valid and belong to the default PKI. Every -InstallTrust builds the next release of the chosen PKI.
+  * -RemoveAllTrust removes EVERY company's PKI from the files and the Local Machine stores. pki_remove.ps1: -Pki <name> -Release n | -All, -AllPki.
+  * Runs on Windows 11 24H2+, Windows Server 2025 and 2022 (2022 = classic track only: quadrants 1, 2; FIPS and non-FIPS; DV / OV / EV) and the supported Linux; other systems, Windows 10 and
+    earlier, specialised editions: error, exit 5. pki_tools.cnf holds optional shared settings.

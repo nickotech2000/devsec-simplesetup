@@ -7,7 +7,7 @@
    One Ubuntu VM that serves your private PKI to the developers' machines, all on plain HTTP port 80 (revocation data must not need TLS):
 
      CRL + CA certificates   http://crl.nextmantra.internal/<slug>.crl   (ONE host, the internal TLD only); CA issuer files: http://crt.nextmantra.internal/<slug>.crt (ONE host, internal TLD only)
-                             (the host names and file names come from the PKI itself: pki\R<n>\server\ ; agantra_pki.cnf only as a fallback)
+                             (the host names and file names come from the PKI itself: pki\pki-<name>-<NN>\server\ ; agantra_pki.cnf only as a fallback)
      OCSP                    http://ocsp.nextmantra.internal   (ONE host, the internal TLD only; [ocsp_urls])
                              ONE URL for all CAs: one "openssl ocsp" responder per CA behind a small dispatcher
      Time stamping RFC 3161  http://tsa.nextmantra.internal   and   http://timestamp.nextmantra.internal
@@ -74,7 +74,7 @@
    Every name is .internal: nothing public is overridden. After  install / update  (nginx running) the script prints, with the VM's real IP:
      1. the lines for the Windows hosts file,   2. the records for the Wi-Fi router (NAME / TYPE A / VALUE),
      and writes /etc/agantra-pki-server/dns/hosts.txt, dns-records.csv and dnsmasq.conf (Pi-hole, OpenWrt). Show them again any time: ./pki-server.sh dns
-     Another IP than the first one of the VM:  ./pki-server.sh dns --server-ip <IP>.   Without the server: pki\R<n>\server\DNS-RECORDS.txt has the same lists with <SERVER-IP>.
+     Another IP than the first one of the VM:  ./pki-server.sh dns --server-ip <IP>.   Without the server: pki\pki-<name>-<NN>\server\DNS-RECORDS.txt has the same lists with <SERVER-IP>.
 
 6. DAILY WORK
       sudo ./pki-server.sh update --source ./pki     new CRLs, new index.txt (OCSP follows at once); after every New-PkiServerPackage.ps1
@@ -148,7 +148,7 @@
   after the other keeps the files of all of them in /srv/agantra-pki/www. OCSP and the time stamp service serve the release that was installed LAST.
   A NoCR PKI has no CRL / OCSP URL in its CA certificates; the server is then only needed for the leaf certificates that carry those URLs.
 
-8B. THE PKI TELLS THE SERVER  (4.9.5; pki\R<n>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
+8B. THE PKI TELLS THE SERVER  (4.9.5; pki\pki-<name>-<NN>\server\ , written by pki_setup.ps1 and refreshed by every PkiRevocation.ps1 action)
    The server does not guess and does not depend on a file you keep in step: the PKI writes what it really contains.
        server-info.json     release, variant (normal | NoCR), name suffix, CRL days, the hosts, the URL templates, and for every CA: id, common name,
                             parent, level, track, fips, slug, crl / crt file names, CRL number and next update, "ocspResponder" yes / no
@@ -190,3 +190,5 @@
    * TESTED: the whole chain (CRL via nginx, OCSP good / revoked / unknown, time stamp create + verify, nginx -t rollback) on Ubuntu 24.04 with
      OpenSSL 4.0.3 and the Ubuntu nginx 1.24, WITHOUT systemd (the units are written by the same code but were not started here), and
      WITHOUT your PPA packages (the PPA is not reachable from the build machine; the package names come from the Launchpad API). First run on your VM: ./pki-server.sh check, then install, then test.
+
+5.0.0: New-PkiServerPackage.ps1 / PkiTransport -Server take -Pki <name>; the package is <name>-pki-server-<date>.zip and holds <name>_pki.cnf. server.env has PKI_SRV_PROFILE; for a company other than agantra the release label on the server is <name>-R<n>. Folders: pki\pki-<name>-<NN>.

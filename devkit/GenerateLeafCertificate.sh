@@ -8,7 +8,31 @@
 # GenerateLeafCertificate.sh - Linux / Ubuntu twin of GenerateLeafCertificate.ps1 (DevKit). Independent of PowerShell:
 # bash + openssl. Classic only (Quadrant 1 = RSA, non-FIPS; Quadrant 2 = ECDSA, FIPS). Manual: docs/DevKit-MANUAL.txt
 # ============================================================
-VERSION="4.9.5-phaseC"
+# ---- Platform gate (5.0.0): Linux only (VM, bare metal or WSL). Accepted: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+,
+#      SUSE Linux Enterprise (SLES / SLED) 15+, openSUSE Leap 15+ / Tumbleweed. Everything else: error, exit 5, nothing is done.  (-h / --help work everywhere.)
+if [ -z "${PKI_GATE_DONE:-}" ]; then
+  case "${1:-}" in -h|--help|-help|--Help|help) : ;; *)
+    __osrel="${PKI_OS_RELEASE_FILE:-/etc/os-release}"; __id=""; __ver=""; __pretty=""
+    if [ -r "$__osrel" ]; then __id="$(. "$__osrel"; echo "${ID:-}")"; __ver="$(. "$__osrel"; echo "${VERSION_ID:-}")"; __pretty="$(. "$__osrel"; echo "${PRETTY_NAME:-${NAME:-}}")"; fi
+    __maj="${__ver%%.*}"; case "$__maj" in ''|*[!0-9]*) __maj=0 ;; esac
+    __ok=0
+    case "$__id" in
+      ubuntu) [ "$__maj" -ge 24 ] && __ok=1 ;;
+      centos|rhel|rocky|ol) [ "$__maj" -ge 10 ] && __ok=1 ;;
+      sles|sles_sap|sled|opensuse-leap) [ "$__maj" -ge 15 ] && __ok=1 ;;
+      opensuse-tumbleweed) __ok=1 ;;
+    esac
+    [ "$(uname -s 2>/dev/null)" = Linux ] || __ok=0
+    if [ "$__ok" != 1 ]; then
+      echo "[ERROR] This system is '${__pretty:-$(uname -s 2>/dev/null)}' (ID=${__id:-?} VERSION_ID=${__ver:-?}): NOT supported. Nothing was done." >&2
+      echo "        Supported: Linux on a VM, bare metal or WSL - Ubuntu 24.04 / 26.04 or newer; CentOS Stream 10+; RHEL 10+; Rocky Linux 10+; Oracle Linux 10+;" >&2
+      echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
+      exit 5
+    fi
+    export PKI_GATE_DONE=1 ;;
+  esac
+fi
+VERSION="5.0.0"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/pki-lib.sh"
 
@@ -16,11 +40,12 @@ usage() {
 cat <<'EOF'
 ============================================================
  GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu)
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
+ Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
  Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateLeafCertificate.ps1
  Needs  : bash, openssl 3.0+ (4.0.1+ recommended). The PKI must be installed first: ./Install-PkiTrust.sh
 
@@ -181,7 +206,7 @@ issue() {
   # stem
   local ktag; if [ "$kt" = rsa ]; then ktag="rsa$bits"; else ktag="ecdsa-$(printf '%s' "$cv" | tr -d '-' | tr 'P' 'p')"; fi
   local stem="$SETNAME-$token-$(pki_lc "$LEVEL")-q$QUAD-$ktag"
-  mkdir -p "$dir"; local cnf="$dir/$stem.cnf"; : > "$cnf"
+  mkdir -p "$dir"; local cnf="$dir/$stem.cnf"; pki_author_hdr > "$cnf"
   pki_write_dn "$cnf" "$dn"
   PCNT=0; pki_write_policies "$cnf" "$LEVEL"
   pki_write_location "$cnf" "$CA_SLUG" "$NOCRL" "$NOOCSP"

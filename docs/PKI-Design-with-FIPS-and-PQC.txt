@@ -2,12 +2,12 @@
  AGANTRA INOVATIF ENTERPRISE PKI  -  DESIGN WITH FIPS AND POST-QUANTUM
 ====================================================================================================
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 4.9.5-phaseC                      Updated: 2026-10-11
- Scope   : pki_setup.ps1 + agantra_pki.cnf + scripts\   (Phase A: complete, waiting for your acceptance)
+ Version : 5.0.0                      Updated: 2026-10-13
+ Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per company, see PkiProfiles-MANUAL.txt) + scripts\   (Phase A: complete, waiting for your acceptance)
            GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office generators  (Phases B, C and the 4.9.x additions: built)
  Folder  : since 4.9.5 every documentation text file is in docs\ (this file too); the README of the project is README.md in the project root.
  Manual  : pki_setup-MANUAL.txt        Help: .\pki_setup.ps1 -Help   .\GenerateLeafCertificate.ps1 -Help
- Manuals : pki_setup-MANUAL.txt   SignCsr-MANUAL.txt   GenerateLeafCertificate-MANUAL.txt   GeneratePersonLeafCertificate-MANUAL.txt   GenerateOffice365LeafCertificate-MANUAL.txt
+ Manuals : PkiProfiles-MANUAL.txt   pki_setup-MANUAL.txt   SignCsr-MANUAL.txt   GenerateLeafCertificate-MANUAL.txt   GeneratePersonLeafCertificate-MANUAL.txt   GenerateOffice365LeafCertificate-MANUAL.txt
            PkiTransport-MANUAL.txt   DevKit-MANUAL.txt   PkiRevocation-MANUAL.txt   SignExternalCa-MANUAL.txt   Install-DevEnvironment-MANUAL.txt   (each with its -Help)
  Checks  : PKI-Acceptance-Checklists.txt  (what to run on your machines)       This file: DESIGN only
  Also    : PUBLIC-CA-ENTERPRISE-ROOT.txt (Enterprise Root signed by a public CA)   scripts-README.txt (modules)   PKI-Server-Design.txt   PKI-SERVER-MANUAL.txt   linux-README.txt
@@ -453,6 +453,8 @@
                 05_LeafCertificates   06_Validation   07_TrustStore   08_Cleanup
                 09_Administrator   10_Main   11_Preflight   12_ExistingPki   13_ExternalRoot
                 01b_CaNaming (all CA and leaf names)   14_LeafGenerator   15_LeafGuidance
+ 8.1a 5.0.0: scripts\00a_Platform.ps1 (where the scripts run), scripts\00b_Profiles.ps1 (profiles, pki_tools.cnf), New-PkiConfig.ps1, pki_tools.cnf, <short>_pki.cnf per company.
+      Output folders: pki\pki-default-NN, pki\pki-<short>-NN, ...-nocr-NN (the older pki\R<n> text in this file is the 4.9.x layout and is still read).
  8.2  Output (pki\)   [the leaf certificates of GenerateLeafCertificate.ps1 are NOT here: <script folder>\leafcerts, 15.5]
         root\                          Enterprise Root: root.crt  root.key  root.pfx  root.cnf ...
                                        public CA: external-request.txt  external-state.json  external-chain.pem
@@ -902,6 +904,37 @@
  10.82 DECIDED   (4.9.5) Release guard: a plain build (also -InstallTrust) with no -Release and no -Clean takes the next free release (= -NewRelease); the number counts the pki\ folders and the CA certificates in LocalMachine Root / CA (Get-PkiStoreReleases, by common name). -Release N with N already present (folder or store) stops: 'R<N> already exists' (-Clean -Release N replaces). Not applied to -Clean, -Check, -Verify, -Unblock, -ShowNames, -ReinstallTrust, -RemoveTrust, -EnterpriseRootCsr, -ImportEnterpriseRoot, cross-sign. Names starting 'Agantra Inovatif' are old-generation, never a release. Stale certificates are an INFO list (CA name shown), not a WARN. pki_remove prints CN + thumbprint.
  10.83 DECIDED   (4.9.5) Leaf PFX friendly name: '<Primary EKU> for <CN> Sign by : <Intermediate CA CN>' (Spec.FriendlyName; also in convert-formats.ps1).
  10.92 FIXED     (4.9.5) Install-PkiTrust.sh / pki-transport.sh stopped with 'FIPS provider: fipsmodule.cnf not found' for the PPA package nicko-su-openssl4 (4.0.3 at /usr/bin/openssl4: a distribution layout, no <prefix>/ssl). find_fips_cnf (Install-DevEnvironment.sh, pki-transport.sh): <prefix>/ssl, bin dir, OPENSSLDIR (openssl version -d), /etc/agantra-pki, ~/.config/agantra-pki, /etc/ssl[/openssl4], /usr/lib/ssl, the files of the package that owns the binary (dpkg -L); a package that has fips.so but no cnf gets one from 'openssl fipsinstall' (root: /etc/agantra-pki, user: ~/.config/agantra-pki). Still nothing = WARN (FIPS quadrants Q2 / Q4 unavailable), no longer a failure: trust install and the non-FIPS quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux) knows the same two folders. Not tested with the real PPA package (no access from the author's sandbox).
+ 10.115 DECIDED   (5.0.0) MAJOR UPDATE 5.0.0: PKI PROFILES. One PKI per company. A profile = <short>_pki.cnf next to the scripts (agantra_pki.cnf is the default). Same hierarchy, algorithms and
+                 policies; only the company data differ (CA name prefix, subject, URLs, domains). Every script that works on a PKI has -Pki <name> (alias of -PkiProfile; Tab completion; default
+                 agantra or DefaultPki of pki_tools.cnf): pki_setup, GenerateLeaf / PersonLeaf / Office365Leaf, SignCsr, SignExternalCa, PkiTransport, PkiRevocation, New-PkiServerPackage,
+                 New-PkiTrustKit, Start-PkiCrlServer, pki_remove. pki_setup.ps1 -ListPki lists them. Modules 00a_Platform.ps1 and 00b_Profiles.ps1; manual PkiProfiles-MANUAL.txt.
+ 10.114 DECIDED   (5.0.0) New-PkiConfig.ps1 makes <short>_pki.cnf from the template agantra_pki.cnf: company name, person in charge, e-mail, company ID, address, city, province, country, optional
+                 PEN, website (http/https removed), optional phone, EV data (category, jurisdiction, DUNS, postal code), internal domain. Short name = first REAL word, plain ASCII, small letters:
+                 'PT Raksaka Teknologi Indonesia' -> raksaka, 'PT Bumi Daya Sakti' -> bumi, ArgUwilis -> arguwilis; legal-form words in front (PT, CV, Tbk, SDN, BHD, LLC, GmbH ...) are skipped; a taken name is
+                 numbered tecooli002, tecooli003 (no hyphen: the folder pki-<short>-NN stays unambiguous; the CA prefix 'Tecooli002' differs from 'Tecooli'). Get-PkiCaNameInfo matches prefix + space.
+ 10.113 DECIDED   (5.0.0) Folders in pki\: pki-default-NN (agantra) and pki-<short>-NN, NoCR: pki-<short>-nocr-NN (two digits). Old R1 / NoCR-R1 / flat pki\ = default profile, still read.
+                 Every pki_setup -InstallTrust builds the next release of THAT profile. pki-manifest.json has 'profile'; server.env has PKI_SRV_PROFILE; package names <short>-pki-<date>.
+ 10.112 DECIDED   (5.0.0) Removal: pki_setup -RemoveAllTrust and pki_remove -AllPki remove every PKI of every company (files and Local Machine Root / CA / My, by thumbprint and by identity of all profiles).
+                 pki_remove -Pki <name> -Release n | -All = one release / one company. Remove-PkiProfileTrust, Remove-AllTrust in 07_TrustStore.ps1.
+ 10.111 DECIDED   (5.0.0) Platform gate for every .ps1 (00a_Platform.ps1, registry EditionID / InstallationType / build, exit 5): Windows 11 24H2+ (Home, Pro, Pro for Workstations, Education, Pro Education,
+                 Enterprise) and Server 2025 (Essentials, Standard, Datacenter) = full; Windows 10 and earlier, Windows 11 before 24H2, Server before 2022 refused; Chinese, Government, IoT / IoT Enterprise, SE,
+                 Embedded editions refused in every version; unlisted editions (e.g. Enterprise LTSC) refused. PkiTransport -Install now accepts 24H2+ and Server 2022 / 2025 (was 25H2 client only).
+ 10.110 DECIDED   (5.0.0) Windows Server 2022 (build 20348): CLASSIC track only: quadrants 1 and 2 (FIPS and non-FIPS), levels DV / OV / EV. Quadrant 3 / 4, -Quantum are errors; trust install skips
+                 post-quantum certificates (Install-PkiCa.ps1, PkiTransport -Install). Server 2022 is allowed, not refused, because the request says classic can be generated there.
+ 10.109 DECIDED   (5.0.0) Linux gate in every .sh (and pwsh on Linux): VM, bare metal or WSL; Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES / SLED 15+, openSUSE Leap 15+ /
+                 Tumbleweed; otherwise error, exit 5; macOS refused. -h / --help work everywhere. Rocky was kept although the request listed RHEL twice.
+ 10.108 DECIDED   (5.0.0) pki_tools.cnf (optional, owner only): [general] DefaultPki PkiFolder TransportFolder; [openssl] Path FipsModuleConfig; [transport] ArchiveFormat ZipEncryption; [trustkit]
+                 SelfExtract Targets. Missing file / key = the old hard-coded value. Command line > file > default.
+ 10.107 DECIDED   (5.0.0) Trust kit: -Pki, -AllReleases (all releases of one PKI), -AllProfiles (every PKI of every company, implies all releases). DevKit of a company carries its <short>_pki.cnf and a
+                 pki_tools.cnf with DefaultPki = that company; devkit.env has PKI_PROFILE.
+ 10.106 DECIDED   (4.9.6) -AddDevelopmentSAN: two more IP ranges, 192.168.1.1 - 192.168.1.100 and 192.168.2.1 - 192.168.2.100 ([ development_san ] IPRange.3 / IPRange.4 and the built-in list): 603 IP addresses in all (still below the 1024 limit of one range and a normal SAN size for development). Reaches devkit.env (DEV_SAN_IP) and so devkit/GenerateLeafCertificate.sh as well.
+ 10.105 DECIDED   (4.9.6) New-PkiTrustKit.ps1 -SelfExtract (optional): selfextract.cmd.template (Windows: batch header + the zip as Base64 in '::' lines, PowerShell Expand-Archive into the folder of the file) and selfextract.sh.template (Linux: script + the zip appended at byte offset SKIP, extract with unzip / python3 / 7z into the current folder or --dir). They only extract; the PKI installer stays a readable .ps1 / .sh (a self-extracting installer was explicitly not wanted). No .exe: it cannot be built reliably without a Windows toolchain and antivirus products treat unsigned self-extracting executables badly.
+ 10.104 DECIDED   (4.9.6) OS gates in the trust-kit installers. Windows (Install-PkiCa.ps1, exit 5): InstallationType + build from the registry; client builds below 22000 (Windows 10 and earlier) and 22000-26099 (Windows 11 before 24H2) refused; client 26100+ and Server 26100+ (Server 2025) full; Server 20348-26099 (Server 2022) classic only - certificates whose signature algorithm OID is 2.16.840.1.101.3.4.3.17-31 (ML-DSA, SLH-DSA) are left out; Server below 20348 refused. The request listed Server 2022 once as refused and once as classic-only; the later, more specific rule (classic-only) was implemented. Linux (install-pki-ca.sh, exit 5): /etc/os-release ID + VERSION_ID: ubuntu >= 24, centos / rhel / rocky / ol >= 10, sles / sles_sap / sled >= 15, opensuse-leap >= 15, opensuse-tumbleweed; everything else refused. Test hooks PKI_FAKE_OS (Kind:Build) and PKI_OS_RELEASE_FILE.
+ 10.103 DECIDED   (4.9.6) Version strings no longer carry -phaseA / -phaseB / -phaseC: 4.9.6. The delivered file is named PKI-DevSecOps-<yyyyMMdd>-<version>.zip and unpacks into a folder PKI-DevSecOps.
+ 10.102 DECIDED   (4.9.5) Author / Company / Email in EVERY generated text file: Write-Utf8NoBom (scripts\00_Common.ps1) calls Add-PkiTextHeader, which writes the block in the style of the type (.txt / .md banner; .env .cnf .conf and ca-list.tsv / expected-urls.tsv '#' lines; SHA256SUMS '#' lines, which sha256sum -c ignores; JSON objects get the keys author, company, email). Left alone because their readers forbid comments: PEM / .crt, the CA database files (index.txt, serial, crlnumber), certpack.tsv, JSON arrays, csv. New-PkiServerPackage.ps1, New-PkiTrustKit.ps1, pki-server.sh (AUTHOR_HDR for nginx, systemd units, env, tsa.cnf, hosts.txt, dnsmasq.conf, index.html) and the DevKit shell generators do the same. The -Help / --help of every script shows the three values (added to Install-DevEnvironment.ps1, fix-permissions.sh, setup-git.sh, make-executable.sh, pki-server.sh, install-pki-ca.sh).
+ 10.101 DECIDED   (4.9.5) New-PkiTrustKit.ps1 -AllReleases (alias -AllPki): ONE kit with every PKI of the project: all pki\R<n> and all pki\NoCR-R<n> (and an old flat pki\). One .certpacked per PKI (PkiTransport.ps1 -Pack runs once per PKI, so each keeps its own certpack.tsv and SHA-256 list) inside every zip; kit name <PkiName>-all. Both standalone installers now take several packages: Windows (-Package <file,...>, default every .certpacked next to the script) collects the roots / intermediates of all of them, removes the duplicates by thumbprint, then replaces by organization as before; Linux (--package FILE repeated, default every .certpacked) opens each into pki/<package name>/ and installs every root as pki-<name>-<release tag>-<root>.crt. A single-PKI kit works exactly as before. Not combined with -Release / -NoCaRevocationInfo / -PkiRoot.
+ 10.100 FIXED    (4.9.5) New-PkiTrustKit.ps1 -PackagePassword Abc12345! stopped with 'Making the .certpacked (Aes256) failed (exit 1)': PkiTransport.ps1 -Pack rejects weak passwords, and the generator showed only the last lines of the child output. Now a password given by the user is passed with -AllowWeakPassword (short = warning; the certificates are public) and the real reason of a failure is shown. Reproduced and tested.
+ 10.99 ADDED     (4.9.5) TRUST KITS for people who only trust the PKI: New-PkiTrustKit.ps1 (-Target Windows|Ubuntu|Redhat|SUSE, -All, -Release, -NoCaRevocationInfo, -PkiRoot, -PkiName, -OutDirectory, -PackagePassword) runs PkiTransport.ps1 -Pack (CA certificates only; AES-256 for Windows, ZipCrypto for Linux so that python3 / unzip open it without anything to install) and writes transport\pki-trust-<name>-<unique>-<date>-<time>\ with <os>-pki-<name>-<unique>-<date>-<time>.zip per system, PASSWORD.txt and README.txt; the zips are opened again and scanned for keys. The installers are templates in trustkit\ and STANDALONE: Install-PkiCa.ps1 (Windows PowerShell 5.1 and 7, own AES / ZipCrypto zip reader in C# 5, X509Store only: Local Machine when elevated else Current User; roots -> Root, intermediates -> CA; SHA-256 check from certpack.tsv; replaces certificates of the same organization that are not in the package; read-back; the extracted folder is always deleted, afterwards the script and the .certpacked too, only the zip stays; -Check, -Keep, -Firefox) and install-pki-ca.sh (ubuntu / redhat / suse anchors + update-ca-certificates / update-ca-trust; package opened into pki\ which stays; old pki-<name>-*.crt replaced; read-back against the system bundle; --firefox). Tested: kit build; Ubuntu install for real; RHEL / SUSE with test folders; the Windows script in pwsh 7 on Linux against the .NET user store (install, replace, other organizations untouched, wrong password, check, self-removal, Firefox user.js). Fixed on the way: Rfc2898DeriveBytes constructors are obsolete (error SYSLIB0041) in .NET 7+, so PBKDF2-HMAC-SHA1 is written out in the installer; PowerShell variables are case-insensitive ($pkiName overwrote the parameter $PkiName). NOT tested: real Windows (both stores, confirmation questions, PowerShell 5.1, antivirus), real RHEL / SUSE, real Firefox.
  10.98 ADDED     (4.9.5) -DevKit now carries the server kit: Add-PkiDevKitServerKit (scripts\21_DevKit.ps1) runs New-PkiServerPackage.ps1 (keyless, scanned) and unpacks it as server\ in the kit; -DevKitNoServer leaves it out. The kit's own pki\ (after Install-PkiTrust) has the issuing CA keys and is never the server source: use server\pki. Tested: kit built, server\ has pki-server.sh (execute bit), no .key, install --crl-only from it passes.
  10.97 CHANGED   (4.9.5) Start-PkiCrlServer.ps1 was quarantined by Bitdefender again (CMD:Heur.BZC.PZQ.Cheetah): a generic command-line heuristic, the exact trigger is not published. The script text no longer contains the strings that such heuristics like in a script: the certutil download-cache switch (a known download technique), netstat | findstr, and the hosts-file path as a ready command; those commands moved to docs\PKI-SERVER-MANUAL.txt chapter 7. The code did not change (HttpListener for the CRL / CA files, nothing else). Whether Bitdefender accepts the new text is NOT verified. The no-risk way is the Ubuntu CRL server (PkiTransport.ps1 -CrlServer), which has no PowerShell listener at all.
  10.96 ADDED     (4.9.5) PkiTransport.ps1 -TimestampServer (New-PkiServerPackage.ps1 -TsaOnly): package for an RFC 3161 time stamp server only (no pki-ocsp-dispatch.py, no pki\ocsp); pki-server.sh 1.2.0 --tsa-only for install / update / csr: only the TSA service and the nginx site for tsa. / timestamp. (no CRL host, no OCSP), one TSA CSR, DNS block with the two TSA names, remembered in kit.conf; refused with --crl-only / --no-tsa. Tested in the sandbox end to end: package, csr --tsa-only, signing with PkiRevocation.ps1 -Action SignCsr -For Tsa, import-cert, install --tsa-only, run + nginx, test: time stamp created and verified. Not tested: systemd units, apt/PPA, Ubuntu 26.04.
@@ -1019,22 +1052,27 @@
 ====================================================================================================
  12  CHANGE LOG
 ====================================================================================================
-  4.9.5-phaseC  2026-10-11  (CRL / OCSP names, server, installer)
+  5.0.0  2026-10-13  MAJOR UPDATE (PKI profiles, platform rules, tools configuration)
+    + Multi-company PKI: <short>_pki.cnf profiles, New-PkiConfig.ps1, -Pki on every PKI script, pki_setup -ListPki, folders pki-default-NN / pki-<short>-NN (10.107 - 10.115).
+    + pki_remove -Pki / -All / -AllPki; -RemoveAllTrust for all companies; trust kit -AllProfiles.
+    + Platform gates: Windows 11 24H2+, Server 2025, Server 2022 (classic only); specialised editions refused; Linux whitelist, macOS refused.
+    + pki_tools.cnf (optional shared settings). Short-name rules (PT / CV skipped, ASCII, numbered duplicates).
+  4.9.6  2026-10-11  (CRL / OCSP names, server, installer)
     + File names of CRL / CA-issuer URLs follow the CA names (agantra-root-g1, agantra-pqc-root-g2 ...) (10.78); OCSP / TSA certificate names with the suffix.
     + pki\R<n>\server\ written by the PKI; pki-server.sh reads it, keeps releases side by side, tests every expected URL, names the CSRs like the PKI (10.79).
     + PkiTransport.ps1 -Server (-Tar, -IncludeServiceKeys, -Release, -NoCaRevocationInfo); New-PkiServerPackage.ps1 puts server\ into the package.
     + Install-DevEnvironment.sh: --openssl-source system (default) | ppa | build, nginx component from ppa:nickotech2000/nicko-su-prod, --ppa, --nginx-package (10.80).
-  4.9.5-phaseC  2026-10-11  (shorter CA names)
+  4.9.6  2026-10-11  (shorter CA names)
     + CA common names: Prefix 'Agantra' (was 'Agantra Inovatif'), no word 'Enterprise' in the root names, QuantumLabel 'PQC' (was 'PQC-PostQuantum') (10.77). Slugs and the subject O unchanged.
     + Release guard (-Release N exists => stop; default NewRelease), PFX friendly name (10.82, 10.83).
     + Fixes: trust report Stale/Other classification and CN display, OCSP -KeyBits warning for ECDSA, TSA 397-day note, plan line (10.81).
-  4.9.5-phaseC  2026-10-11  (releases and NoCR)
+  4.9.6  2026-10-11  (releases and NoCR)
     + pki_setup.ps1 -NoCaRevocationInfo (CA certificates without CDP / OCSP / caIssuers), -NewRelease, -Release N; every PKI inside pki\ (R1, R2, NoCR-R1 ...); module 01c_Releases.ps1 (10.76, section 21).
     + CA names / slugs: " R2" suffix from release 2, " (NoCR)" for the NoCR family; the Quantum word becomes PQC when a name would pass 64 characters.
     + All generators (.ps1 and .sh), SignCsr, SignExternalCa, PkiRevocation, PkiTransport, New-PkiServerPackage: -Release / --release, -NoCaRevocationInfo / --no-ca-revocation-info; default = latest release, missing release = latest + warning.
     + pki_remove.ps1 (-List, -Release, -DeleteFiles, -All); pki_setup -RemoveTrust works per release, -RemoveAllTrust removes every release and variant and the pki folder.
     + csr-signed\ and external-ca\ are next to the scripts, not inside pki\ (pki\ can be deleted without losing them).
- 4.9.5-phaseC  2026-10-11
+ 4.9.6  2026-10-11
    + SignCsr.ps1 / SignCsr.sh (+ module 22_CsrSigning.ps1, devkit\lib\pki-csr.py): sign the CSR of another department with an intermediate CA, default DV, parameters for level / quadrant / purpose,
      the request checked against the PKI spec with a colour report (10.72, section 20). Also in the DevKit (all intermediate keys of the kit).
    + SignExternalCa.ps1: Quadrant Root only (Classic, -Fips), default OV with C, O, OU, CN required, EV fields for EV, same colour report (10.73).
@@ -1045,7 +1083,7 @@
    + New: scope.issuingKeysOnly in certpack.json; Get-PkiPackagePlan -IssuingKeysOnly; -DevKitNoKeys; -KitArchiveFormat.
    + FIX: an unpacked PKI (pki\) now has the old absolute path replaced in the CA configuration files and notes, not only in pki-manifest.json (10.69).
    + Documentation moved to docs\; README.md rewritten; manuals that embed a -Help text regenerated (10.71).
- 4.9.4-phaseC  2026-10-11
+ 4.9.4  2026-10-11
    + Quadrant roots: Q1 RSA 4096 / SHA-384, Q2 ECDSA P-384 / SHA-384 (QuadrantRsaBits, QuadrantCurve); intermediates and leaves unchanged (10.56). IntermediatePathLen option (10.57).
    + SignExternalCa.ps1 (+ module 19): sign the CSR of another private CA, default signer q1-root, minimum RSA 4096 / P-384 / ML-DSA-65, one folder per CA (10.58).
    + GeneratePersonLeafCertificate.ps1 (+ module 20): ID-card style person e-mail certificates (any ID, SAN e-mail + DNS from the e-mail, Classic only, OV/EV) from parameters or a JSON file with isGenerate (10.59). [ person ] in agantra_pki.cnf.
@@ -1053,7 +1091,7 @@
    + GenerateOffice365LeafCertificate.ps1: Office / 365 document signing certificates from parameters or a JSON file (10.63). -AddDevelopmentSAN e-mail certificates use ECDSA P-384 + SHA-512 (10.64).
    + -NoCrl / -NoOcsp / -NoRevocationInfo for the person and Office 365 scripts (10.65).
    + GenerateLeafCertificate core: options KeyUsage, PersonDn, ExtraExt, ExtraConfig (used by the person script).
- 4.9.3-phaseC  2026-10-06
+ 4.9.3  2026-10-06
    + GenerateLeafCertificate.ps1 -CodeSigningCompany (alias -CodesignCompany): code signing subject C=EE, ST=Tallinn, L=Tallinn, O=CN=<company>; empty = the Organization.
    + Leaf file names use the naming quadrant (Q1 = non-FIPS, Q2 = FIPS in both tracks): a Quantum FIPS leaf is ...-q2-mldsa65.crt (was q4). Default leaves of pki_setup too.
    + Documentation and -Help corrected: PEN placement (not in the Enterprise Root and Track Roots), the policies of the roots (All issuance policies + EV), the names of the Quantum
@@ -1063,28 +1101,28 @@
      "issuer lacks the policy" warning and verifies against the Enterprise Root alone.
    + Found while finishing: the help text of pki_setup.ps1 had lost five sections (ROOT KEY POLICY, QUANTUM TRACK, VALIDITY, POLICIES, the COMMON NAMES heading); restored and updated.
    + Verified, not changed: the root policies, the PEN placement and the Q1 / Q2 names of the Quadrant Root and Intermediate CAs were already implemented (see 10.43 to 10.45).
- 4.9.1-phaseC  2026-10-06
+ 4.9.1  2026-10-06
    + GenerateLeafCertificate.ps1: new purpose ServerClientAuth (serverAuth + clientAuth in ONE certificate). TLS now comes in THREE certificates (server only,
      client only, server + client): the default set has SEVEN certificates; -Purpose ServerAuth,ClientAuth makes the three; -Purpose ServerClientAuth the combined one.
    + -AddDevelopmentSAN: the development names (21 DNS, 403 IP addresses from two ranges and three single addresses, 4 e-mail addresses) merged into the SAN;
      list in agantra_pki.cnf [ development_san ] with a built-in copy; EV SAN rules deliberately not applied; markers in leaf-info.json / leaf-index.json.
    + Fixed: a set made with no -DnsName named its folder after the company, not after the first SAN name. Test-PkiLeafResult counts the IP addresses of the SAN.
    + Found while testing: pwsh -File passes "a,b" as one string (use -Command or a PowerShell prompt for list parameters).
- 4.9.0-phaseC  2026-10-06
+ 4.9.0  2026-10-06
    + Install-DevEnvironment.sh (new) and Install-DevEnvironment.ps1 (revised): components, OpenSSL 4 FULL build + readiness proof (stripped builds refused),
      7-Zip, -Check, -Only / --only, unblock + unlock, -Help / --help. oqsprovider opt-in; FireDaemon version checked and upgraded.
    + -InstallMissing (PkiTransport.ps1, Unpack-PkiTransport.ps1); pki-transport.sh: ready-OpenSSL requirement, full build, delegation to the bootstrap,
      --unblock; the transport kit carries Install-DevEnvironment.ps1 / .sh; 02_OpenSSL.ps1 finds /opt/openssl-4*, advice names the bootstrap.
    + Install-DevEnvironment-MANUAL.txt; the other manuals re-embed their -Help text.
    + Found while testing: GitHub API rate limit (403) broke the pwsh lookup: the release redirect is used first; a dry run hid its own commands.
- 4.8.0-phaseC  2026-10-06   PHASE C
+ 4.8.0  2026-10-06   PHASE C
    + PkiTransport.ps1 (-Pack, -Install with the Windows 11 25H2+ scan, -Check, -List, -RemoveTrust, -Kit), Unpack-PkiTransport.ps1 (unpack only),
      pki-transport.sh (Linux and macOS: scan, prepare, unpack, install the trust). Modules 16_CertPack.ps1 (AES-256 zip engine, ZipCrypto, 7-Zip) and
      17_Transport.ps1; module set Transport; all three have the standard unblock / unlock bootstrap and -Help / --help.
    + Documentation split: one manual per script, this design file only design, PKI-Acceptance-Checklists.txt for the checks.
    + Found while testing: 7-Zip refuses non-ASCII passwords for AES zips (policy: ASCII); 7-Zip reads a password from stdin only when creating
      (an argument is used); hidden files need direct .NET calls; one-item collections and $null.Count under strict mode.
- 4.7.0-phaseB  2026-10-05
+ 4.7.0  2026-10-05
    + SET: no -Purpose = one certificate for EACH purpose, every format, one go. New purposes TimeStamping (critical,
      alone) and OcspSigning (+ no-check). -AllPurposes, -ExcludePurpose; -Purpose = ONE certificate (the 4.6 way).
    + -Format defaults to ALL (all seven formats at once; they existed in 4.6 behind -Format ALL).
@@ -1095,7 +1133,7 @@
    + pki_setup.ps1 warns when a new PKI would orphan leaf certificates in leafcerts\.
    + Cross-certificate chains (-fullchain-cross.crt) follow the new location and the set layout.
    + GenerateLeafCertificate-MANUAL.txt (new): the manual with the complete -Help text.
- 4.6.0-phaseB  2026-10-05   PHASE B
+ 4.6.0  2026-10-05   PHASE B
    + GenerateLeafCertificate.ps1: any DV / OV / EV leaf; -Classic / -Quantum / -FIPS = quadrants 1..4; purposes
      ServerAuth, ClientAuth, EmailProtection, CodeSigning; RSA / ECDSA / ML-DSA with enforced floors; policies;
      validity by level; subject by level; formats PEM DER CER CERT P7B RFC 7468 PFX; validation of every file.
@@ -1107,7 +1145,7 @@
    + The CA policy section accepts organizationIdentifier (D-U-N-S); the leaf issuance adds it for older CAs.
    + Found and fixed while testing: a one-pair subject list was unrolled by PowerShell (DV subject), a parameter was
      shadowed by a local variable of another case, "openssl ec -traditional" does not exist in OpenSSL 4 (use pkey).
- 4.5.2-phaseA  2026-10-05
+ 4.5.2  2026-10-05
    + Found by the 4.5.1 read-back on your machine: 6 roots "in BOTH stores". Cause: each leaf PFX contains the
      leaf plus intermediate, Quadrant Root and Track Root (4 certificates); Windows files every non-leaf
      certificate of an imported PFX under Intermediate, so the PFX import put the roots back there AFTER the
@@ -1115,13 +1153,13 @@
      private key) goes to My; and the "remove the copy in the wrong store" pass now runs AFTER the PFX import.
      If the leaf-only route fails (an ML-DSA key an older .NET cannot read) the Windows import is used and the
      final pass cleans up. Tested: leaf extraction from the real PFX files (RSA, ECDSA).
- 4.5.1-phaseA  2026-10-05
+ 4.5.1  2026-10-05
    + The stores are READ BACK after every install and in -Verify (Get-PkiStorePlacement, pure and tested):
      roots must be in Trusted Root, intermediates in Intermediate, none in both. A wrong placement is an
      ERROR (install) / FAIL (-Verify) with the certificate named; "older generation" certificates with this
      PKI's name that are not in the current PKI are listed and left alone.
      Tested with your screenshot state: 6 roots under Intermediate = 6 x WRONG STORE, fixed by -ReinstallTrust.
- 4.5.0-phaseA  2026-10-05
+ 4.5.0  2026-10-05
    + Found in your A4 run and fixed: ConvertFrom-PkiPemToDer returned object[] (PowerShell unrolled the bytes),
      so X509Certificate2 read it as a path ("cannot find the path"); installs had worked only through the
      certutil fallback, and -Verify could not read the leaves. Now byte[] everywhere.
@@ -1133,7 +1171,7 @@
      folders. Commands without a PKI configuration use a neutral config, so a machine-wide OPENSSL_CONF
      (master file with oqsprovider) cannot interfere.
    + Capability gate before generation: ML-DSA (quadrant 3 non-FIPS, quadrant 4 FIPS) and the FIPS provider are proven first.
- 4.4.0-phaseA  2026-10-05
+ 4.4.0  2026-10-05
    + scripts\01b_CaNaming.ps1: all CA names, prefix, labels, generations and file-name stems in one
      configurable module ([ ca_names ] overrides); checks (64 characters, unique, tokens); -ShowNames.
    + -ClassicPKI: Enterprise Root, Classic Track Root, Q1 Root, DV / OV / EV intermediates only.
@@ -1144,7 +1182,7 @@
    + Reusable library: scripts\PkiModules.ps1 (sets All / Library / Trust), scripts\README.txt,
      12_ExistingPki.ps1 (Import-PkiExisting), shared helpers moved to 00_Common.
    + Manifest: mode, enterpriseRoot (public CA, cross-certificates), per-CA store (Root / CA), naming.
- 4.3.0-phaseA  2026-10-05
+ 4.3.0  2026-10-05
    + Quantum track = ML-DSA at every level (Track Root, Quantum Q1 / Q2 roots, intermediates, leaves), FIPS and
      non-FIPS. Enterprise Root stays RSA 8192. Strict: no silent RSA downgrade; -PqcFallback opt-in.
    + New parameters -PqcAlgorithm, -PqcLeafAlgorithm, -PqcFallback, -FallbackRsaBits.
@@ -1158,12 +1196,12 @@
      export failed under the FIPS provider (no PKCS#12 KDF): normal PFX now packaged with the default
      provider, plus a FIPS-conformant -fips.pfx for FIPS leaves.
    + Design file and manual updated (platform table for ML-DSA, limitations L1-L4, L10, L11).
- 4.2.0-phaseA  Policy OIDs, IANA PEN, leaf lifetimes, -Check, -Verify, reference machines, checklist.
- 4.1.1-phaseA  Windows 10 detection; server matrix; manual.
- 4.1.0-phaseA  ML-DSA removed (Quantum track classical + hybrid key exchange). Reverted in 4.3.0.
- 4.0.2-phaseA  Validity 1000 / 500 / 400 / 250 years; names; run summary table.
- 4.0.1-phaseA  Root key policy; -Unblock; lock holders; tolerant trust removal; cleanup.
- 4.0.0-phaseA  New hierarchy, OpenSSL 4 gate, native providers, agantra_pki.cnf, validation, trust.
+ 4.2.0  Policy OIDs, IANA PEN, leaf lifetimes, -Check, -Verify, reference machines, checklist.
+ 4.1.1  Windows 10 detection; server matrix; manual.
+ 4.1.0  ML-DSA removed (Quantum track classical + hybrid key exchange). Reverted in 4.3.0.
+ 4.0.2  Validity 1000 / 500 / 400 / 250 years; names; run summary table.
+ 4.0.1  Root key policy; -Unblock; lock holders; tolerant trust removal; cleanup.
+ 4.0.0  New hierarchy, OpenSSL 4 gate, native providers, agantra_pki.cnf, validation, trust.
 
 
 ====================================================================================================

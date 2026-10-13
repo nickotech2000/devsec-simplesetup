@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL   (PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 4.9.5-phaseC     2026-10-11
+ Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 5.0.0     2026-10-13
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: Install-DevEnvironment-MANUAL.txt (the bootstrap that installs 7-Zip and OpenSSL 4)
           pki_setup-MANUAL.txt                (the PKI itself)           GenerateLeafCertificate-MANUAL.txt (leaf
@@ -322,7 +322,7 @@
 ====================================================================================================
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -457,7 +457,7 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -515,7 +515,7 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  pki-transport.sh - DESTINATION script for Linux and macOS
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -608,12 +608,12 @@ LIMITATIONS
   * Tested on Ubuntu 24.04 (real store, real packages). The other platforms are tested only by simulation (--dry-run):
     the commands are the documented ones of each distribution, but never ran on them. macOS never ran.
 ====================================================================================================
- 16  WHAT CHANGED  (4.9.0-phaseC)
+ 16  WHAT CHANGED  (4.9.0)
 ====================================================================================================
 
  -InstallMissing (PkiTransport.ps1, Unpack-PkiTransport.ps1): 7-Zip and OpenSSL 4 are INSTALLED, not only reported (section 17). pki-transport.sh accepts only a READY
  OpenSSL 4 (FIPS + ML-DSA + ML-KEM, never a stripped build), builds a FULL one on request, has --unblock. The kit carries Install-DevEnvironment.ps1 / .sh.
- 4.8.0-phaseC: new PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh, the archive layer, this manual.
+ 4.8.0: new PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh, the archive layer, this manual.
 
 ====================================================================================================
  17  PREREQUISITES: WHAT IS INSTALLED FOR YOU
@@ -697,3 +697,7 @@ PkiTransport.ps1 -CrlServer  -  CRLs and CA certificates on Ubuntu 24.04 / 26.04
   Same checks as -Server (no private key, LF text, execute bits, SHA-256 printed); without pki-ocsp-dispatch.py and pki\ocsp. Not combinable with the other server modes;
   -IncludeServiceKeys is refused. Ubuntu: csr --tsa-only -> sign with PkiRevocation.ps1 -Action SignCsr -For Tsa -> import-cert -> sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
   Manual: PKI-SERVER-MANUAL.txt chapter 6c. The four packages: -CrlServer, -CrlOcspServer, -TimestampServer, -Server (all three services).
+
+5.0.0: -Pki <name> on -Pack, -DevKit, -Server, -CrlServer ... File names follow the PKI (agantra-pki-<date>.certpacked, raksaka-pki-<date>.certpacked). TransportFolder, ArchiveFormat and
+ZipEncryption can be set in pki_tools.cnf. -Install runs on Windows 11 24H2+, Windows Server 2025 and 2022 (2022: post-quantum certificates are not installed); it was Windows 11 25H2 client only.
+Windows 10 and earlier, Windows 11 before 24H2, specialised editions and macOS are refused. pki-transport.sh: Linux only (list in PkiProfiles-MANUAL.txt section 6).

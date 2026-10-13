@@ -11,7 +11,7 @@ certpacked-received/
 agantra-pki-devkit-*
 agantra-pki-server-*.zip
 agantra-pki-server-*.tar.gz
-pki-phaseA*.zip
+PKI-DevSecOps-*.zip
 *.log
 *.tmp
 *.old

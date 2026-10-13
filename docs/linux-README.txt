@@ -20,3 +20,5 @@ The DevKit (PkiTransport.ps1 -DevKit) carries pki-transport.sh and Install-DevEn
 Releases: the shell generators use the latest release in pki/ (or the one in devkit.env); --release N picks one, --no-ca-revocation-info the NoCR family. See pki_setup-MANUAL.txt section 18.
 
 Server: PkiTransport.ps1 -Server (on the CA machine) -> unzip on Ubuntu -> sudo ./linux/pki-server/pki-server.sh install --source ./pki. Install-DevEnvironment.sh: OpenSSL of the distribution by default; --openssl-source ppa|build; --only nginx for nginx from the PPA.
+
+5.0.0: every .sh starts with a platform gate: Linux (VM, bare metal, WSL) Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES / SLED 15+, openSUSE Leap 15+ / Tumbleweed; anything else (macOS too) prints an error and exits with 5. --help always works. Test hook: PKI_OS_RELEASE_FILE.

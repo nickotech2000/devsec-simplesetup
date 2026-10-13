@@ -15,17 +15,11 @@ function Write-PkiPlan {
     if ($null -ne $c.ExternalRoot) {
         Write-PkiLog "Enterprise Root: signed by $(if ($c.ExternalRoot.CaName) { $c.ExternalRoot.CaName } else { 'a public CA' }) until $($c.ExternalRoot.NotAfter); every CA below is shortened to fit inside that date" 'WARN'
     }
-    if ($c.Windows10) {
-        Write-PkiLog "This Windows (build $($c.WindowsBuild)) is older than Windows 11 / Server 2025: it cannot store or validate ML-DSA certificates and has no hybrid ML-KEM key exchange." 'WARN'
-        if ($c.QuadrantWasChosen -and (($c.Quadrants -contains 3) -or ($c.Quadrants -contains 4))) {
-            Write-PkiLog '  Quantum quadrants (3, 4) were requested: -InstallTrust will fail for their ML-DSA certificates on this Windows.' 'WARN'
-        }
-        else {
-            Write-PkiLog '  Building the Classic quadrants only (1, 2). Add -Quadrant 1,2,3,4 to build the Quantum quadrants as well.' 'WARN'
-        }
+    if ($c.ClassicOnly) {
+        Write-PkiLog "Windows Server 2022 (build $($c.WindowsBuild)): CLASSIC track only - quadrants 1, 2 (FIPS and non-FIPS; DV / OV / EV). The Quantum track (ML-DSA) is not built." 'WARN'
     }
     elseif ($null -ne $c.WindowsBuild) {
-        Write-PkiLog "Windows 11 / Server 2025 (build $($c.WindowsBuild)): ML-DSA certificates can be stored and validated$(if ($c.WindowsBuild -lt 26100) { ' (needs 24H2 / build 26100 or newer: update Windows)' }); hybrid ML-KEM TLS in Schannel."
+        Write-PkiLog "Windows build $($c.WindowsBuild): ML-DSA certificates can be stored and validated; hybrid ML-KEM TLS in Schannel."
     }
     Write-PkiLog "Configuration : $($c.ConfigPath)"
     Write-PkiLog "PKI           : release R$([int]$c.Release)$(if ($c.NoCaRevocationInfo) { ', variant NoCR (-NoCaRevocationInfo): CA certificates carry NO CRL / OCSP / CA Issuers URL' } else { ', CA certificates with revocation information' })   $(if (Get-PkiNameSuffix) { "CA names end in '$((Get-PkiNameSuffix).Trim())'" } else { 'CA names have no release suffix (release 1)' })"
@@ -165,7 +159,8 @@ function Invoke-PkiMain {
         return
     }
     if ($script:Pki.RemoveAllTrust) {
-        Invoke-PkiStep -Name 'Remove all matching PKI trust' -Action { Remove-AllTrust }
+        if ($IsWindows) { Invoke-PkiStep -Name 'Remove all matching PKI trust' -Action { Remove-AllTrust } }
+        else { Write-PkiLog 'Not Windows: no certificate store to clean here; the PKI folders are deleted.' 'INFO' }
         # -RemoveAllTrust also deletes the folder pki: EVERY release and variant in it, all contents and the folder itself.
         Invoke-PkiStep -Name 'Delete the folder pki with every release and variant' -Action { Remove-PkiOutput -Path $script:Pki.PkiContainer -Whole }
         Stop-PkiTelemetryQuietly

@@ -15,6 +15,8 @@
     .\PkiRevocation.ps1 -Action NewOcsp -Ca q1-ev -Replace -OcspDays 180 -OcspKeyBits 3072
 #>
 param(
+    # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
+    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     [ValidateSet('Status', 'Info', 'NewCrl', 'Revoke', 'NewOcsp', 'NewTsa', 'SignCsr')][string]$Action = 'Status',
     [string[]]$Ca,
     # ---- CRL / revocation ----
@@ -58,7 +60,7 @@ function Show-PkiRevocationHelp {
     @'
 ============================================================
  PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -68,13 +70,13 @@ function Show-PkiRevocationHelp {
 
 WHAT IT DOES
   pki_setup.ps1 already makes, with the PKI:   one OCSP responder certificate per Classic intermediate CA  (pki\ocsp\<ca>\),
-  one time stamping certificate (pki\R<n>\tsa\<ca>\), the CRLs (pki\R<n>\publish\) and pki\R<n>\revocation-info.json / REVOCATION-INFO.txt.
+  one time stamping certificate (pki\pki-<name>-<NN>\tsa\<ca>\), the CRLs (pki\pki-<name>-<NN>\publish\) and pki\pki-<name>-<NN>\revocation-info.json / REVOCATION-INFO.txt.
   This script SHOWS them and lets you EDIT them. A certificate cannot be edited: "edit" = change a value and issue it again
   (-Replace archives the old one to old-<date>\), and for a CRL = make a new CRL (new number, new validity).
 
 ACTIONS   (-Action <name>)
   Status      Table: per CA the CRL number, next update, days left, revoked/issued, and the OCSP responder. (default)
-  Info        Status + writes pki\R<n>\revocation-info.json and REVOCATION-INFO.txt (URLs, dates, how to renew) and the server\ folder
+  Info        Status + writes pki\pki-<name>-<NN>\revocation-info.json and REVOCATION-INFO.txt (URLs, dates, how to renew) and the server\ folder
               (server-info.json, ca-list.tsv, server.env, expected-urls.tsv, DNS-RECORDS.txt) that pki-server.sh reads. Every action refreshes them.
   NewCrl      New CRL of the CA(s) (-Ca q1-ev,q1-ov ; default every CA) and publish it. -CrlDays N = its validity (default 365,
               agantra_pki.cnf [ revocation ] CrlDays).    Do it BEFORE the old CRL ends (Status shows the days left).
@@ -102,7 +104,7 @@ OPTIONS
   -ConfigFile <path>    agantra_pki.cnf (default next to the script).    -PkiRoot <path>   The PKI folder (default: the latest release in .\pki\).
   -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
                        (deleted) is not an error: the latest release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
                        when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
   -OpenSslPath <path>   openssl 4.x.   -FipsModuleConfig <path>   fipsmodule.cnf.   -Verbose   Every OpenSSL command.   -Help   This text.
 
@@ -117,10 +119,27 @@ EXAMPLES
   .\PkiRevocation.ps1 -Action NewOcsp -Ca q1-ev -Replace -OcspKeyBits 3072 -OcspDays 180 -RevokeOld
   .\PkiRevocation.ps1 -Action NewTsa -Replace -TimestampDays 3650 -TimestampPolicyOid 1.3.6.1.4.1.67096.1.4
   .\PkiRevocation.ps1 -Action SignCsr -Csr .\ocsp-q1-ev.csr -For Ocsp -Ca q1-ev
+
+WHICH PKI  (-Pki, 5.0.0)
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
+                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
+                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 
 if ($Help) { Show-PkiRevocationHelp; exit 0 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
 
 Write-Host '============================================================'
 Write-Host 'Author : Nicko Satria Utama'

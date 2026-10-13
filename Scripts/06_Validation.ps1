@@ -232,6 +232,7 @@ function Write-PkiManifest {
         configFile = $c.ConfigPath
         mode = $(if ($c.ClassicPki) { 'ClassicPKI' } else { 'Full' })
         release = [int]$c.Release
+        profile = [string]$c.Profile
         noCaRevocationInfo = [bool]$c.NoCaRevocationInfo
         variant = $(if ($c.NoCaRevocationInfo) { 'NoCR' } else { 'normal' })
         pkiLabel = $(if ($c.NoCaRevocationInfo) { "NoCR R$([int]$c.Release)" } else { "R$([int]$c.Release)" })

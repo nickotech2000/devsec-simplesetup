@@ -483,12 +483,13 @@ function Get-PkiCaNameInfo {
     #   "... Root CA G1"                       -> release 1, normal
     #   "... DV RSA-4096 G1 CA (NoCR) R2"      -> release 2, NoCR
     # $null when the certificate is not one of our CAs (a leaf, another company's CA).
-    param([Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate)
+    param([Parameter(Mandatory)][System.Security.Cryptography.X509Certificates.X509Certificate2]$Certificate, [string]$Prefix)
     $cn = $Certificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
     if ([string]::IsNullOrWhiteSpace($cn)) { return $null }
     $prefix = 'Agantra'
     if ($null -ne (Get-Variable -Name Pki -Scope Script -ErrorAction SilentlyContinue) -and $script:Pki.Contains('Naming') -and $script:Pki.Naming) { $prefix = [string]$script:Pki.Naming.Prefix }
-    if (-not $cn.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+    if (-not [string]::IsNullOrWhiteSpace($Prefix)) { $prefix = $Prefix }     # a given profile prefix wins (5.0.0: one prefix per company)
+    if (-not $cn.StartsWith("$prefix ", [StringComparison]::OrdinalIgnoreCase)) { return $null }     # prefix + space: 'Tecooli' never matches 'Tecooli002 Root CA'
     if ($cn.StartsWith("$prefix Inovatif", [StringComparison]::OrdinalIgnoreCase)) { return $null }   # names of the generation before 4.9.5: never a current release
     if ($cn -notmatch '^(?<base>.+?)(?<nocr> \(NoCR\))?(?: R(?<rel>\d+))?$') { return $null }
     $gBase = [string]$Matches['base']; $gRel = [string]$Matches['rel']; $gNoCr = [string]$Matches['nocr']
@@ -507,15 +508,19 @@ function Get-PkiCertDisplayName {
 
 function Get-PkiStoreReleases {
     # Releases / variants of this PKI that have CA certificates in LocalMachine Root or CA (read from the common names). Empty off Windows or when a store cannot be read.
+    # -Profile <short>: the PKI of that company (its CA name prefix); default: the active one.
+    param([string]$Profile)
     $out = [System.Collections.Generic.List[object]]::new()
     if (-not $IsWindows) { return @() }
+    $pfx = ''
+    if (-not [string]::IsNullOrWhiteSpace($Profile)) { try { $pfx = (Resolve-PkiProfile -Name $Profile).Prefix } catch { $pfx = '' } }
     foreach ($name in 'Root', 'CA') {
         try {
             $st = [System.Security.Cryptography.X509Certificates.X509Store]::new($name, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
             $st.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly -bor [System.Security.Cryptography.X509Certificates.OpenFlags]::OpenExistingOnly)
             try {
                 foreach ($c in $st.Certificates) {
-                    $i = Get-PkiCaNameInfo -Certificate $c
+                    $i = Get-PkiCaNameInfo -Certificate $c -Prefix $pfx
                     if ($null -ne $i) { $out.Add([pscustomobject]@{ Release = $i.Release; NoCr = $i.NoCr; Store = $name }) }
                 }
             }
@@ -578,7 +583,41 @@ function Remove-CurrentTrust {
 }
 
 function Remove-AllTrust {
-    # Removes every certificate that carries this PKI's identity, from Root, CA and My.
-    $n = Remove-PkiCertificatesWhere -Predicate { param($c) Test-PkiCertificateIdentity -Certificate $c }
-    Write-PkiLog "Removed $n certificate(s) matching 'Agantra Inovatif' / 'NextMantra'." 'OK'
+    # Removes the trust of EVERY PKI of the project - the default profile (agantra) AND every other company's PKI (5.0.0):
+    #   1. by thumbprint: every certificate file of every folder in .\pki\ (all profiles, all releases, NoCR too)
+    #   2. by identity: any certificate whose subject or issuer carries a company name / CA prefix of any profile (agantra_pki.cnf, raksaka_pki.cnf ...)
+    # from LocalMachine Root, CA and My.
+    $root = $script:PkiProjectRoot
+    $thumbs = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $folders = @(Get-PkiInstalledPkis -ScriptRoot $root)
+    foreach ($p in $folders) { foreach ($t in (Get-PkiFolderThumbprints -Folder $p.Path)) { [void]$thumbs.Add($t) } }
+    Write-PkiLog "Removing the trust of ALL PKIs: $($folders.Count) PKI folder(s) ($(($folders | ForEach-Object { $_.Profile + ' ' + $_.Label } | Sort-Object -Unique) -join ', ')), $($thumbs.Count) certificate file(s)." 'INFO'
+    $markers = @(Get-PkiAllIdentityMarkers -ScriptRoot $root | ForEach-Object { Normalize-PkiIdentity $_ })
+    $n = Remove-PkiCertificatesWhere -Predicate {
+        param($c)
+        if ($thumbs.Contains($c.Thumbprint)) { return $true }
+        $text = (Normalize-PkiIdentity "$($c.Subject) | $($c.Issuer)")
+        foreach ($m in $markers) { if ($text.Contains($m)) { return $true } }
+        return $false
+    }
+    Write-PkiLog "Removed $n certificate(s) of all PKIs (default and other companies)." 'OK'
+}
+
+function Remove-PkiProfileTrust {
+    # Removes the trust of EVERY release and variant of ONE company's PKI (-Profile <short>): by thumbprint (all its folders in .\pki\) and by CA name (its prefix).
+    # Other companies' PKIs are not touched.
+    param([Parameter(Mandatory)][string]$Profile)
+    $root = $script:PkiProjectRoot
+    $prof = Resolve-PkiProfile -ScriptRoot $root -Name $Profile
+    $thumbs = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $folders = @(Get-PkiInstalledPkis -ScriptRoot $root -Profile $prof.Name)
+    foreach ($p in $folders) { foreach ($t in (Get-PkiFolderThumbprints -Folder $p.Path)) { [void]$thumbs.Add($t) } }
+    Write-PkiLog "Removing the trust of the PKI '$($prof.Name)' ($($prof.Organization)): $($folders.Count) folder(s), $($thumbs.Count) certificate file(s), every release and variant." 'INFO'
+    $pfx = $prof.Prefix
+    $n = Remove-PkiCertificatesWhere -Predicate {
+        param($c)
+        if ($thumbs.Contains($c.Thumbprint)) { return $true }
+        return ($null -ne (Get-PkiCaNameInfo -Certificate $c -Prefix $pfx))
+    }
+    Write-PkiLog "Removed $n certificate(s) of the PKI '$($prof.Name)'." 'OK'
 }

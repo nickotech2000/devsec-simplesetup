@@ -1,7 +1,7 @@
 ====================================================================================================
  DevKit  -  USER MANUAL   (PkiTransport.ps1 -DevKit: one zip for the developers)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI                    Version 4.9.5-phaseC                    2026-10-11
+ Agantra Inovatif Enterprise PKI                    Version 5.0.0                    2026-10-13
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PkiTransport-MANUAL.txt     (the .certpacked, -Pack, -Install)
           GenerateLeafCertificate-MANUAL.txt  GeneratePersonLeafCertificate-MANUAL.txt  GenerateOffice365LeafCertificate-MANUAL.txt  SignCsr-MANUAL.txt
@@ -238,7 +238,7 @@
  ---- Install-PkiTrust.ps1 -Help ----------------------------------------------------------------
 ============================================================
  Install-PkiTrust.ps1 - DevKit installer for Windows
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -268,7 +268,7 @@ EXIT  0 ok   other: see the message (not Windows 11 25H2+, not elevated, wrong p
  ---- Install-PkiTrust.sh --help ----------------------------------------------------------------
 ============================================================
  Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -296,7 +296,7 @@ OPTIONS
  ---- Make-ShExecutable.ps1 -Help ---------------------------------------------------------------
 ============================================================
  Make-ShExecutable.ps1 - make the .sh files executable (Windows developers)
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -319,7 +319,7 @@ make-executable.sh [folder]     folder = this script's folder by default
  ---- GenerateLeafCertificate.sh --help ---------------------------------------------------------
 ============================================================
  GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu)
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -373,7 +373,7 @@ Certificates made from a DevKit copy are NOT in the CRL / OCSP database of the m
  ---- GeneratePersonLeafCertificate.sh --help ---------------------------------------------------
 ============================================================
  GeneratePersonLeafCertificate.sh - person certificates from a JSON file (Linux / Ubuntu, DevKit)
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -403,7 +403,7 @@ Output: leafcerts/persons/<folder>/  (.crt .key .pub .pfx -chain -fullchain pers
  ---- GenerateOffice365LeafCertificate.sh --help ------------------------------------------------
 ============================================================
  GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux / Ubuntu, DevKit)
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -431,7 +431,7 @@ OPTIONS
  ---- SignCsr.sh --help -------------------------------------------------------------------------
 ============================================================
  SignCsr.sh - sign the certificate request (CSR) of another department with our PKI
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -508,3 +508,5 @@ EXIT CODES   0 ok   1 error   2 the request does not follow the spec
      sudo ./linux/pki-server/pki-server.sh install            --source ./pki      all three
   (OCSP / time stamp keys: csr, sign with PkiRevocation.ps1 -Action SignCsr on the CA machine, import-cert. See PKI-SERVER-MANUAL.txt chapters 6a-6c.)
   The kit's own pki\ (made by Install-PkiTrust) holds the ISSUING CA KEYS: never use that folder as the server source. Use server\pki.
+
+5.0.0: PkiTransport.ps1 -DevKit -Pki <name> builds the kit of that company: it holds <name>_pki.cnf and a pki_tools.cnf with DefaultPki = <name>, devkit.env has PKI_PROFILE. All kit scripts check the OS (Windows rules and Linux list: PkiProfiles-MANUAL.txt section 6).

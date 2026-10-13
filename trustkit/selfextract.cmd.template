@@ -1,0 +1,27 @@
+@echo off
+rem ============================================================
+rem Self-extracting zip (Windows) - __ZIPNAME__
+rem Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+rem ============================================================
+rem Double click this file (or run it in a terminal): it unpacks the zip into the folder where THIS FILE is.
+rem It only extracts. The PKI is installed afterwards by the script that comes out:  Install-PkiCa.ps1  (PowerShell, see README.txt).
+rem Help: selfextract.cmd /?
+setlocal
+if "%~1"=="/?" goto :help
+if "%~1"=="-h" goto :help
+if "%~1"=="--help" goto :help
+set "SELF=%~f0"
+set "DEST=%~dp0"
+echo Extracting __ZIPNAME__ into %DEST% ...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { $l=[IO.File]::ReadAllLines($env:SELF); $i=[Array]::IndexOf($l,'::PAYLOAD'); if($i -lt 0){throw 'No payload in this file.'}; $b=[Convert]::FromBase64String((($l[($i+1)..($l.Length-1)] | Where-Object { $_.StartsWith('::') } | ForEach-Object { $_.Substring(2) }) -join '')); $z=Join-Path $env:TEMP ('pki-'+[guid]::NewGuid().ToString('N')+'.zip'); [IO.File]::WriteAllBytes($z,$b); try { Expand-Archive -LiteralPath $z -DestinationPath $env:DEST -Force } finally { Remove-Item -LiteralPath $z -Force -ErrorAction SilentlyContinue }; Write-Host 'Extracted.' -ForegroundColor Green } catch { Write-Host ('ERROR: ' + $_.Exception.Message) -ForegroundColor Red; exit 1 }"
+if errorlevel 1 ( echo Extraction failed. & pause & exit /b 1 )
+echo.
+echo Next: open PowerShell in this folder and run   powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
+echo (administrator window = whole machine, normal window = this user only). The password comes from the person who sent you this file.
+pause
+exit /b 0
+:help
+echo Self-extracting zip: unpacks Install-PkiCa.ps1 and the .certpacked file(s) into the folder of this file. Nothing is installed.
+echo Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+exit /b 0
+::PAYLOAD

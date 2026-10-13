@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 # pre-commit: (1) every staged *.sh / *.py gets the execute bit in the index (so a clone on Linux can run it),
 #             (2) refuses CRLF or a BOM in staged shell / python / config files, (3) refuses private keys.
 # Install:  pwsh ./Setup-GitRepo.ps1     or     git config core.hooksPath .githooks     (linux/setup-git.sh does the same on Linux)

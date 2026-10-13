@@ -10,12 +10,14 @@
     A small CRL / CA-issuer web server for THIS machine (Windows development, no Linux needed).
     Word / Excel / Outlook say "Recoverable Signature - the signer's certificate can't be verified" when the revocation
     status of a certificate in the chain is UNKNOWN (no URL in it, or the URL cannot be reached). This script makes the
-    URLs of the PKI reachable: it serves pki\R<n>\publish (you point the PKI host names to 127.0.0.1 in the hosts file).
+    URLs of the PKI reachable: it serves pki\pki-<name>-<NN>\publish (you point the PKI host names to 127.0.0.1 in the hosts file).
     Full help: .\Start-PkiCrlServer.ps1 -Help
 .EXAMPLE
     .\Start-PkiCrlServer.ps1      (elevated PowerShell) prints the hosts-file lines, then serves; stop with Ctrl+C
 #>
 param(
+    # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
+    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     [ValidateRange(1, 99)][int]$Release,
     [ValidateRange(1, 65535)][int]$Port = 80,
     [switch]$Help
@@ -40,7 +42,7 @@ WHY
 
 WHAT IT DOES
   Serves every pki\R*\publish folder (CRL and CA certificate files, by file name) over HTTP, for the host names that are
-  written in the certificates (read from pki\R<n>\server\server.env). The host names must point to 127.0.0.1 in the
+  written in the certificates (read from pki\pki-<name>-<NN>\server\server.env). The host names must point to 127.0.0.1 in the
   hosts file (the script prints the lines), so this machine finds the server. OCSP requests are answered 404: Windows then uses the CRL.
   The script does NOT edit the hosts file itself (antivirus programs flag that, rightly): it prints the lines, you paste them.
 
@@ -58,13 +60,30 @@ OPTIONS
   -Help
 
 NOTES
-  * Real use: pki\R<n>\server\ + linux\pki-server\pki-server.sh serve the same files with nginx, and the DNS records of
+  * Real use: pki\pki-<name>-<NN>\server\ + linux\pki-server\pki-server.sh serve the same files with nginx, and the DNS records of
     server\DNS-RECORDS.txt point to that server. This script is the one-machine shortcut.
   * The CRLs are valid for the days set when the PKI was built (CRL_DAYS in server.env); renew: PkiRevocation.ps1 -Action NewCrl.
   * Windows caches downloads: after a change clear its URL cache (command in docs\PKI-SERVER-MANUAL.txt, chapter 7).
+
+WHICH PKI  (-Pki, 5.0.0)
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
+                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
+                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@ | Write-Host
     return
 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
 
 Write-Host '============================================================'
 Write-Host 'Author : Nicko Satria Utama'
@@ -72,17 +91,14 @@ Write-Host 'Company: Agantra Inovatif OÜ (NextMantra)'
 Write-Host 'Email  : nicko@nextmantra.com'
 Write-Host '============================================================'
 
-# ---- the PKI folders ----
-$container = Join-Path $root 'pki'
-$pkis = @()
-if (Test-Path -LiteralPath $container) {
-    $pkis = @(Get-ChildItem -LiteralPath $container -Directory | Where-Object {
-            $_.Name -match '^(?i)(NoCR-)?R(?<n>\d+)$' -and (Test-Path -LiteralPath (Join-Path $_.FullName 'publish'))
-        } | ForEach-Object {
-            [void]($_.Name -match '^(?i)(NoCR-)?R(?<n>\d+)$')
-            [pscustomobject]@{ Name = $_.Name; Release = [int]$Matches['n']; Path = $_.FullName }
-        })
-}
+# ---- the PKI folders: every release of every PKI (or only -Pki <name>), all folder names (pki-default-01, pki-raksaka-nocr-01 ..., old R1) ----
+. (Join-Path $PSScriptRoot 'scripts/00b_Profiles.ps1')
+if (-not (Get-Command Write-PkiLog -ErrorAction SilentlyContinue)) { function Write-PkiLog { param([string]$Message, [string]$Level = 'INFO') Write-Host "[$Level] $Message" } }
+. (Join-Path $PSScriptRoot 'scripts/01c_Releases.ps1')
+$container = Get-PkiContainer -ScriptRoot $root
+if ($PkiProfile) { try { [void](Resolve-PkiProfile -ScriptRoot $root -Name $PkiProfile) } catch { throw } }
+$pkis = @(Get-PkiInstalledPkis -ScriptRoot $root -Profile $PkiProfile | Where-Object { Test-Path -LiteralPath (Join-Path $_.Path 'publish') } |
+        ForEach-Object { [pscustomobject]@{ Name = (Split-Path -Leaf $_.Path); Release = [int]$_.Release; Path = $_.Path } })
 if ($Release -gt 0) { $pkis = @($pkis | Where-Object { $_.Release -eq $Release }) }
 
 if ($pkis.Count -eq 0) { throw "No PKI with a publish folder in $container. Build one first:  .\pki_setup.ps1 -InstallTrust" }
@@ -96,7 +112,7 @@ foreach ($p in $pkis) {
         if ($l -match "^PKI_SRV_HOSTS_(CRL|OCSP)='(?<h>[^']*)'") { foreach ($h in ($Matches['h'] -split '\s+' | Where-Object { $_ })) { [void]$hostNames.Add($h) } }
     }
 }
-if ($hostNames.Count -eq 0) { throw 'No host names found in pki\R<n>\server\server.env. Run  .\PkiRevocation.ps1 -Action Status  once to write it.' }
+if ($hostNames.Count -eq 0) { throw 'No host names found in pki\pki-<name>-<NN>\server\server.env. Run  .\PkiRevocation.ps1 -Action Status  once to write it.' }
 
 Write-Host ("PKIs served : " + (($pkis | ForEach-Object { $_.Name }) -join ', '))
 Write-Host ("Host names  : " + ($hostNames -join ', '))

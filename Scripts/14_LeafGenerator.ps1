@@ -136,7 +136,7 @@ $script:PkiDevelopmentSanDefault = [ordered]@{
         '*.nextmantra.internal', '*.nextmantra.developer', 'nextmantra.internal', 'nextmantra.developer', 'nextmantra.api', '*.nextmantra.api',
         'agantra.internal', '*.agantra.internal', 'agantra.developer', '*.agantra.developer', 'agantra.api', '*.agantra.api',
         'nextmantra.ldap', '*.nextmantra.ldap', 'agantra.ldap', '*.agantra.ldap')
-    Ip = @('127.0.0.1', '::1', '10.10.2.2', '192.168.0.1-192.168.0.200', '172.16.0.1-172.16.0.200')    # a "first-last" entry is a range
+    Ip = @('127.0.0.1', '::1', '10.10.2.2', '192.168.0.1-192.168.0.200', '172.16.0.1-172.16.0.200', '192.168.1.1-192.168.1.100', '192.168.2.1-192.168.2.100')    # a "first-last" entry is a range
     Email = @('nicko@nextmantra.com', 'robby@nextmantra.com', 'info@nextmantra.com', 'airlangga@nextmantra.com')
 }
 $script:PkiDevelopmentSanCache = $null
@@ -275,13 +275,13 @@ function Get-PkiLeafDn {
         & $add 'businessCategory' (Get-PkiLeafSubjectValue 'BusinessCategory' 'businessCategory' 'Private Organization' $Level)
         & $add 'jurisdictionCountryName' (Get-PkiLeafSubjectValue 'JurisdictionCountry' 'jurisdictionCountryName' 'EE' $Level)
         & $add 'jurisdictionStateOrProvinceName' (Get-PkiLeafSubjectValue 'JurisdictionState' 'jurisdictionStateOrProvinceName' 'Tallinn' $Level)
-        & $add 'jurisdictionLocalityName' (Get-PkiLeafSubjectValue 'JurisdictionLocality' '' '' $Level)
+        & $add 'jurisdictionLocalityName' (Get-PkiLeafSubjectValue 'JurisdictionLocality' 'jurisdictionLocalityName' '' $Level)
         & $add 'serialNumber' (Get-PkiLeafSubjectValue 'Serial' 'serialNumber' '17344131' $Level)
     }
     & $add 'C' (Get-PkiLeafSubjectValue 'Country' 'C' 'EE' $Level)
     & $add 'ST' (Get-PkiLeafSubjectValue 'State' 'ST' 'Tallinn' $Level)
     & $add 'L' (Get-PkiLeafSubjectValue 'Locality' 'L' 'Tallinn' $Level)
-    & $add 'street' (Get-PkiLeafSubjectValue 'Street' '' '' $Level)
+    & $add 'street' (Get-PkiLeafSubjectValue 'Street' 'street' '' $Level)
     & $add 'postalCode' (Get-PkiLeafSubjectValue 'PostalCode' 'postalCode' '15199' $Level)
     & $add 'O' $org
     if ($Level -eq 'EV') {
@@ -453,6 +453,7 @@ function New-PkiLeafSpec {
         if ($q -ne $baseQ) { Write-PkiLog "Time stamping: Quadrant $q ($(if ($q -in 3, 4) { 'Quantum' } else { 'Classic' })$(if ($q -in 2, 4) { ' FIPS' } else { ' non-FIPS' })) instead of the Quadrant $baseQ of the other purposes (-TimestampQuadrant changes it)." }
         if (-not $sameTrack) { foreach ($k in 'KeyType', 'KeyBits', 'Curve', 'PqcAlgorithm', 'Hash') { if ($Options.ContainsKey($k)) { $Options = $Options.Clone(); $Options.Remove($k) } } }
     }
+    if ([bool]$c.ClassicOnly -and $q -ge 3) { throw "Quadrant $q is the Quantum track (ML-DSA): this computer is Windows Server 2022, which can issue the CLASSIC track only (Quadrant 1 and 2; FIPS and non-FIPS; DV / OV / EV). Leave out -Quantum." }
     $ca = Get-PkiCa -Id ("q$q-" + $level.ToLowerInvariant())
     if ($null -eq $ca.Actual) { throw "CA '$($ca.Id)' is not loaded (Import-PkiExisting first).$(if ($null -ne $tsaSet) { " The time stamping certificate needs Quadrant $q (Classic non-FIPS is the default): build it, or choose another with -TimestampQuadrant." })" }
     $fips = [bool]$ca.Fips

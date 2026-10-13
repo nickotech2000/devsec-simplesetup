@@ -19,6 +19,8 @@
     .\GenerateOffice365LeafCertificate.ps1 -GivenName Budi -Surname Santoso -Email budi.santoso@example.co.id
 #>
 param(
+    # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
+    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     # ---- one signer ----
     [string]$IdCode,
     [string]$GivenName,
@@ -81,7 +83,7 @@ function Show-PersonHelp {
     @'
 ============================================================
  GenerateOffice365LeafCertificate.ps1 - Microsoft Office / Microsoft 365 DOCUMENT SIGNING certificates
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -147,7 +149,7 @@ CERTIFICATE OPTIONS
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
   -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
                        (deleted) is not an error: the latest release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
                        when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
 
 USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
@@ -162,10 +164,27 @@ USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
 DEFAULTS IN agantra_pki.cnf   [ office365 ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  KeyBits  Curve  DnsFromEmail  KeepCase  NoCrl  NoOcsp
 EXIT CODES   0 ok   1 an error or a failed signer
 ============================================================
+
+WHICH PKI  (-Pki, 5.0.0)
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
+                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
+                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 
 if ($Help) { Show-PersonHelp; exit 0 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
 
 Write-Host '============================================================'
 Write-Host 'Author : Nicko Satria Utama'

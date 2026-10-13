@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 4.9.5-phaseC     2026-10-11
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.0.0     2026-10-13
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
@@ -110,7 +110,7 @@
                                                                     ONE certificate with both EKUs, in leafcerts\api.example.com\
   B16   .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         warning that the EV SAN rules are not applied; 7 certificates;
         then: openssl x509 -in <serverauth leaf>.crt -noout -ext subjectAltName
-                                                                    the TLS leaves: 21 DNS, 403 IP, 4 e-mail; S/MIME: 4 e-mail; code
+                                                                    the TLS leaves: 21 DNS, 603 IP (4.9.6: + 192.168.1.1-100, 192.168.2.1-100), 4 e-mail; S/MIME: 4 e-mail; code
                                                                     signing, time stamping, OCSP: no SAN
   B17   Windows: Kestrel / IIS with the serverauth .pfx of B16 and  no certificate warning for https://localhost, https://127.0.0.1,
         the hosts file entry  127.0.0.1 app.nextmantra.com          https://app.nextmantra.com, https://[::1] (if the client reads IP SANs)
@@ -340,6 +340,56 @@
  [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified", no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404).
  [ ] Word 365: sign a document: the Signature Details no longer say "Recoverable"; the server window shows the 200 lines.
  [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
+
+====================================================================================================
+ E28  PKI profiles, platform rules, tools configuration (5.0.0 MAJOR)
+====================================================================================================
+ [ ] .\New-PkiConfig.ps1 -CompanyName 'PT Raksaka Teknologi Indonesia' ... : raksaka_pki.cnf is written (short name raksaka, CA prefix Raksaka). 'PT Bumi Daya Sakti' -> bumi_pki.cnf.
+     ArgÜwilis -> arguwilis_pki.cnf. A second 'Tecooli ...' company -> tecooli002_pki.cnf (CA prefix Tecooli002). The website https://www.x.co.id is stored as www.x.co.id.
+ [ ] .\pki_setup.ps1 -ListPki lists agantra (default) and raksaka. .\pki_setup.ps1 -InstallTrust builds pki\pki-default-01, again -> pki-default-02. -Pki raksaka -InstallTrust -> pki-raksaka-01.
+     Windows: the store holds 'Agantra ...' and 'Raksaka ...' roots side by side; -NoCaRevocationInfo gives pki-raksaka-nocr-01.
+ [ ] -Pki Tab-completes the names. GenerateLeafCertificate / SignCsr / SignExternalCa / PkiTransport -Pack / -Server / -DevKit / PkiRevocation / New-PkiTrustKit with -Pki raksaka use the Raksaka
+     CAs and file names raksaka-pki-...; without -Pki the Agantra PKI. -Pki unknown = error listing the known names.
+ [ ] .\pki_remove.ps1 -List; -Pki raksaka -Release 1 -DeleteFiles; -Pki raksaka -All (Agantra stays); -AllPki and pki_setup -RemoveAllTrust remove every company from the files AND from
+     Local Machine Root / Intermediate / Personal (certmgr.msc / Get-ChildItem Cert:\LocalMachine\Root | ? Subject -match 'Agantra|Raksaka' = empty).
+ [ ] Windows 10, Windows 11 23H2, Server 2019, Windows 11 Chinese / Government / IoT / SE / Embedded: every .ps1 (not -Help) prints [ERROR] ... Nothing was done, exit 5.
+ [ ] Windows 11 24H2+ Home / Pro / Pro for Workstations / Education / Pro Education / Enterprise, Windows Server 2025 and 2022 Essentials / Standard / Datacenter: scripts run.
+ [ ] Windows Server 2022: pki_setup builds quadrants 1, 2 only (warning shown); -Quadrant 3 and GenerateLeafCertificate -Quantum are errors; FIPS and non-FIPS, DV / OV / EV leaves work;
+     -InstallTrust / Install-PkiCa.ps1 skip post-quantum certificates.
+ [ ] Linux: Ubuntu 24.04, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15 / 16, openSUSE Leap 15 / 16 run every .sh; Ubuntu 22.04, CentOS Stream 9, RHEL 9, Debian, macOS: error, exit 5.
+     WSL (Ubuntu 24.04) works.
+ [ ] pki_tools.cnf: delete it -> everything works with the old defaults; DefaultPki = raksaka makes -Pki unnecessary; TransportFolder / ArchiveFormat / SelfExtract are honoured.
+ [ ] The DevKit of raksaka (PkiTransport -DevKit -Pki raksaka): contains raksaka_pki.cnf and pki_tools.cnf (DefaultPki = raksaka); the Windows and Ubuntu installers and generators use it.
+
+====================================================================================================
+ E27  OS gates, self-extracting files, development SAN ranges (4.9.6)
+====================================================================================================
+ [ ] Install-PkiCa.ps1 on Windows 10, Windows 11 23H2 and Windows Server 2019: error, exit 5, nothing installed. On Windows 11 24H2+ and Windows Server 2025: everything installed.
+ [ ] Windows Server 2022: only the classic roots / intermediates are installed; the warning names how many post-quantum certificates were skipped.
+ [ ] install-pki-ca.sh on Ubuntu 22.04, Debian, AlmaLinux, Fedora, SLES 12: error, exit 5. Accepted: Ubuntu 24.04 / 26.04, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15 / 16, openSUSE Leap 15 / 16.
+ [ ] .\New-PkiTrustKit.ps1 -All -SelfExtract: a -selfextract.cmd and three -selfextract.sh; the .cmd unpacks next to itself, the .sh into the current folder (or --dir); then the real installer runs.
+ [ ] GenerateLeafCertificate.ps1 -AddDevelopmentSAN: 21 DNS, 603 IP (192.168.0.1-200, 172.16.0.1-200, 192.168.1.1-100, 192.168.2.1-100), 4 e-mail; 192.168.1.101 is NOT in it.
+ [ ] No file, -Help or --help shows a "-phaseA/B/C" version any more (4.9.6).
+
+====================================================================================================
+ E26  All PKIs in one trust kit, Author / Company / Email everywhere (4.9.5)
+====================================================================================================
+ [ ] .\New-PkiTrustKit.ps1 -All -AllReleases (with R1, R2 and NoCR-R1 built): one run folder, zips named ...-pki-agantra-all-..., one .certpacked per PKI inside every zip; the
+     console lists every PKI. -AllReleases together with -Release / -PkiRoot / -NoCaRevocationInfo = error.
+ [ ] Windows: one run of Install-PkiCa.ps1 installs the roots and intermediates of ALL PKIs; the read-back says all N certificates are in the store; only the zip stays.
+ [ ] Ubuntu / RHEL / SUSE: install-pki-ca.sh opens every .certpacked (pki/<package>/), one file per root in the anchors folder (pki-agantra-r1-..., -r2-..., -nocr-r1-...), read-back OK.
+ [ ] Every text file generated by the scripts starts with Author / Company / Email: README.txt, PASSWORD.txt, SHA256SUMS (# lines), server\server.env / ca-list.tsv / DNS-RECORDS.txt,
+     server-info.json (keys author / company / email), REVOCATION-INFO.txt, devkit.env, START-HERE.txt, convert-formats.ps1, tls-guidance.txt, the OpenSSL .cnf files,
+     the files that pki-server.sh writes (nginx conf, systemd units, hosts.txt, dnsmasq.conf). Exceptions: PEM / .crt, index.txt, certpack.tsv, JSON arrays, csv.
+ [ ] -Help of every ps1 and --help of every sh shows Author, Company and Email.
+
+====================================================================================================
+ E25  Trust kits (4.9.5)
+====================================================================================================
+ [ ] .\New-PkiTrustKit.ps1 -All: a new folder transport\pki-trust-<name>-<unique>-<date>-<time>\ with windows- / ubuntu- / redhat- / suse-pki-... .zip, PASSWORD.txt, README.txt; no key in any zip.
+ [ ] Windows (administrator window): roots in Trusted Root Certification Authorities, intermediates in Intermediate Certification Authorities (certlm.msc); normal window: the same in certmgr.msc; running it again with a newer PKI replaces the old; afterwards only the zip is left.
+ [ ] Windows PowerShell 5.1 and PowerShell 7 both run it; -Check changes nothing; a wrong password stops with exit 3.
+ [ ] Ubuntu / RHEL / SUSE: the roots are in the system store (curl --cacert not needed); the zip and pki/ stay; -Firefox sets the profile (close Firefox first).
 
 ====================================================================================================
  E24  Server kit inside the DevKit (4.9.5)

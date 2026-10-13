@@ -75,9 +75,10 @@ function Show-DevEnvHelp {
     @'
 ============================================================
  Install-DevEnvironment.ps1 - Windows 11 developer bootstrap
- Version 4.9
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
 ============================================================
  Manual : docs\Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling: Install-DevEnvironment.sh
 
@@ -109,9 +110,21 @@ OPENSSL
   activates the default and FIPS providers. The PKI scripts ignore OPENSSL_CONF (they use their own configuration).
 
 EXIT CODES   0 ok   1 error (for example not elevated)   4 OpenSSL not ready
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 if ($Help) { Show-DevEnvHelp; exit 0 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
 
 # UNBLOCK + UNLOCK of this script's folder, children and recursive, BEFORE anything else (Windows PowerShell 5.1 safe).
 function Invoke-BootstrapUnlock {

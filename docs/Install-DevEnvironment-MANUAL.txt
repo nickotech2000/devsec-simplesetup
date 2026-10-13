@@ -301,3 +301,5 @@ LIMITATIONS
  pki_setup.ps1 (the CA machine) still needs OpenSSL 4.x: Windows - Install-DevEnvironment.ps1; Linux - --openssl-source ppa or build.
  NOT TESTED here: add-apt-repository on the PPA and the real installation of the two PPA packages (no Launchpad access in the sandbox). Tested: --check,
  --dry-run of every source, the version / readiness logic on Ubuntu 24.04 (OpenSSL 3.0.13), the syntax, the exit codes.
+
+5.0.0: Install-DevEnvironment.ps1 / .sh check the OS like every script (PkiProfiles-MANUAL.txt section 6): Windows 11 24H2+, Server 2025 / 2022; Linux list of the .sh scripts.

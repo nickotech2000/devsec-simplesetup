@@ -50,7 +50,7 @@ function Write-PkiTelemetryFile {
         if ([string]::IsNullOrWhiteSpace($dir)) { return }
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $path = Join-Path $dir 'telemetry.json'
-        $script:PkiTelemetry | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $path -Encoding utf8NoBOM
+        Write-Utf8NoBom -Path $path -Content ($script:PkiTelemetry | ConvertTo-Json -Depth 10)
         $script:PkiTelemetryPath = $path
     }
     catch {
@@ -124,8 +124,46 @@ function Ensure-PkiDirectory {
     }
 }
 
+# Author / company / e-mail that every text file written by these scripts carries (the user asked for it in every generated file).
+$script:PkiAuthorName  = 'Nicko Satria Utama'
+$script:PkiCompanyName = 'Agantra Inovatif OU (NextMantra)'
+$script:PkiAuthorEmail = 'nicko@nextmantra.com'
+
+# Adds the Author / Company / Email block to the text of a file, in the comment style of the file type:
+#   .txt .md .env .cnf .conf .tsv(ca-list, expected-urls only)  -> block of lines (# for machine-read types)
+#   .json (a JSON object)                                       -> keys "author", "company", "email" at the top
+# Other types (PEM / .crt, index.txt, serial, certpack.tsv, JSON arrays, binary) are left alone, because their readers do not allow comments.
+function Add-PkiTextHeader {
+    param([Parameter(Mandatory)][string]$Path, [AllowEmptyString()][string]$Content)
+    if ([string]::IsNullOrWhiteSpace($Content) -or $Content.Contains($script:PkiAuthorEmail)) { return $Content }
+    $name = [System.IO.Path]::GetFileName($Path).ToLowerInvariant()
+    $ext  = [System.IO.Path]::GetExtension($name)
+    $lines = @("Author : $($script:PkiAuthorName)", "Company: $($script:PkiCompanyName)", "Email  : $($script:PkiAuthorEmail)")
+    if ($name -eq 'sha256sums') { return ('# ' + ($lines -join "`n# ") + "`n" + $Content) }   # sha256sum -c ignores # lines
+    switch ($ext) {
+        { $_ -in '.txt', '.md' } {
+            if ($name -eq 'index.txt') { return $Content }
+            $bar = '=' * 60
+            return ($bar + "`n " + ($lines -join "`n ") + "`n" + $bar + "`n`n" + $Content)
+        }
+        { $_ -in '.env', '.cnf', '.conf' } { return ('# ' + ($lines -join "`n# ") + "`n" + $Content) }
+        '.tsv' {
+            if ($name -notin 'ca-list.tsv', 'expected-urls.tsv') { return $Content }
+            return ('# ' + ($lines -join "`n# ") + "`n" + $Content)
+        }
+        '.json' {
+            $t = $Content.TrimStart()
+            if (-not $t.StartsWith('{') -or $t -match '^\{\s*\}') { return $Content }
+            $kv = '"author": "' + $script:PkiAuthorName + '", "company": "' + $script:PkiCompanyName + '", "email": "' + $script:PkiAuthorEmail + '",'
+            return ('{' + "`n  " + $kv + $t.Substring(1))
+        }
+        default { return $Content }
+    }
+}
+
 function Write-Utf8NoBom {
     param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Content)
+    $Content = Add-PkiTextHeader -Path $Path -Content $Content
     [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
 }
 

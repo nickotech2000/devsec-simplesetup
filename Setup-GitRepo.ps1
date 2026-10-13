@@ -28,7 +28,7 @@ if ($Help) {
 @'
 ============================================================
  Setup-GitRepo.ps1 - make the private GitHub repository clone-and-run on Ubuntu / WSL
- Version 4.9.5-phaseC     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.0.0     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
 WHY
   Windows git does not know the Unix execute bit: a new .sh is stored with mode 100644 and a Linux clone gets files that cannot be
@@ -62,9 +62,21 @@ AFTER "git clone" ON LINUX / WSL
 
 The PKI itself (pki\, leafcerts\, *.key) is in .gitignore: it never goes to GitHub. Use New-PkiServerPackage.ps1 to move the PKI.
 ============================================================
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@ | Write-Host
     exit 0
 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
 
 function Write-Msg { param([string]$T, [string]$L = 'INFO') $c = switch ($L) { 'OK' { 'Green' } 'WARN' { 'Yellow' } 'ERROR' { 'Red' } default { 'Cyan' } }; Write-Host "[$L] $T" -ForegroundColor $c }
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-Msg 'git was not found in PATH.' 'ERROR'; exit 1 }

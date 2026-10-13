@@ -7,7 +7,31 @@
 # ============================================================
 # Install-PkiTrust.sh - DevKit, Linux / Ubuntu: unpack the .certpacked of this kit into the kit folder and put the whole PKI
 # (every root and intermediate CA) in the system certificate store. A wrapper over pki-transport.sh (same folder).
-VERSION="4.9.5-phaseC"
+# ---- Platform gate (5.0.0): Linux only (VM, bare metal or WSL). Accepted: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+,
+#      SUSE Linux Enterprise (SLES / SLED) 15+, openSUSE Leap 15+ / Tumbleweed. Everything else: error, exit 5, nothing is done.  (-h / --help work everywhere.)
+if [ -z "${PKI_GATE_DONE:-}" ]; then
+  case "${1:-}" in -h|--help|-help|--Help|help) : ;; *)
+    __osrel="${PKI_OS_RELEASE_FILE:-/etc/os-release}"; __id=""; __ver=""; __pretty=""
+    if [ -r "$__osrel" ]; then __id="$(. "$__osrel"; echo "${ID:-}")"; __ver="$(. "$__osrel"; echo "${VERSION_ID:-}")"; __pretty="$(. "$__osrel"; echo "${PRETTY_NAME:-${NAME:-}}")"; fi
+    __maj="${__ver%%.*}"; case "$__maj" in ''|*[!0-9]*) __maj=0 ;; esac
+    __ok=0
+    case "$__id" in
+      ubuntu) [ "$__maj" -ge 24 ] && __ok=1 ;;
+      centos|rhel|rocky|ol) [ "$__maj" -ge 10 ] && __ok=1 ;;
+      sles|sles_sap|sled|opensuse-leap) [ "$__maj" -ge 15 ] && __ok=1 ;;
+      opensuse-tumbleweed) __ok=1 ;;
+    esac
+    [ "$(uname -s 2>/dev/null)" = Linux ] || __ok=0
+    if [ "$__ok" != 1 ]; then
+      echo "[ERROR] This system is '${__pretty:-$(uname -s 2>/dev/null)}' (ID=${__id:-?} VERSION_ID=${__ver:-?}): NOT supported. Nothing was done." >&2
+      echo "        Supported: Linux on a VM, bare metal or WSL - Ubuntu 24.04 / 26.04 or newer; CentOS Stream 10+; RHEL 10+; Rocky Linux 10+; Oracle Linux 10+;" >&2
+      echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
+      exit 5
+    fi
+    export PKI_GATE_DONE=1 ;;
+  esac
+fi
+VERSION="5.0.0"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TAB="$(printf '\t')"
 
@@ -15,11 +39,12 @@ usage() {
 cat <<'EOF'
 ============================================================
  Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
+ Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
  Manual : docs/DevKit-MANUAL.txt     Windows twin: Install-PkiTrust.ps1
 
 USAGE   (run as your normal user: the script asks sudo only for the system store and for missing packages)

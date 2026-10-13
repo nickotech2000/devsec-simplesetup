@@ -8,12 +8,12 @@
 <#
 .SYNOPSIS
     Carries the Agantra Inovatif Enterprise PKI to other machines as a password-protected ".certpacked" file
-    (SOURCE: -Pack) and, on a Windows 11 25H2 or newer destination, unpacks it and installs the trust (-Install).
+    (SOURCE: -Pack) and, on a Windows 11 24H2 or newer (Windows Server 2025 / 2022) destination, unpacks it and installs the trust (-Install).
 
 .DESCRIPTION
     A .certpacked file is a zip or 7z archive with a password under another name.
     -Pack     makes it from the pki folder (and, if you say so, the leafcerts folder).
-    -Install  DESTINATION, Windows 11 25H2 or newer only: scans the machine (Windows version, OpenSSL 4.0.1+),
+    -Install  DESTINATION, Windows 11 24H2 or newer (Windows Server 2025 / 2022) only: scans the machine (Windows version, OpenSSL 4.0.1+),
               and only when the scan passes unpacks the package and installs the CAs in the Windows stores.
     -DevKit   SOURCE: ONE zip (or 7z) for the developers: the .certpacked (CA certificates + the keys of the ISSUING CAs, no root key),
               Install-PkiTrust.ps1 / .sh, the leaf / person / Office 365 generators and SignCsr as .ps1 and .sh, Make-ShExecutable.ps1 /
@@ -44,6 +44,8 @@
 #>
 # No [CmdletBinding()]: it would reserve short aliases of common parameters. -Verbose is declared below.
 param(
+    # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
+    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     # ---- what to do ----
     [switch]$Pack,
     [switch]$DevKit,
@@ -108,7 +110,7 @@ function Show-PkiTransportHelp {
     @'
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -126,13 +128,13 @@ WHAT IT DOES
   -TimestampServer SOURCE. ONE zip for a TIME STAMP server only (RFC 3161) on Ubuntu 24.04 / 26.04 (install --tsa-only). No key inside.
   -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp server: pki-server.sh + the PKI without private keys
              (the CA keys NEVER go there) + the server\ files of the PKI. No password: the package holds nothing secret. See SERVER.
-  -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes it unpacks the
+  -Install   DESTINATION. Windows 11 24H2 or newer, Windows Server 2025 / 2022. Scans the machine; only if the scan passes it unpacks the
              package and installs the CA certificates in the Windows certificate stores.
   -Check     DESTINATION. The scan only (nothing is changed): READY or NOT READY.
   -List      Shows what is inside a package.
   -RemoveTrust  Removes the CA certificates of a package from the Windows stores (elevated).
   The three scripts of the transport:
-      PkiTransport.ps1           pack (source) and install (Windows 11 25H2+)          this script
+      PkiTransport.ps1           pack (source) and install (Windows 11 24H2+ / Server 2025 / 2022)          this script
       Unpack-PkiTransport.ps1    destination, UNPACK ONLY (any machine with PowerShell 7)
       pki-transport.sh           Linux and macOS: unpack and install the trust in the system store
 
@@ -218,10 +220,10 @@ DEVKIT  (source: one zip for the developers)
   -Out <file>   -GeneratePassword / -PackagePassword   as for -Pack.   Manual: docs\DevKit-MANUAL.txt
   Certificates issued from a DevKit copy are NOT in the CRL / OCSP database of the master PKI (see the manual).
 
-INSTALL  (destination: Windows 11 25H2 or newer)
+INSTALL  (destination: Windows 11 24H2 or newer (Windows Server 2025 / 2022))
   .\PkiTransport.ps1 -Install -Package .\dev.certpacked
-  1. SCAN. Windows 11 client, version 25H2 (build 26200) or newer. Windows 11 24H2 and older, Windows 10, 8.1, 7, Windows
-     Server and everything else are NOT supported: the script says why and stops (exit code 2).
+  1. SCAN. Windows 11 24H2 (build 26100) or newer, Windows Server 2025, Windows Server 2022 (classic certificates only). Windows 10 and
+     older, Windows 11 before 24H2, Windows Server before 2022 and specialised editions are NOT supported: the script says why and stops (exit code 2/5).
      OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: it is INSTALLED when you agree (or give -InstallMissing) with
      Install-DevEnvironment.ps1; otherwise the script stops (exit code 4). -SkipOpenSslCheck continues anyway.
      Elevated PowerShell (administrator).
@@ -259,10 +261,31 @@ LIMITATIONS
     zip engine of this script has no external process.
   * Not tested here on Windows: -Install, -RemoveTrust (the Windows stores, administrator check, Windows scan of a real
     machine). The rest is tested on Linux with OpenSSL 4.0.3 and the real 7-Zip.
+
+WHICH PKI  (-Pki, 5.0.0)
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
+                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
+                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+
+WHERE IT RUNS  (5.0.0)
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
+  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 
 if ($Help) { Show-PkiTransportHelp; exit 0 }
+
+# Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
+$__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
+if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
+. $__pf; Assert-PkiPlatform
+. (Join-Path $PSScriptRoot 'scripts/00b_Profiles.ps1')
+# defaults from pki_tools.cnf [ transport ] (only when the parameter was not given on the command line)
+if (-not $PSBoundParameters.ContainsKey('ArchiveFormat')) { $ArchiveFormat = (Get-PkiToolSetting -Section 'transport' -Key 'ArchiveFormat' -Default 'zip').ToLowerInvariant() }
+if (-not $PSBoundParameters.ContainsKey('ZipEncryption')) { $ZipEncryption = Get-PkiToolSetting -Section 'transport' -Key 'ZipEncryption' -Default 'Aes256' }
 
 Write-Host '============================================================'
 Write-Host 'Author : Nicko Satria Utama'
@@ -309,12 +332,13 @@ try {
         if ($Pack -or $DevKit -or $Install -or $Check -or $List -or $RemoveTrust -or $Unblock) { throw "$what cannot be combined with another mode." }
         $np = Join-Path $script:ScriptRoot 'New-PkiServerPackage.ps1'
         if (-not (Test-Path -LiteralPath $np)) { throw "New-PkiServerPackage.ps1 not found next to this script: $np" }
-        $outZip = if ($Out) { $Out } else { Join-Path (Join-Path $script:ScriptRoot 'transport') ("{0}-{1}.zip" -f $(if ($CrlServer) { 'agantra-pki-crl-server' } elseif ($CrlOcspServer) { 'agantra-pki-crl-ocsp-server' } elseif ($TimestampServer) { 'agantra-pki-timestamp-server' } else { 'agantra-pki-server' }), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+        $outZip = if ($Out) { $Out } else { Join-Path (Get-PkiTransportFolder -Root $script:ScriptRoot) ("{0}-{1}.zip" -f $(if ($CrlServer) { "$(Get-PkiFileStem -Name $PkiProfile)-crl-server" } elseif ($CrlOcspServer) { "$(Get-PkiFileStem -Name $PkiProfile)-crl-ocsp-server" } elseif ($TimestampServer) { "$(Get-PkiFileStem -Name $PkiProfile)-timestamp-server" } else { "$(Get-PkiFileStem -Name $PkiProfile)-server" }), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
         if ([System.IO.Path]::GetExtension($outZip).ToLowerInvariant() -ne '.zip') { $outZip += '.zip' }
         $outZip = [System.IO.Path]::GetFullPath($outZip)
         $na = @('-NoProfile', '-File', $np, '-Output', $outZip)
         if ($PkiRoot) { $na += @('-PkiRoot', $PkiRoot) }
         if ($Release -gt 0) { $na += @('-Release', [string]$Release) }
+        if ($PkiProfile) { $na += @('-PkiProfile', $PkiProfile) }
         if ($NoCaRevocationInfo) { $na += '-NoCaRevocationInfo' }
         if ($CrlServer) { $na += '-CrlOnly' }
         if ($CrlOcspServer) { $na += '-NoTsa' }
@@ -382,7 +406,7 @@ try {
         }
         if (-not $DevKitNoKeys) { Write-PkiLog 'The DevKit will contain the PRIVATE KEYS OF THE ISSUING (intermediate) CAs (inside the encrypted .certpacked). No root key. Whoever opens it can issue certificates your clients trust, until you revoke the intermediates.' 'WARN' }
         $pw = & $getPassword $true
-        $kitFile = if ($Out) { $Out } else { Join-Path (Join-Path $script:ScriptRoot 'transport') ("agantra-pki-devkit-{0}" -f (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+        $kitFile = if ($Out) { $Out } else { Join-Path (Get-PkiTransportFolder -Root $script:ScriptRoot) ("{0}-devkit-{1}" -f (Get-PkiFileStem -Name $PkiProfile), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
         $want = if ($KitArchiveFormat -eq '7z') { '.7z' } else { '.zip' }
         $ext = [System.IO.Path]::GetExtension($kitFile)
         if ($ext -ne $want) { $kitFile = $(if ($ext -in '.zip', '.7z', '.certpacked') { [System.IO.Path]::ChangeExtension($kitFile, $want) } else { $kitFile + $want }) }
@@ -426,7 +450,7 @@ try {
         if ($IncludeCaKeys) { Write-PkiLog "The package will contain the WHOLE PKI of $($c.PkiRoot) WITH THE CA PRIVATE KEYS: whoever opens it can issue certificates your clients trust." 'WARN' }
 
         $pw = & $getPassword $true
-        $name = if ($Out) { $Out } else { Join-Path (Join-Path $script:ScriptRoot 'transport') ("agantra-pki-{0}.certpacked" -f (Get-Date -Format 'yyyyMMdd-HHmmss')) }
+        $name = if ($Out) { $Out } else { Join-Path (Get-PkiTransportFolder -Root $script:ScriptRoot) ("{0}-{1}.certpacked" -f (Get-PkiFileStem -Name $PkiProfile), (Get-Date -Format 'yyyyMMdd-HHmmss')) }
         $ext = [System.IO.Path]::GetExtension($name)
         if ($ext -in '.zip', '.7z') { Write-PkiLog "The extension $ext is changed to .certpacked (the package is not meant to look like an archive)." 'WARN'; $name = [System.IO.Path]::ChangeExtension($name, '.certpacked') }
         elseif ($ext -ne '.certpacked') { $name = $name + '.certpacked' }
@@ -458,7 +482,7 @@ try {
             Write-Host ("  Kit         : {0}   ({1} files: the transport scripts, Install-DevEnvironment.ps1 / .sh, the modules, the manuals)" -f $kitDir, $kf.Count)
         }
         Write-Host ''
-        Write-PkiLog 'Next: copy the .certpacked (and the kit) to the destination.  Windows 11 25H2+: .\PkiTransport.ps1 -Install -Package <file>   Linux / macOS: ./linux/pki-transport.sh --package <file>' 'INFO'
+        Write-PkiLog 'Next: copy the .certpacked (and the kit) to the destination.  Windows 11 24H2+ / Server 2025 / 2022: .\PkiTransport.ps1 -Install -Package <file>   Linux / macOS: ./linux/pki-transport.sh --package <file>' 'INFO'
         exit 0
     }
 

@@ -6,15 +6,17 @@
 # ============================================================
 # 01c_Releases.ps1  -  RELEASES (R2, R3 ...) and the NoCR variant of the PKI
 #
-# EVERY PKI LIVES INSIDE THE FOLDER  pki  next to the scripts. Several PKIs can exist side by side, one subfolder each:
+# EVERY PKI LIVES INSIDE THE FOLDER  pki  next to the scripts (name: pki_tools.cnf [ general ] PkiFolder). Several PKIs can exist side by side,
+# one subfolder each. Since 5.0.0 the folder name carries the PROFILE (company):
 #
-#     pki\R1           release 1, CA certificates WITH revocation information
-#     pki\R2           release 2
-#     pki\NoCR-R1      release 1 of the NoCR variant: CA certificates WITHOUT revocation information (-NoCaRevocationInfo)
-#     pki\NoCR-R2      release 2 of that variant
+#     pki\pki-default-01        release 1 of the default profile (agantra), CA certificates WITH revocation information
+#     pki\pki-default-02        release 2
+#     pki\pki-default-nocr-01   release 1 of the NoCR variant: CA certificates WITHOUT revocation information (-NoCaRevocationInfo)
+#     pki\pki-raksaka-01        release 1 of the profile "raksaka" (raksaka_pki.cnf, made by New-PkiConfig.ps1)
+#     pki\pki-raksaka-nocr-01   ...
 #
-# (A PKI made by an older version sits directly in pki\ (pki\root, pki\classical ...): it counts as release 1 of the normal
-#  family, or as the release / variant written in its pki-manifest.json, and keeps working. -PkiRoot pki\R2 points at one PKI.)
+# (PKIs made before 5.0.0 - pki\R1, pki\R2, pki\NoCR-R1 or directly in pki\ (pki\root, pki\classical ...) - belong to the default profile
+#  and keep working: release / variant from the folder name or from pki-manifest.json. -PkiRoot <folder> points at one PKI.)
 #
 # Release 1 has no suffix in any name. From release 2 every CA common name ends in " R2", " R3" ...
 # The NoCR variant adds " (NoCR)":   Agantra Root CA G1 (NoCR) R2
@@ -30,8 +32,8 @@
 #   (nothing)           the latest release.
 #   -NoCaRevocationInfo the NoCR family. Without it the normal family; when only a NoCR family exists, that one.
 #
-# Provides : Get-PkiContainer, Get-PkiFolderName, Get-PkiFolderInfo, Get-PkiInstalledPkis, Resolve-PkiRootChoice
-# Requires : 00_Common (Write-PkiLog)
+# Provides : Get-PkiContainer, Get-PkiFolderName, Test-PkiFolderName, Get-PkiFolderInfo, Get-PkiInstalledPkis, Resolve-PkiRootChoice
+# Requires : 00_Common (Write-PkiLog), 00b_Profiles
 # ============================================================
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -39,14 +41,21 @@ $ErrorActionPreference = 'Stop'
 function Get-PkiContainer {
     # <script folder>\pki : the folder that holds every PKI
     param([Parameter(Mandatory)][string]$ScriptRoot)
-    return (Join-Path $ScriptRoot 'pki')
+    return (Join-Path $ScriptRoot (Get-PkiToolSetting -Section 'general' -Key 'PkiFolder' -Default 'pki'))
+}
+
+# the names of the release folders: pki-<token>-NN | pki-<token>-nocr-NN   (5.0.0)   and the old R1 | NoCR-R1
+$script:PkiFolderNameRegex = '^(?i)(?:pki-(?<tok>[a-z][a-z0-9]*)-(?<nocr>nocr-)?(?<rel>\d{2,})|(?<onocr>NoCR-)?R(?<orel>\d+))$'
+function Test-PkiFolderName {
+    param([Parameter(Mandatory)][string]$Name)
+    return ($Name -match $script:PkiFolderNameRegex)
 }
 
 function Get-PkiFolderName {
-    # R1 | R2 | NoCR-R1 | NoCR-R2   (the subfolder of pki\)
-    param([bool]$NoCr, [int]$Release = 1)
+    # pki-default-01 | pki-default-nocr-02 | pki-raksaka-01 ...   (the subfolder of pki\)
+    param([bool]$NoCr, [int]$Release = 1, [string]$Profile = 'agantra')
     if ($Release -lt 1) { $Release = 1 }
-    return ($(if ($NoCr) { 'NoCR-' } else { '' }) + "R$Release")
+    return ('pki-{0}-{1}{2:00}' -f (Get-PkiFolderToken -Profile $Profile), $(if ($NoCr) { 'nocr-' } else { '' }), $Release)
 }
 
 function Get-PkiFolderInfo {
@@ -54,8 +63,11 @@ function Get-PkiFolderInfo {
     param([Parameter(Mandatory)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Container)) { return $null }
     $name = Split-Path -Leaf ($Path.TrimEnd('\', '/'))
-    $nocr = $false; $rel = 1
-    if ($name -match '^(?i)(?<nocr>NoCR-)?R(?<rel>\d+)$') { $nocr = ($Matches['nocr'] -ne ''); $rel = [int]$Matches['rel'] }
+    $nocr = $false; $rel = 1; $profile = 'agantra'
+    if ($name -match $script:PkiFolderNameRegex) {
+        if ($Matches['tok']) { $profile = Get-PkiProfileFromToken -Token $Matches['tok']; $nocr = ($Matches['nocr'] -ne ''); $rel = [int]$Matches['rel'] }
+        else { $nocr = ($Matches['onocr'] -ne ''); $rel = [int]$Matches['orel'] }
+    }
     $mp = Join-Path $Path 'pki-manifest.json'
     $has = (Test-Path -LiteralPath $mp) -or (Test-Path -LiteralPath (Join-Path (Join-Path $Path 'root') 'root.crt'))
     if (-not $has) { return $null }
@@ -64,11 +76,12 @@ function Get-PkiFolderInfo {
             $m = Get-Content -LiteralPath $mp -Raw | ConvertFrom-Json -AsHashtable
             if ($m.ContainsKey('release') -and [int]$m['release'] -gt 0) { $rel = [int]$m['release'] }
             if ($m.ContainsKey('noCaRevocationInfo')) { $nocr = [bool]$m['noCaRevocationInfo'] }
+            if ($m.ContainsKey('profile') -and -not [string]::IsNullOrWhiteSpace([string]$m['profile'])) { $profile = ([string]$m['profile']).ToLowerInvariant() }
         }
         catch { }
     }
     return [pscustomobject]@{
-        Path = $Path; Name = $name; Release = $rel; NoCr = $nocr
+        Path = $Path; Name = $name; Release = $rel; NoCr = $nocr; Profile = $profile
         Variant = $(if ($nocr) { 'NoCR' } else { 'normal' })
         Label = $(if ($nocr) { "NoCR R$rel" } else { "R$rel" })
     }
@@ -77,22 +90,25 @@ function Get-PkiFolderInfo {
 function Get-PkiInstalledPkis {
     <#
     .SYNOPSIS
-        The PKIs found in <script folder>\pki: the subfolders R1, R2, NoCR-R1 ... that hold a PKI, and an old flat PKI in pki\ itself.
+        The PKIs found in <script folder>\pki: the subfolders pki-default-01, pki-raksaka-01, pki-default-nocr-01 ... (and the old R1, NoCR-R1 ...) that
+        hold a PKI, and an old flat PKI in pki\ itself. -Profile <short> = only that company's PKIs (default: all profiles).
     .OUTPUTS
-        objects with Path, Name, Release, NoCr, Variant ('normal' | 'NoCR'), Label ('R1', 'NoCR R2' ...), sorted by variant then release.
+        objects with Path, Name, Release, NoCr, Profile, Variant ('normal' | 'NoCR'), Label ('R1', 'NoCR R2' ...), sorted by profile, variant, release.
     #>
-    param([Parameter(Mandatory)][string]$ScriptRoot)
+    param([Parameter(Mandatory)][string]$ScriptRoot, [string]$Profile)
     $list = [System.Collections.Generic.List[object]]::new()
     $container = Get-PkiContainer -ScriptRoot $ScriptRoot
     if (-not (Test-Path -LiteralPath $container -PathType Container)) { return @() }
     $flat = Get-PkiFolderInfo -Path $container
     if ($null -ne $flat) { $flat.Name = 'pki (old layout)'; [void]$list.Add($flat) }
     foreach ($d in Get-ChildItem -LiteralPath $container -Directory -Force -ErrorAction SilentlyContinue) {
-        if ($d.Name -notmatch '^(?i)(NoCR-)?R\d+$') { continue }
+        if (-not (Test-PkiFolderName -Name $d.Name)) { continue }
         $i = Get-PkiFolderInfo -Path $d.FullName
         if ($null -ne $i) { [void]$list.Add($i) }
     }
-    return @($list | Sort-Object @{ Expression = { $_.NoCr } }, Release)
+    $res = @($list | Sort-Object Profile, @{ Expression = { $_.NoCr } }, Release)
+    if (-not [string]::IsNullOrWhiteSpace($Profile)) { $res = @($res | Where-Object { $_.Profile -eq $Profile.ToLowerInvariant() }) }
+    return $res
 }
 
 function Resolve-PkiRootChoice {
@@ -117,16 +133,18 @@ function Resolve-PkiRootChoice {
         [bool]$NewRelease = $false,
         [bool]$AutoNew = $false,           # Generate: no release asked and none of -Clean ...: take the next free number when this variant already exists
         [bool]$CheckStore = $false,        # Generate: the Windows certificate stores count as "existing" too
+        [string]$Profile = 'agantra',      # the company profile (5.0.0): only its PKIs are looked at, new folders are named pki-<profile>-NN
         [ValidateSet('Use', 'Exact', 'Strict', 'Generate')][string]$Mode = 'Use'
     )
-    $all = @(Get-PkiInstalledPkis -ScriptRoot $ScriptRoot)
+    $Profile = $Profile.ToLowerInvariant()
+    $all = @(Get-PkiInstalledPkis -ScriptRoot $ScriptRoot -Profile $Profile)
 
     if ($Mode -eq 'Generate') {
         # Which release numbers are taken: the folders pki\R<n> / pki\NoCR-R<n> AND (on Windows) the CA certificates in LocalMachine Root / CA.
         $folderRels = @($all | Where-Object { $_.NoCr -eq $NoCr } | ForEach-Object { [int]$_.Release })
         $storeRels = @()
         if ($CheckStore) {
-            try { $storeRels = @(Get-PkiStoreReleases | Where-Object { $_.NoCr -eq $NoCr } | ForEach-Object { [int]$_.Release }) } catch { $storeRels = @() }
+            try { $storeRels = @(Get-PkiStoreReleases -Profile $Profile | Where-Object { $_.NoCr -eq $NoCr } | ForEach-Object { [int]$_.Release }) } catch { $storeRels = @() }
         }
         $known = @($folderRels + $storeRels | Sort-Object -Unique)
         $rel = if ($Release -gt 0) { $Release } else { 1 }
@@ -137,7 +155,7 @@ function Resolve-PkiRootChoice {
         }
         $old = $all | Where-Object { $_.Name -eq 'pki (old layout)' -and $_.NoCr -eq $NoCr -and $_.Release -eq $rel } | Select-Object -First 1
         if ($null -ne $old -and -not $NewRelease) { return [pscustomobject]@{ Path = $old.Path; Name = $old.Name; Release = $rel; NoCr = $NoCr; Exists = $true; FolderExists = $true; StoreExists = ($storeRels -contains $rel); AutoNew = $auto; Fallback = $false } }
-        $p = Join-Path (Get-PkiContainer -ScriptRoot $ScriptRoot) (Get-PkiFolderName -NoCr $NoCr -Release $rel)
+        $p = Join-Path (Get-PkiContainer -ScriptRoot $ScriptRoot) (Get-PkiFolderName -NoCr $NoCr -Release $rel -Profile $Profile)
         $fe = (Test-Path -LiteralPath $p)
         return [pscustomobject]@{ Path = $p; Name = (Split-Path -Leaf $p); Release = $rel; NoCr = $NoCr; Exists = $fe; FolderExists = $fe; StoreExists = ($storeRels -contains $rel); AutoNew = $auto; Fallback = $false }
     }
@@ -155,7 +173,7 @@ function Resolve-PkiRootChoice {
 
     if ($fam.Count -eq 0) {
         $rel = if ($Release -gt 0) { $Release } else { 1 }
-        $p = Join-Path (Get-PkiContainer -ScriptRoot $ScriptRoot) (Get-PkiFolderName -NoCr $useNoCr -Release $rel)
+        $p = Join-Path (Get-PkiContainer -ScriptRoot $ScriptRoot) (Get-PkiFolderName -NoCr $useNoCr -Release $rel -Profile $Profile)
         return [pscustomobject]@{ Path = $p; Name = (Split-Path -Leaf $p); Release = $rel; NoCr = $useNoCr; Exists = $false; Fallback = $false }
     }
     $latest = $fam | Sort-Object Release -Descending | Select-Object -First 1
@@ -172,6 +190,31 @@ function Resolve-PkiRootChoice {
         Write-PkiLog "Release R$Release of the $famName PKI does not exist here (deleted?). Using the latest release, R$($latest.Release) ($($latest.Name))." 'WARN'
         return [pscustomobject]@{ Path = $latest.Path; Name = $latest.Name; Release = $latest.Release; NoCr = $latest.NoCr; Exists = $true; Fallback = $true }
     }
-    $p = Join-Path (Get-PkiContainer -ScriptRoot $ScriptRoot) (Get-PkiFolderName -NoCr $useNoCr -Release $Release)
+    $p = Join-Path (Get-PkiContainer -ScriptRoot $ScriptRoot) (Get-PkiFolderName -NoCr $useNoCr -Release $Release -Profile $Profile)
     return [pscustomobject]@{ Path = $p; Name = (Split-Path -Leaf $p); Release = $Release; NoCr = $useNoCr; Exists = $false; Fallback = $false }
+}
+
+function Show-PkiList {
+    <#
+    .SYNOPSIS
+        -ListPki: the PKIs (companies) that can be used with  -Pki <name>  and the PKI folders (releases) that were built for each.
+        The name in the first column is the value for -Pki on pki_setup, the leaf / transport / sign scripts and pki_remove.
+    #>
+    param([Parameter(Mandatory)][string]$ScriptRoot)
+    $profiles = @(Get-PkiProfileList -ScriptRoot $ScriptRoot)
+    $built = @(Get-PkiInstalledPkis -ScriptRoot $ScriptRoot)
+    Write-Host ''
+    Write-Host 'PKIs (use the name with  -Pki <name>)' -ForegroundColor Cyan
+    if ($profiles.Count -eq 0) { Write-Host '  (no <name>_pki.cnf found next to the scripts)' }
+    foreach ($p in $profiles) {
+        $mine = @($built | Where-Object { $_.Profile -eq $p.Name })
+        Write-Host ('  {0,-14} {1}{2}' -f $p.Name, $p.Organization, $(if ($p.IsDefault) { '   (default)' } else { '' })) -ForegroundColor White
+        Write-Host ('  {0,-14} configuration: {1}   folder word: {2}' -f '', (Split-Path -Leaf $p.ConfigPath), $p.Token)
+        if ($mine.Count -eq 0) { Write-Host ('  {0,-14} not built yet:  .\pki_setup.ps1 -Pki {1} -InstallTrust' -f '', $p.Name) }
+        foreach ($b in $mine) { Write-Host ('  {0,-14} {1,-22} {2}' -f '', $b.Name, $b.Label) }
+    }
+    $orphans = @($built | Where-Object { $profiles.Name -notcontains $_.Profile })
+    foreach ($b in $orphans) { Write-Host ('  [WARN] folder {0} belongs to the PKI "{1}" but {1}_pki.cnf is missing.' -f $b.Name, $b.Profile) -ForegroundColor Yellow }
+    Write-Host ''
+    Write-Host 'New company: .\New-PkiConfig.ps1      Folders: .\pki\pki-default-01 (agantra), .\pki\pki-<name>-01 ...' -ForegroundColor DarkGray
 }

@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 4.9.5-phaseC      Author: Nicko Satria Utama, Agantra Inovatif OU (NextMantra)
+ Version 5.0.0      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -60,7 +60,7 @@
                                Get-PkiFolderName, Get-PkiFolderInfo,
                                Get-PkiInstalledPkis, Resolve-PkiRootChoice
                                (Use | Exact | Strict | Generate). Every PKI is in
-                               pki\R<n> or pki\NoCR-R<n>.
+                               pki\pki-<name>-<NN> or pki\pki-<name>-nocr-<NN>.
  02_OpenSSL.ps1                Find-OpenSSL (newest 4.x of all candidates),     00, 01
                                Initialize-OpenSSL (4.x gate, advice that names
                                Install-DevEnvironment.ps1), Invoke-OpenSSL (always
@@ -203,3 +203,5 @@ NoCR / release words, PQC short label                  agantra_pki.cnf [ ca_name
  Unblock / unlock                                       00_Common.ps1 (Unblock-PkiTree, Unlock-PkiTree)
  Conversion script and TLS guidance text                15_LeafGuidance.ps1
 ====================================================================================================
+
+5.0.0 modules: 00a_Platform.ps1 (Get-PkiPlatformInfo, Assert-PkiPlatform: where the scripts run), 00b_Profiles.ps1 (profiles, Get-PkiToolSetting, pki_tools.cnf, Get-PkiFileStem, Get-PkiTransportFolder). Both are in every module set. 01c_Releases.ps1: profile-aware folders, Show-PkiList. 07_TrustStore.ps1: Remove-PkiProfileTrust, Remove-AllTrust (all companies).

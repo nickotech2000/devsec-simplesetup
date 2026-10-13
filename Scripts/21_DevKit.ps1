@@ -41,6 +41,7 @@ function Write-PkiDevKitEnv {
     [void]$L.Add('# devkit.env - written by PkiTransport.ps1 -DevKit from the configuration of the PKI. Sourced by the *.sh generators.')
     [void]$L.Add("# Made $([DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) UTC on $([Environment]::MachineName). Do not edit by hand: rebuild the DevKit instead.")
     [void]$L.Add("PKI_KIT_VERSION=$(& $q $script:PkiGeneratorVersion)")
+    [void]$L.Add("PKI_PROFILE=$(& $q $c.Profile)")
     [void]$L.Add("ORG_NAME=$(& $q (Get-PkiLeafSubjectValue 'Organization' 'O' 'Agantra Inovatif OU' 'OV'))")
     [void]$L.Add("CPS_URL=$(& $q (Get-PkiCpsUrl -Level 'OV'))")
     [void]$L.Add("CPS_URL_EV=$(& $q (Get-PkiCpsUrl -Level 'EV'))")
@@ -100,11 +101,16 @@ function Copy-PkiDevKitTree {
     Ensure-PkiDirectory -Path $Kit
     # scripts and project files the PowerShell generators and the transport need
     foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'GenerateLeafCertificate.ps1', 'GeneratePersonLeafCertificate.ps1', 'GenerateOffice365LeafCertificate.ps1', 'SignCsr.ps1',
-                   'Install-DevEnvironment.ps1', 'agantra_pki.cnf', '.gitattributes') {
+                   'Install-DevEnvironment.ps1', (Split-Path -Leaf $script:Pki.ConfigPath), '.gitattributes') {
         $src = Join-Path $Root $f
         if (Test-Path -LiteralPath $src -PathType Leaf) { Copy-Item -LiteralPath $src -Destination $Kit -Force }
         elseif ($f -ne '.gitattributes') { throw "DevKit: $src is missing." }
     }
+    # pki_tools.cnf of the kit: the PKI of this kit is its default PKI (the scripts of the kit need no -Pki)
+    $tools = Join-Path $Root 'pki_tools.cnf'
+    $tt = if (Test-Path -LiteralPath $tools) { [System.IO.File]::ReadAllText($tools) } else { "[ general ]`nDefaultPki = agantra`n" }
+    $tt = if ($tt -match '(?im)^\s*DefaultPki\s*=') { [regex]::Replace($tt, '(?im)^(\s*DefaultPki\s*=).*$', "`$1 $($script:Pki.Profile)") } else { "[ general ]`nDefaultPki = $($script:Pki.Profile)`n" + $tt }
+    Write-Utf8NoBom -Path (Join-Path $Kit 'pki_tools.cnf') -Content $tt
     foreach ($f in 'pki-transport.sh', 'Install-DevEnvironment.sh') {
         $src = Get-PkiDevKitSourceFile -Root $Root -Name $f
         if ($null -eq $src) { throw "DevKit: $f is missing." }

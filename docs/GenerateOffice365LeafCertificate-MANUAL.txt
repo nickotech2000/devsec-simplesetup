@@ -1,6 +1,6 @@
 ============================================================
  GenerateOffice365LeafCertificate.ps1 - Microsoft Office / Microsoft 365 DOCUMENT SIGNING certificates
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -64,7 +64,7 @@ CERTIFICATE OPTIONS
   -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
   -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
                        (deleted) is not an error: the latest release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
                        when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
 
 USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
@@ -79,3 +79,5 @@ USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
 DEFAULTS IN agantra_pki.cnf   [ office365 ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  KeyBits  Curve  DnsFromEmail  KeepCase  NoCrl  NoOcsp
 EXIT CODES   0 ok   1 an error or a failed signer
 ============================================================
+
+5.0.0: -Pki <name> chooses the company's PKI (default agantra). Same OS rules as every script: PkiProfiles-MANUAL.txt section 6.

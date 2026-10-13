@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 4.9.5-phaseC          2026-10-11
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 5.0.0          2026-10-13
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: .\GenerateLeafCertificate.ps1 -Help     (the same text as section 13 of this file)
           pki_setup-MANUAL.txt                  (the PKI itself, trust, servers)
@@ -312,7 +312,7 @@
 ====================================================================================================
 ============================================================
  GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 4.9.5-phaseC
+ Version 5.0.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -422,8 +422,9 @@ DEVELOPMENT SAN   (-AddDevelopmentSAN)
              nextmantra.api  *.nextmantra.api  nextmantra.ldap  *.nextmantra.ldap
              agantra.internal  *.agantra.internal  agantra.developer  *.agantra.developer
              agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap                                 (21 names)
-      IP     127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200  172.16.0.1 - 172.16.0.200  (403 in all,
-             every address of both ranges is written)
+      IP     127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200  172.16.0.1 - 172.16.0.200
+             192.168.1.1 - 192.168.1.100  192.168.2.1 - 192.168.2.100  (603 in all,
+             every address of the four ranges is written)
       E-MAIL nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com  airlangga@nextmantra.com
   Where it goes: ServerAuth, ClientAuth, ServerClientAuth (and any certificate with one of them): everything.
   EmailProtection: the e-mail addresses only. CodeSigning, TimeStamping, OcspSigning: nothing (they carry no SAN).
@@ -502,7 +503,7 @@ INFORMATION, UNBLOCK AND UNLOCK
   -PkiRoot <path>      The PKI folder (default: the latest release in .\pki\).
   -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
                        (deleted) is not an error: the latest release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\NoCR-R<n>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
                        when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
   -OpenSslPath <path>  Use this openssl (4.x).        -FipsModuleConfig <path>   fipsmodule.cnf of the FIPS module.
   -Verbose             Show every OpenSSL command.    -Help   This text.
@@ -518,7 +519,7 @@ LIMITATIONS
   * Leaves of version 4.6 are in pki\leafcerts; they are not moved. Files are UTF-8 without BOM, LF endings,
     except convert-formats.ps1 (UTF-8 with BOM, CRLF).
 ====================================================================================================
- 14  WHAT CHANGED IN THIS VERSION  (4.7.0-phaseB)
+ 14  WHAT CHANGED IN THIS VERSION  (4.7.0)
 ====================================================================================================
 
  1. ONE RUN, EVERY PURPOSE: with no -Purpose the script makes a certificate for each of ServerAuth, ClientAuth,
@@ -562,7 +563,8 @@ LIMITATIONS
                  nextmantra.api  *.nextmantra.api  nextmantra.ldap  *.nextmantra.ldap
                  agantra.internal  *.agantra.internal  agantra.developer  *.agantra.developer
                  agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap
-      IP (403)   127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200 (200 addresses)  172.16.0.1 - 172.16.0.200 (200 addresses)
+      IP (603)   127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200 (200 addresses)  172.16.0.1 - 172.16.0.200 (200 addresses)
+                  192.168.1.1 - 192.168.1.100 (100 addresses)  192.168.2.1 - 192.168.2.100 (100 addresses)   [4.9.6: the last two ranges were added]
       E-mail (4) nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com  airlangga@nextmantra.com
  (A wildcard *.nextmantra.com covers ONE label: app.nextmantra.com yes, a.b.nextmantra.com no, nextmantra.com no: hence the separate entries.
  "*.nextmantra,ldap" in the request was read as *.nextmantra.ldap: please check that this is what you meant.)
@@ -581,8 +583,8 @@ LIMITATIONS
                      same list is built in. A bad entry stops the run before anything is written, with the entry in the message.
    Check             Every certificate is validated: each DNS name and e-mail address must be in the issued certificate, and the number
                      of IP addresses must match. Tested with OpenSSL 4.0.3 against the full chain: app.nextmantra.com, x.agantra.internal,
-                     db.nextmantra.ldap, localhost, 192.168.0.1, 192.168.0.200, 172.16.0.100, ::1, 10.10.2.2 and robby@nextmantra.com verify;
-                     a.b.nextmantra.com, 192.168.0.201, 172.16.0.201, 10.10.2.3 and nobody@nextmantra.com do not.
+                     db.nextmantra.ldap, localhost, 192.168.0.1, 192.168.0.200, 192.168.1.1, 192.168.1.100, 192.168.2.1, 192.168.2.100, 172.16.0.100, ::1, 10.10.2.2 and robby@nextmantra.com verify;
+                     a.b.nextmantra.com, 192.168.0.201, 192.168.1.101, 192.168.2.101, 172.16.0.201, 10.10.2.3 and nobody@nextmantra.com do not.
 
  ALSO CHANGED IN 4.9.1
    * A set made with no -DnsName used the company name for the set folder; it now uses the first name of the default SAN (nextmantra.com), like a
@@ -645,3 +647,5 @@ LIMITATIONS
       .\GenerateLeafCertificate.ps1 -OV -AddDevelopmentSAN -Purpose EmailProtection -NoRevocationInfo
  Tested on a fresh build: -OV -NoRevocationInfo (7 certificates: no CRL distribution point, no OCSP, caIssuers kept), -EV -NoCrl -AddDevelopmentSAN (OCSP kept, no CRL).
 ====================================================================================================
+
+5.0.0: -Pki <name> chooses the company's PKI (default agantra; Tab completes; list: pki_setup.ps1 -ListPki). Windows Server 2022: classic only (-Quantum is an error). OS rules: PkiProfiles-MANUAL.txt section 6.

@@ -275,7 +275,7 @@ OcspKeyBits  = 2048
 
 # {ca} = the file-name stem of the issuing CA (the same words as its common name): agantra-root-g1, agantra-classic-root-g1, agantra-pqc-root-g2,
 # agantra-q1-root-g1, agantra-q1-ov-g1 ... (NoCR: -nocr, release 2: -r2). pki_setup.ps1 writes the host names of the three lists below into
-# pki\R<n>\server\ (server.env, DNS-RECORDS.txt, expected-urls.tsv) and pki-server.sh reads them from there.
+# pki\pki-<name>-<NN>\server\ (server.env, DNS-RECORDS.txt, expected-urls.tsv) and pki-server.sh reads them from there.
 
 [ crl_urls ]
 
@@ -346,6 +346,8 @@ IP.2 = ::1
 IP.3 = 10.10.2.2
 IPRange.1 = 192.168.0.1-192.168.0.200
 IPRange.2 = 172.16.0.1-172.16.0.200
+IPRange.3 = 192.168.1.1-192.168.1.100
+IPRange.4 = 192.168.2.1-192.168.2.100
 
 email.1 = nicko@nextmantra.com
 email.2 = robby@nextmantra.com

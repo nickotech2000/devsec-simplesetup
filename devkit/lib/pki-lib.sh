@@ -7,6 +7,30 @@
 # ============================================================
 # Needs: bash 4+ (Ubuntu), openssl 3.0+ (4.0.1+ recommended), python3 (JSON files only).
 # Reads devkit.env (written by PkiTransport.ps1 -DevKit from the live configuration of the PKI).
+# ---- Platform gate (5.0.0): Linux only (VM, bare metal or WSL). Accepted: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+,
+#      SUSE Linux Enterprise (SLES / SLED) 15+, openSUSE Leap 15+ / Tumbleweed. Everything else: error, exit 5, nothing is done.  (-h / --help work everywhere.)
+if [ -z "${PKI_GATE_DONE:-}" ]; then
+  case "${1:-}" in -h|--help|-help|--Help|help) : ;; *)
+    __osrel="${PKI_OS_RELEASE_FILE:-/etc/os-release}"; __id=""; __ver=""; __pretty=""
+    if [ -r "$__osrel" ]; then __id="$(. "$__osrel"; echo "${ID:-}")"; __ver="$(. "$__osrel"; echo "${VERSION_ID:-}")"; __pretty="$(. "$__osrel"; echo "${PRETTY_NAME:-${NAME:-}}")"; fi
+    __maj="${__ver%%.*}"; case "$__maj" in ''|*[!0-9]*) __maj=0 ;; esac
+    __ok=0
+    case "$__id" in
+      ubuntu) [ "$__maj" -ge 24 ] && __ok=1 ;;
+      centos|rhel|rocky|ol) [ "$__maj" -ge 10 ] && __ok=1 ;;
+      sles|sles_sap|sled|opensuse-leap) [ "$__maj" -ge 15 ] && __ok=1 ;;
+      opensuse-tumbleweed) __ok=1 ;;
+    esac
+    [ "$(uname -s 2>/dev/null)" = Linux ] || __ok=0
+    if [ "$__ok" != 1 ]; then
+      echo "[ERROR] This system is '${__pretty:-$(uname -s 2>/dev/null)}' (ID=${__id:-?} VERSION_ID=${__ver:-?}): NOT supported. Nothing was done." >&2
+      echo "        Supported: Linux on a VM, bare metal or WSL - Ubuntu 24.04 / 26.04 or newer; CentOS Stream 10+; RHEL 10+; Rocky Linux 10+; Oracle Linux 10+;" >&2
+      echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
+      exit 5
+    fi
+    export PKI_GATE_DONE=1 ;;
+  esac
+fi
 
 PKI_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKI_KIT_DIR="$(cd "$PKI_LIB_DIR/.." && pwd)"
@@ -61,7 +85,7 @@ pki_rand_serial() {
 }
 
 # ---------------------------------------------------------------- which PKI: releases (R2, R3 ...) and the NoCR variant
-# The PKIs are folders:  pki/R1  pki/R2  pki/NoCR-R1  pki/NoCR-R2 ...   A PKI of an older version (and the PKI of a DevKit) sits directly in pki/
+# The PKIs are folders:  pki/pki-default-01  pki/pki-raksaka-01  pki/pki-default-nocr-01 ... (5.0.0; the old pki/R1  pki/NoCR-R1 work too)   A PKI of an older version (and the PKI of a DevKit) sits directly in pki/
 # (release and variant are then read from its pki-manifest.json; no entry = release 1, normal).
 # The scripts offer   --release N   and   --no-ca-revocation-info   (PKI_WANT_REL, PKI_WANT_NOCR).  Default: the LATEST release of the
 # normal family (the NoCR family when only that exists). A release that does not exist any more (deleted) is NOT an error: the latest is used, with a warning.
@@ -74,11 +98,11 @@ pki_manifest_field() {   # <manifest.json> <key>  ->  value (empty when the key 
 
 pki_scan() {   # one line per PKI:  path|release|nocr(0/1)
   local d n rel nocr v
-  for d in "$PKI_KIT_DIR/pki" "$PKI_KIT_DIR"/pki/R[0-9]* "$PKI_KIT_DIR"/pki/NoCR-R[0-9]*; do
+  for d in "$PKI_KIT_DIR/pki" "$PKI_KIT_DIR"/pki/R[0-9]* "$PKI_KIT_DIR"/pki/NoCR-R[0-9]* "$PKI_KIT_DIR"/pki/pki-*-[0-9][0-9]*; do
     [ -d "$d" ] || continue
     [ -f "$d/pki-manifest.json" ] || [ -f "$d/root/root.crt" ] || continue
     n="$(basename "$d")"; rel=1; nocr=0
-    case "$n" in NoCR-R[0-9]*) nocr=1; rel="${n#NoCR-R}" ;; R[0-9]*) rel="${n#R}" ;; esac
+    case "$n" in NoCR-R[0-9]*) nocr=1; rel="${n#NoCR-R}" ;; R[0-9]*) rel="${n#R}" ;; pki-*-nocr-[0-9]*) nocr=1; rel=$((10#${n##*-})) ;; pki-*-[0-9]*) rel=$((10#${n##*-})) ;; esac
     if [ -f "$d/pki-manifest.json" ]; then
       v="$(pki_manifest_field "$d/pki-manifest.json" release)"; [ -n "$v" ] && rel="$v"
       v="$(pki_manifest_field "$d/pki-manifest.json" noCaRevocationInfo)"
@@ -136,6 +160,9 @@ pki_ca_info() {
 }
 
 # ---------------------------------------------------------------- config pieces
+# pki_author_hdr : Author / Company / Email lines (comment style) for the text files written by the DevKit
+pki_author_hdr() { printf '# Author : Nicko Satria Utama\n# Company: Agantra Inovatif OU (NextMantra)\n# Email  : nicko@nextmantra.com\n'; }
+
 # pki_cps <level>
 pki_cps() { if [ "$1" = "EV" ]; then printf '%s' "$CPS_URL_EV"; else printf '%s' "$CPS_URL"; fi; }
 
