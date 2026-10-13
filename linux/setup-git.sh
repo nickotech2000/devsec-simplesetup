@@ -24,11 +24,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.0.2"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="5.1.0"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-case "${1:-}" in -h|--help) echo "Version 5.0.2"; echo "Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com"; echo "setup-git.sh   (no options) - git config core.hooksPath .githooks, chmod 755 *.sh *.py, LF check. Run inside the clone."; echo "Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5."; exit 0;; esac
+case "${1:-}" in -h|--help) echo "Version 5.1.0"; echo "Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com"; echo "setup-git.sh   (no options) - git config core.hooksPath .githooks, chmod 755 *.sh *.py, LF check. Run inside the clone."; echo "Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5."; exit 0;; esac
 top="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "not inside a git clone"; exit 1; }
 cd "$top" || exit 1
 git config core.hooksPath .githooks && echo "hooks: .githooks enabled"

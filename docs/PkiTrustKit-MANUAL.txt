@@ -1,5 +1,5 @@
 ====================================================================================================================================
- Agantra Inovatif Enterprise PKI  -  TRUST KIT (CA certificates + ONE standalone installer)                  Version 5.0.2   2026-10-13
+ Agantra Inovatif Enterprise PKI  -  TRUST KIT (CA certificates + ONE standalone installer)                  Version 5.1.0   2026-10-13
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================================================
 
@@ -12,20 +12,49 @@
       .\New-PkiTrustKit.ps1 -All                                   Windows, Ubuntu, Red Hat family, SUSE family
       .\New-PkiTrustKit.ps1 -Target Windows,Ubuntu                 only these
       .\New-PkiTrustKit.ps1 -All -Release 2                        the PKI release R2 (default: the latest);  -NoCaRevocationInfo = the NoCR family
-      .\New-PkiTrustKit.ps1 -All -AllReleases                      EVERY PKI of the project in the same kits: all releases (R1, R2 ...) AND all NoCR (NoCR-R1 ...)
-   Parameters: -Target <Windows|Ubuntu|Redhat|SUSE ...>  -All  -AllReleases (alias -AllPki)  -SelfExtract  -Release <n>  -NoCaRevocationInfo  -PkiRoot <folder>  -PkiName <text, default agantra>
+      .\New-PkiTrustKit.ps1 -All -AllReleases                      every release (R1, R2 ...) AND all NoCR (NoCR-R1 ...) of the chosen company, in ONE .certpacked
+      .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka             (5.1.0) the PKIs of SEVERAL companies (the latest release of each) in ONE .certpacked
+      .\New-PkiTrustKit.ps1 -All -AllProfiles                     (5.1.0) EVERY company, every release, in ONE .certpacked
+   Parameters: -Pki <name[,name]>  -AllProfiles  -Target <Windows|Ubuntu|Redhat|SUSE ...>  -All  -AllReleases (alias -AllPki)  -SelfExtract  -Release <n>  -NoCaRevocationInfo  -PkiRoot <folder>  -PkiName <text, default agantra>
                -OutDirectory <dir, default .\transport>  -PackagePassword <text>  -Force  -Help
    Result: a NEW folder with a unique name inside transport\ :
       transport\pki-trust-<pki-name>-<unique>-<date>-<time>\
-          windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1   + pki-<pki-name>-<unique>.certpacked (AES-256)
-          ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh   + pki-<pki-name>-<unique>.certpacked (ZipCrypto)
+          windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  Remove-PkiCa.ps1   + pki-<pki-name>-<unique>.certpacked (AES-256)
+          ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  remove-pki-ca.sh   + pki-<pki-name>-<unique>.certpacked (ZipCrypto)
           redhat-pki-....zip      suse-pki-....zip              the same for the other families (only the target inside the script differs)
           PASSWORD.txt   README.txt
    <pki-name> = <PkiName>-r<release> (NoCR: <PkiName>-nocr-r<release>), e.g. agantra-r1;  with -AllReleases: <PkiName>-all, e.g. agantra-all.   <unique> = 6 random characters, the same for the whole run.
    The password is generated (strong, 20 characters) unless you give -PackagePassword. A password you give yourself is accepted even when PkiTransport.ps1 would call it weak
    (for example Abc12345!): the package holds only public certificates; a short one only gets a warning. SEND IT BY ANOTHER WAY than the zips.
-   The .certpacked is made by PkiTransport.ps1 -Pack (the same mechanism: certificates only, no key, SHA-256 of every file, certpack.tsv).
+   The .certpacked is ONE file per zip, whatever the number of PKIs (5.1.0). It is built from the PKI folders (their pki-manifest.json) with the same format as
+   PkiTransport.ps1 -Pack: certificates only, no key, SHA-256 of every file, certpack.json / certpack.tsv. The files are named ca/roots/<PKI folder>-<ca>.crt
+   and ca/intermediates/<PKI folder>-<ca>.crt, and certpack.tsv has two extra columns at the end: pki (the company short name) and release (the PKI folder).
+   -Pki agantra,raksaka packs the latest release of each company. A company that has no PKI yet stops the run (exit 4). Before 5.1.0 a kit of several PKIs
+   had one .certpacked per PKI: those kits still install (the installers read one or many .certpacked files).
    After the build every zip is opened again and scanned: a key file or PRIVATE KEY text = the run fails.
+
+2a. SEVERAL COMPANIES IN ONE KIT  (5.1.0)
+   The installer opens the single .certpacked and installs EVERY PKI in it - for example Agantra AND Raksaka - in one run. It prints one line per PKI
+   ("PKI raksaka / pki-raksaka-01: 10 CA certificate(s)"). Replacing an older version works per organization: the old certificates of Agantra are replaced by the
+   new Agantra ones, Raksaka's by Raksaka's; other organizations are never touched.
+   WHAT IT WRITES DOWN: a list of the certificates it installed.
+      Windows   Local Machine: %ProgramData%\PkiTrustKit\installed.tsv      Current User: %LOCALAPPDATA%\PkiTrustKit\installed.tsv
+                columns: pki, release, store, thumbprint, name, organization, scope, installedUtc
+      Linux     /var/lib/pki-trust-kit/installed.tsv   (columns: pki, release, kind = anchor | file | firefox, path, name, installedUtc)
+   Roots in the Linux system store are named pki-<company>-<release>-<ca>.crt (the company name first).
+
+2b. TAKING A PKI AWAY AGAIN ON THE DESTINATION  (5.1.0)
+   Remove-PkiCa.ps1 (Windows) and remove-pki-ca.sh (Linux) are in every zip. They are standalone (no package, no password) and work like RemoveTrust / RemoveAllTrust
+   of the PKI machine. Because the installer deletes itself at the end, unzip the zip again (or keep the remove script) when you need them.
+      Windows    .\Remove-PkiCa.ps1 -List                        what the kit installed (company, PKI release, store, name)
+                 .\Remove-PkiCa.ps1 -Pki raksaka                 ONE company, every release of it   (-Pki agantra,raksaka for several)
+                 .\Remove-PkiCa.ps1 -All                         everything the kit installed (all companies)
+                 .\Remove-PkiCa.ps1 -Org "Raksaka"               without the list: certificates whose organization (O=) contains the text
+                 options: -Check (only show)  -Yes (do not ask)  -Scope Auto|Machine|User (Machine = administrator window)
+      Linux      bash remove-pki-ca.sh --list | --pki raksaka | --all | --org raksaka   options: --check  --yes  --keep-files
+   Only the certificates in the list (same SHA-1 thumbprint / the file names the installer made) are removed; the result is read back and an error is
+   shown when something is still there. Linux: the system store is refreshed afterwards (update-ca-certificates / update-ca-trust), the opened files in
+   pki/ go, and the Firefox imports (--firefox) are deleted with certutil. The same platform rules as the installers apply (exit 5 on an unsupported system).
 
 3. WHAT THE PEOPLE DO
    WINDOWS (Windows 10 / 11, Windows PowerShell 5.1 or PowerShell 7; nothing else needed)

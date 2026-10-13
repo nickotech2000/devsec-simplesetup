@@ -8,15 +8,17 @@
 PKI_PREFIX="__PKI_PREFIX__"      # written by New-PkiTrustKit.ps1; the files in the system store start with it
 PKI_TARGET="__PKI_TARGET__"      # ubuntu | redhat | suse  (auto = found from this machine)
 set -u
-VERSION="5.0.2"
+VERSION="5.1.0"
 
 usage() {
 cat <<'EOF'
 install-pki-ca.sh  -  install the CA certificates of the PKI on this Linux machine (Ubuntu / Debian, RHEL family, SUSE family)
-Version 5.0.2
+Version 5.1.0
 Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 
 WHAT IT DOES
+  (5.1.0) ONE .certpacked can hold the PKIs of SEVERAL companies (for example agantra and raksaka) and several releases of each: all are installed in one run.
+  What was installed is written to /var/lib/pki-trust-kit/installed.tsv; take PKIs away again with  remove-pki-ca.sh --list | --pki NAME | --all  (same zip).
   Opens the .certpacked file that came in the same zip (it asks for the password) into the folder  pki/  next to this script, and
   puts every ROOT CA (top root, track roots, quadrant roots) into the system certificate store (the "ca-certificates" of this distribution).
   The intermediate CA certificates are kept in  pki/ca/intermediates  (and the chains in pki/ca/chains): a client needs only the roots.
@@ -187,37 +189,55 @@ for PKG in "${PKGS[@]}"; do
 done
 ok "${#PKGS[@]} package(s) opened into $OUT"
 
-# ---- 4. check every file against its SHA-256, collect the roots
+# ---- 4. check every file against its SHA-256, collect the roots.  One package can hold SEVERAL PKIs (several companies, several releases):
+#         certpack.tsv has the company (pki) and the PKI folder (release) of every certificate in its last two columns.
 sha() { sha256sum "$1" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$1" | cut -d' ' -f1; }
-ROOTS=(); INTERS=(); ROOTNAMES=()
+ROOTS=(); INTERS=(); ROOTNAMES=(); ROOTPKI=(); ROOTREL=(); INTERPKI=(); INTERREL=()
+DEFPKI="${PKI_PREFIX#pki-}"
 for DEST in "${DESTS[@]}"; do
   TAG=""
-  if [ "${#DESTS[@]}" -gt 1 ]; then          # pki-<name>-<release tag>-<unique>  ->  <release tag>  (r1, r2, nocr-r1 ...)
+  if [ "${#DESTS[@]}" -gt 1 ]; then          # an older kit with one package per PKI: pki-<name>-<release tag>-<unique>  ->  <release tag>-
     TAG="$(basename "$DEST")"; TAG="${TAG#pki-}"; TAG="${TAG#"${PKI_PREFIX#pki-}"-}"; TAG="${TAG%-*}-"
   fi
-  while IFS=$'\t' read -r role path hash _rest; do
+  while IFS=$'\t' read -r role path hash _size _sha1 _store _ext _kind _name pkiname relname _rest; do
     case "$role" in root|intermediate) ;; *) continue ;; esac
     f="$DEST/$path"; [ -f "$f" ] || die "Missing in the package: $path"
     [ "$(sha "$f")" = "$hash" ] || die "Checksum mismatch (the package was changed or damaged): $path"
-    if [ "$role" = root ]; then ROOTS+=("$f"); ROOTNAMES+=("$TAG$(basename "${f%.*}")"); else INTERS+=("$f"); fi
+    [ -n "${pkiname:-}" ] || pkiname="$DEFPKI"
+    if [ "$role" = root ]; then ROOTS+=("$f"); ROOTNAMES+=("$TAG$(basename "${f%.*}")"); ROOTPKI+=("$pkiname"); ROOTREL+=("${relname:-}"); else INTERS+=("$f"); INTERPKI+=("$pkiname"); INTERREL+=("${relname:-}"); fi
   done < <(grep -v '^#' "$DEST/certpack.tsv" | tr -d '\r')
 done
 [ "${#ROOTS[@]}" -gt 0 ] || die "No root certificate in the package."
 ok "${#ROOTS[@]} root and ${#INTERS[@]} intermediate certificate(s), checksums fine."
+PKILIST="$(printf '%s\n' "${ROOTPKI[@]}" "${INTERPKI[@]}" | sort -u)"
+for pk in $PKILIST; do
+  n=0; for x in "${ROOTPKI[@]}" "${INTERPKI[@]}"; do [ "$x" = "$pk" ] && n=$((n+1)); done
+  info "  PKI $pk: $n CA certificate(s)"
+done
 
-# ---- 5. replace the old version, install the roots
+# the name of a root in the system store:  pki-<company>-<...>.crt   (the company name first: Remove removes by it)
+anchor_name() { local pk="$1" base="$2"; case "$base" in "pki-$pk-"*) echo "$base.crt" ;; pki-*) echo "pki-$pk-${base#pki-}.crt" ;; *) echo "pki-$pk-$base.crt" ;; esac; }
+
+# ---- 5. replace the old version of each company in the package, install the roots
 OLD=()
-for f in "$ANCHOR/$PKI_PREFIX"-*.crt "$ANCHOR"/agantra-pki-*.crt; do [ -f "$f" ] && OLD+=("$f"); done
+for pk in $PKILIST; do
+  for f in "$ANCHOR/pki-$pk"-*.crt; do [ -f "$f" ] && OLD+=("$f"); done
+  [ "$pk" = "$DEFPKI" ] && for f in "$ANCHOR/$PKI_PREFIX"-*.crt; do [ -f "$f" ] && OLD+=("$f"); done
+  [ "$pk" = agantra ] && for f in "$ANCHOR"/agantra-pki-*.crt; do [ -f "$f" ] && OLD+=("$f"); done
+done
 info "${#OLD[@]} file(s) of an older version in $ANCHOR will be replaced."
+STATE_DIR="${PKI_KIT_STATE_DIR:-/var/lib/pki-trust-kit}"
 if [ "$CHECK" = 1 ]; then
-  for f in "${ROOTS[@]}"; do info "would install: $(basename "$f")"; done
+  for i in "${!ROOTS[@]}"; do info "would install: ${ROOTPKI[$i]} / $(basename "${ROOTS[$i]}")"; done
 else
   [ "${#OLD[@]}" -gt 0 ] && $SUDO rm -f "${OLD[@]}"
   $SUDO mkdir -p "$ANCHOR"
+  ANCHORS=()
   for i in "${!ROOTS[@]}"; do
-    $SUDO cp -f "${ROOTS[$i]}" "$ANCHOR/$PKI_PREFIX-${ROOTNAMES[$i]}.crt" || die "cannot copy to $ANCHOR"
+    an="$(anchor_name "${ROOTPKI[$i]}" "${ROOTNAMES[$i]}")"; ANCHORS+=("$ANCHOR/$an")
+    $SUDO cp -f "${ROOTS[$i]}" "$ANCHOR/$an" || die "cannot copy to $ANCHOR"
+    $SUDO chmod 644 "$ANCHOR/$an" 2>/dev/null
   done
-  $SUDO chmod 644 "$ANCHOR/$PKI_PREFIX"-*.crt 2>/dev/null
   info "Running: $UPDATE"
   $SUDO $UPDATE 2>&1 | sed 's/^/        /'
   # read back: every root must be inside the system bundle
@@ -226,6 +246,23 @@ else
     for f in "${ROOTS[@]}"; do line="$(sed -n '2p' "$f" | tr -d '\r')"; grep -qF -- "$line" "$BUNDLE" || { miss=$((miss+1)); warn "not in $BUNDLE: $(basename "$f")"; }; done
     [ "$miss" = 0 ] && ok "Checked: all ${#ROOTS[@]} root(s) are in the system store ($BUNDLE)." || die "$miss root(s) are NOT in the system store."
   else warn "cannot read $BUNDLE to check the result."; fi
+  # remember what was installed: remove-pki-ca.sh reads this list (pki, release, kind, path, name)
+  REG="$STATE_DIR/installed.tsv"
+  tmpreg="$(mktemp "${TMPDIR:-/tmp}/pki-reg.XXXXXX")"
+  {
+    printf '#update\t%s\t%s\n' "$UPDATE" "$ANCHOR"
+    printf '# pki\trelease\tkind\tpath\tname\tinstalledUtc\n'
+    # earlier lines stay, except those of a file that was just written again
+    if [ -f "$REG" ]; then grep -v '^#' "$REG" | tr -d '\r' | while IFS=$'\t' read -r a b c d e g; do
+      keep=1; for x in "${ANCHORS[@]}" "${ROOTS[@]}" "${INTERS[@]}"; do [ "$d" = "$x" ] && keep=0; done
+      [ "$keep" = 1 ] && printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$a" "$b" "$c" "$d" "$e" "$g"; done; fi
+    now="$(date -u '+%Y-%m-%d %H:%M')"
+    for i in "${!ROOTS[@]}"; do printf '%s\t%s\tanchor\t%s\t%s\t%s\n' "${ROOTPKI[$i]}" "${ROOTREL[$i]}" "${ANCHORS[$i]}" "$(basename "${ROOTS[$i]}")" "$now"; done
+    for i in "${!ROOTS[@]}"; do printf '%s\t%s\tfile\t%s\t%s\t%s\n' "${ROOTPKI[$i]}" "${ROOTREL[$i]}" "${ROOTS[$i]}" "$(basename "${ROOTS[$i]}")" "$now"; done
+    for i in "${!INTERS[@]}"; do printf '%s\t%s\tfile\t%s\t%s\t%s\n' "${INTERPKI[$i]}" "${INTERREL[$i]}" "${INTERS[$i]}" "$(basename "${INTERS[$i]}")" "$now"; done
+  } > "$tmpreg"
+  $SUDO mkdir -p "$STATE_DIR" && $SUDO cp -f "$tmpreg" "$REG" && $SUDO chmod 644 "$REG" && info "Remembered in $REG (remove-pki-ca.sh --list shows it; --pki NAME or --all removes)." || warn "could not write $REG: remove-pki-ca.sh --org TEXT still works."
+  rm -f "$tmpreg"
 fi
 
 # ---- 6. Firefox (optional)
@@ -239,7 +276,7 @@ if [ "$FIREFOX" = 1 ]; then
       if [ "$CHECK" = 1 ]; then info "Firefox profile $(basename "$p"): would be set."; continue; fi
       grep -qs 'security.enterprise_roots.enabled' "$p/user.js" || echo 'user_pref("security.enterprise_roots.enabled", true);' >> "$p/user.js"
       if command -v certutil >/dev/null 2>&1; then
-        for i in "${!ROOTS[@]}"; do certutil -A -d "sql:$p" -n "$PKI_PREFIX ${ROOTNAMES[$i]}" -t "CT,C,C" -i "${ROOTS[$i]}" >/dev/null 2>&1; done
+        for i in "${!ROOTS[@]}"; do nick="pki-${ROOTPKI[$i]} ${ROOTNAMES[$i]}"; certutil -A -d "sql:$p" -n "$nick" -t "CT,C,C" -i "${ROOTS[$i]}" >/dev/null 2>&1 && printf '%s\t%s\tfirefox\t%s\t%s\t%s\n' "${ROOTPKI[$i]}" "${ROOTREL[$i]}" "$p" "$nick" "$(date -u '+%Y-%m-%d %H:%M')" | $SUDO tee -a "$STATE_DIR/installed.tsv" >/dev/null; done
         ok "Firefox profile $(basename "$p"): enterprise roots on, ${#ROOTS[@]} root(s) imported."
       else ok "Firefox profile $(basename "$p"): enterprise roots on (certutil is not installed: that is enough for Firefox 120 and newer)."; fi
     done

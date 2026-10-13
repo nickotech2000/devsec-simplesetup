@@ -15,11 +15,15 @@
 .EXAMPLE
     .\New-PkiTrustKit.ps1 -Target Windows,Ubuntu -Release 2
 .EXAMPLE
+    .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka          # ONE kit with the PKIs of two companies in ONE .certpacked
+.EXAMPLE
+    .\New-PkiTrustKit.ps1 -All -AllProfiles                  # every company, every release, in ONE .certpacked
+.EXAMPLE
     .\New-PkiTrustKit.ps1 -All -AllReleases        # every system, and EVERY PKI of the project (all releases R1..Rn and all NoCR-R1..NoCR-Rn)
 #>
 param(
-    # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
-    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
+    # which company's PKI - ONE name, or SEVERAL for one kit: -Pki agantra,raksaka (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
+    [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string[]]$PkiProfile,
     [ValidateSet('Windows', 'Ubuntu', 'Redhat', 'SUSE')][string[]]$Target,
     [switch]$All,
     [Alias('AllPki')][switch]$AllReleases,
@@ -38,13 +42,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$script:Version = '5.0.2'
+$script:Version = '5.1.0'
 
 if ($Help) {
 @'
 ============================================================
  New-PkiTrustKit.ps1 - trust kits (CA certificates + a standalone installer) for Windows, Ubuntu, Red Hat family, SUSE family
- Version 5.0.2
+ Version 5.1.0
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 FOR WHOM
@@ -53,12 +57,26 @@ FOR WHOM
 
 WHAT YOU GET (in a new folder with a unique name inside .\transport\)
   transport\pki-trust-<pki-name>-<unique>-<date>-<time>\
-      windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  +  <name>.certpacked  (AES-256)
-      ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  +  <name>.certpacked  (ZipCrypto, see below)
+      windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  Remove-PkiCa.ps1  +  <name>.certpacked  (AES-256)
+      ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  remove-pki-ca.sh  +  <name>.certpacked  (ZipCrypto, see below)
       redhat-pki-...zip     suse-pki-...zip                 the same for the Red Hat family and the SUSE family
       PASSWORD.txt                                          the password of the .certpacked (send it by ANOTHER way than the zips)
       README.txt                                            what to tell the people
-  <pki-name> = <PkiName>-r<release> (or <PkiName>-nocr-r<release>, or <PkiName>-all with -AllReleases);  <unique> = 6 random characters, the same for the whole run.
+  <pki-name> = <PkiName>-r<release> (or <PkiName>-nocr-r<release>, <PkiName>-all with -AllReleases; several companies: agantra-raksaka, more than three: multipki, -AllProfiles: allpki-all);
+  <unique> = 6 random characters, the same for the whole run.
+
+SEVERAL PKIs IN ONE KIT  (5.1.0)
+  A kit holds ONE .certpacked, and that .certpacked can hold as many PKIs as you choose - the PKIs of several companies, several releases of each:
+      -Pki agantra,raksaka       the latest release of each company          -Pki agantra,raksaka -AllReleases   every release of those companies
+      -AllProfiles               every company that has a PKI, every release (implies -AllReleases)
+  The installer opens the .certpacked and installs EVERY PKI in it in one run (and writes down what it installed). certpack.tsv names the company and
+  the PKI folder of each certificate. A company in -Pki that has no PKI built yet stops the run (exit 4): build it first with pki_setup.ps1 -Pki <name>.
+
+TAKING A PKI AWAY AGAIN ON THE DESTINATION  (5.1.0)
+  Every zip also holds a remove script: Remove-PkiCa.ps1 (Windows) / remove-pki-ca.sh (Linux). It reads the list the installer wrote and works like
+  RemoveTrust / RemoveAllTrust of the PKI machine, without any package or password:
+      Remove-PkiCa.ps1 -List | -Pki raksaka | -Pki agantra,raksaka | -All | -Org "Raksaka" [-Check] [-Scope Machine|User] [-Yes]
+      remove-pki-ca.sh --list | --pki raksaka | --all | --org raksaka [--check] [--keep-files] [--yes]
 
 THE INSTALLERS (standalone: they need none of the other scripts of this project)
   Windows (Install-PkiCa.ps1): Windows PowerShell 5.1 or PowerShell 7, Windows 10 / 11. In an ADMINISTRATOR window it installs into the
@@ -66,6 +84,7 @@ THE INSTALLERS (standalone: they need none of the other scripts of this project)
      Authorities, every intermediate -> Intermediate Certification Authorities. An older version of the same PKI (same organization) is
      removed and replaced. When it is done the extracted files, the script and the .certpacked are deleted: only the zip stays.
      -Firefox: Firefox is told to use the Windows certificates. -Check: only show.
+  Both installers write a list of what they installed (Windows: %ProgramData%\PkiTrustKit\installed.tsv or %LOCALAPPDATA%\PkiTrustKit; Linux: /var/lib/pki-trust-kit/installed.tsv).
   Linux (install-pki-ca.sh): the roots go to the system store of the distribution (ca-certificates): Ubuntu / Debian
      /usr/local/share/ca-certificates + update-ca-certificates; RHEL family /etc/pki/ca-trust/source/anchors + update-ca-trust;
      SUSE /etc/pki/trust/anchors + update-ca-certificates. The package is opened into the folder pki/ next to the script; the zip and pki/ stay.
@@ -74,8 +93,10 @@ THE INSTALLERS (standalone: they need none of the other scripts of this project)
 PARAMETERS
   -Target <list>      Windows, Ubuntu, Redhat, SUSE (any of them, comma separated)       -All   all four
   -Release <n>        the release of the PKI to pack (default: the latest)               -NoCaRevocationInfo   the NoCR family
-  -AllReleases        ALL PKIs of the project in one kit: every release (R1, R2 ...) AND every NoCR release (NoCR-R1, NoCR-R2 ...) found in
-   (alias -AllPki)    .\pki\ (an old flat PKI in pki\ itself too). One .certpacked per PKI inside each zip; the installer installs them all in one run.
+  -Pki <a,b,...>     the company/companies: one name, or several for one kit (5.1.0). Default agantra.
+  -AllProfiles        the PKIs of ALL companies, every release (5.1.0)
+  -AllReleases        every release (R1, R2 ...) AND every NoCR release (NoCR-R1, NoCR-R2 ...) of the chosen company/companies found in .\pki\
+   (alias -AllPki)    (an old flat PKI in pki\ itself too). All of them go into ONE .certpacked; the installer installs them all in one run.
                       The kit is named <PkiName>-all. Not combined with -Release, -NoCaRevocationInfo, -PkiRoot.
   -PkiRoot <folder>   one PKI folder made by pki_setup.ps1 (default: the latest release in .\pki\)
   -PkiName <text>     the name in the file names (default agantra); letters, digits and - only
@@ -138,48 +159,71 @@ if (-not $SelfExtract -and ((Get-PkiToolSetting -Section 'trustkit' -Key 'SelfEx
 if ($All) { $Target = @('Windows', 'Ubuntu', 'Redhat', 'SUSE') }
 if (-not $Target -or @($Target).Count -eq 0) { Write-Msg 'Say for which systems: -Target Windows,Ubuntu,Redhat,SUSE  or  -All   (see -Help)' 'ERROR'; exit 1 }
 $Target = @($Target | Select-Object -Unique)
-# which company's PKI: -Pki <name> (default: DefaultPki of pki_tools.cnf = agantra); -AllProfiles = the PKIs of ALL companies
-try { $profile = Resolve-PkiProfile -ScriptRoot $root -Name $PkiProfile } catch { Write-Msg $_.Exception.Message 'ERROR'; exit 1 }
-$profName = $profile.Name
+# which company's PKI: -Pki <name>  or  -Pki name1,name2 (several companies in ONE kit)  (default: DefaultPki of pki_tools.cnf = agantra); -AllProfiles = the PKIs of ALL companies
+$rel01c = Join-Path $root 'scripts/01c_Releases.ps1'
+$profNames = @(@($PkiProfile) | ForEach-Object { "$_" -split '[,;\s]+' } | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() } | Select-Object -Unique)    # pwsh -File passes a comma list as ONE string
+if ($profNames.Count -eq 0) { $profNames = @('') }
+$profiles = [System.Collections.Generic.List[object]]::new()
+try { foreach ($n in $profNames) { [void]$profiles.Add((Resolve-PkiProfile -ScriptRoot $root -Name $n)) } } catch { Write-Msg $_.Exception.Message 'ERROR'; exit 1 }
+$profName = $profiles[0].Name
+$multiPki = ($AllProfiles -or $profiles.Count -gt 1)
 if ($AllProfiles) { $AllReleases = [System.Management.Automation.SwitchParameter]::new($true) }     # every PKI of every company = every release of every one
-if (-not $PkiName) { $PkiName = if ($AllProfiles) { 'allpki' } else { $profName } }
+if (-not $PkiName) { $PkiName = if ($AllProfiles) { 'allpki' } elseif ($profiles.Count -gt 3) { 'multipki' } else { ($profiles | ForEach-Object { $_.Name }) -join '-' } }
 if ($PkiName -notmatch '^[A-Za-z0-9][A-Za-z0-9-]*$') { Write-Msg '-PkiName: letters, digits and - only.' 'ERROR'; exit 1 }
 $PkiName = $PkiName.ToLowerInvariant()
 
 # ---------------------------------------------------------------- which PKI(s)
-# $pkis = the PKI folders that go into the kit: one (the latest, or -Release / -NoCaRevocationInfo / -PkiRoot), or ALL of them (-AllReleases)
+# $pkis = the PKI folders that go into the kit (ALL of them end up in ONE .certpacked): one (the latest, or -Release / -NoCaRevocationInfo / -PkiRoot),
+# or the latest of each -Pki a,b,c, or ALL releases (-AllReleases) of the chosen PKI(s), or everything of every company (-AllProfiles)
 $pkis = [System.Collections.Generic.List[object]]::new()
-$rel01c = Join-Path $root 'scripts/01c_Releases.ps1'
+if (-not (Get-Command Write-PkiLog -ErrorAction SilentlyContinue)) { function Write-PkiLog { param([string]$Message, [string]$Level = 'INFO') Write-Msg $Message $Level } }
+if (-not (Test-Path -LiteralPath $rel01c)) { Write-Msg "scripts\01c_Releases.ps1 not found: $rel01c" 'ERROR'; exit 1 }
+. $rel01c
+function Add-KitPki { param([string]$Path)
+    $fi = Get-PkiFolderInfo -Path $Path
+    $legacy = ($null -eq $fi -or [int]$fi.Release -le 0 -or (Split-Path -Leaf $Path) -notmatch '^pki-')
+    $prof = if ($null -ne $fi) { [string]$fi.Profile } else { $profName }
+    $folder = Split-Path -Leaf ($Path.TrimEnd('\', '/'))
+    if ($folder -eq 'pki' -or $folder -match '^(R|NoCR-R)\d+$') { $folder = "$(Get-PkiFolderToken -Profile $prof)-$($folder.ToLowerInvariant())" ; $folder = "pki-$folder" }     # old layouts: a unique, readable folder name
+    $rel = if ($null -ne $fi) { [int]$fi.Release } else { 0 }
+    $nocr = ($null -ne $fi -and [bool]$fi.NoCr)
+    $label = if ($rel -le 0) { "$prof old layout (pki\)" } else { "$prof $(if ($nocr) { 'NoCR ' })R$rel" }
+    [void]$pkis.Add([pscustomobject]@{ Path = $Path; Folder = $folder; Profile = $prof; Release = $rel; NoCr = $nocr; Label = $label })
+}
+if ($multiPki -and ($PkiRoot -or $Release -or $NoCaRevocationInfo)) { Write-Msg 'Several PKIs in one kit (-Pki a,b or -AllProfiles): do not combine it with -PkiRoot, -Release or -NoCaRevocationInfo (the latest release of each PKI is taken; -AllReleases takes every release).' 'ERROR'; exit 1 }
 if ($AllReleases) {
-    if ($PkiRoot -or $Release -or $NoCaRevocationInfo) { Write-Msg '-AllReleases takes every release of the chosen PKI (-AllProfiles: of all PKIs): do not combine it with -PkiRoot, -Release or -NoCaRevocationInfo.' 'ERROR'; exit 1 }
-    if (-not (Test-Path -LiteralPath $rel01c)) { Write-Msg "scripts\01c_Releases.ps1 not found: $rel01c" 'ERROR'; exit 1 }
-    if (-not (Get-Command Write-PkiLog -ErrorAction SilentlyContinue)) { function Write-PkiLog { param([string]$Message, [string]$Level = 'INFO') Write-Msg $Message $Level } }
-    . $rel01c
-    foreach ($i in @(Get-PkiInstalledPkis -ScriptRoot $root -Profile $(if ($AllProfiles) { '' } else { $profName }))) {
-        if (-not (Test-Path -LiteralPath (Join-Path $i.Path 'publish') -PathType Container)) { continue }
-        $tag = if ([int]$i.Release -le 0) { 'legacy' } else { "$(if ($AllProfiles) { (Get-PkiFolderToken -Profile $i.Profile) + '-' })$(if ($i.NoCr) { 'nocr-' })r$([int]$i.Release)" }
-        [void]$pkis.Add([pscustomobject]@{ Path = $i.Path; Tag = $tag; Label = $(if ([int]$i.Release -le 0) { 'old layout (pki\)' } else { "$(if ($AllProfiles) { $i.Profile + ' ' })$(if ($i.NoCr) { 'NoCR ' })R$([int]$i.Release)" }) })
+    if ($PkiRoot -or $Release -or $NoCaRevocationInfo) { Write-Msg '-AllReleases takes every release of the chosen PKI(s): do not combine it with -PkiRoot, -Release or -NoCaRevocationInfo.' 'ERROR'; exit 1 }
+    $want = if ($AllProfiles) { @('') } else { @($profiles | ForEach-Object { $_.Name }) }
+    foreach ($w in $want) {
+        foreach ($i in @(Get-PkiInstalledPkis -ScriptRoot $root -Profile $w)) {
+            if (-not (Test-Path -LiteralPath (Join-Path $i.Path 'publish') -PathType Container)) { continue }
+            Add-KitPki -Path $i.Path
+        }
     }
     if ($pkis.Count -eq 0) { Write-Msg "No PKI found in $(Join-Path $root 'pki') (no publish\ inside any release). Build one: .\pki_setup.ps1" 'ERROR'; exit 4 }
-    Write-Msg ("ALL PKIs of the project: {0}" -f (($pkis | ForEach-Object { $_.Label }) -join ', ')) 'INFO'
+    Write-Msg ("ALL releases of {0}: {1}" -f $(if ($AllProfiles) { 'every company' } else { ($profiles | ForEach-Object { $_.Name }) -join ', ' }), (($pkis | ForEach-Object { $_.Label }) -join ', ')) 'INFO'
     $kitName = "$PkiName-all"
+}
+elseif ($multiPki) {
+    foreach ($pr in $profiles) {
+        $choice = Resolve-PkiRootChoice -ScriptRoot $root -NoCr $false -NoCrExplicit $false -Release 0 -Mode Use -Profile $pr.Name
+        if (-not $choice.Exists -or -not (Test-Path -LiteralPath (Join-Path $choice.Path 'publish') -PathType Container)) { Write-Msg "No PKI is built for '$($pr.Name)' yet. Build it: .\pki_setup.ps1 -Pki $($pr.Name) -InstallTrust   (or leave it out of -Pki)" 'ERROR'; exit 4 }
+        Add-KitPki -Path $choice.Path
+    }
+    Write-Msg ("The latest release of each PKI: {0}" -f (($pkis | ForEach-Object { $_.Label }) -join ', ')) 'INFO'
+    $kitName = $PkiName
 }
 else {
     $pkiDir = $PkiRoot; $rel = 0; $nocr = [bool]$NoCaRevocationInfo
     if (-not $pkiDir) {
-        if (Test-Path -LiteralPath $rel01c) {
-            if (-not (Get-Command Write-PkiLog -ErrorAction SilentlyContinue)) { function Write-PkiLog { param([string]$Message, [string]$Level = 'INFO') Write-Msg $Message $Level } }
-            . $rel01c
-            $choice = Resolve-PkiRootChoice -ScriptRoot $root -NoCr $nocr -NoCrExplicit $nocr -Release $(if ($Release) { $Release } else { 0 }) -Mode Use -Profile $profName
-            $pkiDir = $choice.Path; $rel = [int]$choice.Release; $nocr = [bool]$choice.NoCr
-            if ($choice.Exists) { Write-Msg "PKI: release R$rel$(if ($nocr) { ' (NoCR)' })  $pkiDir" 'INFO' }
-        }
-        else { $pkiDir = Join-Path $root 'pki' }
+        $choice = Resolve-PkiRootChoice -ScriptRoot $root -NoCr $nocr -NoCrExplicit $nocr -Release $(if ($Release) { $Release } else { 0 }) -Mode Use -Profile $profName
+        $pkiDir = $choice.Path; $rel = [int]$choice.Release; $nocr = [bool]$choice.NoCr
+        if ($choice.Exists) { Write-Msg "PKI: release R$rel$(if ($nocr) { ' (NoCR)' })  $pkiDir" 'INFO' }
     }
     if (-not (Test-Path -LiteralPath (Join-Path $pkiDir 'publish') -PathType Container)) { Write-Msg "PKI folder not found (no publish\ inside): $pkiDir   (-PkiRoot <folder>, or build one: .\pki_setup.ps1)" 'ERROR'; exit 4 }
-    if ($rel -eq 0) { $fi = Get-PkiFolderInfo -Path $pkiDir; if ($null -ne $fi -and $fi.Release -gt 0) { $rel = [int]$fi.Release; $nocr = [bool]$fi.NoCr } }
-    $kitName = if ($rel -gt 0) { "$PkiName-$(if ($nocr) { 'nocr-' })r$rel" } else { $PkiName }   # NOT $pkiName (the parameter $PkiName): PowerShell variables are case-insensitive
-    [void]$pkis.Add([pscustomobject]@{ Path = $pkiDir; Tag = $(if ($rel -gt 0) { "$(if ($nocr) { 'nocr-' })r$rel" } else { '' }); Label = $kitName })
+    Add-KitPki -Path $pkiDir
+    $one = $pkis[0]
+    $kitName = if ($one.Release -gt 0) { "$PkiName-$(if ($one.NoCr) { 'nocr-' })r$($one.Release)" } else { $PkiName }   # NOT $pkiName (the parameter $PkiName): PowerShell variables are case-insensitive
 }
 
 # ---------------------------------------------------------------- run folder, names, password
@@ -204,30 +248,87 @@ $pw = $PackagePassword
 if ([string]::IsNullOrEmpty($pw)) { $pw = New-KitPassword; $generated = $true }
 elseif ($pw.Length -lt 12) { Write-Msg 'The password you gave is short: fine for a lab, but without -PackagePassword a strong one is generated.' 'WARN' }
 
-# ---------------------------------------------------------------- the .certpacked files (PkiTransport.ps1 -Pack: CA certificates only, no key)
-$pt = Join-Path $root 'PkiTransport.ps1'
-if (-not (Test-Path -LiteralPath $pt)) { Write-Msg "PkiTransport.ps1 not found next to this script: $pt" 'ERROR'; exit 1 }
-$pwsh = (Get-Process -Id $PID).Path
+# ---------------------------------------------------------------- ONE .certpacked with ALL the selected PKIs (CA certificates only, no key)
+# Built here from the PKI folders (their pki-manifest.json): flat names ca/roots/<folder>-<slug>.crt, so the installers of older kits can read it too.
+# certpack.tsv has two extra columns at the end: pki (the company short name) and release (the PKI folder).
+$PkiModuleSet = 'Transport'
+. (Join-Path $root 'scripts/PkiModules.ps1')
+Initialize-PkiMinimalContext -PkiRoot (Join-Path $root 'pki')
 $work = Join-Path ([System.IO.Path]::GetTempPath()) "trustkit-$([guid]::NewGuid().ToString('N'))"
 [void][System.IO.Directory]::CreateDirectory($work)
-function New-Packed { param([string]$Enc, $Pki)
-    $pn = if ($Pki.Tag) { "$PkiName-$($Pki.Tag)" } else { $PkiName }
-    $f = Join-Path $work "pki-$pn-$unique-$Enc.certpacked"
-    $na = @('-NoProfile', '-File', $pt, '-Pack', '-Out', $f, '-ZipEncryption', $Enc, '-ArchiveFormat', 'zip', '-PkiRoot', $Pki.Path, '-NoVerify')
-    if (-not $generated) { $na += '-AllowWeakPassword' }     # the person chose it: the package holds only public certificates
-    $env:PKI_TRANSPORT_PASSWORD = $pw
-    try { $o = & $pwsh @na 2>&1 } finally { Remove-Item Env:\PKI_TRANSPORT_PASSWORD -ErrorAction SilentlyContinue }
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $f)) { $why = @($o | ForEach-Object { "$_" } | Where-Object { $_ -match 'not accepted|ERROR\]|Exception' } | Select-Object -First 3)
-        if ($why.Count -eq 0) { $why = @($o | ForEach-Object { "$_" } | Select-Object -Last 4) }
-        throw "Making the .certpacked ($Enc) failed (exit $LASTEXITCODE): $($why -join ' | ')" }
-    return [pscustomobject]@{ File = $f; Name = "pki-$pn-$unique.certpacked"; Label = $Pki.Label }
+function Get-KitCaFile { param($Pki, $Ca)
+    $cands = [System.Collections.Generic.List[string]]::new()
+    $cert = [string]$Ca['certificate']
+    if ($cert) {
+        $norm = $cert -replace '\\', '/'
+        $m = [regex]::Match($norm, '/' + [regex]::Escape((Split-Path -Leaf ($Pki.Path.TrimEnd('\', '/')))) + '/(?<rest>.+)$')
+        if ($m.Success) { [void]$cands.Add((Join-Path $Pki.Path ($m.Groups['rest'].Value -replace '/', [System.IO.Path]::DirectorySeparatorChar))) }
+        [void]$cands.Add($cert)
+    }
+    if ($Ca['slug']) { [void]$cands.Add((Join-Path (Join-Path $Pki.Path 'publish') "$($Ca['slug']).crt")) }
+    foreach ($c in $cands) { if ($c -and (Test-Path -LiteralPath $c -PathType Leaf)) { return $c } }
+    throw "The certificate of '$($Ca['commonName'])' was not found in $($Pki.Path)."
+}
+function New-KitPacked { param([string]$Enc)
+    $gen = Join-Path $work "gen-$Enc"; [void][System.IO.Directory]::CreateDirectory($gen)
+    $rows = [System.Collections.Generic.List[object]]::new(); $caList = [System.Collections.Generic.List[object]]::new(); $pkiList = [System.Collections.Generic.List[object]]::new()
+    $seenEntry = @{}
+    foreach ($pk in $pkis) {
+        $mp = Join-Path $pk.Path 'pki-manifest.json'
+        if (-not (Test-Path -LiteralPath $mp)) { throw "pki-manifest.json is missing in $($pk.Path): rebuild or repair this PKI first." }
+        $man = Get-Content -LiteralPath $mp -Raw | ConvertFrom-Json -AsHashtable
+        $n = 0
+        foreach ($ca in @($man['certificateAuthorities'])) {
+            $kind = [string]$ca['kind']; $isRoot = $kind -in 'root', 'track', 'quadrant'
+            $ext = ($ca.ContainsKey('externallySigned') -and [bool]$ca['externallySigned'])
+            $src = Get-KitCaFile -Pki $pk -Ca $ca
+            $slug = if ($ca['slug']) { [string]$ca['slug'] } else { [string]$ca['id'] }
+            $entry = "ca/$(if ($isRoot) { 'roots' } else { 'intermediates' })/$($pk.Folder)-$slug.crt"
+            if ($seenEntry.ContainsKey($entry)) { continue }; $seenEntry[$entry] = $true
+            $store = if ($ext) { 'CA' } elseif ($isRoot) { 'Root' } else { 'CA' }
+            [void]$rows.Add([ordered]@{ Role = $(if ($isRoot) { 'root' } else { 'intermediate' }); Entry = $entry; Source = $src; Sha1 = [string]$ca['sha1']; Store = $store; Ext = $(if ($ext) { '1' } else { '0' }); Kind = $kind; Name = [string]$ca['commonName']; Pki = $pk.Profile; Release = $pk.Folder })
+            [void]$caList.Add([ordered]@{ id = [string]$ca['id']; kind = $kind; commonName = [string]$ca['commonName']; sha1 = [string]$ca['sha1']; sha256 = [string]$ca['sha256']; externallySigned = $ext; store = $store; file = $entry; pki = $pk.Profile; release = $pk.Folder })
+            $n++
+        }
+        if ($n -eq 0) { throw "No CA certificate listed in $mp." }
+        [void]$pkiList.Add([ordered]@{ pki = $pk.Profile; release = $pk.Folder; label = $pk.Label; caCertificates = $n })
+    }
+    $files = foreach ($r in $rows) { $fi = [System.IO.FileInfo]::new($r.Source); [ordered]@{ path = $r.Entry; sha256 = (Get-PkiFileSha256 -Path $r.Source); size = $fi.Length; role = $r.Role } }
+    $files = @($files)
+    $manifest = [ordered]@{
+        format = 'agantra-certpacked'; formatVersion = 1; generator = "New-PkiTrustKit.ps1 $script:Version"; createdUtc = [DateTime]::UtcNow.ToString('o')
+        comment = "Trust kit $kitName ($unique): CA certificates of $($pkis.Count) PKI(s), no private key"
+        archive = [ordered]@{ format = 'zip'; encryption = $(if ($Enc -eq 'Aes256') { 'AES-256 (WinZip AE-2)' } else { 'ZipCrypto' }) }
+        scope = [ordered]@{ caCertificates = $true; leafcerts = $false; caPrivateKeys = $false; issuingKeysOnly = $false; multiPki = ($pkis.Count -gt 1) }
+        pkis = @($pkiList); certificateAuthorities = @($caList); files = $files
+    }
+    $jsonF = Join-Path $gen 'certpack.json'; Write-Utf8NoBom -Path $jsonF -Content ($manifest | ConvertTo-Json -Depth 8)
+    $tsv = [System.Text.StringBuilder]::new()
+    [void]$tsv.Append("# role`tpath`tsha256`tsize`tsha1`tstore`texternallySigned`tkind`tname`tpki`trelease`n")
+    foreach ($r in $rows) {
+        $f = $files | Where-Object { $_.path -eq $r.Entry } | Select-Object -First 1
+        [void]$tsv.Append("$($r.Role)`t$($r.Entry)`t$($f.sha256)`t$($f.size)`t$($r.Sha1)`t$($r.Store)`t$($r.Ext)`t$($r.Kind)`t$($r.Name)`t$($r.Pki)`t$($r.Release)`n")
+    }
+    $tsvF = Join-Path $gen 'certpack.tsv'; Write-Utf8NoBom -Path $tsvF -Content $tsv.ToString()
+    $sums = [System.Text.StringBuilder]::new(); foreach ($f in $files) { [void]$sums.Append("$($f.sha256)  $($f.path)`n") }
+    $sumF = Join-Path $gen 'SHA256SUMS'; Write-Utf8NoBom -Path $sumF -Content $sums.ToString()
+    $readF = Join-Path $gen 'README.txt'
+    Write-Utf8NoBom -Path $readF -Content ("CERTPACKED - trust kit $kitName ($unique)`nAuthor : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com`n" +
+        "CA certificates only (no private key) of: $(($pkis | ForEach-Object { $_.Label }) -join ', ')`nOpen it with Install-PkiCa.ps1 / install-pki-ca.sh (or rename to .zip and use 7-Zip).`n")
+    $final = [System.Collections.Generic.List[hashtable]]::new()
+    foreach ($x in @(@($jsonF, 'certpack.json'), @($tsvF, 'certpack.tsv'), @($sumF, 'SHA256SUMS'), @($readF, 'README.txt'))) { [void]$final.Add(@{ Source = $x[0]; Entry = $x[1] }) }
+    foreach ($r in $rows) { [void]$final.Add(@{ Source = $r.Source; Entry = $r.Entry }) }
+    $f = Join-Path $work "pki-$PkiName-$unique-$Enc.certpacked"
+    New-PkiAesZipArchive -Path $f -Files $final -Password $pw -Encryption $Enc
+    [void](Expand-PkiAesZipArchive -Path $f -Password $pw)       # decrypts and authenticates every entry
+    return [pscustomobject]@{ File = $f; Name = "pki-$PkiName-$unique.certpacked"; Label = "$($pkis.Count) PKI(s)"; Cas = $caList.Count }
 }
 $needAes = $Target -contains 'Windows'
 $needZc = @($Target | Where-Object { $_ -ne 'Windows' }).Count -gt 0
 $packAes = @(); $packZc = @()
 try {
-    if ($needAes) { Write-Msg "Packing the CA certificates of $($pkis.Count) PKI(s) (AES-256, for Windows) ..."; foreach ($p in $pkis) { Write-Msg "  $($p.Label)" 'INFO'; $packAes += New-Packed 'Aes256' $p } }
-    if ($needZc) { Write-Msg "Packing the CA certificates of $($pkis.Count) PKI(s) (ZipCrypto, for Linux: opened by python3 / unzip / 7z) ..."; foreach ($p in $pkis) { Write-Msg "  $($p.Label)" 'INFO'; $packZc += New-Packed 'ZipCrypto' $p } }
+    if ($needAes) { Write-Msg "Packing the CA certificates of $($pkis.Count) PKI(s) into ONE .certpacked (AES-256, for Windows) ..."; foreach ($p in $pkis) { Write-Msg "  $($p.Label)" 'INFO' }; $packAes += New-KitPacked 'Aes256' }
+    if ($needZc) { Write-Msg "Packing the CA certificates of $($pkis.Count) PKI(s) into ONE .certpacked (ZipCrypto, for Linux: opened by python3 / unzip / 7z) ..."; $packZc += New-KitPacked 'ZipCrypto' }
 
     # ------------------------------------------------------------ the installers (the templates of trustkit\)
     $tk = Join-Path $root 'trustkit'
@@ -241,6 +342,8 @@ try {
     $ps1Bytes = $utf8.GetBytes(($ps1Text -replace "`n", "`r`n"))
     $shTemplate = (Get-Template 'install-pki-ca.sh') -replace "`r`n", "`n"
     $prefix = "pki-$PkiName"
+    $rmPs1Bytes = $utf8.GetBytes((((Get-Template 'Remove-PkiCa.ps1') -replace "`r`n", "`n") -replace "`n", "`r`n"))
+    $rmShText = (Get-Template 'remove-pki-ca.sh') -replace "`r`n", "`n"
 
     function New-KitZip { param([string]$Path, [object[]]$Items)
         $fs = [System.IO.File]::Create($Path)
@@ -267,12 +370,12 @@ try {
         $zipName = "$key-pki-$kitName-$unique-$stamp.zip"
         $zipPath = Join-Path $runDir $zipName
         if ($t -eq 'Windows') {
-            $items = @([pscustomobject]@{ Name = 'Install-PkiCa.ps1'; Bytes = $ps1Bytes; Mode = 0x1A4; Store = $false }) + @(
+            $items = @([pscustomobject]@{ Name = 'Install-PkiCa.ps1'; Bytes = $ps1Bytes; Mode = 0x1A4; Store = $false }, [pscustomobject]@{ Name = 'Remove-PkiCa.ps1'; Bytes = $rmPs1Bytes; Mode = 0x1A4; Store = $false }) + @(
                 @($packAes | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Bytes = [System.IO.File]::ReadAllBytes($_.File); Mode = 0x1A4; Store = $true } }))
         }
         else {
             $sh = $shTemplate.Replace('__PKI_PREFIX__', $prefix).Replace('__PKI_TARGET__', $key)
-            $items = @([pscustomobject]@{ Name = 'install-pki-ca.sh'; Bytes = $utf8.GetBytes($sh); Mode = 0x1ED; Store = $false }) + @(
+            $items = @([pscustomobject]@{ Name = 'install-pki-ca.sh'; Bytes = $utf8.GetBytes($sh); Mode = 0x1ED; Store = $false }, [pscustomobject]@{ Name = 'remove-pki-ca.sh'; Bytes = $utf8.GetBytes($rmShText); Mode = 0x1ED; Store = $false }) + @(
                 @($packZc | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Bytes = [System.IO.File]::ReadAllBytes($_.File); Mode = 0x1A4; Store = $true } }))
         }
         New-KitZip -Path $zipPath -Items $items
@@ -338,7 +441,8 @@ try {
     $lines = [System.Collections.Generic.List[string]]::new()
     [void]$lines.Add("PKI trust kit $kitName ($unique), made $((Get-Date).ToString('yyyy-MM-dd HH:mm')) with New-PkiTrustKit.ps1 $script:Version")
     [void]$lines.Add('The zips hold the CA certificates (roots and intermediates, NO private key) and one small installer. Give each person the zip of THEIR system + the password (PASSWORD.txt).')
-    if ($AllReleases) { [void]$lines.Add("This kit holds ALL $($pkis.Count) PKIs of the project (one .certpacked each): $(($pkis | ForEach-Object { $_.Label }) -join ', '). The installer installs them all in one run.") }
+    if ($pkis.Count -gt 1) { [void]$lines.Add("This kit holds $($pkis.Count) PKIs in ONE .certpacked: $(($pkis | ForEach-Object { $_.Label }) -join ', '). The installer installs them all in one run.") }
+    [void]$lines.Add('To take a PKI away again on that machine: Remove-PkiCa.ps1 (Windows) / remove-pki-ca.sh (Linux): -List shows what the kit installed, -Pki <name> removes one company, -All removes everything the kit installed.')
     [void]$lines.Add('Supported: Windows 11 24H2+ / Windows Server 2025 (all), Windows Server 2022 (classic CAs only); Ubuntu 24.04+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES 15+, openSUSE 15+. Other systems are refused with an error.')
     [void]$lines.Add('')
     foreach ($m in $made) {
@@ -364,6 +468,7 @@ try {
         [void]$lines.Add('')
     }
     [void]$lines.Add('Check only (changes nothing):  Windows  .\Install-PkiCa.ps1 -Check     Linux  bash install-pki-ca.sh --check')
+    [void]$lines.Add('Remove:  Windows  .\Remove-PkiCa.ps1 -List | -Pki <name> | -All     Linux  bash remove-pki-ca.sh --list | --pki <name> | --all   (add -Check / --check to only show)')
     [System.IO.File]::WriteAllText((Join-Path $runDir 'README.txt'), ($hdr + ($lines -join "`n") + "`n"), $utf8)
 }
 finally { Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue }

@@ -39,16 +39,19 @@ function Show-Help {
  Install-PkiCa.ps1  -  install the CA certificates of the PKI on this Windows machine
  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
-Version 5.0.2
+Version 5.1.0
 
 WHAT IT DOES
-  Opens the .certpacked file(s) that came in the same zip (it asks for the password; a kit of ALL releases has one per release), and installs the CA certificates:
+  Opens the .certpacked file that came in the same zip (it asks for the password) and installs the CA certificates of EVERY PKI inside it
+  (a kit can hold the PKIs of several companies, for example agantra and raksaka, and several releases of each):
     * every ROOT (top root, track roots, quadrant roots)  -> Trusted Root Certification Authorities
     * every INTERMEDIATE CA                               -> Intermediate Certification Authorities
   The package holds NO private key. Nothing is signed or issued here.
   Run it in an ADMINISTRATOR window and it installs for the whole machine (Local Machine). Run it in a normal window and it installs for
   YOUR user only (Current User). Windows then asks you to confirm each root certificate: click Yes.
   The PKI is already installed (an older version)? The old certificates of the same organization are removed, the new ones are added.
+  What was installed is written to a list (Local Machine: %ProgramData%\PkiTrustKit\installed.tsv, Current User: %LOCALAPPDATA%\PkiTrustKit\installed.tsv).
+  To take a PKI away again use Remove-PkiCa.ps1 from the same zip:  -List, -Pki <name>, -All  (see its -Help).
   At the end the extracted files are deleted. The script and the .certpacked are deleted too, only the zip stays (-Keep keeps them).
 
 HOW TO RUN (copy the zip to the laptop, unzip it, open PowerShell in that folder)
@@ -80,7 +83,7 @@ NOTES
 '@ | Write-Host
 }
 if ($Help) { Show-Help; return }
-$script:KitVersion = '5.0.2'
+$script:KitVersion = '5.1.0'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }
@@ -358,7 +361,7 @@ try {
     # ---- 2. the package and the password
     $here = Split-Path -Parent $MyInvocation.MyCommand.Path
     if (-not $Package) {
-        $found = @(Get-ChildItem -LiteralPath $here -Filter '*.certpacked' -File -ErrorAction SilentlyContinue)
+        $found = @(Get-ChildItem -LiteralPath $here -Filter '*.certpacked' -File -ErrorAction SilentlyContinue)      # one .certpacked holds ALL the PKIs of the kit (older kits: one per PKI)
         if ($found.Count -eq 0) { Stop-Kit "No .certpacked file next to this script ($here). Unzip the whole zip first, or use -Package <file>." }
         $Package = @($found | Sort-Object Name | ForEach-Object { $_.FullName })      # several = a kit of ALL releases: every one is installed
     }
@@ -423,7 +426,11 @@ try {
         $seenThumb[$seenKey] = $true
         $org = ''
         if ($cert.Subject -match '(?:^|,\s*)O=(?<o>"[^"]*"|[^,]+)') { $org = $Matches['o'].Trim('"').Trim() }
-        $item = New-Object psobject -Property @{ Cert = $cert; Thumb = $cert.Thumbprint.ToUpperInvariant(); Org = $org; Name = $cert.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false); Role = $role }
+        $pkiTag = ''; $relTag = ''
+        if ($f.Count -gt 9 -and $f[9]) { $pkiTag = $f[9].Trim() }          # kits made since 5.1.0 carry the company and the PKI folder of every certificate
+        if ($f.Count -gt 10 -and $f[10]) { $relTag = $f[10].Trim() }
+        if (-not $pkiTag -and $org) { $pkiTag = ($org -split '[^A-Za-z0-9]+' | Where-Object { $_ } | Select-Object -First 1).ToLowerInvariant() }
+        $item = New-Object psobject -Property @{ Cert = $cert; Thumb = $cert.Thumbprint.ToUpperInvariant(); Org = $org; Name = $cert.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false); Role = $role; Pki = $pkiTag; Release = $relTag }
         if ($role -eq 'root') { [void]$roots.Add($item) } else { [void]$inter.Add($item) }
     }
     }
@@ -441,6 +448,8 @@ try {
     foreach ($i in (@($roots) + @($inter))) { if ($i.Org) { $orgs[$i.Org] = $true } }
     if ($orgs.Count -eq 0) { Stop-Kit 'The certificates have no organization name: the old version cannot be recognized. Stopped, nothing was changed.' }
     Say 'OK' ("{0} root and {1} intermediate certificate(s), checksums fine. Organization: {2}" -f $roots.Count, $inter.Count, (($orgs.Keys | Sort-Object) -join ', '))
+    $pkiSet = @{}; foreach ($i in (@($roots) + @($inter))) { $k = if ($i.Release) { $i.Pki + ' / ' + $i.Release } else { $i.Pki }; if (-not $pkiSet.ContainsKey($k)) { $pkiSet[$k] = 0 }; $pkiSet[$k]++ }
+    foreach ($k in ($pkiSet.Keys | Sort-Object)) { Say 'INFO' ("  PKI {0}: {1} CA certificate(s)" -f $k, $pkiSet[$k]) }
 
     # ---- 5. the stores
     $storeRoot = 'Root'; $storeCa = 'CA'
@@ -461,7 +470,7 @@ try {
         @{ Store = $storeRoot; Label = 'Trusted Root Certification Authorities'; Items = @($roots) },
         @{ Store = $storeCa;   Label = 'Intermediate Certification Authorities'; Items = @($inter) }
     )
-    $removed = 0; $added = 0; $kept = 0
+    $removed = 0; $added = 0; $kept = 0; $removedThumbs = @()
     foreach ($p in $plan) {
         $have = Get-StoreThumbs $p.Store
         $newThumbs = @{}; foreach ($i in $p.Items) { $newThumbs[$i.Thumb] = $true }
@@ -472,7 +481,7 @@ try {
         if (-not $Check) {
             $s = Open-PkiStore $p.Store $true
             try {
-                foreach ($c in $old) { $s.Remove($c); $removed++; Say 'OK' ("  removed old: " + $c.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)) }
+                foreach ($c in $old) { $s.Remove($c); $removed++; $removedThumbs += $c.Thumbprint.ToUpperInvariant(); Say 'OK' ("  removed old: " + $c.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)) }
                 foreach ($i in $p.Items) {
                     if ($have.ContainsKey($i.Thumb)) { $kept++; continue }
                     $s.Add($i.Cert); $added++; Say 'OK' ("  installed: " + $i.Name)
@@ -490,6 +499,27 @@ try {
         foreach ($p in $plan) { $have = Get-StoreThumbs $p.Store; foreach ($i in $p.Items) { if (-not $have.ContainsKey($i.Thumb)) { $missing++; Say 'ERROR' ("not in the store: " + $i.Name) } } }
         if ($missing -gt 0) { Stop-Kit "$missing certificate(s) are NOT in the store (a confirmation window answered No?). Run the script again." }
         Say 'OK' ("Checked: all {0} certificate(s) are in the {1} store ({2} installed now, {3} were already there, {4} old removed)." -f (@($roots).Count + @($inter).Count), $loc, $added, $kept, $removed)
+    }
+
+    # ---- 6b. remember what this kit installed (Remove-PkiCa.ps1 uses it): one line per certificate
+    if (-not $Check) {
+        try {
+            $stateDir = $env:PKI_KIT_STATE_DIR
+            if (-not $stateDir) { if ($machine) { $stateDir = Join-Path $(if ($env:ProgramData) { $env:ProgramData } else { '/var/lib' }) 'PkiTrustKit' } else { $stateDir = Join-Path $(if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { Join-Path $HOME '.local/share' }) 'PkiTrustKit' } }
+            [void](New-Item -ItemType Directory -Path $stateDir -Force)
+            $reg = Join-Path $stateDir 'installed.tsv'
+            $scopeName = if ($machine) { 'Machine' } else { 'User' }
+            $regKeep = @()
+            if (Test-Path -LiteralPath $reg) {
+                $newT = @{}; foreach ($i in (@($roots) + @($inter))) { $newT[$i.Thumb] = $true }
+                foreach ($l in (Get-Content -LiteralPath $reg -Encoding UTF8)) { if (-not $l -or $l.StartsWith('#')) { continue }; $c = $l.Split("`t"); if ($c.Count -ge 4 -and -not $newT.ContainsKey($c[3]) -and ($removedThumbs -notcontains $c[3])) { $regKeep += $l } }
+            }
+            $now = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm')
+            $rows = @('# pki' + "`t" + 'release' + "`t" + 'store' + "`t" + 'thumbprint' + "`t" + 'name' + "`t" + 'organization' + "`t" + 'scope' + "`t" + 'installedUtc') + $regKeep
+            foreach ($p in $plan) { foreach ($i in $p.Items) { $rows += (@($i.Pki, $i.Release, $p.Store, $i.Thumb, $i.Name, $i.Org, $scopeName, $now) -join "`t") } }
+            [IO.File]::WriteAllLines($reg, [string[]]$rows)
+            Say 'INFO' ("Remembered in {0} (Remove-PkiCa.ps1 -List shows it; -Pki <name> or -All removes)." -f $reg)
+        } catch { Say 'WARN' ("Could not write the list of installed PKIs ({0}); Remove-PkiCa.ps1 -Org <organization> still works." -f $_.Exception.Message) }
     }
 
     # ---- 7. Firefox (optional)

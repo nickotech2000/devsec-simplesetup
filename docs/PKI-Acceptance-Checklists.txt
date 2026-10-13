@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.0.2     2026-10-13
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.1.0     2026-10-13
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
@@ -340,6 +340,18 @@
  [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified", no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404).
  [ ] Word 365: sign a document: the Signature Details no longer say "Recoverable"; the server window shows the 200 lines.
  [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
+
+====================================================================================================
+ E30  Minor 5.1.0: trust kit with several companies, remove scripts
+====================================================================================================
+ [ ] .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka : ONE .certpacked per zip; the log lists "agantra R1, raksaka R1"; -Pki agantra,nobody = error listing the known PKIs;
+     a company without a built PKI = exit 4. -AllProfiles and -AllReleases pack every release. -SelfExtract makes the same content as .cmd / .sh.
+ [ ] Windows, elevated: Install-PkiCa.ps1 shows "PKI agantra ..." and "PKI raksaka ..." lines; certlm.msc holds the roots of BOTH in Trusted Root, the intermediates in Intermediate.
+     %ProgramData%\PkiTrustKit\installed.tsv exists. Remove-PkiCa.ps1 -List shows both; -Pki raksaka -Check lists only Raksaka; -Pki raksaka removes only Raksaka (Agantra stays);
+     -All removes the rest and deletes the list; -Org "Raksaka" works with the list deleted; a normal window works on the Current User store.
+ [ ] Linux (Ubuntu 24 / RHEL 10 / SLES 15): install-pki-ca.sh installs the roots of both (pki-agantra-... and pki-raksaka-... in the system store); remove-pki-ca.sh --list,
+     --pki raksaka, --all, --org raksaka as above; the system store is refreshed; pki/ is gone after --all. An unsupported distribution = exit 5 for both scripts.
+ [ ] An older single-PKI kit still installs, and Remove-PkiCa.ps1 -Org / remove-pki-ca.sh --org removes it.
 
 ====================================================================================================
  E29  Revisions 5.0.1 / 5.0.2: version display, Raksaka trust-store fix, .gitignore

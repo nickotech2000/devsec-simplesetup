@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI PROFILES, PLATFORMS AND THE TOOLS CONFIGURATION  -  USER MANUAL              Version 5.0.2     2026-10-13
+ PKI PROFILES, PLATFORMS AND THE TOOLS CONFIGURATION  -  USER MANUAL              Version 5.1.0     2026-10-13
 ====================================================================================================
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
@@ -157,3 +157,8 @@
 
 GIT (5.0.2)
   .gitignore ignores every *_pki.cnf except agantra_pki.cnf: your raksaka_pki.cnf stays on your machine and is not committed. Remove the lines from .gitignore to commit one.
+
+
+TRUST KIT WITH SEVERAL COMPANIES (5.1.0)
+  New-PkiTrustKit.ps1 -All -Pki agantra,raksaka   packs both PKIs into ONE .certpacked; -AllProfiles packs every company. Install-PkiCa.ps1 / install-pki-ca.sh install them all;
+  Remove-PkiCa.ps1 -Pki raksaka / remove-pki-ca.sh --pki raksaka take one company away again. Manual: PkiTrustKit-MANUAL.txt.

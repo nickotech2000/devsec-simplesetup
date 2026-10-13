@@ -34,7 +34,7 @@ if ($Help) {
 @'
 ============================================================
  Install-PkiTrust.ps1 - DevKit installer for Windows
- Version 5.0.2
+ Version 5.1.0
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
