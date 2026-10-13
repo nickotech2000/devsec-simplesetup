@@ -29,10 +29,13 @@
 
 $script:PkiCsrSubjectAttrs = [ordered]@{
     DV = @('CN')
-    OV = @('C', 'ST', 'L', 'street', 'postalCode', 'O', 'OU', 'CN', 'name', 'emailAddress', 'telephoneNumber')
+    OV = @('C', 'ST', 'L', 'street', 'postalCode', 'O', 'OU', 'CN', 'name', 'emailAddress', 'telephoneNumber', 'serialNumber')     # serialNumber = the company ID (5.2.2)
     EV = @('C', 'ST', 'L', 'street', 'postalCode', 'O', 'OU', 'CN', 'name', 'emailAddress', 'telephoneNumber',
            'businessCategory', 'serialNumber', 'jurisdictionC', 'jurisdictionST', 'jurisdictionL', 'organizationIdentifier')
 }
+# A request made by New-PkiCsr.ps1 / new-pki-csr.sh may carry this DNS name in its subjectAltName: it means "add the development SAN list" (like
+# -AddDevelopmentSAN). The marker itself is never put in a certificate. (5.2.2)
+$script:PkiCsrDevSanMarker = 'add-development-san.pki-marker.invalid'
 $script:PkiCsrBusinessCategories = @('Private Organization', 'Government Entity', 'Business Entity', 'Non-Commercial Entity')
 $script:PkiCsrInternalTlds = @('internal', 'local', 'localhost', 'lan', 'corp', 'home', 'intranet', 'private', 'test', 'invalid', 'developer', 'api', 'ldap')
 
@@ -100,6 +103,7 @@ function Read-PkiCsr {
     $san = [ordered]@{ Dns = [System.Collections.Generic.List[string]]::new(); Ip = [System.Collections.Generic.List[string]]::new(); Email = [System.Collections.Generic.List[string]]::new(); Other = [System.Collections.Generic.List[string]]::new() }
     $reqExt = [System.Collections.Generic.List[string]]::new()
     $ca = $false
+    $policyOids = [System.Collections.Generic.List[string]]::new()
     if ($text -match '(?s)Requested Extensions:(?<x>.*?)(\r?\n\s*Signature Algorithm:)') {
         $block = $Matches['x']
         $lines = $block -split "`r?`n"
@@ -118,10 +122,18 @@ function Read-PkiCsr {
                     }
                 }
                 if ($name -match 'Basic Constraints' -and $val -match 'CA:TRUE') { $ca = $true }
+                if ($name -match 'Certificate Policies') {
+                    for ($j = $i + 1; $j -lt $lines.Count; $j++) { if ($lines[$j] -match '^\s+Policy:\s*(?<o>\S+)') { [void]$policyOids.Add($Matches['o']) } elseif ($lines[$j] -match '^\s{12}\S') { break } }
+                }
             }
         }
     }
+    # the development-SAN marker (5.2.2): taken out of the names
+    $devSan = $false
+    foreach ($d in @($san.Dns)) { if ($d -ieq $script:PkiCsrDevSanMarker) { $devSan = $true } }
+    if ($devSan) { for ($k = $san.Dns.Count - 1; $k -ge 0; $k--) { if ($san.Dns[$k] -ieq $script:PkiCsrDevSanMarker) { $san.Dns.RemoveAt($k) } } }
     return [pscustomobject]@{
+        DevSanMarker = $devSan; PolicyOids = @($policyOids)
         Path = $full; VerifyOk = ($v.ExitCode -eq 0); Subject = $pairs; SubjectText = (($pairs | ForEach-Object { '{0}={1}' -f $_[0], $_[1] }) -join ', ')
         KeyAlg = $alg; KeyBits = $bits; Curve = $curve; MlDsa = $ml; KeyText = $algText; SigAlg = $sig
         San = $san; RequestedExtensions = @($reqExt); RequestsCa = $ca; Text = $text
@@ -171,6 +183,19 @@ function Test-PkiCsrKey {
         [void]$F.Add((New-PkiFinding ERROR 'KEY-DIGEST' 'request signature' "The request is signed with $($Csr.SigAlg): SHA-256 or stronger is required." 'openssl req -new -sha256 (or -sha384) ...'))
     }
     elseif ($Csr.SigAlg) { [void]$F.Add((New-PkiFinding OK 'KEY-DIGEST' 'request signature' "Request signature algorithm $($Csr.SigAlg).")) }
+}
+
+function Get-PkiCsrAutoLevel {
+    <#
+    .SYNOPSIS
+        The level a request asks for by what it carries (5.2.2): EV when it has the EV information (businessCategory, serialNumber and jurisdictionC),
+        OV when it has a company (C and O), else DV. Returns @{ Level; Reason }.
+    #>
+    param([Parameter(Mandatory)]$Csr)
+    $has = { param($k) @($Csr.Subject | Where-Object { $_[0] -ceq $k -and -not [string]::IsNullOrWhiteSpace($_[1]) }).Count -gt 0 }
+    if ((& $has 'businessCategory') -and (& $has 'serialNumber') -and (& $has 'jurisdictionC')) { return @{ Level = 'EV'; Reason = 'the request carries the EV information (businessCategory, serialNumber, jurisdictionC)' } }
+    if ((& $has 'O') -and (& $has 'C')) { return @{ Level = 'OV'; Reason = 'the request carries a company (C and O) but no complete EV information' } }
+    return @{ Level = 'DV'; Reason = 'the request carries a common name only' }
 }
 
 function Test-PkiCsrSubject {
@@ -272,14 +297,14 @@ function Test-PkiCsrNames {
     foreach ($m in $s.Email) { if ($mail) { [void]$em.Add($m) } }
     if ($web -and $s.Email.Count -gt 0) { [void]$F.Add((New-PkiFinding WARN 'SAN-DROPPED' 'subjectAltName' "E-mail name(s) $($s.Email -join ', ') are not put in a TLS certificate." 'Ask for -Purpose EmailProtection for an S/MIME certificate.')) }
     if ($mail -and ($s.Dns.Count + $s.Ip.Count) -gt 0) { [void]$F.Add((New-PkiFinding WARN 'SAN-DROPPED' 'subjectAltName' 'DNS and IP names are not put in an S/MIME certificate (e-mail names only).' '')) }
-    if ($web -and $dns.Count -eq 0 -and $ip.Count -eq 0) {
+    if ($web -and $dns.Count -eq 0 -and $ip.Count -eq 0 -and -not $Csr.DevSanMarker) {      # with the development-SAN marker the development list supplies the names
         if ($cn -and (Test-PkiDnsName -Name $cn) -and $cn -notmatch '\s') {
             [void]$dns.Add($cn)
             [void]$F.Add((New-PkiFinding WARN 'SAN-DERIVED' 'subjectAltName' "The request has no subjectAltName; the CN '$cn' is used as the DNS name (browsers and TLS libraries only look at the SAN)." 'Put the names in the request: -addext "subjectAltName=DNS:www.example.com,DNS:example.com"'))
         }
         else { [void]$F.Add((New-PkiFinding ERROR 'SAN-NONE' 'subjectAltName' 'A TLS certificate needs at least one DNS name or IP address, and the request has none (the CN is not a host name either).' 'Make the request with -addext "subjectAltName=DNS:www.example.com".')) }
     }
-    if ($mail -and $em.Count -eq 0) {
+    if ($mail -and $em.Count -eq 0 -and -not $Csr.DevSanMarker) {
         if ($cn -and $cn -match '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
             [void]$em.Add($cn); [void]$F.Add((New-PkiFinding WARN 'SAN-DERIVED' 'subjectAltName' "No e-mail name in the request; the CN '$cn' is used." 'Put it in the request: -addext "subjectAltName=email:name@example.com"'))
         }
@@ -315,7 +340,12 @@ function Test-PkiCsrExtensions {
     param([Parameter(Mandatory)]$Csr, [Parameter(Mandatory)]$Findings)
     $F = $Findings
     if ($Csr.RequestsCa) { [void]$F.Add((New-PkiFinding ERROR 'EXT-CA' 'basicConstraints' 'The request asks for CA:TRUE. A leaf request may not be a CA.' 'A CA of another department goes through SignExternalCa.ps1 (the original PKI owner signs it with a Quadrant Root).')) }
-    $ign = @($Csr.RequestedExtensions | Where-Object { $_ -match 'Key Usage|Extended Key|Policies|Authority|Subject Key|CRL|Authority Information|Name Constraints' })
+    $ign = @($Csr.RequestedExtensions | Where-Object { $_ -match 'Key Usage|Extended Key|Authority|Subject Key|CRL|Authority Information|Name Constraints' })
+    if (@($Csr.PolicyOids).Count -gt 0) {
+        $okp = @($Csr.PolicyOids | Where-Object { $_ -match '^1\.3\.6\.1\.4\.1\.\d+(\.\d+)*$' }); $badp = @($Csr.PolicyOids | Where-Object { $_ -notmatch '^1\.3\.6\.1\.4\.1\.\d+(\.\d+)*$' })
+        if ($okp.Count -gt 0) { [void]$F.Add((New-PkiFinding INFO 'EXT-PEN-POLICY' 'certificatePolicies' "Company policy OID(s) of the request are added to the certificate (IANA private enterprise arc 1.3.6.1.4.1): $($okp -join ', ')")) }
+        if ($badp.Count -gt 0) { [void]$F.Add((New-PkiFinding WARN 'EXT-POLICY-DROPPED' 'certificatePolicies' "Policy OID(s) outside 1.3.6.1.4.1.<PEN> are ignored: $($badp -join ', ')." 'Only an IANA private enterprise number arc is accepted from a request.')) }
+    }
     if ($ign.Count -gt 0) { [void]$F.Add((New-PkiFinding INFO 'EXT-IGNORED' 'extensions' "The request asks for: $($ign -join ', '). This PKI decides key usage, extended key usage, policies and revocation URLs itself; they are ignored.")) }
 }
 
@@ -334,6 +364,7 @@ function Test-PkiCsrSpec {
         [ValidateSet('Classic', 'Quantum')][string]$Track = 'Classic', [string]$Purpose = 'ServerAuth', [int]$Days = 0
     )
     $F = [System.Collections.Generic.List[object]]::new()
+    if ($Profile -eq 'Ca' -and $Csr.DevSanMarker) { [void]$F.Add((New-PkiFinding ERROR 'CA-DEV-SAN' 'subjectAltName' 'A request for a CA certificate asks for the development names (marker in its SAN). A CA certificate never has development names.' 'Make the CA request again with New-PkiCsr.ps1 -CertificateType IntermediateCA (no names).')) }
     if ($Profile -eq 'Leaf') {
         $eku = Get-PkiCsrEku -Purpose $Purpose
         $cs = ($eku -contains 'CodeSigning')
@@ -363,6 +394,46 @@ function Get-PkiSignCsrDays {
     return $d
 }
 
+function Get-PkiCsrKind {
+    <#
+    .SYNOPSIS
+        What kind of request this is (5.2.6): IntermediateCA when it asks for CA:TRUE (basicConstraints); Leaf when it carries names (subjectAltName, or the
+        development-names marker); Unclear when it has neither (a name-only request, or a hand-made CA request without CA:TRUE).
+    #>
+    param([Parameter(Mandatory)]$Csr)
+    if ($Csr.RequestsCa) { return @{ Kind = 'IntermediateCA'; Reason = 'the request asks for CA:TRUE (basicConstraints)' } }
+    $n = @($Csr.San.Dns).Count + @($Csr.San.Ip).Count + @($Csr.San.Email).Count
+    if ($n -gt 0 -or $Csr.DevSanMarker) { return @{ Kind = 'Leaf'; Reason = 'the request carries names (subjectAltName) and no CA:TRUE' } }
+    return @{ Kind = 'Unclear'; Reason = 'the request has neither CA:TRUE nor names' }
+}
+
+function Test-PkiCsrKind {
+    <#
+    .SYNOPSIS
+        Checks that the request is of the kind THIS script signs. -Expected Leaf (SignCsr) or IntermediateCA (SignExternalCa); -Declared Auto|Leaf|IntermediateCA is the
+        parameter -CsrType. Returns @{ Ok; Kind; Level (INFO|ERROR); Text; Fix }.
+    #>
+    param([Parameter(Mandatory)]$Csr, [ValidateSet('Leaf', 'IntermediateCA')][string]$Expected, [string]$Declared = 'Auto')
+    $k = Get-PkiCsrKind -Csr $Csr
+    $me = if ($Expected -eq 'Leaf') { 'SignCsr.ps1 (SignCsr.sh)' } else { 'SignExternalCa.ps1' }
+    $other = if ($Expected -eq 'Leaf') { 'SignExternalCa.ps1 -Csr <file>   (a CA of your department; original PKI only)' } else { 'SignCsr.ps1 -Csr <file>   (SignCsr.sh --csr <file> in the DevKit)' }
+    if ($Declared -ne 'Auto' -and $Declared -ne $Expected) {
+        return @{ Ok = $false; Kind = $k.Kind; Level = 'ERROR'; Text = "-CsrType $Declared was given, but $me signs only $Expected requests."; Fix = "Use: $other" }
+    }
+    if ($k.Kind -ne 'Unclear' -and $k.Kind -ne $Expected) {
+        return @{ Ok = $false; Kind = $k.Kind; Level = 'ERROR'; Text = "This request is of kind $($k.Kind) ($($k.Reason)); $me signs $Expected requests only."; Fix = "Use: $other" }
+    }
+    if ($k.Kind -eq 'Unclear') { return @{ Ok = $true; Kind = $k.Kind; Level = 'INFO'; Text = "Request kind: not clear ($($k.Reason)); treated as $Expected$(if ($Declared -eq $Expected) { ' as you said with -CsrType' } else { ' (-CsrType decides it yourself)' })."; Fix = '' } }
+    return @{ Ok = $true; Kind = $k.Kind; Level = 'INFO'; Text = "Request kind: $($k.Kind) ($($k.Reason))."; Fix = '' }
+}
+
+function Write-PkiCsrKindLine {
+    param([Parameter(Mandatory)]$Kind, [switch]$NoColor)
+    $col = if ($Kind.Level -eq 'ERROR') { 'Red' } else { 'Cyan' }
+    Write-Host ("  [{0}] request kind             {1}" -f $(if ($Kind.Level -eq 'ERROR') { 'ERROR' } else { 'INFO' }), $Kind.Text) -ForegroundColor $col
+    if ($Kind.Fix) { Write-Host ("                                   fix: {0}" -f $Kind.Fix) -ForegroundColor $col }
+}
+
 function Invoke-PkiSignCsr {
     <#
     .SYNOPSIS
@@ -373,7 +444,7 @@ function Invoke-PkiSignCsr {
     param(
         [Parameter(Mandatory)][string]$Csr, [ValidateSet('DV', 'OV', 'EV')][string]$Level = 'DV', [ValidateSet(1, 2, 3, 4)][int]$Quadrant = 1,
         [string]$Purpose = 'ServerAuth', [int]$Days = 0, [string]$Name, [string]$OutRoot, [switch]$NoCrl, [switch]$NoOcsp,
-        [switch]$Strict, [switch]$CheckOnly, [switch]$NoColor, [string[]]$Policy = @()
+        [switch]$Strict, [switch]$CheckOnly, [switch]$NoColor, [string[]]$Policy = @(), [switch]$AddDevelopmentSan, [string]$LevelReason = '', [string]$CsrType = 'Auto'
     )
     $c = $script:Pki
     if ([bool]$c.ClassicOnly -and $Quadrant -ge 3) { throw 'Quadrant 3 / 4 is the Quantum track (ML-DSA): this computer is Windows Server 2022, which can issue the CLASSIC track only. Leave out -Quantum.' }
@@ -383,12 +454,31 @@ function Invoke-PkiSignCsr {
     Write-Host "REQUEST  $($info.Path)"
     Write-Host "  subject : $($info.SubjectText)"
     Write-Host "  key     : $(Get-PkiKeyDescription -Csr $info)    signature: $($info.SigAlg)"
-    Write-Host "  asked   : $Level, Quadrant $Quadrant ($track$(if ($Quadrant -in 2, 4) { ' FIPS' } else { ' non-FIPS' })), purpose $Purpose"
+    Write-Host "  asked   : $Level$(if ($LevelReason) { " (chosen from the request: $LevelReason)" }), Quadrant $Quadrant ($track$(if ($Quadrant -in 2, 4) { ' FIPS' } else { ' non-FIPS' })), purpose $Purpose"
+    Write-Host ''
+    $kind = Test-PkiCsrKind -Csr $info -Expected Leaf -Declared $CsrType
+    Write-PkiCsrKindLine -Kind $kind -NoColor:$NoColor
+    if (-not $kind.Ok) {
+        Write-Host ''; Write-Host '  Result: the request is not a leaf request: nothing was signed.'
+        return [pscustomobject]@{ Signed = $false; Findings = @(); Errors = 1; Warnings = 0; Dir = $null; Certificate = $null }
+    }
     Write-Host ''
     $daysAsked = $Days
     $r = Test-PkiCsrSpec -Csr $info -Profile Leaf -Level $Level -Track $track -Purpose $Purpose -Days $daysAsked
     Write-PkiCsrFindings -Findings $r.Findings -NoColor:$NoColor
     Write-Host ''
+    $wantDev = ($AddDevelopmentSan -or $info.DevSanMarker)
+    if ($wantDev -and $r.Errors -eq 0) {
+        $eku0 = Get-PkiCsrEku -Purpose $Purpose
+        if (($eku0 -contains 'ServerAuth') -or ($eku0 -contains 'ClientAuth') -or ($eku0 -contains 'EmailProtection')) {
+            $mail0 = ($eku0 -contains 'EmailProtection') -and ($eku0 -notcontains 'ServerAuth')
+            $merged = Add-PkiDevelopmentSan -San ([ordered]@{ Dns = @($r.Names.Dns); Ip = @($r.Names.Ip); Email = @($r.Names.Email); Given = $true }) -EmailOnly:$mail0
+            $r.Names = @{ Dns = @($merged.Dns); Ip = @($merged.Ip); Email = @($merged.Email) }
+            Write-Host "  [INFO] subjectAltName          development names added ($(if ($info.DevSanMarker) { 'the request carries the marker' } else { '-AddDevelopmentSAN' })): $($merged.Added.Dns) DNS, $($merged.Added.Ip) IP, $($merged.Added.Email) e-mail."
+            if ($Level -eq 'EV') { Write-Host '  [WARN] subjectAltName          development names (IP addresses, wildcards, internal names) are not EV-conformant: for development only.' -ForegroundColor Yellow }
+        }
+        else { Write-Host "  [WARN] subjectAltName          a $Purpose certificate carries no names: the development names are not added." -ForegroundColor Yellow }
+    }
     $blocked = ($r.Errors -gt 0) -or ($Strict -and $r.Warnings -gt 0)
     if ($Strict -and $r.Errors -eq 0 -and $r.Warnings -gt 0) { Write-PkiLog '-Strict: the warnings count as errors.' 'ERROR' }
     if ($blocked) { return [pscustomobject]@{ Signed = $false; Findings = $r.Findings; Errors = $r.Errors; Warnings = $r.Warnings; Dir = $null; Certificate = $null } }
@@ -403,7 +493,8 @@ function Invoke-PkiSignCsr {
     $eku = Get-PkiCsrEku -Purpose $Purpose
     $family = switch ($info.KeyAlg) { 'RSA' { 'rsa' } 'ECDSA' { 'ecdsa' } default { 'pqc' } }
     $ekuInfo = Get-PkiLeafEkuInfo -Eku $eku -Family $family
-    $policies = Get-PkiLeafPolicies -Level $Level -PolicyText $Policy
+    $penPol = @($info.PolicyOids | Where-Object { $_ -match '^1\.3\.6\.1\.4\.1\.\d+(\.\d+)*$' })      # the company policy of the request (IANA PEN arc), 5.2.2
+    $policies = Get-PkiLeafPolicies -Level $Level -PolicyText (@($Policy) + $penPol)
     if ($eku -contains 'TimeStamping') {
         $tsOid = [string](Get-PkiTimestampSettings).PolicyOid
         if ($tsOid -and -not ($policies | Where-Object { $_.Oid -eq $tsOid })) { $policies = @($policies) + @([ordered]@{ Label = 'TSA'; Oid = $tsOid; Cps = '' }) }

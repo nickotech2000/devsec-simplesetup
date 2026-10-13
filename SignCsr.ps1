@@ -22,6 +22,7 @@ param(
     # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
     [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     [string]$Csr,
+    [ValidateSet('Auto', 'Leaf', 'IntermediateCA')][string]$CsrType = 'Auto',
     # ---- level and quadrant (default: -DV, -Classic, non-FIPS) ----
     [switch]$DV,
     [switch]$OV,
@@ -29,6 +30,7 @@ param(
     [switch]$Classic,
     [switch]$Quantum,
     [switch]$FIPS,
+    [switch]$AddDevelopmentSAN,
     # ---- what the certificate is for (one purpose per request: one key = one purpose) ----
     [ValidateSet('ServerAuth', 'ClientAuth', 'ServerClientAuth', 'CodeSigning', 'EmailProtection', 'TimeStamping', 'OcspSigning')][string]$Purpose = 'ServerAuth',
     [ValidateRange(1, 36500)][int]$Days,
@@ -62,7 +64,7 @@ function Show-SignCsrHelp {
     @'
 ============================================================
  SignCsr.ps1 - sign the certificate request (CSR) of another department with our PKI
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -88,7 +90,10 @@ WHAT IT DOES
 
 WHO SIGNS
   The INTERMEDIATE CA of the level and quadrant:   q<N>-dv | q<N>-ov | q<N>-ev
-  -DV (default) | -OV | -EV        the level. DV = domain only, OV = organization, EV = extended validation
+  -DV | -OV | -EV                  the level. DV = domain only, OV = organization, EV = extended validation.
+                                   WITHOUT one of them the level follows the request (5.2.2): the EV information complete (businessCategory, serialNumber,
+                                   jurisdictionC) = EV; a company (C and O) = OV; a common name only = DV. A request made by New-PkiCsr.ps1 / new-pki-csr.sh
+                                   therefore gets the right level by itself. -Classic and Quadrant 1 (non-FIPS) stay the default; -Quantum / -FIPS decide otherwise.
   -Classic (default) | -Quantum    the track.   -FIPS   the FIPS quadrant (Classic: Q2, Quantum: Q4). Without -FIPS: Q1 / Q3, non-FIPS.
   Roots never sign a request here: a request for a CA certificate is signed by the owner of the Quadrant Roots with SignExternalCa.ps1.
 
@@ -107,16 +112,23 @@ THE SPEC A REQUEST MUST FOLLOW (each deviation is an ERROR or WARN in the report
              EmailProtection: e-mail addresses (SAN email:) only.  CodeSigning, TimeStamping, OcspSigning: no names (dropped with a WARN).
   Validity   DV 5 years, OV 3 years, EV 397 days (the maximum; a longer -Days is an ERROR), TimeStamping 5 years, OcspSigning 1 year.
              Never longer than the issuing CA.
-  Ignored    keyUsage, extendedKeyUsage, policies, CRL / OCSP URLs asked for in the request: THIS PKI sets them (from -Purpose and -Level).
+  Ignored    keyUsage, extendedKeyUsage, CRL / OCSP URLs asked for in the request: THIS PKI sets them (from -Purpose and -Level). The CRL and OCSP
+             addresses are those of the issuing CA that signs (q<N>-<level>), whatever the request says.
+             A policy OID of the request is added ONLY when it is in the IANA private enterprise arc 1.3.6.1.4.1.<PEN> (the company policy, 5.2.2).
+             OV may carry serialNumber (the company ID).
              A request for CA:TRUE is refused.   Policies: the level policy, the PEN policies and the High Assurance policy (OV), as for any leaf.
 
 OPTIONS
   -Csr <file>              His request (PEM).
-  -DV | -OV | -EV          Level (default DV).          -Classic | -Quantum   Track (default Classic).          -FIPS   FIPS quadrant.
+  -CsrType Auto|Leaf|IntermediateCA   the kind of request (5.2.6, default Auto). Auto recognises it: CA:TRUE = a CA request, names without CA:TRUE = a leaf request.
+                           This script signs LEAF requests; a CA request is refused with the command to use (SignExternalCa.ps1). New-PkiCsr.ps1 -CertificateType decides what it makes.
+  -DV | -OV | -EV          Level (default: from the request, see WHO SIGNS).          -Classic | -Quantum   Track (default Classic).          -FIPS   FIPS quadrant.
   -Purpose <p>             ServerAuth (default) | ClientAuth | ServerClientAuth | CodeSigning | EmailProtection | TimeStamping | OcspSigning
   -Days <n>                Validity in days (default by level; EV at most 397; cut to what the issuer still has).
   -Name <text>             Name of the output folder and files (default: his CN).
   -OutFolder <path>        Where the per-request folders go (default: .\csr-signed next to the pki folder).
+  -AddDevelopmentSAN       merge the development SAN list (DNS, IP, e-mail of [ development_san ]) into the names, like GenerateLeafCertificate.ps1. A request
+                           made by New-PkiCsr.ps1 can ask for it itself (a marker name in its SAN); the marker is never put in the certificate. (5.2.2)
   -Policy <oid|cps ...>    Extra policy "OID|CPS-URL" for this certificate.
   -NoCrl -NoOcsp -NoRevocationInfo   leave the CRL distribution point and / or the OCSP URL out of the certificate.
                                      NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
@@ -181,6 +193,7 @@ try {
     . (Join-Path $script:ScriptRoot 'scripts/PkiModules.ps1')
     if (@($DV, $OV, $EV | Where-Object { $_ }).Count -gt 1) { throw 'Use only one of -DV, -OV and -EV.' }
     if ($Classic -and $Quantum) { throw 'Use only one of -Classic and -Quantum.' }
+    $levelGiven = ($EV -or $OV -or $DV)
     $level = if ($EV) { 'EV' } elseif ($OV) { 'OV' } else { 'DV' }
     $quadrant = if ($Quantum) { if ($FIPS) { 4 } else { 3 } } else { if ($FIPS) { 2 } else { 1 } }
     Initialize-PkiConfiguration -ScriptRoot $script:ScriptRoot -Bound $PSBoundParameters -VerboseOutput:([bool]$Verbose)
@@ -204,8 +217,15 @@ try {
     Initialize-OpenSSL
     [void](Import-PkiExisting)
     if ($c.Quadrants -notcontains $quadrant) { throw "This PKI has no Quadrant $quadrant ($(if ($Quantum) { 'Quantum' } else { 'Classic' })$(if ($FIPS) { ' FIPS' })); it contains: $((($c.Quadrants | ForEach-Object { "Q$_" }) -join ', '))." }
-    $r = Invoke-PkiSignCsr -Csr $Csr -Level $level -Quadrant $quadrant -Purpose $Purpose -Days $Days -Name $Name -OutRoot $outRoot `
-            -NoCrl:([bool]($NoCrl -or $NoRevocationInfo)) -NoOcsp:([bool]($NoOcsp -or $NoRevocationInfo)) -Strict:$Strict -CheckOnly:$Check -NoColor:$NoColor -Policy $Policy
+    # no -DV / -OV / -EV: the level follows the request (5.2.2): EV information complete = EV, a company (C + O) = OV, else DV
+    $levelReason = ''
+    if (-not $levelGiven) {
+        $auto = Get-PkiCsrAutoLevel -Csr (Read-PkiCsr -Path $Csr)
+        $level = $auto.Level; $levelReason = $auto.Reason
+        Write-PkiLog "Level $level, chosen from the request: $levelReason. (-DV, -OV or -EV decide it yourself.)" 'INFO'
+    }
+    $r = Invoke-PkiSignCsr -Csr $Csr -Level $level -Quadrant $quadrant -Purpose $Purpose -Days $Days -Name $Name -OutRoot $outRoot -CsrType $CsrType `
+            -NoCrl:([bool]($NoCrl -or $NoRevocationInfo)) -NoOcsp:([bool]($NoOcsp -or $NoRevocationInfo)) -Strict:$Strict -CheckOnly:$Check -NoColor:$NoColor -Policy $Policy -AddDevelopmentSan:$AddDevelopmentSAN -LevelReason $levelReason
     if ($r.Errors -gt 0 -or ($Strict -and $r.Warnings -gt 0)) { exit 2 }
     if ($r.Signed) {
         Write-PkiLog "Give him the content of $($r.Dir)  (README.txt explains the files)." 'INFO'

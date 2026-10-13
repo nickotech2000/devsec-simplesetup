@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL   (PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 5.1.0     2026-10-13
+ Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 5.2.6     2026-10-13
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: Install-DevEnvironment-MANUAL.txt (the bootstrap that installs 7-Zip and OpenSSL 4)
           pki_setup-MANUAL.txt                (the PKI itself)           GenerateLeafCertificate-MANUAL.txt (leaf
@@ -322,7 +322,7 @@
 ====================================================================================================
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -457,7 +457,7 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -515,7 +515,7 @@ LIMITATIONS
 ====================================================================================================
 ============================================================
  pki-transport.sh - DESTINATION script for Linux and macOS
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -701,3 +701,10 @@ PkiTransport.ps1 -CrlServer  -  CRLs and CA certificates on Ubuntu 24.04 / 26.04
 5.0.0: -Pki <name> on -Pack, -DevKit, -Server, -CrlServer ... File names follow the PKI (agantra-pki-<date>.certpacked, raksaka-pki-<date>.certpacked). TransportFolder, ArchiveFormat and
 ZipEncryption can be set in pki_tools.cnf. -Install runs on Windows 11 24H2+, Windows Server 2025 and 2022 (2022: post-quantum certificates are not installed); it was Windows 11 25H2 client only.
 Windows 10 and earlier, Windows 11 before 24H2, specialised editions and macOS are refused. pki-transport.sh: Linux only (list in PkiProfiles-MANUAL.txt section 6).
+
+====================================================================================================
+ THE KIT NOW ALSO HOLDS THE CSR TOOLS  (5.2.2)
+====================================================================================================
+  PkiTransport.ps1 -Pack -Kit copies New-PkiCsr.ps1, new-pki-csr.sh, Prepare-Computer.ps1 and prepare-computer.sh (and docs\NewPkiCsr-MANUAL.txt) into the kit folder, next
+  to the transport scripts: the destination can install OpenSSL and make a certificate request there. The DevKit and every trust-kit zip hold them too.
+  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com

@@ -28,11 +28,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.1.0"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="5.2.6"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="5.1.0"
+VERSION="5.2.6"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/pki-lib.sh"
 
@@ -40,7 +40,7 @@ usage() {
 cat <<'EOT'
 ============================================================
  SignCsr.sh - sign the certificate request (CSR) of another department with our PKI
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -63,27 +63,32 @@ WHAT IT DOES
   CRL / OCSP of the original PKI - the owner of the original PKI can revoke the intermediate if the kit leaks).
 
 WHO SIGNS
-  --dv (default) | --ov | --ev     level  =  CA q<N>-dv | q<N>-ov | q<N>-ev
+  --dv | --ov | --ev               level  =  CA q<N>-dv | q<N>-ov | q<N>-ev.  Without one of them the level FOLLOWS THE REQUEST (5.2.2):
+                                   EV information complete (businessCategory, serialNumber, jurisdictionC) = EV; a company (C and O) = OV; else DV.
+                                   A request made by new-pki-csr.sh / New-PkiCsr.ps1 therefore gets the right level by itself.
   --classic (default) | --quantum  track.   --fips   FIPS quadrant (Classic Q2 / Quantum Q4). Without --fips: Q1 / Q3, non-FIPS.
   The roots never sign here. A request for a CA certificate is signed by the owner of the ORIGINAL PKI (SignExternalCa.ps1, Quadrant Root).
 
 THE SPEC A REQUEST MUST FOLLOW (see docs/SignCsr-MANUAL.txt; the report names every deviation)
   Signature valid, SHA-256+.   Key  Classic: RSA 2048/3072/4096/8192, ECDSA P-256/P-384/P-521.  Quantum: ML-DSA-44/65/87.
   Code signing: RSA 4096+, ECDSA P-384+, ML-DSA-65+.  Never RSA < 2048, other curves, Ed25519, DSA.
-  Subject  DV: CN only (rest dropped, WARN).  OV: C (2 letters), O, CN; ST, L recommended.
+  Subject  DV: CN only (rest dropped, WARN).  OV: C (2 letters), O, CN; ST, L recommended; serialNumber (company ID) allowed.
            EV: OV + ST, L, serialNumber, businessCategory (Private Organization | Government Entity | Business Entity | Non-Commercial Entity),
                jurisdictionC.  Code signing: C, O, CN.
   Names    TLS: DNS and IP.  EV: no wildcard, no IP, no internal name, no e-mail.  S/MIME: e-mail only.  Code signing / TSA / OCSP: none.
   Validity DV 5 years, OV 3 years, EV 397 days at most, time stamping 5 years, OCSP 1 year; never longer than the issuing CA.
-  Ignored  keyUsage, extendedKeyUsage, policies, CRL / OCSP URLs of the request (this PKI sets them); CA:TRUE is refused.
+  Ignored  keyUsage, extendedKeyUsage, CRL / OCSP URLs of the request (this PKI sets them; the CRL and OCSP are those of the issuing CA that signs); CA:TRUE is refused.
+           A policy OID of the request is added only inside the IANA private enterprise arc 1.3.6.1.4.1.<PEN> (the company policy).
 
 OPTIONS
   --csr FILE               his request (PEM).                               --purpose P   ServerAuth (default) | ClientAuth | ServerClientAuth |
-  --dv | --ov | --ev       level (default dv)                                              CodeSigning | EmailProtection | TimeStamping | OcspSigning
+  --csr-type auto|leaf     the kind of request (5.2.6, default auto): SignCsr signs LEAF requests; a CA request (CA:TRUE) is recognised and sent to SignExternalCa.ps1
+  --dv | --ov | --ev       level (default: from the request)                                            CodeSigning | EmailProtection | TimeStamping | OcspSigning
   --classic | --quantum    track (default classic)                          --fips        FIPS quadrant
   --days N                 validity in days (EV at most 397)                --name TEXT   folder / file name (default: his CN)
   --out DIR                where the per-request folders go (default ./csr-signed)
   --policy "OID|CPS-URL"   extra policy for this certificate
+  --add-development-san    merge the development names (DNS, IP, e-mail of devkit.env) into the SAN; a request made by new-pki-csr.sh can ask for it itself (marker name, never put in the certificate)
   --no-crl --no-ocsp --no-revocation-info    leave the CRL distribution point and / or the OCSP URL out
   --check                  only check the request, sign nothing             --strict      warnings count as errors
   --no-color               plain text (also NO_COLOR=1)                     --list        list the earlier requests
@@ -92,7 +97,7 @@ OPTIONS
   --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the normal family.
   --help, -h               this text                                        --version
 EXAMPLES
-  ./SignCsr.sh --csr web01.csr                                   DV, Classic non-FIPS (q1-dv), TLS server
+  ./SignCsr.sh --csr web01.csr                                   level from the request (EV info = EV, a company = OV, else DV), Classic non-FIPS (Q1), TLS server
   ./SignCsr.sh --csr web01.csr --ov --purpose ServerClientAuth   OV (q1-ov)
   ./SignCsr.sh --csr web01.csr --ev --fips --check               would q2-ev sign it? report only
   ./SignCsr.sh --csr pq.csr --quantum --ov                       ML-DSA request, q3-ov
@@ -104,14 +109,14 @@ EXIT CODES   0 ok   1 error   2 the request does not follow the spec
 EOT
 }
 
-CSR=""; LEVEL=DV; TRACK=Classic; FIPS=0; PURPOSE=ServerAuth; DAYS=""; NAME=""; OUT=""; POLICY=""; NOCRL=0; NOOCSP=0
+CSR=""; LEVEL=auto; DEVSAN=0; TRACK=Classic; FIPS=0; PURPOSE=ServerAuth; DAYS=""; NAME=""; OUT=""; POLICY=""; NOCRL=0; NOOCSP=0
 CHECK=0; STRICT=0; NOCOLOR=0; LIST=0; OSSL=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --csr) CSR="$2"; shift ;; --dv) LEVEL=DV ;; --ov) LEVEL=OV ;; --ev) LEVEL=EV ;;
+    --csr) CSR="$2"; shift ;; --csr-type) CSRTYPE="$2"; shift ;; --dv) LEVEL=DV ;; --ov) LEVEL=OV ;; --ev) LEVEL=EV ;;
     --classic) TRACK=Classic ;; --quantum) TRACK=Quantum ;; --fips) FIPS=1 ;;
     --purpose) PURPOSE="$2"; shift ;; --days) DAYS="$2"; shift ;; --name) NAME="$2"; shift ;; --out) OUT="$2"; shift ;; --policy) POLICY="$POLICY $2"; shift ;;
-    --no-crl) NOCRL=1 ;; --no-ocsp) NOOCSP=1 ;; --no-revocation-info) NOCRL=1; NOOCSP=1 ;;
+    --add-development-san) DEVSAN=1 ;; --no-crl) NOCRL=1 ;; --no-ocsp) NOOCSP=1 ;; --no-revocation-info) NOCRL=1; NOOCSP=1 ;;
     --check) CHECK=1 ;; --strict) STRICT=1 ;; --no-color) NOCOLOR=1 ;; --list) LIST=1 ;;
     --release) PKI_WANT_REL="$2"; shift ;; --no-ca-revocation-info) PKI_WANT_NOCR=1 ;;
     --openssl) OSSL="$2"; shift ;; --pki-home) export PKI_HOME="$2"; shift ;;
@@ -135,17 +140,38 @@ pki_find_openssl "$OSSL"
 [ "$NOCOLOR" = 1 ] && export NO_COLOR=1
 
 if [ "$TRACK" = Quantum ]; then QUAD=$([ $FIPS = 1 ] && echo 4 || echo 3); else QUAD=$([ $FIPS = 1 ] && echo 2 || echo 1); fi
-LV="$(pki_lc "$LEVEL")"
-case " $CA_IDS " in *" q$QUAD-$LV "*) ;; *) pki_die "This PKI has no CA q$QUAD-$LV (devkit.env lists: $CA_IDS)." ;; esac
 
 TMPD="$(mktemp -d)"; trap 'rm -rf "$TMPD"' EXIT
-python3 "$PKI_LIB_DIR/pki-csr.py" --openssl "$OPENSSL" --csr "$CSR" --level "$LEVEL" --track "$TRACK" --purpose "$PURPOSE" --days "${DAYS:-0}" \
+python3 "$PKI_LIB_DIR/pki-csr.py" --openssl "$OPENSSL" --csr "$CSR" --csr-type "${CSRTYPE:-auto}" --level "$LEVEL" --track "$TRACK" --purpose "$PURPOSE" --days "${DAYS:-0}" \
     $([ "$NOCOLOR" = 1 ] && echo --no-color) --emit "$TMPD/csr.env"
 rc=$?
 echo
 [ $rc = 1 ] && exit 1
 [ $rc = 2 ] && exit 2
 . "$TMPD/csr.env"
+# no --dv / --ov / --ev: the level follows the request (EV information complete = EV, a company = OV, else DV)
+LEVEL="${CSR_LEVEL:-DV}"
+LV="$(pki_lc "$LEVEL")"
+case " $CA_IDS " in *" q$QUAD-$LV "*) ;; *) pki_die "This PKI has no CA q$QUAD-$LV (devkit.env lists: $CA_IDS)." ;; esac
+# the development names: asked with --add-development-san, or by the marker name in the request (merged after the check; never EV-conformant)
+if [ $DEVSAN = 1 ] || [ "${CSR_DEVSAN:-0}" = 1 ]; then
+  case "$PURPOSE" in
+    ServerAuth|ClientAuth|ServerClientAuth|EmailProtection)
+      add_unique() { local l="$1" i="$2"; if printf '%s\n' "$l" | grep -qixF -- "$i"; then printf '%s' "$l"; else printf '%s%s' "${l:+$l$'\n'}" "$i"; fi; }
+      D="$(pki_list "$SAN_DNS")"; I="$(pki_list "$SAN_IP")"; M="$(pki_list "$SAN_EMAIL")"
+      if [ "$PURPOSE" != EmailProtection ]; then
+        for x in $(pki_list "${DEV_SAN_DNS:-}"); do D="$(add_unique "$D" "$x")"; done
+        for x in $(pki_list "${DEV_SAN_IP:-}"); do I="$(add_unique "$I" "$x")"; done
+      fi
+      for x in $(pki_list "${DEV_SAN_EMAIL:-}"); do M="$(add_unique "$M" "$x")"; done
+      SAN_DNS="$(echo $D)"; SAN_IP="$(echo $I)"; SAN_EMAIL="$(echo $M)"
+      pki_info "development names added ($([ "${CSR_DEVSAN:-0}" = 1 ] && echo 'the request carries the marker' || echo '--add-development-san'))."
+      [ "$LEVEL" = EV ] && pki_warn "development names (IP addresses, wildcards, internal names) are not EV-conformant: for development only." ;;
+    *) pki_warn "a $PURPOSE certificate carries no names: the development names are not added." ;;
+  esac
+fi
+# the company policy of the request (IANA private enterprise arc 1.3.6.1.4.1.<PEN>)
+for o in ${CSR_PEN_POLICIES:-}; do POLICY="$POLICY $o"; done
 if [ $STRICT = 1 ] && [ "${CSR_WARNINGS:-0}" -gt 0 ]; then printf '[ERROR] --strict: the warnings count as errors.\n' >&2; exit 2; fi
 [ $CHECK = 1 ] && { pki_info "Check only (--check): nothing was signed."; exit 0; }
 

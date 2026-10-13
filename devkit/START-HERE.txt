@@ -13,6 +13,8 @@ WHAT IS IN THIS FOLDER
   GeneratePersonLeafCertificate.ps1  /  .sh          certificates of people, from a JSON file
   GenerateOffice365LeafCertificate.ps1  /  .sh       Microsoft Office / 365 document signing, from a JSON file
   SignCsr.ps1  /  .sh                                sign the certificate request (CSR) of a colleague with the intermediate CAs in this kit
+  New-PkiCsr.ps1  /  new-pki-csr.sh                  (5.2.2) make a key and a CSR step by step, for you or a colleague; docs\NewPkiCsr-MANUAL.txt
+  Prepare-Computer.ps1  /  prepare-computer.sh         (5.2.2) install OpenSSL (winget / Chocolatey; apt / dnf / zypper)
   Make-ShExecutable.ps1  /  make-executable.sh       make the .sh files executable (you do not need to know Linux)
   server\                                            the SERVER KIT (no private key): server\linux\pki-server\pki-server.sh + server\pki. See SERVER KIT below.
   devkit.env, lib\, scripts\, examples\, docs\       what the scripts use; docs\ has the manuals. SHA256SUMS lists every file.

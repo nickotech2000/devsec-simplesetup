@@ -110,7 +110,7 @@ function Show-PkiTransportHelp {
     @'
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

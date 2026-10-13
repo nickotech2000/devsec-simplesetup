@@ -1,0 +1,34 @@
+====================================================================================================
+ START HERE  -  which file for which job
+ Version 5.2.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+====================================================================================================
+
+ Every script has a short help:  -Help (PowerShell)  or  --help (shell). The manuals below say the same with more examples. README.md in the project root is the front page.
+
+ I AM THE OWNER OF THE PKI
+   Build it, issue certificates ........ pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt (+ Person, Office365), PkiProfiles-MANUAL.txt (another company)
+   Sign what others send me ............ SignCsr-MANUAL.txt (servers, people, code: LEAF requests)   SignExternalCa-MANUAL.txt (a CA of a department: CA requests)
+   Revoke, CRL, OCSP, time stamping .... PkiRevocation-MANUAL.txt, PKI-SERVER-MANUAL.txt
+   Give it to other people ............. PkiTrustKit-MANUAL.txt (trust only)   DevKit-MANUAL.txt (also issue)   PkiTransport-MANUAL.txt (the .certpacked)
+
+ I RECEIVED A TRUST KIT OR A DEVKIT
+   Trust the PKI on my computer ........ PkiTrustKit-MANUAL.txt   (DevKit: DevKit-MANUAL.txt)
+   Get OpenSSL and Python ready ........ PrepareComputer-MANUAL.txt
+   Ask for my own certificate .......... NewPkiCsr-MANUAL.txt   (a server / person certificate, or the certificate of a new intermediate CA)
+
+ I WANT TO KNOW WHY, OR WHAT CHANGED
+   Design and every decision ........... PKI-Design-with-FIPS-and-PQC.txt
+   What changed in each version ........ PKI-ChangeLog.txt
+   What to run to accept a version ..... PKI-Acceptance-Checklists.txt
+   Modules and shell scripts ........... scripts-README.txt, linux-README.txt, PKI-Server-Design.txt, PUBLIC-CA-ENTERPRISE-ROOT.txt, Install-DevEnvironment-MANUAL.txt
+
+ THE REQUEST FLOW IN ONE PICTURE
+   destination                                        owner of the PKI
+   Prepare-Computer      (once)
+   New-PkiCsr  -> .key (stays) + .csr  ---- .csr -->  SignCsr (leaf)  or  SignExternalCa (CA)   the kind of request is recognised; the level follows the request
+   use the -fullchain.crt with the .key  <-- folder --  csr-signed\<name>_<time>\  or  external-ca\<name>_<time>
+ VERSION RULE   major.minor.revision. Major = new architecture, minor = new feature, revision = fix or any update not called major / minor.
+                The zip is PKI-DevSecOps-<yyyymmdd>-<version>.zip. Every script prints its version at the start and in -Help / --help.
+====================================================================================================
+ Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+====================================================================================================

@@ -39,7 +39,7 @@ function Show-Help {
  Install-PkiCa.ps1  -  install the CA certificates of the PKI on this Windows machine
  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
-Version 5.1.0
+Version 5.2.6
 
 WHAT IT DOES
   Opens the .certpacked file that came in the same zip (it asks for the password) and installs the CA certificates of EVERY PKI inside it
@@ -83,7 +83,7 @@ NOTES
 '@ | Write-Host
 }
 if ($Help) { Show-Help; return }
-$script:KitVersion = '5.1.0'
+$script:KitVersion = '5.2.6'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }

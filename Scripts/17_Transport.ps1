@@ -627,7 +627,7 @@ function Write-PkiTransportKit {
     Ensure-PkiDirectory -Path $scripts
     $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh'
     $kitDocs = Join-Path $KitDirectory 'docs'
-    foreach ($d in 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt') {
+    foreach ($d in 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt') {
         $dsrc = Join-Path (Join-Path $Root 'docs') $d
         if (Test-Path -LiteralPath $dsrc -PathType Leaf) { Ensure-PkiDirectory -Path $kitDocs; Copy-Item -LiteralPath $dsrc -Destination $kitDocs -Force }
     }
@@ -636,12 +636,16 @@ function Write-PkiTransportKit {
         $src = @((Join-Path $Root $f), (Join-Path (Join-Path $Root 'linux') $f)) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
         if ($src) { Copy-Item -LiteralPath $src -Destination $KitDirectory -Force }
     }
+    # 5.2.2: the destination tools - CSR maker and OpenSSL installer (templates in trustkit\)
+    foreach ($f in 'New-PkiCsr.ps1', 'Prepare-Computer.ps1', 'new-pki-csr.sh', 'prepare-computer.sh') {
+        $src = Join-Path (Join-Path $Root 'trustkit') $f
+        if (Test-Path -LiteralPath $src -PathType Leaf) { Copy-Item -LiteralPath $src -Destination $KitDirectory -Force } else { throw "Kit: $src is missing." }
+    }
     foreach ($f in 'PkiModules.ps1', '00a_Platform.ps1', '00b_Profiles.ps1', '00_Common.ps1', '02_OpenSSL.ps1', '07_TrustStore.ps1', '09_Administrator.ps1', '16_CertPack.ps1', '17_Transport.ps1') {
         $src = Join-Path (Join-Path $Root 'scripts') $f
         if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination $scripts -Force } else { throw "Kit: $src is missing." }
     }
-    $sh = Join-Path $KitDirectory 'pki-transport.sh'
-    if (Test-Path -LiteralPath $sh) { try { if (-not $IsWindows) { & chmod +x $sh } } catch { } }
+    foreach ($shn in 'pki-transport.sh', 'new-pki-csr.sh', 'prepare-computer.sh') { $sh = Join-Path $KitDirectory $shn; if (Test-Path -LiteralPath $sh) { try { if (-not $IsWindows) { & chmod +x $sh } } catch { } } }
     return @(Get-ChildItem -LiteralPath $KitDirectory -Recurse -File | ForEach-Object { $_.FullName.Substring($KitDirectory.TrimEnd('\', '/').Length).TrimStart('\', '/') })
 }
 

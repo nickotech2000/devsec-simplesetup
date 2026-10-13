@@ -1,6 +1,6 @@
 ============================================================
  SignCsr.ps1 - sign the certificate request (CSR) of another department with our PKI
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -26,7 +26,10 @@ WHAT IT DOES
 
 WHO SIGNS
   The INTERMEDIATE CA of the level and quadrant:   q<N>-dv | q<N>-ov | q<N>-ev
-  -DV (default) | -OV | -EV        the level. DV = domain only, OV = organization, EV = extended validation
+  -DV | -OV | -EV                  the level. DV = domain only, OV = organization, EV = extended validation.
+                                   WITHOUT one of them the level follows the request (5.2.2): the EV information complete (businessCategory, serialNumber,
+                                   jurisdictionC) = EV; a company (C and O) = OV; a common name only = DV. A request made by New-PkiCsr.ps1 / new-pki-csr.sh
+                                   therefore gets the right level by itself. -Classic and Quadrant 1 (non-FIPS) stay the default; -Quantum / -FIPS decide otherwise.
   -Classic (default) | -Quantum    the track.   -FIPS   the FIPS quadrant (Classic: Q2, Quantum: Q4). Without -FIPS: Q1 / Q3, non-FIPS.
   Roots never sign a request here: a request for a CA certificate is signed by the owner of the Quadrant Roots with SignExternalCa.ps1.
 
@@ -36,7 +39,7 @@ THE SPEC A REQUEST MUST FOLLOW (each deviation is an ERROR or WARN in the report
              -Purpose CodeSigning needs RSA 4096+ / ECDSA P-384+ / ML-DSA-65+.   Never: RSA < 2048, other curves, Ed25519, DSA.
              A Classic request cannot get a Quantum issuer and the reverse.
   Subject    DV: CN only (other fields are dropped, with a warning).
-             OV: C (2 letters), O and CN required; ST, L recommended; OU, street, postalCode, name, emailAddress, telephoneNumber allowed.
+             OV: C (2 letters), O and CN required; ST, L recommended; OU, street, postalCode, name, emailAddress, telephoneNumber, serialNumber (company ID) allowed.
              EV: OV + ST, L, serialNumber, businessCategory (Private Organization | Government Entity | Business Entity | Non-Commercial Entity)
                  and jurisdictionC required; jurisdictionST, postalCode recommended.
              CodeSigning: C, O, CN (CN = the company name = O).    Anything else in the subject is an ERROR for that level.
@@ -45,16 +48,22 @@ THE SPEC A REQUEST MUST FOLLOW (each deviation is an ERROR or WARN in the report
              EmailProtection: e-mail addresses (SAN email:) only.  CodeSigning, TimeStamping, OcspSigning: no names (dropped with a WARN).
   Validity   DV 5 years, OV 3 years, EV 397 days (the maximum; a longer -Days is an ERROR), TimeStamping 5 years, OcspSigning 1 year.
              Never longer than the issuing CA.
-  Ignored    keyUsage, extendedKeyUsage, policies, CRL / OCSP URLs asked for in the request: THIS PKI sets them (from -Purpose and -Level).
+  Ignored    keyUsage, extendedKeyUsage, CRL / OCSP URLs asked for in the request: THIS PKI sets them (from -Purpose and -Level). The CRL and OCSP
+             addresses are those of the issuing CA that signs (q<N>-<level>), whatever the request says.
+             A policy OID of the request is added ONLY when it is in the IANA private enterprise arc 1.3.6.1.4.1.<PEN> (the company policy, 5.2.2); other policy OIDs are ignored with a WARN.
              A request for CA:TRUE is refused.   Policies: the level policy, the PEN policies and the High Assurance policy (OV), as for any leaf.
 
 OPTIONS
   -Csr <file>              His request (PEM).
-  -DV | -OV | -EV          Level (default DV).          -Classic | -Quantum   Track (default Classic).          -FIPS   FIPS quadrant.
+  -CsrType Auto|Leaf|IntermediateCA   the kind of request (5.2.6, default Auto). Auto recognises it: CA:TRUE = a CA request, names without CA:TRUE = a leaf request.
+                           This script signs LEAF requests; a CA request is refused with the command to use (SignExternalCa.ps1). New-PkiCsr.ps1 -CertificateType decides what it makes.
+  -DV | -OV | -EV          Level (default: from the request, see WHO SIGNS).          -Classic | -Quantum   Track (default Classic).          -FIPS   FIPS quadrant.
   -Purpose <p>             ServerAuth (default) | ClientAuth | ServerClientAuth | CodeSigning | EmailProtection | TimeStamping | OcspSigning
   -Days <n>                Validity in days (default by level; EV at most 397; cut to what the issuer still has).
   -Name <text>             Name of the output folder and files (default: his CN).
   -OutFolder <path>        Where the per-request folders go (default: .\csr-signed next to the pki folder).
+  -AddDevelopmentSAN       merge the development SAN list (DNS, IP, e-mail of [ development_san ]) into the names, like GenerateLeafCertificate.ps1. A request
+                           made by New-PkiCsr.ps1 can ask for it itself (a marker name in its SAN); the marker is never put in the certificate. (5.2.2)
   -Policy <oid|cps ...>    Extra policy "OID|CPS-URL" for this certificate.
   -NoCrl -NoOcsp -NoRevocationInfo   leave the CRL distribution point and / or the OCSP URL out of the certificate.
   -Check                   Only check the request and print the report; sign nothing.
@@ -70,6 +79,8 @@ OPTIONS
                        when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
 
 HIS SIDE (he makes the key and the request himself and keeps the key)
+  EASY WAY (5.2.2): New-PkiCsr.ps1 / new-pki-csr.sh asks the questions one by one (docs\NewPkiCsr-MANUAL.txt); Prepare-Computer.ps1 / prepare-computer.sh install OpenSSL.
+  By hand:
   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out web01.key
   openssl req -new -key web01.key -sha256 -subj "/CN=web01.dept.example" -addext "subjectAltName=DNS:web01.dept.example" -out web01.csr
   (OV adds /C=EE/ST=Harju/L=Tallinn/O=Dept Ltd ;  EV adds /serialNumber=.../businessCategory=Private Organization/jurisdictionC=EE.)

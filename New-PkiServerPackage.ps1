@@ -35,14 +35,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$script:Version = '5.1.0'
+$script:Version = '5.2.6'
 $root = $PSScriptRoot
 
 function Show-PackageHelp {
     @'
 ============================================================
  New-PkiServerPackage.ps1 - the PKI + the Linux scripts as ONE zip for Ubuntu 24.04 / 26.04
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 WHAT IT DOES

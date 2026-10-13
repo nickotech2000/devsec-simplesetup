@@ -1,6 +1,6 @@
 ============================================================
  GenerateOffice365LeafCertificate.ps1 - Microsoft Office / Microsoft 365 DOCUMENT SIGNING certificates
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

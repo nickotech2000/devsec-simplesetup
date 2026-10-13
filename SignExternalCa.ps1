@@ -18,6 +18,7 @@ param(
     # which company's PKI (default: agantra; names = the *_pki.cnf files next to the scripts; list: .\pki_setup.ps1 -ListPki)
     [Alias('Pki')][ArgumentCompleter({ param($c, $p, $w) $s = (Get-Command $c -ErrorAction SilentlyContinue).Source; $d = if ($s) { Split-Path -Parent $s } else { $PWD.Path }; Get-ChildItem -LiteralPath $d -Filter '*_pki.cnf' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name -replace '_pki\.cnf$', '' } | Where-Object { $_ -like "$w*" } })][string]$PkiProfile,
     [string]$Csr,
+    [ValidateSet('Auto', 'Leaf', 'IntermediateCA')][string]$CsrType = 'Auto',
     [string]$Name,
     [ValidateSet(1, 2)][int]$Quadrant = 1,
     [switch]$Fips,
@@ -50,7 +51,7 @@ function Show-SignExternalCaHelp {
     @'
 ============================================================
  SignExternalCa.ps1 - sign the CA certificate of a department (or another organization) with our Quadrant Root
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -92,6 +93,9 @@ THE LEVEL OF HIS CA (-Level, default OV) AND WHAT HIS REQUEST MUST CONTAIN
 
 OPTIONS
   -Csr <file>            His PKCS#10 request (PEM).
+  -CsrType Auto|Leaf|IntermediateCA   the kind of request (5.2.6, default Auto). Auto recognises it: CA:TRUE = a CA request. This script signs CA requests; a LEAF request
+                         (names, no CA:TRUE) is refused with the command to use (SignCsr.ps1). A hand-made CA request without CA:TRUE is accepted as a CA request.
+  -Level                 default OV; EV when the request carries the complete EV information (5.2.6).
   -Level DV|OV|EV        Level written into his certificate (default OV).          -Fips   sign with q2-root (Classic FIPS).
   -Name <text>           Name of the output folder and files (default: his CN).
   -Days <n>              Validity (default 1825 = 5 years; EV 397, EV may not be longer), cut to what the signer still has.
@@ -173,8 +177,13 @@ try {
     if ($Fips) { $Quadrant = 2 }
     $signer = Get-PkiExternalCaSigner -Quadrant $Quadrant
     Write-PkiLog "Signer: $($signer.Id) ($($signer.Kind))   OpenSSL: $($c.OpenSslVersion.Split([char]40)[0].Trim())" 'INFO'
+    # no -Level: OV, or EV when the request carries the complete EV information (5.2.6)
+    if (-not $PSBoundParameters.ContainsKey('Level') -and (Test-Path -LiteralPath $Csr -PathType Leaf)) {
+        $auto = Get-PkiCsrAutoLevel -Csr (Read-PkiCsr -Path $Csr)
+        if ($auto.Level -eq 'EV') { $Level = 'EV'; Write-PkiLog "Level EV, chosen from the request: $($auto.Reason). (-Level decides it yourself.)" 'INFO' }
+    }
     $daysEff = if ($Days) { $Days } elseif ($Level -eq 'EV') { 397 } else { 1825 }
-    $r = Invoke-PkiSignExternalCa -Csr $Csr -Signer $signer -Name $Name -Level $Level -Days $daysEff -DaysAsked $Days -PathLen $PathLen -PermitDns $PermitDns -PermitEmail $PermitEmail -OutRoot $outRoot `
+    $r = Invoke-PkiSignExternalCa -Csr $Csr -Signer $signer -Name $Name -Level $Level -Days $daysEff -DaysAsked $Days -CsrType $CsrType -PathLen $PathLen -PermitDns $PermitDns -PermitEmail $PermitEmail -OutRoot $outRoot `
             -Force:$Force -Strict:$Strict -CheckOnly:$Check -NoColor:$NoColor
     if ($r.Errors -gt 0 -or ($Strict -and $r.Warnings -gt 0)) { exit 2 }
     if ($r.Signed) {

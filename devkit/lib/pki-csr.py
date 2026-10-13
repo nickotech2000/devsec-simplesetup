@@ -12,11 +12,13 @@ import argparse, os, re, shlex, subprocess, sys, ipaddress
 
 ATTRS = {
     'DV': ['CN'],
-    'OV': ['C', 'ST', 'L', 'street', 'postalCode', 'O', 'OU', 'CN', 'name', 'emailAddress', 'telephoneNumber'],
+    'OV': ['C', 'ST', 'L', 'street', 'postalCode', 'O', 'OU', 'CN', 'name', 'emailAddress', 'telephoneNumber', 'serialNumber'],   # serialNumber = company ID (5.2.2)
 }
 ATTRS['EV'] = ATTRS['OV'] + ['businessCategory', 'serialNumber', 'jurisdictionC', 'jurisdictionST', 'jurisdictionL', 'organizationIdentifier']
 BIZ = ['Private Organization', 'Government Entity', 'Business Entity', 'Non-Commercial Entity']
 INTERNAL = ['internal', 'local', 'localhost', 'lan', 'corp', 'home', 'intranet', 'private', 'test', 'invalid', 'developer', 'api', 'ldap']
+DEVSAN_MARKER = 'add-development-san.pki-marker.invalid'   # a request made by new-pki-csr.sh / New-PkiCsr.ps1 asks for the development SAN list with this name (never put in a certificate)
+PEN_RE = re.compile(r'^1\.3\.6\.1\.4\.1\.\d+(\.\d+)*$')
 EXAMPLE = {'C': 'C=EE', 'O': 'O=Your Company OU', 'OU': 'OU=IT Department', 'ST': 'ST=Harju', 'L': 'L=Tallinn', 'serialNumber': 'serialNumber=17344131',
            'businessCategory': 'businessCategory=Private Organization', 'jurisdictionC': 'jurisdictionC=EE', 'jurisdictionST': 'jurisdictionST=Harju', 'postalCode': 'postalCode=15199'}
 DNS_RE = re.compile(r'^(?=.{1,253}$)([A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$')
@@ -54,7 +56,7 @@ def read_csr(openssl, path):
     elif re.search(r'(?i)ED25519|ED448|DSA|RSASSA-PSS|X25519|SLH|ML-KEM', algtext):
         alg = algtext.upper()
     m = re.search(r'Signature Algorithm:\s*(\S+)', text); sig = m.group(1) if m else ''
-    san = {'dns': [], 'ip': [], 'email': [], 'other': []}; reqext = []; ca = False
+    san = {'dns': [], 'ip': [], 'email': [], 'other': []}; reqext = []; ca = False; policies = []
     m = re.search(r'Requested Extensions:(.*?)\n\s*Signature Algorithm:', text, re.S)
     if m:
         lines = m.group(1).split('\n')
@@ -71,7 +73,14 @@ def read_csr(openssl, path):
                     elif tk.startswith('email:'): san['email'].append(tk[6:])
                     elif tk: san['other'].append(tk)
             if 'Basic Constraints' in name and 'CA:TRUE' in val: ca = True
-    return dict(verify=(rc_v == 0), subject=subj, alg=alg, bits=bits, curve=curve, ml=ml, algtext=algtext, sig=sig, san=san, reqext=reqext, ca=ca)
+            if 'Certificate Policies' in name:
+                for ln2 in lines[i + 1:]:
+                    mm = re.match(r'^\s+Policy:\s*(\S+)', ln2)
+                    if mm: policies.append(mm.group(1))
+                    elif re.match(r'^\s{12}\S', ln2): break
+    devsan = any(d.lower() == DEVSAN_MARKER for d in san['dns'])
+    san['dns'] = [d for d in san['dns'] if d.lower() != DEVSAN_MARKER]
+    return dict(devsan=devsan, policies=policies, verify=(rc_v == 0), subject=subj, alg=alg, bits=bits, curve=curve, ml=ml, algtext=algtext, sig=sig, san=san, reqext=reqext, ca=ca)
 
 def keydesc(c):
     return {'RSA': 'RSA-%d' % c['bits'], 'ECDSA': 'ECDSA-%s' % c['curve'].replace('-', ''), 'MLDSA': 'ML-DSA-%d' % c['ml']}.get(c['alg'], c['algtext'])
@@ -183,11 +192,11 @@ def check_names(c, level, purpose):
     if mail: em = list(s['email'])
     if web and s['email']: add('WARN', 'SAN-DROPPED', 'subjectAltName', 'E-mail name(s) %s are not put in a TLS certificate.' % ', '.join(s['email']), 'Ask for --purpose EmailProtection for an S/MIME certificate.')
     if mail and (s['dns'] or s['ip']): add('WARN', 'SAN-DROPPED', 'subjectAltName', 'DNS and IP names are not put in an S/MIME certificate (e-mail names only).')
-    if web and not dns and not ip:
+    if web and not dns and not ip and not c.get('devsan'):
         if cn and dns_ok(cn) and not re.search(r'\s', cn):
             dns.append(cn); add('WARN', 'SAN-DERIVED', 'subjectAltName', "The request has no subjectAltName; the CN '%s' is used as the DNS name (browsers and TLS libraries only look at the SAN)." % cn, 'Put the names in the request: -addext "subjectAltName=DNS:www.example.com,DNS:example.com"')
         else: add('ERROR', 'SAN-NONE', 'subjectAltName', 'A TLS certificate needs at least one DNS name or IP address, and the request has none (the CN is not a host name either).', 'Make the request with -addext "subjectAltName=DNS:www.example.com".')
-    if mail and not em:
+    if mail and not em and not c.get('devsan'):
         if cn and MAIL_RE.match(cn): em.append(cn); add('WARN', 'SAN-DERIVED', 'subjectAltName', "No e-mail name in the request; the CN '%s' is used." % cn, 'Put it in the request: -addext "subjectAltName=email:name@example.com"')
         else: add('ERROR', 'SAN-NONE', 'subjectAltName', 'An S/MIME certificate needs at least one e-mail address (SAN email:), and the request has none.', 'Make the request with -addext "subjectAltName=email:name@example.com".')
     for d in dns:
@@ -210,27 +219,49 @@ def check_names(c, level, purpose):
     if names and not any(f[0] == 'ERROR' and f[1].startswith('SAN-') for f in F): add('OK', 'SAN-OK', 'subjectAltName', 'Names accepted: ' + ', '.join(names))
     return dns, ip, em
 
+def auto_level(c):
+    has = lambda k: any(n == k and v.strip() for n, v in c['subject'])
+    if has('businessCategory') and has('serialNumber') and has('jurisdictionC'): return 'EV', 'the request carries the EV information (businessCategory, serialNumber, jurisdictionC)'
+    if has('O') and has('C'): return 'OV', 'the request carries a company (C and O) but no complete EV information'
+    return 'DV', 'the request carries a common name only'
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--openssl', required=True); ap.add_argument('--csr', required=True)
-    ap.add_argument('--level', default='DV'); ap.add_argument('--track', default='Classic'); ap.add_argument('--purpose', default='ServerAuth')
-    ap.add_argument('--profile', default='Leaf'); ap.add_argument('--days', type=int, default=0)
+    ap.add_argument('--level', default='auto'); ap.add_argument('--track', default='Classic'); ap.add_argument('--purpose', default='ServerAuth')
+    ap.add_argument('--csr-type', default='Auto'); ap.add_argument('--profile', default='Leaf'); ap.add_argument('--days', type=int, default=0)
     ap.add_argument('--no-color', action='store_true'); ap.add_argument('--emit'); ap.add_argument('--hide-ok', action='store_true')
     a = ap.parse_args()
     if not os.path.isfile(a.csr): print('[ERROR] CSR not found: ' + a.csr, file=sys.stderr); return 1
     c = read_csr(a.openssl, a.csr)
+    reason = ''
+    if a.level == 'auto': a.level, reason = auto_level(c)
     codesign = a.purpose == 'CodeSigning'
     print('')
     print('REQUEST  ' + os.path.abspath(a.csr))
     print('  subject : ' + ', '.join('%s=%s' % p for p in c['subject']))
     print('  key     : %s    signature: %s' % (keydesc(c), c['sig']))
-    print('  asked   : %s, %s track, purpose %s' % (a.level, a.track, a.purpose))
+    print('  asked   : %s%s, %s track, purpose %s' % (a.level, (' (chosen from the request: %s)' % reason) if reason else '', a.track, a.purpose))
     print('')
+    # what kind of request is this (5.2.6): IntermediateCA = CA:TRUE; Leaf = names and no CA:TRUE; unclear = neither
+    nn = len(c['san']['dns']) + len(c['san']['ip']) + len(c['san']['email'])
+    if c['ca']: kind, kreason = 'IntermediateCA', 'the request asks for CA:TRUE (basicConstraints)'
+    elif nn > 0 or c['devsan']: kind, kreason = 'Leaf', 'the request carries names (subjectAltName) and no CA:TRUE'
+    else: kind, kreason = 'Unclear', 'the request has neither CA:TRUE nor names'
+    decl = {'auto': 'Auto', 'leaf': 'Leaf', 'intermediate-ca': 'IntermediateCA', 'intermediateca': 'IntermediateCA'}.get(a.csr_type.lower(), 'Auto')
+    if decl not in ('Auto', 'Leaf'):
+        print('  [ERROR] request kind           --csr-type %s was given, but SignCsr signs only Leaf requests.' % a.csr_type); print('                                   fix: Use: SignExternalCa.ps1 -Csr <file>   (a CA of your department; original PKI only)'); sys.exit(2)
+    if kind == 'IntermediateCA':
+        print('  [ERROR] request kind           This request is of kind IntermediateCA (%s); SignCsr signs Leaf requests only.' % kreason); print('                                   fix: Use: SignExternalCa.ps1 -Csr <file>   (a CA of your department; original PKI only)'); print(''); print('  Result: the request is not a leaf request: nothing was signed.'); sys.exit(2)
+    print('  [INFO] request kind            %s' % ('Request kind: %s (%s).' % (kind, kreason) if kind == 'Leaf' else 'Request kind: not clear (%s); treated as Leaf.' % kreason))
     check_key(c, a.track, codesign)
     check_subject(c, a.level, a.profile, codesign)
     dns, ip, em = check_names(c, a.level, a.purpose)
     if c['ca']: add('ERROR', 'EXT-CA', 'basicConstraints', 'The request asks for CA:TRUE. A leaf request may not be a CA.', 'A CA of another department goes through SignExternalCa.ps1 (the original PKI owner signs it with a Quadrant Root).')
-    ign = [x for x in c['reqext'] if re.search(r'Key Usage|Extended Key|Policies|Authority|Subject Key|CRL|Authority Information|Name Constraints', x)]
+    ign = [x for x in c['reqext'] if re.search(r'Key Usage|Extended Key|Authority|Subject Key|CRL|Authority Information|Name Constraints', x)]
+    okp = [o for o in c['policies'] if PEN_RE.match(o)]; badp = [o for o in c['policies'] if not PEN_RE.match(o)]
+    if okp: add('INFO', 'EXT-PEN-POLICY', 'certificatePolicies', 'Company policy OID(s) of the request are added to the certificate (IANA private enterprise arc 1.3.6.1.4.1): ' + ', '.join(okp))
+    if badp: add('WARN', 'EXT-POLICY-DROPPED', 'certificatePolicies', 'Policy OID(s) outside 1.3.6.1.4.1.<PEN> are ignored: ' + ', '.join(badp) + '.', 'Only an IANA private enterprise number arc is accepted from a request.')
     if ign: add('INFO', 'EXT-IGNORED', 'extensions', 'The request asks for: %s. This PKI decides key usage, extended key usage, policies and revocation URLs itself; they are ignored.' % ', '.join(ign))
     if a.level == 'EV' and a.days > 397: add('ERROR', 'VAL-EV', 'validity', 'An EV certificate may not be valid longer than 397 days (asked %d).' % a.days, 'Use --days 397 or less.')
     col = {'ERROR': '31', 'WARN': '33', 'OK': '32', 'INFO': '36'}; tag = {'ERROR': '[ERROR]', 'WARN': '[WARN] ', 'OK': '[ OK ]', 'INFO': '[INFO]'}
@@ -253,7 +284,7 @@ def main():
         subj = ','.join('%s=%s' % p for p in c['subject'])
         with open(a.emit, 'w') as fh:
             for k, v in (('CSR_CN', cn), ('CSR_KEYDESC', keydesc(c)), ('CSR_FAMILY', fam), ('SAN_DNS', ' '.join(dns)), ('SAN_IP', ' '.join(ip)), ('SAN_EMAIL', ' '.join(em)),
-                         ('CSR_SUBJECT', subj), ('CSR_ERRORS', str(e)), ('CSR_WARNINGS', str(w)),
+                         ('CSR_SUBJECT', subj), ('CSR_LEVEL', a.level), ('CSR_DEVSAN', '1' if c['devsan'] else '0'), ('CSR_PEN_POLICIES', ' '.join(o for o in c['policies'] if PEN_RE.match(o))), ('CSR_ERRORS', str(e)), ('CSR_WARNINGS', str(w)),
                          ('CSR_WARN_TEXT', ' | '.join(f[3] for f in F if f[0] == 'WARN'))):
                 fh.write('%s=%s\n' % (k, shlex.quote(v)))
     return 2 if e else 0

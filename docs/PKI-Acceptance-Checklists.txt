@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.1.0     2026-10-13
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.2.6     2026-10-13
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
@@ -340,6 +340,41 @@
  [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified", no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404).
  [ ] Word 365: sign a document: the Signature Details no longer say "Recoverable"; the server window shows the 200 lines.
  [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
+
+====================================================================================================
+ E32  Revision 5.2.6: Prepare-Computer, PATH, request kind, PKI already installed
+====================================================================================================
+ [ ] Windows 11 24H2+, Administrator PowerShell: .\Prepare-Computer.ps1 -Check lists OpenSSL, Python, the commands it would run and the PATH changes. Without -Check it installs
+     OpenSSL (winget FireDaemon.OpenSSL) and the highest Python.Python.3.x, then a NEW PowerShell window answers `openssl version` (4.x) and `python --version`.
+     Remove openssl from the PATH (or install it elsewhere) and run again: the folder is added to the Machine PATH (User PATH in a normal window), an older openssl on the PATH is overtaken.
+     Without winget (or -Manager Chocolatey) the Chocolatey packages openssl and python are used; note the OpenSSL version (below 4 = warning, exit 4). Windows 10 = exit 5.
+ [ ] Linux (Ubuntu 24 / 26, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15/16, openSUSE 15/16): ./prepare-computer.sh --check, then without --check: openssl and python3
+     (3.10+, pip) are there; with a newer openssl in a folder off the PATH the folder is in /etc/profile.d/pki-openssl.sh (or ~/.profile). Debian = exit 5.
+ [ ] The PKI is already installed (Install-PkiCa.ps1 -Scope Machine: certlm.msc shows the roots; Linux: install-pki-ca.sh): New-PkiCsr.ps1 / new-pki-csr.sh run unchanged, print
+     "PKI already installed on this computer: ...", and the certificate that comes back verifies (Windows: certutil -verify; Linux: openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt).
+     The other scripts of the zip are still there after Install-PkiCa.ps1 ends (only the installer and the package are deleted).
+ [ ] New-PkiCsr -CertificateType IntermediateCA (new-pki-csr.sh --type intermediate-ca): asks the type first; no names question, no development question; -AddDevelopmentSAN, -San, ML-DSA,
+     RSA 2048/3072, P-256, no OU, no company = ERROR. openssl req -text shows CA:TRUE and Certificate Sign, CRL Sign.
+ [ ] SignExternalCa.ps1 -Csr <ca.csr> -Check: "Request kind: IntermediateCA", result OK. SignCsr.ps1 -Csr <ca.csr> = ERROR "request kind ... Use: SignExternalCa.ps1", exit 2.
+     SignExternalCa.ps1 -Csr <leaf.csr> = ERROR "Use: SignCsr.ps1". -CsrType Leaf on SignExternalCa / -CsrType IntermediateCA on SignCsr = ERROR. SignCsr.sh --csr-type works the same.
+ [ ] An EV CA request (EV information) is signed by SignExternalCa as EV without -Level. docs/PKI-ChangeLog.txt exists and the design file has no change log; START-HERE.txt lists the files.
+
+====================================================================================================
+ E31  Minor 5.2 + revision 2 (5.2.2): CSR maker and OpenSSL installer for the destination
+====================================================================================================
+ [ ] Windows 11 24H2+, elevated PowerShell: .\Prepare-Computer.ps1 -Check shows the winget (or Chocolatey) command; .\Prepare-Computer.ps1 -Yes installs FireDaemon.OpenSSL, prints
+     "OpenSSL 4.x"; with winget missing and Chocolatey present -Manager Chocolatey installs the package "openssl" (note the version it reports: below 4 = warning, exit 4). Windows 10 = exit 5.
+ [ ] Windows PowerShell 5.1 (not 7): .\New-PkiCsr.ps1 asks the 15 steps one after the other; Country must be 2 capital letters; the e-mail and phone are checked.
+     EV question = n, company + country filled -> "level asked: OV"; EV question = y (all EV data) -> "EV"; only the CN -> "DV". -KeyBits 1024, -Digest SHA1, -Curve P-224, -MlDsa 33 -> ERROR, no file.
+     Company name with # $ " \ is kept as typed (openssl req -in x.csr -noout -subject). The .key is readable only by your account (icacls).
+ [ ] "Add the development names?" = y: request-info.txt says so; the CA side (SignCsr.ps1 -Csr x.csr -Check) says "development names added (the request carries the marker)".
+ [ ] CA machine: .\SignCsr.ps1 -Csr <ev>.csr (no level switch) -> "Level EV, chosen from the request", signed by q1-ev (Classic, Quadrant 1); the certificate has the EV policy, the CRL / OCSP of q1-ev,
+     and your PEN policy 1.3.6.1.4.1.<PEN>.1; an OV request -> q1-ov with serialNumber; a name-only request -> q1-dv. -Quantum with an ML-DSA request -> q3-*. -OV on an EV request forces OV.
+ [ ] The marker name is NOT in the certificate; the development names (DNS, 192.168.x ranges, e-mail) are.
+ [ ] Linux (Ubuntu 24 / 26, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15/16, openSUSE 15/16): sudo ./prepare-computer.sh --check, then --yes: the package is installed and the
+     version printed (3.x or 4.x). ./new-pki-csr.sh does the same questions as the ps1; devkit/SignCsr.sh signs its CSR the same way as SignCsr.ps1 (level, marker, PEN). Debian / old versions = exit 5.
+ [ ] The scripts are in the trust-kit zips (Windows: New-PkiCsr.ps1 + Prepare-Computer.ps1; Ubuntu / Red Hat / SUSE: new-pki-csr.sh + prepare-computer.sh), in the self-extracting files, in the DevKit
+     root and in the transport kit folder; docs\NewPkiCsr-MANUAL.txt is in the DevKit and the transport kit. Every file starts with Author / Company / Email; -Help / --help show Version 5.2.2.
 
 ====================================================================================================
  E30  Minor 5.1.0: trust kit with several companies, remove scripts

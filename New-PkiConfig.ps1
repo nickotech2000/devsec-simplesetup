@@ -52,7 +52,7 @@ function Show-NewConfigHelp {
     @'
 ============================================================
  New-PkiConfig.ps1 - make the configuration of another company's PKI
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -256,7 +256,7 @@ try {
         "# Company : $company",
         "# Contact : $cName <$cMail>",
         "# Website : $site",
-        "# Made by : New-PkiConfig.ps1 (5.1.0) on $stamp, from the template agantra_pki.cnf",
+        "# Made by : New-PkiConfig.ps1 (5.2.6) on $stamp, from the template agantra_pki.cnf",
         '# Author  : Nicko Satria Utama',
         '# Company : Agantra Inovatif OÜ (NextMantra)',
         '# Email   : nicko@nextmantra.com',

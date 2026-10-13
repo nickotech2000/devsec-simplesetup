@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 5.1.0      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.2.6      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -205,5 +205,7 @@ NoCR / release words, PQC short label                  agantra_pki.cnf [ ca_name
 ====================================================================================================
 
 5.0.0 modules: 00a_Platform.ps1 (Get-PkiPlatformInfo, Assert-PkiPlatform: where the scripts run), 00b_Profiles.ps1 (profiles, Get-PkiToolSetting, pki_tools.cnf, Get-PkiFileStem, Get-PkiTransportFolder). Both are in every module set. 01c_Releases.ps1: profile-aware folders, Show-PkiList. 07_TrustStore.ps1: Remove-PkiProfileTrust, Remove-AllTrust (all companies).
+
+5.2.2 scripts\22_CsrSigning.ps1: Get-PkiCsrAutoLevel (the level follows the request), the development-SAN marker, PEN policies, serialNumber in OV; trustkit\ also holds New-PkiCsr.ps1 / new-pki-csr.sh and Prepare-Computer.ps1 / prepare-computer.sh (standalone, copied into the trust-kit zips, the DevKit and the transport kit).
 
 5.1.0 trustkit\: Install-PkiCa.ps1 / install-pki-ca.sh (install every PKI of the .certpacked, write the list of what was installed), Remove-PkiCa.ps1 / remove-pki-ca.sh (NEW: remove by company, all, or organization), selfextract templates. New-PkiTrustKit.ps1 builds the single multi-PKI .certpacked itself (no PkiTransport.ps1 -Pack call any more).

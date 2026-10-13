@@ -122,11 +122,17 @@ function Copy-PkiDevKitTree {
     $dk = Join-Path $Root 'devkit'
     if (-not (Test-Path -LiteralPath $dk -PathType Container)) { throw "DevKit: the folder $dk is missing." }
     foreach ($f in Get-ChildItem -LiteralPath $dk -File | Where-Object { $_.Name -ne 'START-HERE.txt' }) { Copy-Item -LiteralPath $f.FullName -Destination $Kit -Force }
+    # 5.2.2: the destination tools - CSR maker and OpenSSL installer (templates in trustkit\)
+    foreach ($f in 'New-PkiCsr.ps1', 'Prepare-Computer.ps1', 'new-pki-csr.sh', 'prepare-computer.sh') {
+        $src = Join-Path (Join-Path $Root 'trustkit') $f
+        if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { throw "DevKit: $src is missing." }
+        Copy-Item -LiteralPath $src -Destination $Kit -Force
+    }
     $lib = Join-Path $Kit 'lib'; Ensure-PkiDirectory -Path $lib
     foreach ($f in Get-ChildItem -LiteralPath (Join-Path $dk 'lib') -File) { Copy-Item -LiteralPath $f.FullName -Destination $lib -Force }
     # manuals
     $docs = Join-Path $Kit 'docs'; Ensure-PkiDirectory -Path $docs
-    foreach ($n in 'DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt') {
+    foreach ($n in 'DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt') {
         $src = Get-PkiDevKitSourceFile -Root $Root -Name $n
         if ($src) { Copy-Item -LiteralPath $src -Destination $docs -Force } else { Write-PkiLog "DevKit: manual $n not found (skipped)." 'WARN' }
     }

@@ -1,0 +1,83 @@
+====================================================================================================
+ New-PkiCsr.ps1 / new-pki-csr.sh  -  ask the PKI for a certificate: make your key and your request (CSR)
+ Version 5.2.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+====================================================================================================
+
+1. WHAT IT IS FOR
+   You need a certificate from a PKI you do not own. These scripts ask you questions, one after the other, make your PRIVATE KEY and a CERTIFICATE REQUEST (.csr)
+   on your computer, and write both into a new folder. You send ONLY the .csr to the owner of the PKI. The .key never leaves your computer.
+   They are standalone: they need only OpenSSL 3.x or 4.x (Prepare-Computer installs it). No other file of the project is needed.
+   It does not matter whether the PKI is already installed on your computer (Windows Local Machine store, Linux ca-certificates) or not: the scripts never read or
+   change the certificate stores. When the trust kit installed the PKI they say so ("PKI already installed on this computer: agantra").
+
+2. THE SHORT WAY
+      Windows     .\Prepare-Computer.ps1            (once: OpenSSL + Python + PATH)        .\New-PkiCsr.ps1
+      Linux       ./prepare-computer.sh               (once)                                 ./new-pki-csr.sh
+   Answer the questions. Press Enter to skip an optional one. The folder csr-requests\<name>_<date-time>\ holds:
+      <name>.key          your private key - KEEP IT SECRET             <name>.csr      the request - send THIS file
+      request-info.txt    what the request contains and the level it asks for            README.txt   what to do next
+
+3. WHAT THE REQUEST IS FOR  (-CertificateType / --type, the first question)
+   Leaf (default)    a server, a person, code signing or e-mail certificate. The owner signs it with SignCsr.ps1 / SignCsr.sh.
+   IntermediateCA    the certificate of a new CA of your department. The request asks for CA:TRUE and key usage keyCertSign + cRLSign.
+                     It has NO names (no SAN) and can NEVER have the development names. Required: company, country, department (OU), CA name (CN).
+                     Key: RSA 4096 / 8192 or ECDSA P-384 / P-521 (not ML-DSA, not P-256, not RSA 2048 / 3072). The owner signs it with SignExternalCa.ps1
+                     (a Quadrant Root, original PKI only). Protect the key like a root key (offline or in an HSM).
+   The owner's scripts recognise the kind by themselves (CA:TRUE = CA request) and tell him which script to use if he starts the wrong one (-CsrType Auto|Leaf|IntermediateCA).
+
+4. THE QUESTIONS
+   Type of request - Common name (CN) - Company ID (becomes the subject SERIAL NUMBER) - Company (O) - Department (OU) - E-mail - Contact phone - Contact person
+   - Address - City - State - Country (2 letters) - Postal code - EV information (business category, jurisdiction country / state / locality) - IANA PEN (optional)
+   - Names (SAN): DNS names, IP addresses, e-mail addresses, one by one (empty line = finished) - "Add the development names?" - Key and hash.
+   Every answer can be given as an option instead (below); then that question is not asked.
+
+5. WHAT CERTIFICATE YOU GET
+   The owner's SignCsr / SignExternalCa choose the level from the request (he can force it with -DV / -OV / -EV, -Level):
+      EV information complete (business category + jurisdiction country + company ID + company + state + city)     ->  EV
+      a company (name + country), no EV information                                                               ->  OV
+      only a common name                                                                                          ->  DV
+   Classic, Quadrant 1 unless he says -Quantum / -FIPS (an ML-DSA request needs -Quantum). The CRL and OCSP addresses are those of the CA that signs.
+   Development names: "Add the development names?" = yes puts a marker name in the request; the owner's SignCsr then adds the development SAN list (like -AddDevelopmentSAN).
+   The marker is never in the certificate. Not for a CA request.
+   IANA PEN: your company policy OID 1.3.6.1.4.1.<PEN>.1 is put in the request and added to the certificate. Other policy OIDs in a request are ignored.
+
+6. RULES (the request is refused before a key is made; the CA checks the same again)
+   RSA below 2048 bit - ECDSA other than P-256 / P-384 / P-521 - ML-DSA other than 44 / 65 / 87 - a request hash below SHA-256 (SHA-1, SHA-224, MD5) are refused.
+   Code signing: RSA 4096+, ECDSA P-384+, ML-DSA-65+.   EV: no wildcard name.   Country: two capital letters.   Company and country go together.
+   Special characters in values (# $ " \) are kept as typed.
+
+7. OPTIONS
+   Windows (New-PkiCsr.ps1)                                   Linux (new-pki-csr.sh)
+   -CertificateType Leaf|IntermediateCA                       --type leaf|intermediate-ca
+   -CommonName -CompanyId -Company -OrganizationalUnit        --cn --company-id --company --ou
+   -Email -Phone -ContactPerson                               --email --phone --contact
+   -Address -City -State -Country -PostalCode                 --address --city --state --country --postal-code
+   -BusinessCategory -JurisdictionCountry/-State/-Locality    --business-category --jurisdiction-country/-state/-locality
+   -IanaPen <number>                                          --pen <number>
+   -San a,b,c   -AddDevelopmentSAN                            --san a (repeat or comma list)   --add-development-san
+   -Purpose ServerAuth|ClientAuth|ServerClientAuth|CodeSigning|EmailProtection        --purpose ...
+   -KeyType RSA|ECDSA|MLDSA  -KeyBits  -Curve  -MlDsa  -Digest   --key rsa|ecdsa|mldsa  --bits  --curve  --mldsa  --digest
+   -Name <text>  -OutDirectory <folder>  -OpenSslPath <file>  -NonInteractive  -Help        --name  --out  --openssl  --non-interactive  --help
+   Exit codes: 0 ok, 1 error (nothing is made), 4 OpenSSL not found, 5 system not supported.
+
+8. EXAMPLES
+   .\New-PkiCsr.ps1 -CommonName app.example.com -San app.example.com,10.0.0.5 -NonInteractive                                     DV, RSA 4096 + SHA-384
+   .\New-PkiCsr.ps1 -CommonName app.example.com -Company "Example OU" -CompanyId 17344131 -Country EE -San app.example.com -AddDevelopmentSAN -NonInteractive     OV
+   .\New-PkiCsr.ps1 -CommonName ev.example.com -Company "Example OU" -CompanyId 17344131 -Country EE -State Harju -City Tallinn -Address "Street 1" `
+        -BusinessCategory "Private Organization" -JurisdictionCountry EE -San ev.example.com -IanaPen 99999 -KeyType ECDSA -Curve P-384 -NonInteractive     EV
+   .\New-PkiCsr.ps1 -CertificateType IntermediateCA -CommonName "Dept Issuing CA G1" -Company "Dept Ltd" -OrganizationalUnit "IT Department" -Country EE -NonInteractive
+   ./new-pki-csr.sh --cn ev.example.com --company "Example OU" --company-id 17344131 --country EE --state Harju --city Tallinn --address "Street 1" \
+        --business-category "Private Organization" --jurisdiction-country EE --san ev.example.com --pen 99999 --key ecdsa --curve P-384 --non-interactive
+   ./new-pki-csr.sh --type intermediate-ca --cn "Dept Issuing CA G1" --company "Dept Ltd" --ou "IT Department" --country EE --non-interactive
+   Owner's side:  .\SignCsr.ps1 -Csr x.csr     .\SignCsr.ps1 -Csr x.csr -Quantum     .\SignExternalCa.ps1 -Csr ca.csr     (no level switch: it follows the request)
+
+9. WHERE IT RUNS
+   Windows 11 24H2+, Windows Server 2025 / 2022, Windows PowerShell 5.1 or PowerShell 7. Linux: Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle Linux 10+, SLES / openSUSE 15+.
+   Others: exit 5, nothing is done. The scripts are in every trust-kit zip, in the DevKit and in the transport kit.
+
+10. NOT TESTED HERE
+   Run on Linux only (Ubuntu 24.04, OpenSSL 4.0.3, PowerShell 7). Not run on a real Windows or Windows PowerShell 5.1 (icacls on the key file, the platform gate were simulated).
+   What to run on your machines: PKI-Acceptance-Checklists.txt, E32.
+====================================================================================================
+ Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+====================================================================================================

@@ -25,7 +25,7 @@ if ($Help) {
 @'
 ============================================================
  Make-ShExecutable.ps1 - make the .sh files executable (Windows developers)
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

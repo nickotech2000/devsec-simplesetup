@@ -44,7 +44,7 @@ function Invoke-PkiSignExternalCa {
         [Parameter(Mandatory)][string]$Csr, [Parameter(Mandatory)][hashtable]$Signer,
         [string]$Name, [string]$Level = 'OV', [int]$Days = 1825, [int]$PathLen = 0,
         [string[]]$PermitDns = @(), [string[]]$PermitEmail = @(), [string]$OutRoot, [switch]$Force,
-        [int]$DaysAsked = 0, [switch]$Strict, [switch]$CheckOnly, [switch]$NoColor
+        [int]$DaysAsked = 0, [switch]$Strict, [switch]$CheckOnly, [switch]$NoColor, [string]$CsrType = 'Auto'
     )
     $c = $script:Pki
     if (-not (Test-Path -LiteralPath $Csr -PathType Leaf)) { throw "CSR not found: $Csr" }
@@ -62,6 +62,12 @@ function Invoke-PkiSignExternalCa {
     Write-Host "  key     : $keyDesc    signature: $($info.SigAlg)"
     Write-Host "  asked   : CA certificate, $levelUp, signed by $($Signer.Id) ($(if ($Signer.Fips) { 'Classic FIPS' } else { 'Classic non-FIPS' }) Quadrant Root)"
     Write-Host ''
+    $kind = Test-PkiCsrKind -Csr $info -Expected IntermediateCA -Declared $CsrType
+    Write-PkiCsrKindLine -Kind $kind -NoColor:$NoColor
+    if (-not $kind.Ok) {
+        Write-Host ''; Write-Host '  Result: the request is not a CA request: nothing was signed.'
+        return [pscustomobject]@{ Signed = $false; Errors = 1; Warnings = 0; Findings = @(); Dir = $null; Certificate = $null }
+    }
     $spec = Test-PkiCsrSpec -Csr $info -Profile Ca -Level $levelUp -Track Classic -Days $DaysAsked
     $fx = [System.Collections.Generic.List[object]]::new(); foreach ($x in $spec.Findings) { [void]$fx.Add($x) }
     # never sign a request that carries the name (CN) of one of OUR CAs

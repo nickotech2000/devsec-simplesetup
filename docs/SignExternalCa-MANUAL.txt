@@ -1,6 +1,6 @@
 ============================================================
  SignExternalCa.ps1 - sign the CA certificate of a department (or another organization) with our Quadrant Root
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -41,6 +41,9 @@ THE LEVEL OF HIS CA (-Level, default OV) AND WHAT HIS REQUEST MUST CONTAIN
                 Classic CA). The signature of the request must be valid and SHA-256 or stronger. A request that uses the CN of one of OUR CAs is refused.
 
 OPTIONS
+  -CsrType Auto|Leaf|IntermediateCA   the kind of request (5.2.6, default Auto). Auto recognises it: CA:TRUE = a CA request. This script signs CA requests; a LEAF request (names, no CA:TRUE)
+                         is refused with the command to use (SignCsr.ps1). A hand-made CA request without CA:TRUE is accepted as a CA request. -Level: default OV, EV when the
+                         request carries the complete EV information. New-PkiCsr.ps1 -CertificateType IntermediateCA makes a matching request.
   -Csr <file>            His PKCS#10 request (PEM).
   -Level DV|OV|EV        Level written into his certificate (default OV).          -Fips   sign with q2-root (Classic FIPS).
   -Name <text>           Name of the output folder and files (default: his CN).

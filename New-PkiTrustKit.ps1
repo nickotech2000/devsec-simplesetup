@@ -42,13 +42,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$script:Version = '5.1.0'
+$script:Version = '5.2.6'
 
 if ($Help) {
 @'
 ============================================================
  New-PkiTrustKit.ps1 - trust kits (CA certificates + a standalone installer) for Windows, Ubuntu, Red Hat family, SUSE family
- Version 5.1.0
+ Version 5.2.6
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 FOR WHOM
@@ -57,8 +57,9 @@ FOR WHOM
 
 WHAT YOU GET (in a new folder with a unique name inside .\transport\)
   transport\pki-trust-<pki-name>-<unique>-<date>-<time>\
-      windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  Remove-PkiCa.ps1  +  <name>.certpacked  (AES-256)
-      ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  remove-pki-ca.sh  +  <name>.certpacked  (ZipCrypto, see below)
+      windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  Remove-PkiCa.ps1  New-PkiCsr.ps1  Prepare-Computer.ps1  +  <name>.certpacked  (AES-256)
+      ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  remove-pki-ca.sh  new-pki-csr.sh  prepare-computer.sh  +  <name>.certpacked  (ZipCrypto, see below)
+      (Certificate request tools: New-PkiCsr.ps1 / new-pki-csr.sh make a key and a certificate request step by step; Prepare-Computer.ps1 / prepare-computer.sh install OpenSSL and Python and put them on the PATH. Manual: docs\NewPkiCsr-MANUAL.txt)
       redhat-pki-...zip     suse-pki-...zip                 the same for the Red Hat family and the SUSE family
       PASSWORD.txt                                          the password of the .certpacked (send it by ANOTHER way than the zips)
       README.txt                                            what to tell the people
@@ -344,6 +345,11 @@ try {
     $prefix = "pki-$PkiName"
     $rmPs1Bytes = $utf8.GetBytes((((Get-Template 'Remove-PkiCa.ps1') -replace "`r`n", "`n") -replace "`n", "`r`n"))
     $rmShText = (Get-Template 'remove-pki-ca.sh') -replace "`r`n", "`n"
+    # 5.2.2: the destination tools - CSR maker and OpenSSL installer (ps1 for the Windows zip, sh for the Linux zips)
+    $csrPs1Bytes = $utf8.GetBytes((((Get-Template 'New-PkiCsr.ps1') -replace "`r`n", "`n") -replace "`n", "`r`n"))
+    $osslPs1Bytes = $utf8.GetBytes((((Get-Template 'Prepare-Computer.ps1') -replace "`r`n", "`n") -replace "`n", "`r`n"))
+    $csrShBytes = $utf8.GetBytes(((Get-Template 'new-pki-csr.sh') -replace "`r`n", "`n"))
+    $osslShBytes = $utf8.GetBytes(((Get-Template 'prepare-computer.sh') -replace "`r`n", "`n"))
 
     function New-KitZip { param([string]$Path, [object[]]$Items)
         $fs = [System.IO.File]::Create($Path)
@@ -370,12 +376,12 @@ try {
         $zipName = "$key-pki-$kitName-$unique-$stamp.zip"
         $zipPath = Join-Path $runDir $zipName
         if ($t -eq 'Windows') {
-            $items = @([pscustomobject]@{ Name = 'Install-PkiCa.ps1'; Bytes = $ps1Bytes; Mode = 0x1A4; Store = $false }, [pscustomobject]@{ Name = 'Remove-PkiCa.ps1'; Bytes = $rmPs1Bytes; Mode = 0x1A4; Store = $false }) + @(
+            $items = @([pscustomobject]@{ Name = 'Install-PkiCa.ps1'; Bytes = $ps1Bytes; Mode = 0x1A4; Store = $false }, [pscustomobject]@{ Name = 'Remove-PkiCa.ps1'; Bytes = $rmPs1Bytes; Mode = 0x1A4; Store = $false }, [pscustomobject]@{ Name = 'New-PkiCsr.ps1'; Bytes = $csrPs1Bytes; Mode = 0x1A4; Store = $false }, [pscustomobject]@{ Name = 'Prepare-Computer.ps1'; Bytes = $osslPs1Bytes; Mode = 0x1A4; Store = $false }) + @(
                 @($packAes | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Bytes = [System.IO.File]::ReadAllBytes($_.File); Mode = 0x1A4; Store = $true } }))
         }
         else {
             $sh = $shTemplate.Replace('__PKI_PREFIX__', $prefix).Replace('__PKI_TARGET__', $key)
-            $items = @([pscustomobject]@{ Name = 'install-pki-ca.sh'; Bytes = $utf8.GetBytes($sh); Mode = 0x1ED; Store = $false }, [pscustomobject]@{ Name = 'remove-pki-ca.sh'; Bytes = $utf8.GetBytes($rmShText); Mode = 0x1ED; Store = $false }) + @(
+            $items = @([pscustomobject]@{ Name = 'install-pki-ca.sh'; Bytes = $utf8.GetBytes($sh); Mode = 0x1ED; Store = $false }, [pscustomobject]@{ Name = 'remove-pki-ca.sh'; Bytes = $utf8.GetBytes($rmShText); Mode = 0x1ED; Store = $false }, [pscustomobject]@{ Name = 'new-pki-csr.sh'; Bytes = $csrShBytes; Mode = 0x1ED; Store = $false }, [pscustomobject]@{ Name = 'prepare-computer.sh'; Bytes = $osslShBytes; Mode = 0x1ED; Store = $false }) + @(
                 @($packZc | ForEach-Object { [pscustomobject]@{ Name = $_.Name; Bytes = [System.IO.File]::ReadAllBytes($_.File); Mode = 0x1A4; Store = $true } }))
         }
         New-KitZip -Path $zipPath -Items $items
@@ -468,6 +474,7 @@ try {
         [void]$lines.Add('')
     }
     [void]$lines.Add('Check only (changes nothing):  Windows  .\Install-PkiCa.ps1 -Check     Linux  bash install-pki-ca.sh --check')
+    [void]$lines.Add('Certificate request:  Windows  .\Prepare-Computer.ps1 (once: OpenSSL + Python + PATH), then .\New-PkiCsr.ps1     Linux  bash prepare-computer.sh (once: OpenSSL + Python + PATH), then bash new-pki-csr.sh   - send ONLY the .csr to the owner of the PKI.')
     [void]$lines.Add('Remove:  Windows  .\Remove-PkiCa.ps1 -List | -Pki <name> | -All     Linux  bash remove-pki-ca.sh --list | --pki <name> | --all   (add -Check / --check to only show)')
     [System.IO.File]::WriteAllText((Join-Path $runDir 'README.txt'), ($hdr + ($lines -join "`n") + "`n"), $utf8)
 }
