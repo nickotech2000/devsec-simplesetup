@@ -18,6 +18,7 @@ param(
     [string]$Package,
     [string]$Destination,
     [switch]$Force,
+    [switch]$Yes,
     [switch]$Check,
     [switch]$RestrictAccess,
     [switch]$Help
@@ -27,7 +28,7 @@ function Show-Help {
 @'
 ============================================================
  Restore-Pki.ps1 - put a PKI backup back
- Version 5.3.5
+ Version 5.3.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -42,8 +43,10 @@ ORDER OF WORK  (a restore stops at the first problem, before anything is written
        - the pki folder of -Destination: every file of that PKI by SHA-256 (identical / different / missing);
        - the Local Machine certificate store (Root and Intermediate): every CA certificate of that PKI by thumbprint.
      A PKI that is in the pki folder already (all files identical), or whose CA certificates are ALL in the Local Machine store, is NOT restored. A PKI whose folder exists but differs
-     is left alone and reported. Only what is missing is restored. If nothing is missing: "Nothing to restore", nothing is changed.
+     is NOT silently skipped: you are asked "Replace it with the version from the backup? [Y/n]" and Enter = Y (yes). With Y the old folder is renamed to <name>.before-restore-<time>
+     (never deleted) and the backup version is written. Answer n to keep the old one. Run unattended (no one to ask) the old one is kept, unless you give -Yes. Only what is missing is restored. If nothing is missing: "Nothing to restore", nothing is changed.
      (The store holds certificates, not private keys: -Force restores the keys of a PKI that is only in the store.)
+  5b. ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo, ...) that may be in an older backup are never restored; they are listed as "Not restored".
   6. The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file the same way.
   7. The files are written, then every restored file is checked against the backup again.
   The backup itself holds the private key of EVERY certificate: all roots, all intermediates, all profile / leaf certificates (Backup-Pki.ps1 checks this when it makes the backup).
@@ -57,6 +60,7 @@ USE
 OPTIONS
   -Package <path>      the backup zip (pki-payload-....zip), the .certpacked, or a folder that holds one. Default: the .certpacked next to this script.
   -Destination <dir>   the project folder to restore into. Default: the folder of this script when it is the project (it has pki_setup.ps1); otherwise you must give it.
+  -Yes                 answer Y to every "replace?" question without asking (old folders/files are still renamed, never deleted)
   -Force               restore anyway: a PKI folder (or file) that exists is RENAMED to <name>.before-restore-<yyyymmdd-HHmmss> (never deleted), and a PKI that is only in the Local Machine store is restored too
   -Check               do not write anything
   -RestrictAccess      pki\, leafcerts\, external-ca\ get access for Administrators and SYSTEM only (icacls) BEFORE the keys are written
@@ -94,7 +98,8 @@ $ErrorActionPreference = 'Stop'
 #            PKI_BACKUP_PASSWORD=<password> (unattended runs and tests: the environment of a process can be read by others, so prefer the prompt)
 # ============================================================
 
-$script:BkVersion = '5.3.5'
+$script:BkVersion = '5.3.6'
+$script:BkAssumeYes = $false
 $script:BkFormat = 'agantra-pki-backup'
 $script:BkFormatVersion = 1
 $script:BkFolderName = 'backup-pki'
@@ -272,6 +277,25 @@ function ConvertFrom-BkSecure {
     return [System.Net.NetworkCredential]::new('', $Secure).Password
 }
 
+function Clear-BkKeyBuffer {
+    # Throws away keys that were typed earlier (for example an Enter pressed while a long step ran): they must not answer the next question.
+    try { if (-not [Console]::IsInputRedirected) { while ([Console]::KeyAvailable) { [void][Console]::ReadKey($true) } } } catch { }
+}
+
+function Read-BkSecret {
+    # One hidden answer. An empty answer that comes back at once is a stray Enter, not an answer: it is ignored and the question is asked again.
+    param([string]$Prompt)
+    Clear-BkKeyBuffer
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $v = ConvertFrom-BkSecure (Read-Host -Prompt $Prompt -AsSecureString)
+    if ($v -eq '' -and $sw.ElapsedMilliseconds -lt 500) {
+        Clear-BkKeyBuffer
+        Write-Host '(an Enter key pressed earlier was ignored - please type the password)'
+        $v = ConvertFrom-BkSecure (Read-Host -Prompt $Prompt -AsSecureString)
+    }
+    return $v
+}
+
 function Read-BkNewPassword {
     # Asks twice, checks the policy, shows every problem, three tries. Exit 3 when it fails.
     if ($env:PKI_BACKUP_PASSWORD) {
@@ -284,14 +308,14 @@ function Read-BkNewPassword {
     Write-Host 'The password is NOT stored anywhere. Without it the backup can never be opened: write it down and keep it in a safe place, apart from the backup.'
     if ([Console]::IsInputRedirected) { Stop-Bk 'The password must be typed by a person at the prompt (or given in PKI_BACKUP_PASSWORD for an unattended run). No password, no backup.' 3 }
     for ($try = 1; $try -le 3; $try++) {
-        $a = ConvertFrom-BkSecure (Read-Host -Prompt 'Backup password' -AsSecureString)
+        $a = Read-BkSecret 'Backup password'
         $probs = Test-BkPassword $a
         if ($probs.Count -gt 0) {
             foreach ($x in $probs) { Say 'ERROR' "Password policy: $x" }
             if ($try -lt 3) { Say 'INFO' "Try again ($try of 3)." }
             continue
         }
-        $b = ConvertFrom-BkSecure (Read-Host -Prompt 'Backup password (again)' -AsSecureString)
+        $b = Read-BkSecret 'Backup password (again)'
         if ($a -cne $b) { Say 'ERROR' 'The two passwords are different.'; if ($try -lt 3) { Say 'INFO' "Try again ($try of 3)." }; continue }
         return $a
     }
@@ -303,9 +327,25 @@ function Read-BkExistingPassword {
     param([string]$Prompt = 'Backup password')
     if ($env:PKI_BACKUP_PASSWORD) { return $env:PKI_BACKUP_PASSWORD }
     if ([Console]::IsInputRedirected) { Stop-Bk 'The password must be typed at the prompt (or given in PKI_BACKUP_PASSWORD for an unattended run). No password, no process.' 3 }
-    $a = ConvertFrom-BkSecure (Read-Host -Prompt $Prompt -AsSecureString)
+    $a = Read-BkSecret $Prompt
     if ([string]::IsNullOrEmpty($a)) { Stop-Bk 'No password was typed. No password, no process.' 3 }
     return $a
+}
+
+function Read-BkYesNo {
+    # A question with the answer Y as the default (Enter = Y). $true = Y, $false = N, $null = nobody can answer (unattended) - the caller then leaves things alone.
+    # -Yes of the script ($script:BkAssumeYes) answers Y to everything. Test hook: PKI_RESTORE_ANSWER=Y|N.
+    param([Parameter(Mandatory)][string]$Question)
+    if ($script:BkAssumeYes) { Say 'INFO' "$Question  -> Y (-Yes)"; return $true }
+    if ($env:PKI_RESTORE_ANSWER) { $y = ($env:PKI_RESTORE_ANSWER -match '^(?i)y'); Say 'INFO' "$Question  -> $(if ($y) { 'Y' } else { 'N' }) (PKI_RESTORE_ANSWER)"; return $y }
+    if ([Console]::IsInputRedirected) { return $null }
+    while ($true) {
+        Clear-BkKeyBuffer
+        $a = (Read-Host -Prompt "$Question [Y/n]").Trim()
+        if ($a -eq '' -or $a -match '^(?i)y(es)?$') { return $true }
+        if ($a -match '^(?i)n(o)?$') { return $false }
+        Write-Host 'Please answer Y (yes, the default) or N (no).'
+    }
 }
 
 # ------------------------------------------------------------
@@ -394,26 +434,58 @@ function Open-BkPackage {
 # ------------------------------------------------------------
 # Certificates, private keys, the Local Machine certificate store
 # ------------------------------------------------------------
-function Read-BkCertificateFile {
-    # A file with exactly ONE certificate (PEM or DER) -> Thumbprint (SHA-1), Subject, Issuer, IsCa, SelfSigned. Anything else -> $null.
+function ConvertTo-BkNorm {
+    # for comparing names: no accents (OÜ = OU), lower case, one space
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return '' }
+    $d = $Text.Normalize([System.Text.NormalizationForm]::FormD)
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($ch in $d.ToCharArray()) { if ([System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($ch) -ne [System.Globalization.UnicodeCategory]::NonSpacingMark) { [void]$sb.Append($ch) } }
+    return (($sb.ToString().ToLowerInvariant()) -replace '\s+', ' ').Trim()
+}
+
+function Get-BkOrgOf {
+    # the O= of a distinguished name
+    param([string]$Dn)
+    if ($Dn -match '(?:^|,\s*)O=(?<o>"(?:[^"]|"")*"|[^,]+)') { return $Matches['o'].Trim().Trim('"').Trim() }
+    return ''
+}
+
+function Get-BkOwnOrganizations {
+    # THE ORGANIZATIONS OF YOUR PKI: the  Organization =  of every <company>_pki.cnf in the folder (Agantra, Raksaka ...). Only certificates of these are "yours".
+    param([Parameter(Mandatory)][string]$Root)
+    $set = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($f in @(Get-ChildItem -LiteralPath $Root -Filter '*_pki.cnf' -File -Force -ErrorAction SilentlyContinue)) {
+        foreach ($l in [System.IO.File]::ReadAllLines($f.FullName)) {
+            if ($l -match '^\s*Organization\s*=\s*(.+?)\s*$') { $n = ConvertTo-BkNorm ($Matches[1] -replace '\s+#.*$', ''); if ($n) { [void]$set.Add($n) } }
+        }
+    }
+    return $set
+}
+
+function Read-BkCertificatesInFile {
+    # Every certificate of a PEM file (one or a chain) or the one of a DER file -> Thumbprint (SHA-1), Subject, Issuer, SubjectOrg, IssuerOrg, IsCa, SelfSigned. None -> empty.
     param([Parameter(Mandatory)][string]$Path)
+    $out = [System.Collections.Generic.List[object]]::new()
     try {
         $fi = [System.IO.FileInfo]::new($Path)
-        if ($fi.Length -gt 40000 -or $fi.Length -lt 100) { return $null }
+        if ($fi.Length -gt 300000 -or $fi.Length -lt 100) { return $out.ToArray() }
         $bytes = [System.IO.File]::ReadAllBytes($Path)
         $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+        $certs = [System.Collections.Generic.List[System.Security.Cryptography.X509Certificates.X509Certificate2]]::new()
         if ($text.Contains('-----BEGIN')) {
-            if ([regex]::Matches($text, '-----BEGIN CERTIFICATE-----').Count -ne 1) { return $null }
-            $c = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($text)
+            foreach ($m in [regex]::Matches($text, '-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----')) { try { [void]$certs.Add([System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($m.Value)) } catch { } }
         }
-        else { $c = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes) }
-        $isCa = $false
-        foreach ($e in $c.Extensions) { if ($e.Oid.Value -eq '2.5.29.19') { $isCa = ([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]$e).CertificateAuthority } }
-        $o = [pscustomobject]@{ Thumbprint = $c.Thumbprint.ToUpperInvariant(); Subject = $c.Subject; Issuer = $c.Issuer; IsCa = $isCa; SelfSigned = ($c.Subject -eq $c.Issuer) }
-        $c.Dispose()
-        return $o
+        elseif ($fi.Length -lt 40000) { try { [void]$certs.Add([System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes)) } catch { } }
+        foreach ($c in $certs) {
+            $isCa = $false
+            foreach ($e in $c.Extensions) { if ($e.Oid.Value -eq '2.5.29.19') { $isCa = ([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]$e).CertificateAuthority } }
+            [void]$out.Add([pscustomobject]@{ Thumbprint = $c.Thumbprint.ToUpperInvariant(); Subject = $c.Subject; Issuer = $c.Issuer; SubjectOrg = (Get-BkOrgOf $c.Subject); IssuerOrg = (Get-BkOrgOf $c.Issuer); IsCa = $isCa; SelfSigned = ($c.Subject -eq $c.Issuer) })
+            $c.Dispose()
+        }
     }
-    catch { return $null }
+    catch { }
+    return $out.ToArray()
 }
 
 function Get-BkPublicKeyText {
@@ -429,45 +501,95 @@ function Get-BkPublicKeyText {
 }
 
 function Get-BkKeyInventory {
-    # Looks at every certificate under the given folders and says whether its PRIVATE KEY is among the files (found by comparing the public keys).
-    # Returns Certificates (Rel, Thumbprint, Subject, IsCa, SelfSigned, HasKey, KeyFile), Keys (count), NoOpenSsl.
-    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string[]]$Folders)
-    $res = [ordered]@{ Certificates = [System.Collections.Generic.List[object]]::new(); Keys = 0; NoOpenSsl = $false }
+    # Looks at every certificate under the folders: is its PRIVATE KEY among the files (public keys compared with OpenSSL), and is the certificate YOURS?
+    #   yours = issued by one of your organizations (the Organization of a <company>_pki.cnf), or a self-signed CA of yours, or a CA of yours whose key is here
+    #           (a root signed by DigiCert / GlobalSign / Sectigo for YOUR key is yours; the DigiCert chain, a certificate DigiCert issued, are not).
+    # Returns Certificates (Rel, Thumbprint, Subject, Issuer, IsCa, SelfSigned, HasKey, Own, Index), ExcludedFiles (HashSet of Rel: files of other CAs and their keys),
+    #         ExcludedFolders (PKI folders under pki\ with no certificate of yours), Foreign (subjects of other CAs), NoOpenSsl, NoOrgs.
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string[]]$Folders, [System.Collections.Generic.HashSet[string]]$OwnOrgs)
+    $res = [ordered]@{ Certificates = [System.Collections.Generic.List[object]]::new(); ExcludedFiles = [System.Collections.Generic.HashSet[string]]::new(); ExcludedFolders = [System.Collections.Generic.List[string]]::new(); Foreign = [System.Collections.Generic.List[string]]::new(); NoOpenSsl = $false; NoOrgs = $false }
+    $rootT = $Root.TrimEnd('\', '/')
     $files = @()
     foreach ($f in $Folders) { $d = Join-Path $Root $f; if (Test-Path -LiteralPath $d -PathType Container) { $files += @(Get-ChildItem -LiteralPath $d -Recurse -File -Force) } }
     $haveSsl = [bool](Get-Command 'openssl' -ErrorAction SilentlyContinue)
     if (-not $haveSsl) { $res.NoOpenSsl = $true }
-    # private keys: public key text -> file
-    $keyMap = @{}
-    $pfxStems = [System.Collections.Generic.List[string]]::new()
+    if ($null -eq $OwnOrgs -or $OwnOrgs.Count -eq 0) { $res.NoOrgs = $true }
+    $relOf = { param($fi) ($fi.FullName.Substring($rootT.Length).TrimStart('\', '/')) -replace '\\', '/' }
+
+    # private keys
+    $keys = [System.Collections.Generic.List[object]]::new(); $pfx = [System.Collections.Generic.List[object]]::new()
     foreach ($f in $files) {
-        if ($f.Extension -in '.pfx', '.p12') { [void]$pfxStems.Add(($f.DirectoryName + '|' + [System.IO.Path]::GetFileNameWithoutExtension($f.Name)).ToLowerInvariant()); $res.Keys++; continue }
+        if ($f.Extension -in '.pfx', '.p12') { [void]$pfx.Add([pscustomobject]@{ Rel = (& $relOf $f); Key = ($f.DirectoryName + '|' + [System.IO.Path]::GetFileNameWithoutExtension($f.Name)).ToLowerInvariant() }); continue }
         if ($f.Extension -ne '.key' -and $f.Extension -ne '.pem') { continue }
         if ($f.Length -gt 20000) { continue }
-        $head = [System.IO.File]::ReadAllText($f.FullName)
-        if ($head -notmatch '-----BEGIN (ENCRYPTED |EC |RSA )?PRIVATE KEY-----') { continue }
-        $res.Keys++
-        if ($haveSsl) { $pk = Get-BkPublicKeyText -Path $f.FullName -Kind key; if ($pk) { $keyMap[$pk] = $f.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/' } }
+        if ([System.IO.File]::ReadAllText($f.FullName) -notmatch '-----BEGIN (ENCRYPTED |EC |RSA )?PRIVATE KEY-----') { continue }
+        $pub = ''; if ($haveSsl) { $pub = Get-BkPublicKeyText -Path $f.FullName -Kind key }
+        [void]$keys.Add([pscustomobject]@{ Rel = (& $relOf $f); Pub = $pub })
     }
-    $seen = @{}
+    $keyPubs = @{}; foreach ($k in $keys) { if ($k.Pub) { $keyPubs[$k.Pub] = $true } }
+
+    # certificates
+    $recs = [System.Collections.Generic.List[object]]::new()
     foreach ($f in $files) {
-        if ($f.Extension -notin '.crt', '.cer', '.pem') { continue }
+        if ($f.Extension -notin '.crt', '.cer', '.pem', '.der') { continue }
         if ($f.Name -like '*.crl.pem') { continue }
-        $ci = Read-BkCertificateFile -Path $f.FullName
-        if ($null -eq $ci) { continue }
-        $rel = $f.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
+        $cis = @(Read-BkCertificatesInFile -Path $f.FullName)
+        if ($cis.Count -eq 0) { continue }
+        $rel = & $relOf $f
         $der = -not ([System.IO.File]::ReadAllText($f.FullName).Contains('-----BEGIN'))
-        $pub = if ($haveSsl) { Get-BkPublicKeyText -Path $f.FullName -Kind cert -Der $der } else { '' }
-        $keyFile = ''
-        if ($pub -and $keyMap.ContainsKey($pub)) { $keyFile = $keyMap[$pub] }
-        else {
-            $stem = [System.IO.Path]::GetFileNameWithoutExtension($f.Name).ToLowerInvariant() -replace '-(fullchain|chain|bundle)$', ''
-            if ($pfxStems.Contains(($f.DirectoryName + '|' + $stem).ToLowerInvariant())) { $keyFile = '(inside the .pfx next to it)' }
+        $pub = ''; if ($haveSsl) { $pub = Get-BkPublicKeyText -Path $f.FullName -Kind cert -Der $der }
+        $i = 0
+        foreach ($ci in $cis) {
+            $has = ($i -eq 0 -and $pub -and $keyPubs.ContainsKey($pub))
+            [void]$recs.Add([pscustomobject]@{ Rel = $rel; Dir = $f.DirectoryName; Stem = ([System.IO.Path]::GetFileNameWithoutExtension($f.Name).ToLowerInvariant() -replace '-(fullchain|chain|bundle)(-cross)?(-\d+)?$', ''); Index = $i; Pub = $(if ($i -eq 0) { $pub } else { '' }); Thumbprint = $ci.Thumbprint; Subject = $ci.Subject; Issuer = $ci.Issuer; SubjectOrg = $ci.SubjectOrg; IssuerOrg = $ci.IssuerOrg; IsCa = $ci.IsCa; SelfSigned = $ci.SelfSigned; HasKey = $has; Own = $true })
+            $i++
         }
-        $o = [pscustomobject]@{ Rel = $rel; Thumbprint = $ci.Thumbprint; Subject = $ci.Subject; IsCa = $ci.IsCa; SelfSigned = $ci.SelfSigned; HasKey = [bool]$keyFile; KeyFile = $keyFile }
-        [void]$res.Certificates.Add($o)
+    }
+    # a certificate has its key when ANY copy of it does (publish\ copies, chains)
+    $keyed = @{}; foreach ($r in $recs) { if ($r.HasKey) { $keyed[$r.Thumbprint] = $true } }
+    foreach ($r in $recs) {
+        if (-not $r.HasKey -and $keyed.ContainsKey($r.Thumbprint)) { $r.HasKey = $true }
+        if (-not $r.HasKey) {
+            $pf = ($r.Dir + '|' + $r.Stem).ToLowerInvariant()
+            if (@($pfx | Where-Object { $_.Key -eq $pf }).Count -gt 0) { $r.HasKey = $true }
+        }
+    }
+    # ownership
+    if (-not $res.NoOrgs) {
+        foreach ($r in $recs) {
+            $io = $OwnOrgs.Contains((ConvertTo-BkNorm $r.IssuerOrg)); $so = $OwnOrgs.Contains((ConvertTo-BkNorm $r.SubjectOrg))
+            $r.Own = ($io -or ($r.SelfSigned -and $so) -or ($r.IsCa -and $so -and ($r.HasKey -or $res.NoOpenSsl)))
+        }
+    }
+    foreach ($r in $recs) { [void]$res.Certificates.Add($r) }
+
+    # what is NOT yours
+    if (-not $res.NoOrgs) {
+        $foreignFiles = @{}
+        foreach ($g in ($recs | Group-Object Rel)) {
+            if (@($g.Group | Where-Object { $_.Own }).Count -eq 0) {
+                [void]$res.ExcludedFiles.Add($g.Name); $first = $g.Group[0]; $foreignFiles[($first.Dir + '|' + $first.Stem).ToLowerInvariant()] = $true
+                foreach ($r in $g.Group) { if ($r.Subject -and -not $res.Foreign.Contains($r.Subject)) { [void]$res.Foreign.Add($r.Subject) } }
+            }
+        }
+        foreach ($k in $keys) {
+            $m = @($recs | Where-Object { $k.Pub -and $_.Pub -eq $k.Pub })
+            if ($m.Count -gt 0 -and @($m | Where-Object { $_.Own }).Count -eq 0) { [void]$res.ExcludedFiles.Add($k.Rel) }
+        }
+        foreach ($pf in $pfx) { if ($foreignFiles.ContainsKey($pf.Key)) { [void]$res.ExcludedFiles.Add($pf.Rel) } }
+        foreach ($g in ($recs | Where-Object { $_.Rel -like 'pki/*' } | Group-Object { ($_.Rel -split '/')[1] })) {
+            if (@($g.Group | Where-Object { $_.Own }).Count -eq 0) { [void]$res.ExcludedFolders.Add($g.Name) }
+        }
     }
     return [pscustomobject]$res
+}
+
+function Test-BkExcluded {
+    # Rel of a file ('pki/pki-x/..', 'leafcerts/..') -> $true when it belongs to another CA
+    param([string]$Rel, $Inventory)
+    if ($Inventory.ExcludedFiles.Contains($Rel)) { return $true }
+    if ($Rel -like 'pki/*') { $n = ($Rel -split '/')[1]; if ($Inventory.ExcludedFolders.Contains($n)) { return $true } }
+    return $false
 }
 
 function Get-BkLocalMachineThumbprints {
@@ -919,6 +1041,7 @@ Set-StrictMode -Version Latest
 
 Set-StrictMode -Version Latest
 
+$script:BkAssumeYes = [bool]$Yes
 Write-BkBanner 'Restore-Pki.ps1' 'restore a PKI backup'
 $os = Assert-BkHost
 $prep = $(if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Prepare-Computer.ps1')) { '.\Prepare-Computer.ps1' } else { 'Prepare-Computer.ps1 (from the backup zip or from trustkit\)' })
@@ -985,6 +1108,22 @@ try {
     $opened = Open-BkPackage -Path $cp -Password $pw
     $m = $opened.Manifest
     $entries = @($m['files'] | Where-Object { ([string]$_['path']).StartsWith('data/') })
+    # ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo ...) are never restored, whatever this backup holds
+    $dataDir = Join-Path $opened.Dir 'data'
+    $ownOrgs = @(Get-BkOwnOrganizations -Root $dataDir)
+    Say 'INFO' 'Looking at every certificate and key of the backup: which are yours ...'
+    $inv = Get-BkKeyInventory -Root $dataDir -Folders @('pki', 'leafcerts', 'external-ca', 'csr-signed') -OwnOrgs $ownOrgs
+    if ($ownOrgs.Count -eq 0) { Say 'WARN' 'The backup holds no <company>_pki.cnf with an Organization: your PKI cannot be told from other CAs; everything is restored.' }
+    else {
+        $before = $entries.Count
+        $entries = @($entries | Where-Object { -not (Test-BkExcluded -Rel (([string]$_['path']).Substring(5)) -Inventory $inv) })
+        Say 'INFO' ("Your PKI      : organization(s) {0}. Only these are restored." -f (($ownOrgs | Sort-Object) -join ', '))
+        if ($before -ne $entries.Count) {
+            Say 'INFO' ("Not restored  : {0} file(s) of other CAs (not your PKI)" -f ($before - $entries.Count))
+            foreach ($fs in ($inv.Foreign | Select-Object -First 8)) { Say 'INFO' "  other CA: $fs" }
+        }
+    }
+    $pkiList = @(@($m['pkiFolders']) | Where-Object { -not $inv.ExcludedFolders.Contains([string]$_) })
     Say 'OK' ("Backup made {0} on {1} ({2}): {3} files, PKI folders: {4}" -f $m['createdUtc'], $m['source']['computer'], $m['source']['os'], $entries.Count, (@($m['pkiFolders']) -join ', '))
     if ($m.ContainsKey('keyCheck')) {
         $kc = $m['keyCheck']
@@ -997,12 +1136,10 @@ try {
     # Each PKI of the backup is compared with the pki folder of the destination (file by file, SHA-256) and with the Local Machine certificate
     # store (Root + Intermediate, by thumbprint). A PKI that is there already is not restored.
     $storeSet = Get-BkLocalMachineThumbprints
-    $pkiMeta = @{}
-    foreach ($pm in @($m['pki'])) { $pkiMeta[[string]$pm['name']] = $pm }
     $skipPki = @{}; $restorePki = [System.Collections.Generic.List[string]]::new(); $replacePki = [System.Collections.Generic.List[string]]::new()
     Write-Host ''
     Say 'INFO' 'Comparing the PKIs of the backup with this computer, one by one ...'
-    foreach ($name in @($m['pkiFolders'])) {
+    foreach ($name in $pkiList) {
         $name = [string]$name
         $mine = @($entries | Where-Object { ([string]$_['path']).StartsWith("data/pki/$name/") })
         $destDir = Join-Path (Join-Path $Destination 'pki') $name
@@ -1021,41 +1158,57 @@ try {
         if (-not $folderExists) { Write-Host '    pki folder    : not there' }
         elseif ($folderComplete) { Write-Host ("    pki folder    : there, all {0} files identical" -f $same) -ForegroundColor Green }
         else { Write-Host ("    pki folder    : there, but {0} identical, {1} different, {2} missing" -f $same, $diff, $miss) -ForegroundColor Yellow }
-        $cas = @(); if ($pkiMeta.ContainsKey($name)) { $cas = @($pkiMeta[$name]['caCertificates']) }
+        # the CA certificates of YOUR PKI (from the decrypted files, not from a list): only these are looked for in the store
+        $cas = @($inv.Certificates | Where-Object { $_.Own -and $_.IsCa -and $_.Rel -like "pki/$name/*" } | Group-Object Thumbprint | ForEach-Object { $_.Group[0] } | Sort-Object @{ Expression = { -not $_.SelfSigned } }, Subject)
         $inStore = 0
         foreach ($ca in $cas) {
-            $has = $storeSet.Contains(([string]$ca['thumbprint']).ToUpperInvariant())
+            $has = $storeSet.Contains($ca.Thumbprint)
             if ($has) { $inStore++ }
-            Write-Host ("    {0,-12} : {1}  {2}" -f $ca['kind'], $(if ($has) { 'in Local Machine store' } else { 'NOT in Local Machine store' }), ([string]$ca['subject'] -replace '^.*?CN=([^,]+).*$', '$1')) -ForegroundColor $(if ($has) { 'Green' } else { 'Gray' })
+            Write-Host ("    {0,-12} : {1}  {2}" -f $(if ($ca.SelfSigned) { 'root' } else { 'intermediate' }), $(if ($has) { 'in Local Machine store' } else { 'NOT in Local Machine store' }), ($ca.Subject -replace '^.*?CN=([^,]+).*$', '$1')) -ForegroundColor $(if ($has) { 'Green' } else { 'Gray' })
         }
         $storeAll = ($cas.Count -gt 0 -and $inStore -eq $cas.Count)
         if ($cas.Count -eq 0) { Write-Host '    store         : (this backup does not list the CA certificates of this PKI: store not compared)' }
         # decision
         if ($folderComplete -and -not $Force) { $skipPki[$name] = 'already in the pki folder (every file identical)'; Say 'OK' "    -> not restored: $($skipPki[$name])." }
-        elseif ($folderExists -and -not $folderComplete -and -not $Force) { $skipPki[$name] = 'the pki folder has this PKI, but different files; it is left alone (-Force replaces it, the old folder is renamed)'; Say 'WARN' "    -> not restored: $($skipPki[$name])." }
+        elseif ($folderExists -and -not $folderComplete -and -not $Force) {
+            # an older version of your PKI is there: offer the version of the backup (Enter = Y)
+            $ans = $true
+            if ($Check) { Say 'INFO' "    -> (-Check) would ask: replace this PKI with the version in the backup? [Y/n]" }
+            else { $ans = Read-BkYesNo ("    PKI {0} is in the pki folder already ({1} identical, {2} different, {3} missing). Replace it with the version in the backup? The old folder is renamed, not deleted." -f $name, $same, $diff, $miss) }
+            if ($ans -eq $true) { [void]$restorePki.Add($name); [void]$replacePki.Add($name); Say 'INFO' '    -> will be replaced with the backup version (the old folder is renamed).' }
+            elseif ($ans -eq $false) { $skipPki[$name] = 'you answered N: the pki folder is left as it is'; Say 'WARN' "    -> not restored: $($skipPki[$name])." }
+            else { $skipPki[$name] = 'the pki folder has this PKI with different files and nobody can be asked (no keyboard): left alone; use -Yes or -Force to replace it'; Say 'WARN' "    -> not restored: $($skipPki[$name])." }
+        }
         elseif ($storeAll -and -not $Force) { $skipPki[$name] = "all $($cas.Count) CA certificates are in the Local Machine certificate store"; Say 'OK' "    -> not restored: $($skipPki[$name]). (Only the certificates are in the store, not the private keys: -Force restores the keys anyway.)" }
         else { [void]$restorePki.Add($name); if ($folderExists) { [void]$replacePki.Add($name) }; Say 'INFO' "    -> will be restored$(if ($folderExists) { ' (the existing folder is renamed first)' })." }
     }
 
     # the other files (leafcerts, external-ca, csr-signed, *_pki.cnf ...): file by file
     $extra = @($entries | Where-Object { -not ([string]$_['path']).StartsWith('data/pki/') })
-    $xWrite = [System.Collections.Generic.List[object]]::new(); $xSame = 0; $xDiff = [System.Collections.Generic.List[object]]::new()
+    $xReplace = 0; $xWrite = [System.Collections.Generic.List[object]]::new(); $xSame = 0; $xDiff = [System.Collections.Generic.List[object]]::new()
     foreach ($e in $extra) {
         $to = Join-Path $Destination (([string]$e['path']).Substring(5) -replace '/', [System.IO.Path]::DirectorySeparatorChar)
         if (-not (Test-Path -LiteralPath $to -PathType Leaf)) { [void]$xWrite.Add($e) }
         elseif ((Get-BkHash $to).Sha256 -eq [string]$e['sha256']) { $xSame++ }
         else { if ($Force) { [void]$xWrite.Add($e) }; [void]$xDiff.Add($e) }
     }
+    if ($xDiff.Count -gt 0 -and -not $Force) {
+        $ansX = $true
+        if ($Check) { Say 'INFO' "(-Check) would ask: replace $($xDiff.Count) other file(s) with the backup version? [Y/n]" }
+        else { $ansX = Read-BkYesNo ("{0} other file(s) (leafcerts, external-ca, csr-signed, settings) differ from the backup. Replace them with the backup version? The old files are renamed, not deleted." -f $xDiff.Count) }
+        if ($ansX -eq $true) { foreach ($e in $xDiff) { [void]$xWrite.Add($e) }; $xReplace = $xDiff.Count }
+        else { Say 'WARN' "$($xDiff.Count) different file(s) are left as they are." }
+    }
     if ($extra.Count -gt 0) {
         Write-Host ''
-        Say 'INFO' ("Other files (leafcerts, external-ca, csr-signed, settings): {0} in the backup, {1} already there and identical, {2} missing, {3} there but different{4}" -f $extra.Count, $xSame, ($xWrite.Count - $(if ($Force) { $xDiff.Count } else { 0 })), $xDiff.Count, $(if ($xDiff.Count -gt 0 -and -not $Force) { ' (left alone; -Force replaces them, the old file is renamed)' } else { '' }))
+        Say 'INFO' ("Other files (leafcerts, external-ca, csr-signed, settings): {0} in the backup, {1} already there and identical, {2} missing, {3} there but different{4}" -f $extra.Count, $xSame, ($xWrite.Count - $xReplace), $xDiff.Count, $(if ($xDiff.Count -gt 0) { $(if ($Force -or $xReplace -gt 0) { ' (replaced, the old files are renamed)' } else { ' (left alone)' }) } else { '' }))
     }
 
     $pkiFiles = @($entries | Where-Object { $p = ([string]$_['path']); $restorePki.Contains(($p.Substring(9) -split '/')[0]) -and $p.StartsWith('data/pki/') })
     $toWrite = @($pkiFiles) + @($xWrite)
     Write-Host ''
     if ($toWrite.Count -eq 0) {
-        if (@($skipPki.Values | Where-Object { $_ -like 'the pki folder has this PKI*' }).Count -gt 0) { Say 'WARN' 'Nothing was restored: a PKI folder differs from the backup (see above). -Force replaces it (the old folder is renamed). Nothing was changed.' }
+        if (@($skipPki.Values | Where-Object { $_ -like 'the pki folder has this PKI*' -or $_ -like 'you answered N*' }).Count -gt 0) { Say 'WARN' 'Nothing was restored: a PKI folder differs from the backup and was left as it is (see above). -Yes or -Force replaces it (the old folder is renamed). Nothing was changed.' }
         else { Say 'OK' 'Nothing to restore: everything in the backup is there already. Nothing was changed.' }
         exit 0
     }

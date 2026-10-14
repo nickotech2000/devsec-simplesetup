@@ -4,7 +4,7 @@ A private, multi-level PKI for development and internal use, written in **PowerS
 It builds the CAs (classic RSA / ECDSA and post-quantum ML-DSA, FIPS and non-FIPS), issues TLS, code-signing, S/MIME, person and Office 365 certificates,
 runs CRL / OCSP / time stamping on Ubuntu, and gives your developers one zip that installs the trust and lets them ask for their own certificates on **Windows or Linux**.
 
-> **Version 5.3.5** · Author: Nicko Satria Utama · Company: Agantra Inovatif OÜ (NextMantra) · Email: nicko@nextmantra.com
+> **Version 5.3.6** · Author: Nicko Satria Utama · Company: Agantra Inovatif OÜ (NextMantra) · Email: nicko@nextmantra.com
 > What changed: [`docs/PKI-ChangeLog.txt`](docs/PKI-ChangeLog.txt) · Which file to read: [`docs/START-HERE.txt`](docs/START-HERE.txt)
 > The PKI itself (`pki/`, `leafcerts/`, every `*.key`, every `<company>_pki.cnf` except `agantra_pki.cnf`) is in `.gitignore` and never goes to Git.
 
@@ -118,6 +118,8 @@ All text files are in [`docs/`](docs/); start with `START-HERE.txt`.
 | `DevKit-MANUAL.txt` · `PkiTransport-MANUAL.txt` · `Install-DevEnvironment-MANUAL.txt` | kits, transport, bootstrap |
 | `PKI-SERVER-MANUAL.txt` · `PKI-Server-Design.txt` · `PUBLIC-CA-ENTERPRISE-ROOT.txt` | the Ubuntu server; a public CA over the Enterprise Root |
 | `scripts-README.txt` · `linux-README.txt` | PowerShell modules; shell scripts |
+
+Backup and restore handle **only your PKI** (the Organization of your `*_pki.cnf`), never DigiCert, GlobalSign, Sectigo ... certificates; the password is asked first; a restore asks "Replace? [Y/n]" (Enter = Y) when your PKI is already there (`-Yes`).
 
 Backups go to `backup-pki/` (in `.gitignore`, holds private keys). Folders: `scripts/` modules · `devkit/` source of the DevKit · `trustkit/` the standalone destination scripts · `linux/` shell scripts and the server · `docs/` everything above.
 

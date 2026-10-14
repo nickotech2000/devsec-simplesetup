@@ -1,5 +1,5 @@
 ====================================================================================================================================
- PkiRevocation  -  USER MANUAL   (CRL, OCSP responder certificates, time stamping certificate)            Version 5.3.5 2026-10-13
+ PkiRevocation  -  USER MANUAL   (CRL, OCSP responder certificates, time stamping certificate)            Version 5.3.6 2026-10-13
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================================================
  1  What is made automatically        4  Editing a CRL / OCSP / time stamp certificate     7  The server side
@@ -58,7 +58,7 @@
 
 ============================================================
  PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI
- Version 5.3.5
+ Version 5.3.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.3.5     2026-10-14
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.3.6     2026-10-14
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
@@ -340,6 +340,17 @@
  [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified", no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404).
  [ ] Word 365: sign a document: the Signature Details no longer say "Recoverable"; the server window shows the 200 lines.
  [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
+
+====================================================================================================
+ E35  Revision 5.3.6: password asked first, only your PKI, replace question (Y)
+====================================================================================================
+ [ ] .\Backup-Pki.ps1 on Windows: the line "Backup password:" is the FIRST thing after the computer checks; press Enter a few times while it is working before typing - no "password is empty" error.
+ [ ] Put a DigiCert / GlobalSign test certificate + key + .pfx in leafcerts\ and external-ca\: Backup-Pki.ps1 -Check prints "Left out: N file(s) that belong to other CAs" and lists them; they are not in the
+     .certpacked (open it with 7-Zip). Your roots, intermediates, leaf certificates and the externally signed department CA ARE in it.
+ [ ] Restore-Pki.ps1 from an older (5.3.5) backup that holds such files: "Not restored: N file(s) of other CAs"; they are not written.
+ [ ] Change one byte of a file in pki\<name>\ and run Restore-Pki.ps1: "Replace it with the version in the backup? [Y/n]" - press Enter: Y, the old folder is renamed .before-restore-<time>, the
+     backup version is written. Answer n: the old one stays. -Yes: no question, replaced. Input redirected (no keyboard): the old one stays with the hint.
+ [ ] docs\PkiBackup-MANUAL.txt, PKI-ChangeLog.txt (5.3.6), design decisions 10.144 - 10.147, README.md, START-HERE.txt; every file shows Version 5.3.6.
 
 ====================================================================================================
  E34  Revision 5.3.5: standalone backup scripts, .NET 8 + 10, "latest already installed", one-by-one restore

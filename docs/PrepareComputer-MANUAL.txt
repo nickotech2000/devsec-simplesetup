@@ -1,6 +1,6 @@
 ====================================================================================================
  Prepare-Computer.ps1 / prepare-computer.sh  -  (PowerShell 7 and .NET SDK 8 + 10 on Windows) + OpenSSL + the latest Python, on the PATH
- Version 5.3.5          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
 1. WHAT IT IS FOR
@@ -27,7 +27,7 @@
              linux/Install-DevEnvironment.sh --openssl-source ppa|build (full project).
    "Latest Python" means the newest the package manager offers. A Python 3.10 or newer that already works is kept; -Force / --force installs or upgrades anyway.
 
-3b. IS THE LATEST ALREADY THERE?  (Windows, 5.3.5)
+3b. IS THE LATEST ALREADY THERE?  (Windows, 5.3.6)
    For PowerShell, each .NET SDK, OpenSSL and Python the script asks the package manager for the latest version (winget show --id <id> --exact; Chocolatey: choco search <name> --exact;
    Python: the highest Python.Python.3.x) and compares it with the installed version (three numbers, for example 4.0.3 against 4.0.2).
       installed >= latest      "... is the latest version: nothing to install."          nothing is done (only the PATH is checked)

@@ -1,6 +1,6 @@
 ====================================================================================================
  Backup-Pki.ps1 / Restore-Pki.ps1 / Test-PkiBackup.ps1  -  back up and restore the whole PKI
- Version 5.3.5          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
 1. WHAT IT IS FOR
@@ -42,11 +42,14 @@
    PRIVATE KEYS: a backup is made to restore from, so it holds the key of EVERY certificate: all roots, all intermediates, all profile / leaf certificates and the .pfx files.
       Backup-Pki.ps1 proves it: each certificate is matched with its key by the public key (OpenSSL). A CA certificate without a key is a WARNING (a CA signed by SignExternalCa keeps its key
       in the other department); a certificate signed from a request has its key with the requester (INFO). The result is printed, stored in the backup and printed again by Restore-Pki.ps1.
+   ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo ...) are never backed up. Your organization(s) are read from `Organization =` in every *_pki.cnf. A certificate is yours when its
+   issuer's O is yours, or it is a self-signed root of yours, or it is a CA of yours (key present). A file, key, .pfx or whole PKI folder that holds only other CAs is left out and listed ("Left out").
    What is backed up: pki\ (all PKIs, all releases, all keys), leafcerts\, external-ca\, csr-signed\, every *_pki.cnf, pki_tools.cnf, devkit.env.
    Not backed up: transport\ and backup-pki\ itself, the Windows certificate stores, the OpenSSL / Python installation.
 
 5. THE PASSWORD
-   You type it; no password, no backup (exit 3). At least 12 characters, with at least 1 upper case letter, 1 lower case letter, 1 digit and 1 special character. Printable ASCII only.
+   It is asked FIRST (right after the PKI is found), before the long scan, so that no Enter pressed while waiting is taken as an empty password; the key buffer is cleared before every prompt and an answer
+   that comes back empty at once is ignored and asked again. You type it; no password, no backup (exit 3). At least 12 characters, with at least 1 upper case letter, 1 lower case letter, 1 digit and 1 special character. Printable ASCII only.
    Every rule that is broken is shown; three tries. It is asked twice. It is stored NOWHERE and cannot be recovered: without it the backup is only noise. Keep it apart from the zip.
    Unattended runs: the environment variable PKI_BACKUP_PASSWORD is accepted (the policy still applies). Other programs can read a process environment: prefer the prompt.
 
@@ -73,11 +76,15 @@
         (a) <Destination>\pki\<name>:  each file by SHA-256 - identical, different or missing;
         (b) the Local Machine certificate store (Root and Intermediate):  each CA certificate of that PKI by thumbprint (lines "in Local Machine store" / "NOT in ...").
       A PKI whose folder is there with all files identical is NOT restored. A PKI whose CA certificates are ALL in the Local Machine store is NOT restored (the store holds certificates,
-      not private keys; the output says so, and -Force restores the keys anyway). A PKI folder that exists but differs is left alone and reported. Everything else is restored.
-      The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file: identical = skipped, missing = written, different = left alone.
+      not private keys; the output says so, and -Force restores the keys anyway). A PKI folder that exists but differs: you are asked whether to replace it (Y default). Everything else is restored.
+      The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file: identical = skipped, missing = written, different = you are asked (below).
+   ONLY YOUR PKI is restored: certificates of other CAs inside a backup are listed as "Not restored" and never written.
+   REPLACE QUESTION: when your PKI folder is there but differs from the backup, Restore asks "Replace it with the version in the backup? [Y/n]"; Enter = Y. Y: the old folder is renamed
+   <name>.before-restore-<time> (never deleted) and the backup version is written. n: the old one stays. -Yes answers Y to every question; with nobody to ask (no keyboard) the old one stays.
       If nothing is missing: "Nothing to restore" and nothing is changed (exit 0).
    -Destination: without it the folder of the script is used when it is the project (it has pki_setup.ps1); a script from the backup zip needs -Destination.
-   NOTHING IS OVERWRITTEN. -Force restores anyway: a PKI folder (or file) that exists is RENAMED to <name>.before-restore-<yyyymmdd-HHmmss> first (never deleted).
+   NOTHING IS DELETED OR SILENTLY OVERWRITTEN. -Force restores anyway: a PKI folder (or file) that exists is RENAMED to <name>.before-restore-<yyyymmdd-HHmmss> first (never deleted).
+   -Yes             answer Y to every replace question (the old folders / files are still renamed, never deleted)
    -RestrictAccess   pki\, leafcerts\, external-ca\, csr-signed\ get access for Administrators and SYSTEM only (icacls), BEFORE the keys are written.
    While it runs the decrypted files are in a temporary folder of the administrator; the folder is deleted at the end (also after an error).
 

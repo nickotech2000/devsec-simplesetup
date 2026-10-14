@@ -18,6 +18,7 @@ param(
     [string]$Package,
     [string]$Destination,
     [switch]$Force,
+    [switch]$Yes,
     [switch]$Check,
     [switch]$RestrictAccess,
     [switch]$Help
@@ -27,7 +28,7 @@ function Show-Help {
 @'
 ============================================================
  Restore-Pki.ps1 - put a PKI backup back
- Version 5.3.5
+ Version 5.3.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -42,8 +43,10 @@ ORDER OF WORK  (a restore stops at the first problem, before anything is written
        - the pki folder of -Destination: every file of that PKI by SHA-256 (identical / different / missing);
        - the Local Machine certificate store (Root and Intermediate): every CA certificate of that PKI by thumbprint.
      A PKI that is in the pki folder already (all files identical), or whose CA certificates are ALL in the Local Machine store, is NOT restored. A PKI whose folder exists but differs
-     is left alone and reported. Only what is missing is restored. If nothing is missing: "Nothing to restore", nothing is changed.
+     is NOT silently skipped: you are asked "Replace it with the version from the backup? [Y/n]" and Enter = Y (yes). With Y the old folder is renamed to <name>.before-restore-<time>
+     (never deleted) and the backup version is written. Answer n to keep the old one. Run unattended (no one to ask) the old one is kept, unless you give -Yes. Only what is missing is restored. If nothing is missing: "Nothing to restore", nothing is changed.
      (The store holds certificates, not private keys: -Force restores the keys of a PKI that is only in the store.)
+  5b. ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo, ...) that may be in an older backup are never restored; they are listed as "Not restored".
   6. The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file the same way.
   7. The files are written, then every restored file is checked against the backup again.
   The backup itself holds the private key of EVERY certificate: all roots, all intermediates, all profile / leaf certificates (Backup-Pki.ps1 checks this when it makes the backup).
@@ -57,6 +60,7 @@ USE
 OPTIONS
   -Package <path>      the backup zip (pki-payload-....zip), the .certpacked, or a folder that holds one. Default: the .certpacked next to this script.
   -Destination <dir>   the project folder to restore into. Default: the folder of this script when it is the project (it has pki_setup.ps1); otherwise you must give it.
+  -Yes                 answer Y to every "replace?" question without asking (old folders/files are still renamed, never deleted)
   -Force               restore anyway: a PKI folder (or file) that exists is RENAMED to <name>.before-restore-<yyyymmdd-HHmmss> (never deleted), and a PKI that is only in the Local Machine store is restored too
   -Check               do not write anything
   -RestrictAccess      pki\, leafcerts\, external-ca\ get access for Administrators and SYSTEM only (icacls) BEFORE the keys are written
@@ -79,6 +83,7 @@ $ErrorActionPreference = 'Stop'
 #@@EMBED-LIBRARY@@
 Set-StrictMode -Version Latest
 
+$script:BkAssumeYes = [bool]$Yes
 Write-BkBanner 'Restore-Pki.ps1' 'restore a PKI backup'
 $os = Assert-BkHost
 $prep = $(if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'Prepare-Computer.ps1')) { '.\Prepare-Computer.ps1' } else { 'Prepare-Computer.ps1 (from the backup zip or from trustkit\)' })
@@ -145,6 +150,22 @@ try {
     $opened = Open-BkPackage -Path $cp -Password $pw
     $m = $opened.Manifest
     $entries = @($m['files'] | Where-Object { ([string]$_['path']).StartsWith('data/') })
+    # ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo ...) are never restored, whatever this backup holds
+    $dataDir = Join-Path $opened.Dir 'data'
+    $ownOrgs = @(Get-BkOwnOrganizations -Root $dataDir)
+    Say 'INFO' 'Looking at every certificate and key of the backup: which are yours ...'
+    $inv = Get-BkKeyInventory -Root $dataDir -Folders @('pki', 'leafcerts', 'external-ca', 'csr-signed') -OwnOrgs $ownOrgs
+    if ($ownOrgs.Count -eq 0) { Say 'WARN' 'The backup holds no <company>_pki.cnf with an Organization: your PKI cannot be told from other CAs; everything is restored.' }
+    else {
+        $before = $entries.Count
+        $entries = @($entries | Where-Object { -not (Test-BkExcluded -Rel (([string]$_['path']).Substring(5)) -Inventory $inv) })
+        Say 'INFO' ("Your PKI      : organization(s) {0}. Only these are restored." -f (($ownOrgs | Sort-Object) -join ', '))
+        if ($before -ne $entries.Count) {
+            Say 'INFO' ("Not restored  : {0} file(s) of other CAs (not your PKI)" -f ($before - $entries.Count))
+            foreach ($fs in ($inv.Foreign | Select-Object -First 8)) { Say 'INFO' "  other CA: $fs" }
+        }
+    }
+    $pkiList = @(@($m['pkiFolders']) | Where-Object { -not $inv.ExcludedFolders.Contains([string]$_) })
     Say 'OK' ("Backup made {0} on {1} ({2}): {3} files, PKI folders: {4}" -f $m['createdUtc'], $m['source']['computer'], $m['source']['os'], $entries.Count, (@($m['pkiFolders']) -join ', '))
     if ($m.ContainsKey('keyCheck')) {
         $kc = $m['keyCheck']
@@ -157,12 +178,10 @@ try {
     # Each PKI of the backup is compared with the pki folder of the destination (file by file, SHA-256) and with the Local Machine certificate
     # store (Root + Intermediate, by thumbprint). A PKI that is there already is not restored.
     $storeSet = Get-BkLocalMachineThumbprints
-    $pkiMeta = @{}
-    foreach ($pm in @($m['pki'])) { $pkiMeta[[string]$pm['name']] = $pm }
     $skipPki = @{}; $restorePki = [System.Collections.Generic.List[string]]::new(); $replacePki = [System.Collections.Generic.List[string]]::new()
     Write-Host ''
     Say 'INFO' 'Comparing the PKIs of the backup with this computer, one by one ...'
-    foreach ($name in @($m['pkiFolders'])) {
+    foreach ($name in $pkiList) {
         $name = [string]$name
         $mine = @($entries | Where-Object { ([string]$_['path']).StartsWith("data/pki/$name/") })
         $destDir = Join-Path (Join-Path $Destination 'pki') $name
@@ -181,41 +200,57 @@ try {
         if (-not $folderExists) { Write-Host '    pki folder    : not there' }
         elseif ($folderComplete) { Write-Host ("    pki folder    : there, all {0} files identical" -f $same) -ForegroundColor Green }
         else { Write-Host ("    pki folder    : there, but {0} identical, {1} different, {2} missing" -f $same, $diff, $miss) -ForegroundColor Yellow }
-        $cas = @(); if ($pkiMeta.ContainsKey($name)) { $cas = @($pkiMeta[$name]['caCertificates']) }
+        # the CA certificates of YOUR PKI (from the decrypted files, not from a list): only these are looked for in the store
+        $cas = @($inv.Certificates | Where-Object { $_.Own -and $_.IsCa -and $_.Rel -like "pki/$name/*" } | Group-Object Thumbprint | ForEach-Object { $_.Group[0] } | Sort-Object @{ Expression = { -not $_.SelfSigned } }, Subject)
         $inStore = 0
         foreach ($ca in $cas) {
-            $has = $storeSet.Contains(([string]$ca['thumbprint']).ToUpperInvariant())
+            $has = $storeSet.Contains($ca.Thumbprint)
             if ($has) { $inStore++ }
-            Write-Host ("    {0,-12} : {1}  {2}" -f $ca['kind'], $(if ($has) { 'in Local Machine store' } else { 'NOT in Local Machine store' }), ([string]$ca['subject'] -replace '^.*?CN=([^,]+).*$', '$1')) -ForegroundColor $(if ($has) { 'Green' } else { 'Gray' })
+            Write-Host ("    {0,-12} : {1}  {2}" -f $(if ($ca.SelfSigned) { 'root' } else { 'intermediate' }), $(if ($has) { 'in Local Machine store' } else { 'NOT in Local Machine store' }), ($ca.Subject -replace '^.*?CN=([^,]+).*$', '$1')) -ForegroundColor $(if ($has) { 'Green' } else { 'Gray' })
         }
         $storeAll = ($cas.Count -gt 0 -and $inStore -eq $cas.Count)
         if ($cas.Count -eq 0) { Write-Host '    store         : (this backup does not list the CA certificates of this PKI: store not compared)' }
         # decision
         if ($folderComplete -and -not $Force) { $skipPki[$name] = 'already in the pki folder (every file identical)'; Say 'OK' "    -> not restored: $($skipPki[$name])." }
-        elseif ($folderExists -and -not $folderComplete -and -not $Force) { $skipPki[$name] = 'the pki folder has this PKI, but different files; it is left alone (-Force replaces it, the old folder is renamed)'; Say 'WARN' "    -> not restored: $($skipPki[$name])." }
+        elseif ($folderExists -and -not $folderComplete -and -not $Force) {
+            # an older version of your PKI is there: offer the version of the backup (Enter = Y)
+            $ans = $true
+            if ($Check) { Say 'INFO' "    -> (-Check) would ask: replace this PKI with the version in the backup? [Y/n]" }
+            else { $ans = Read-BkYesNo ("    PKI {0} is in the pki folder already ({1} identical, {2} different, {3} missing). Replace it with the version in the backup? The old folder is renamed, not deleted." -f $name, $same, $diff, $miss) }
+            if ($ans -eq $true) { [void]$restorePki.Add($name); [void]$replacePki.Add($name); Say 'INFO' '    -> will be replaced with the backup version (the old folder is renamed).' }
+            elseif ($ans -eq $false) { $skipPki[$name] = 'you answered N: the pki folder is left as it is'; Say 'WARN' "    -> not restored: $($skipPki[$name])." }
+            else { $skipPki[$name] = 'the pki folder has this PKI with different files and nobody can be asked (no keyboard): left alone; use -Yes or -Force to replace it'; Say 'WARN' "    -> not restored: $($skipPki[$name])." }
+        }
         elseif ($storeAll -and -not $Force) { $skipPki[$name] = "all $($cas.Count) CA certificates are in the Local Machine certificate store"; Say 'OK' "    -> not restored: $($skipPki[$name]). (Only the certificates are in the store, not the private keys: -Force restores the keys anyway.)" }
         else { [void]$restorePki.Add($name); if ($folderExists) { [void]$replacePki.Add($name) }; Say 'INFO' "    -> will be restored$(if ($folderExists) { ' (the existing folder is renamed first)' })." }
     }
 
     # the other files (leafcerts, external-ca, csr-signed, *_pki.cnf ...): file by file
     $extra = @($entries | Where-Object { -not ([string]$_['path']).StartsWith('data/pki/') })
-    $xWrite = [System.Collections.Generic.List[object]]::new(); $xSame = 0; $xDiff = [System.Collections.Generic.List[object]]::new()
+    $xReplace = 0; $xWrite = [System.Collections.Generic.List[object]]::new(); $xSame = 0; $xDiff = [System.Collections.Generic.List[object]]::new()
     foreach ($e in $extra) {
         $to = Join-Path $Destination (([string]$e['path']).Substring(5) -replace '/', [System.IO.Path]::DirectorySeparatorChar)
         if (-not (Test-Path -LiteralPath $to -PathType Leaf)) { [void]$xWrite.Add($e) }
         elseif ((Get-BkHash $to).Sha256 -eq [string]$e['sha256']) { $xSame++ }
         else { if ($Force) { [void]$xWrite.Add($e) }; [void]$xDiff.Add($e) }
     }
+    if ($xDiff.Count -gt 0 -and -not $Force) {
+        $ansX = $true
+        if ($Check) { Say 'INFO' "(-Check) would ask: replace $($xDiff.Count) other file(s) with the backup version? [Y/n]" }
+        else { $ansX = Read-BkYesNo ("{0} other file(s) (leafcerts, external-ca, csr-signed, settings) differ from the backup. Replace them with the backup version? The old files are renamed, not deleted." -f $xDiff.Count) }
+        if ($ansX -eq $true) { foreach ($e in $xDiff) { [void]$xWrite.Add($e) }; $xReplace = $xDiff.Count }
+        else { Say 'WARN' "$($xDiff.Count) different file(s) are left as they are." }
+    }
     if ($extra.Count -gt 0) {
         Write-Host ''
-        Say 'INFO' ("Other files (leafcerts, external-ca, csr-signed, settings): {0} in the backup, {1} already there and identical, {2} missing, {3} there but different{4}" -f $extra.Count, $xSame, ($xWrite.Count - $(if ($Force) { $xDiff.Count } else { 0 })), $xDiff.Count, $(if ($xDiff.Count -gt 0 -and -not $Force) { ' (left alone; -Force replaces them, the old file is renamed)' } else { '' }))
+        Say 'INFO' ("Other files (leafcerts, external-ca, csr-signed, settings): {0} in the backup, {1} already there and identical, {2} missing, {3} there but different{4}" -f $extra.Count, $xSame, ($xWrite.Count - $xReplace), $xDiff.Count, $(if ($xDiff.Count -gt 0) { $(if ($Force -or $xReplace -gt 0) { ' (replaced, the old files are renamed)' } else { ' (left alone)' }) } else { '' }))
     }
 
     $pkiFiles = @($entries | Where-Object { $p = ([string]$_['path']); $restorePki.Contains(($p.Substring(9) -split '/')[0]) -and $p.StartsWith('data/pki/') })
     $toWrite = @($pkiFiles) + @($xWrite)
     Write-Host ''
     if ($toWrite.Count -eq 0) {
-        if (@($skipPki.Values | Where-Object { $_ -like 'the pki folder has this PKI*' }).Count -gt 0) { Say 'WARN' 'Nothing was restored: a PKI folder differs from the backup (see above). -Force replaces it (the old folder is renamed). Nothing was changed.' }
+        if (@($skipPki.Values | Where-Object { $_ -like 'the pki folder has this PKI*' -or $_ -like 'you answered N*' }).Count -gt 0) { Say 'WARN' 'Nothing was restored: a PKI folder differs from the backup and was left as it is (see above). -Yes or -Force replaces it (the old folder is renamed). Nothing was changed.' }
         else { Say 'OK' 'Nothing to restore: everything in the backup is there already. Nothing was changed.' }
         exit 0
     }

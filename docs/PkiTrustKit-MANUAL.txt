@@ -1,6 +1,6 @@
 ====================================================================================================
  Trust kits  -  the CA certificates of the PKI (no key) + small standalone scripts, one zip per system
- Version 5.3.5          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
 1. WHAT IT IS, WHO IT IS FOR

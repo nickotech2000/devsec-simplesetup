@@ -31,7 +31,7 @@ if ($Help) {
     @'
 ============================================================
  Start-PkiCrlServer.ps1 - CRL / CA-issuer server on this machine
-Version 5.3.5
+Version 5.3.6
  Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
 WHY

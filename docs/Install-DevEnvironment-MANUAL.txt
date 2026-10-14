@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL   (Install-DevEnvironment.ps1 for Windows, Install-DevEnvironment.sh for Linux and macOS)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 5.3.5     2026-10-14
+ Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 5.3.6     2026-10-14
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt, PKI-Design-with-FIPS-and-PQC.txt (section 18)
 

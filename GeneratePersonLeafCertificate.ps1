@@ -85,7 +85,7 @@ function Show-PersonHelp {
     @'
 ============================================================
  GeneratePersonLeafCertificate.ps1 - certificates of PERSONS (e-mail + client authentication)
- Version 5.3.5
+ Version 5.3.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

@@ -1,6 +1,6 @@
 ====================================================================================================
  START HERE  -  which file for which job
- Version 5.3.5          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
  Every script has a short help:  -Help (PowerShell)  or  --help (shell). The manuals below say the same with more examples. README.md in the project root is the front page.
@@ -11,6 +11,7 @@
    Revoke, CRL, OCSP, time stamping .... PkiRevocation-MANUAL.txt, PKI-SERVER-MANUAL.txt
    Give it to other people ............. PkiTrustKit-MANUAL.txt (trust only)   DevKit-MANUAL.txt (also issue)   PkiTransport-MANUAL.txt (the .certpacked)
    Back up / restore the whole PKI ..... PkiBackup-MANUAL.txt   (Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1; Windows only, Administrator PowerShell 7; each script standalone)
+                                                (5.3.6: only YOUR PKI is backed up and restored; the password is asked first; a restore asks "Replace? [Y/n]", Enter = Y, or -Yes)
 
  I RECEIVED A TRUST KIT OR A DEVKIT
    Trust the PKI on my computer ........ PkiTrustKit-MANUAL.txt   (DevKit: DevKit-MANUAL.txt)

@@ -1,5 +1,5 @@
 ====================================================================================================================================
- Agantra Inovatif Enterprise PKI  -  PKI SERVER KIT (Ubuntu 24.04 / 26.04)                                   Version 5.3.5   2026-10-14
+ Agantra Inovatif Enterprise PKI  -  PKI SERVER KIT (Ubuntu 24.04 / 26.04)                                   Version 5.3.6   2026-10-14
  Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================================================
 

@@ -40,7 +40,7 @@ function Show-RemoveHelp {
     @'
 ============================================================
  pki_remove.ps1 - list and remove releases of the PKI
- Version 5.3.5
+ Version 5.3.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

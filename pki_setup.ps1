@@ -132,7 +132,7 @@ function Show-PkiHelp {
     @'
 ============================================================
  pki_setup.ps1 - Agantra Inovatif Enterprise PKI generator
- Version 5.3.5
+ Version 5.3.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

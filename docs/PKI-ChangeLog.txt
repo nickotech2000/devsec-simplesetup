@@ -1,13 +1,19 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 5.3.5                      Updated: 2026-10-14
+ Version : 5.3.6                      Updated: 2026-10-14
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in PKI-Design-with-FIPS-and-PQC.txt (section 10);
            what to run to accept a version is in PKI-Acceptance-Checklists.txt.
  Rule    : major.minor.revision. A major update changes the architecture, a minor one adds a feature, a revision is a fix or any update not called major / minor.
 ====================================================================================================
 
+  5.3.6  2026-10-14  REVISION 6 (bug fix)
+    * FIX Backup-Pki.ps1 took a stray Enter as an empty password ("the password is empty: no password, no backup" before you typed anything). The password is now asked FIRST, the console key buffer is
+      cleared before every prompt and an empty answer that returns at once is ignored (10.147).
+    + ONLY YOUR PKI is backed up: certificates, keys, .pfx and PKI folders of other CAs (DigiCert, GlobalSign, Sectigo ...) are left out and listed. Mine = Organization of the *_pki.cnf files (10.144).
+    + ONLY YOUR PKI is restored: the same filter on the backup content (an older backup may hold other CAs) (10.145).
+    + Restore-Pki.ps1: a PKI folder that is there but differs asks "Replace it with the version in the backup? [Y/n]", Enter = Y; old folder renamed, never deleted; new -Yes; unattended keeps the old one (10.146).
   5.3.5  2026-10-14  REVISION 5
     + Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1 are STANDALONE: the shared code is built into each (no lib\ folder, no other .ps1 needed). Sources and builder in scripts\backup\ (10.139).
     + Prepare-Computer.ps1 installs the .NET SDK 8 and the .NET SDK 10 (latest of each; -Only DotNet) and, for every program, FIRST asks the package manager for the latest version: the latest

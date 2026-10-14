@@ -1,5 +1,5 @@
 linux/  -  the shell scripts of the Agantra Inovatif PKI (same repository as the PowerShell scripts)
-Version 5.3.5   Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+Version 5.3.6   Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 
   pki-server/pki-server.sh     CRL + CA host (nginx), OCSP, RFC 3161 time stamping for Ubuntu 24.04 / 26.04.  --help, docs/PKI-SERVER-MANUAL.txt
   pki-server/pki-ocsp-dispatch.py, pki-tsa.py   helpers of the server kit (python3, standard library only)

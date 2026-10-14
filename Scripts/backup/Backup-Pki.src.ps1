@@ -25,7 +25,7 @@ function Show-Help {
 @'
 ============================================================
  Backup-Pki.ps1 - back up the whole PKI into one password-protected zip
- Version 5.3.5
+ Version 5.3.6
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -44,13 +44,16 @@ WHAT IT DOES
                             Prepare-Computer.ps1     installs PowerShell 7, OpenSSL 4, Python 3 (run it BEFORE a restore)
                             README.txt
 
+ONLY YOUR PKI  The backup holds only the certificates and keys of YOUR PKI: the organizations named in your <company>_pki.cnf files (Agantra, Raksaka ...). Certificates of other CAs - the
+           DigiCert / GlobalSign / Sectigo chain files, a certificate a public CA issued to you, with their keys - are recognised and LEFT OUT (the list is printed). A root that a public CA
+           signed for YOUR key, and everything your CAs issued, stay in.
 PRIVATE KEYS  A backup is made to RESTORE from, so it must hold every private key: all roots, all intermediates, all leaf / profile keys (and the .pfx files). Every certificate under pki\ and
            leafcerts\ is matched with its key (by the public key, with OpenSSL); a certificate without a key is listed, a CA certificate without a key is a WARNING. The result is stored in the backup
            (certpack.json) and Restore-Pki.ps1 prints it. Without OpenSSL on the PATH the keys are still copied but the match is not made (WARN).
 INDEPENDENT   This script needs no other .ps1 (the code it shares with Restore-Pki and Test-PkiBackup is built into it). It copies itself, Restore-Pki.ps1, Test-PkiBackup.ps1 and
            Prepare-Computer.ps1 into the zip, so the zip is enough to restore on a new computer.
 
-PASSWORD   You type it (twice). No password, no backup. At least 12 characters with 1 upper case letter, 1 lower case letter, 1 digit and
+PASSWORD   You type it (twice) - it is asked FIRST, before the long scan. No password, no backup. At least 12 characters with 1 upper case letter, 1 lower case letter, 1 digit and
            1 special character; every rule that is broken is shown. It is stored nowhere: if you lose it, the backup is lost. Write it down.
 
 OPTIONS
@@ -101,16 +104,30 @@ if (-not (Test-Path -LiteralPath $pkiDir -PathType Container) -or @(Get-ChildIte
     Stop-Bk "No PKI found: $pkiDir is missing or empty. Run this script in the project folder, or give -PkiRoot <the folder that holds pki\>. Nothing was done." 1
 }
 
-# ---------------------------------------------------------------- what goes in
-$items = [System.Collections.Generic.List[hashtable]]::new()
+# ---------------------------------------------------------------- password FIRST: no password, no process (before the long scan, so no key typed meanwhile can answer it)
+$password = $null
+if (-not $Check) { $password = Read-BkNewPassword }
+
+# ---------------------------------------------------------------- what goes in: YOUR PKI only
 $root = $PkiRoot.TrimEnd('\', '/')
+$ownOrgs = @(Get-BkOwnOrganizations -Root $root)
+if ($ownOrgs.Count -eq 0) { Say 'WARN' "No <company>_pki.cnf with an Organization found in ${PkiRoot}: your PKI cannot be told from the certificates of other CAs, everything is backed up." }
+else { Say 'INFO' ("Your PKI      : organization(s) {0} (from the *_pki.cnf files); certificates of other CAs (DigiCert, GlobalSign, Sectigo ...) are not backed up" -f (($ownOrgs | Sort-Object) -join ', ')) }
+Say 'INFO' 'Looking at every certificate and key (this takes a while for a big PKI) ...'
+$inv = Get-BkKeyInventory -Root $root -Folders @('pki', 'leafcerts', 'external-ca', 'csr-signed') -OwnOrgs $ownOrgs
+
+$items = [System.Collections.Generic.List[hashtable]]::new()
+$skipped = [System.Collections.Generic.List[string]]::new()
 $dirList = [System.Collections.Generic.List[string]]::new()      # every folder, also the empty ones (issued\ ...)
 function Add-BkTree {
     param([string]$Dir)
-    [void]$dirList.Add((($Dir.Substring($root.Length).TrimStart('\', '/')) -replace '\\', '/'))
-    foreach ($sd in @(Get-ChildItem -LiteralPath $Dir -Recurse -Directory -Force)) { [void]$dirList.Add((($sd.FullName.Substring($root.Length).TrimStart('\', '/')) -replace '\\', '/')) }
+    foreach ($sd in @(Get-ChildItem -LiteralPath $Dir -Recurse -Directory -Force) + @(Get-Item -LiteralPath $Dir)) {
+        $r = (($sd.FullName.Substring($root.Length).TrimStart('\', '/')) -replace '\\', '/')
+        if (-not (Test-BkExcluded -Rel "$r/x" -Inventory $inv)) { [void]$dirList.Add($r) }
+    }
     foreach ($f in @(Get-ChildItem -LiteralPath $Dir -Recurse -File -Force)) {
         $rel = $f.FullName.Substring($root.Length).TrimStart('\', '/') -replace '\\', '/'
+        if (Test-BkExcluded -Rel $rel -Inventory $inv) { [void]$skipped.Add($rel); continue }
         [void]$items.Add(@{ Source = $f.FullName; Entry = "data/$rel"; Rel = $rel })
     }
 }
@@ -118,35 +135,37 @@ foreach ($d in 'pki', 'leafcerts', 'external-ca', 'csr-signed') { $p = Join-Path
 foreach ($f in @(Get-ChildItem -LiteralPath $PkiRoot -File -Force | Where-Object { $_.Name -like '*_pki.cnf' -or $_.Name -in 'pki_tools.cnf', 'devkit.env' })) {
     [void]$items.Add(@{ Source = $f.FullName; Entry = "data/$($f.Name)"; Rel = $f.Name })
 }
-$pkis = @(Get-ChildItem -LiteralPath $pkiDir -Directory -Force | ForEach-Object { $_.Name } | Sort-Object)
+$pkis = @(Get-ChildItem -LiteralPath $pkiDir -Directory -Force | ForEach-Object { $_.Name } | Where-Object { -not $inv.ExcludedFolders.Contains($_) } | Sort-Object)
 $keyCount = @($items | Where-Object { $_.Rel -like '*.key' -or $_.Rel -like '*.pfx' -or $_.Rel -like '*.p12' }).Count
 $bytes = 0L; foreach ($i in $items) { $bytes += ([System.IO.FileInfo]::new($i.Source)).Length }
 
-# ---------------------------------------------------------------- every certificate must have its private key in the backup
-$inv = Get-BkKeyInventory -Root $root -Folders @('pki', 'leafcerts', 'external-ca', 'csr-signed')
-$uniq = @($inv.Certificates | Group-Object Thumbprint | ForEach-Object { $g = @($_.Group); [pscustomobject]@{ Thumbprint = $_.Name; Subject = $g[0].Subject; IsCa = $g[0].IsCa; SelfSigned = $g[0].SelfSigned; HasKey = (@($g | Where-Object { $_.HasKey }).Count -gt 0); Files = @($g | ForEach-Object { $_.Rel }) } })
+# ---------------------------------------------------------------- every certificate of yours must have its private key in the backup
+$own = @($inv.Certificates | Where-Object { $_.Own })
+$uniq = @($own | Group-Object Thumbprint | ForEach-Object { $g = @($_.Group); [pscustomobject]@{ Thumbprint = $_.Name; Subject = $g[0].Subject; IsCa = $g[0].IsCa; SelfSigned = $g[0].SelfSigned; HasKey = (@($g | Where-Object { $_.HasKey }).Count -gt 0); Files = @($g | ForEach-Object { $_.Rel }) } })
 $caAll = @($uniq | Where-Object { $_.IsCa })
 $noKey = @($uniq | Where-Object { -not $_.HasKey })
 $pkiInfo = foreach ($n in $pkis) {
-    $mine = @($inv.Certificates | Where-Object { $_.Rel -like "pki/$n/*" -and $_.IsCa } | Group-Object Thumbprint | ForEach-Object { $_.Group[0] })
+    $mine = @($own | Where-Object { $_.Rel -like "pki/$n/*" -and $_.IsCa } | Group-Object Thumbprint | ForEach-Object { $_.Group[0] })
     [ordered]@{ name = $n; caCertificates = @($mine | ForEach-Object { [ordered]@{ thumbprint = $_.Thumbprint; subject = $_.Subject; kind = $(if ($_.SelfSigned) { 'root' } else { 'intermediate' }); file = $_.Rel; privateKeyInBackup = $_.HasKey } }) }
 }
 
 Say 'INFO' "PKI folder   : $PkiRoot"
 Say 'INFO' ("To back up   : {0} files, {1:N1} MB, {2} private key / PFX files" -f $items.Count, ($bytes / 1MB), $keyCount)
 Say 'INFO' ("PKI folders  : {0}" -f ($pkis -join ', '))
+if ($skipped.Count -gt 0 -or $inv.ExcludedFolders.Count -gt 0) {
+    Say 'INFO' ("Left out      : {0} file(s) that belong to other CAs, not to your PKI{1}" -f $skipped.Count, $(if ($inv.ExcludedFolders.Count -gt 0) { " (whole PKI folder(s): $($inv.ExcludedFolders -join ', '))" } else { '' }))
+    foreach ($fs in ($inv.Foreign | Select-Object -First 8)) { Say 'INFO' "  other CA: $fs" }
+    if ($inv.Foreign.Count -gt 8) { Say 'INFO' "  ... and $($inv.Foreign.Count - 8) more" }
+}
 if ($inv.NoOpenSsl) { Say 'WARN' 'OpenSSL is not on the PATH: the keys are copied, but certificates and keys could not be matched. Run Prepare-Computer.ps1 for the full check.' }
 else {
-    Say 'INFO' ("Certificates : {0} different ({1} CA: {2} roots, {3} intermediates); private key in the backup for {4} of them" -f $uniq.Count, $caAll.Count, @($caAll | Where-Object { $_.SelfSigned }).Count, @($caAll | Where-Object { -not $_.SelfSigned }).Count, @($uniq | Where-Object { $_.HasKey }).Count)
+    Say 'INFO' ("Certificates : {0} of your PKI ({1} CA: {2} roots, {3} intermediates); private key in the backup for {4} of them" -f $uniq.Count, $caAll.Count, @($caAll | Where-Object { $_.SelfSigned }).Count, @($caAll | Where-Object { -not $_.SelfSigned }).Count, @($uniq | Where-Object { $_.HasKey }).Count)
     foreach ($c in ($noKey | Select-Object -First 25)) { Say $(if ($c.IsCa) { 'WARN' } else { 'INFO' }) ("No private key in the backup for {0}{1}   ({2}) - it was signed from a request: the key stays with the requester" -f $(if ($c.IsCa) { 'the CA certificate ' } else { 'the certificate ' }), $c.Subject, $c.Files[0]) }
     if ($noKey.Count -gt 25) { Say 'INFO' "... and $($noKey.Count - 25) more" }
     if (@($noKey | Where-Object { $_.IsCa }).Count -gt 0) { Say 'WARN' 'A CA certificate without its key cannot issue after a restore (a CA signed by SignExternalCa keeps its key in the other department; or a deleted key).' }
 }
 Say 'INFO' "Backup folder: $backupDir$(if (-not (Test-Path -LiteralPath $backupDir)) { '  (will be created)' })"
 if ($Check) { Say 'INFO' '-Check: nothing was written, no password was asked.'; exit 0 }
-
-# ---------------------------------------------------------------- password: no password, no process
-$password = Read-BkNewPassword
 
 # ---------------------------------------------------------------- build
 $stamp = (Get-Date).ToString('yyyyMMdd')
