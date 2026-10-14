@@ -1,0 +1,1109 @@
+# ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OÜ (NextMantra)
+# Email  : nicko@nextmantra.com
+# ============================================================
+<#
+.SYNOPSIS
+    Backs up the WHOLE PKI (every PKI, every release, with all private keys) into one password-protected .certpacked inside a backup zip.
+    Windows 11 Home/Pro 24H2+ or Windows Server 2025, Intel/AMD 64 bit, Administrator PowerShell 7. Full help: .\Backup-Pki.ps1 -Help
+.EXAMPLE
+    .\Backup-Pki.ps1
+.EXAMPLE
+    .\Backup-Pki.ps1 -Check
+#>
+param(
+    [string]$PkiRoot,
+    [string]$BackupRoot,
+    [switch]$Check,
+    [switch]$List,
+    [switch]$Help
+)
+
+function Show-Help {
+@'
+============================================================
+ Backup-Pki.ps1 - back up the whole PKI into one password-protected zip
+ Version 5.3.5
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+============================================================
+WHAT IT DOES
+  Takes everything that makes up your PKI - the pki\ folder (all PKIs and releases, root and issuing CA KEYS included), leafcerts\, external-ca\,
+  csr-signed\, every <company>_pki.cnf, pki_tools.cnf, devkit.env - and packs it into ONE password-protected .certpacked (AES-256), then puts the
+  .certpacked together with its checksums and the restore tools into a backup zip in the folder  backup-pki\  (created when it does not exist):
+
+      backup-pki\pki-payload-<yyyymmdd>-<computer>-<windows-version>-<6 hex>.zip
+          pki-payload-...\  <same name>.certpacked   the encrypted backup
+                            SHA256SUMS, SHA512SUMS   checksums of every file in the zip
+                            Restore-Pki.ps1          puts the backup back
+                            Test-PkiBackup.ps1       checks that the .certpacked is still valid (checksums; -Deep also opens it)
+                            Backup-Pki.ps1           makes the next backup
+                            Prepare-Computer.ps1     installs PowerShell 7, OpenSSL 4, Python 3 (run it BEFORE a restore)
+                            README.txt
+
+PRIVATE KEYS  A backup is made to RESTORE from, so it must hold every private key: all roots, all intermediates, all leaf / profile keys (and the .pfx files). Every certificate under pki\ and
+           leafcerts\ is matched with its key (by the public key, with OpenSSL); a certificate without a key is listed, a CA certificate without a key is a WARNING. The result is stored in the backup
+           (certpack.json) and Restore-Pki.ps1 prints it. Without OpenSSL on the PATH the keys are still copied but the match is not made (WARN).
+INDEPENDENT   This script needs no other .ps1 (the code it shares with Restore-Pki and Test-PkiBackup is built into it). It copies itself, Restore-Pki.ps1, Test-PkiBackup.ps1 and
+           Prepare-Computer.ps1 into the zip, so the zip is enough to restore on a new computer.
+
+PASSWORD   You type it (twice). No password, no backup. At least 12 characters with 1 upper case letter, 1 lower case letter, 1 digit and
+           1 special character; every rule that is broken is shown. It is stored nowhere: if you lose it, the backup is lost. Write it down.
+
+OPTIONS
+  -PkiRoot <folder>     the project folder that holds pki\ (default: the folder of this script)
+  -BackupRoot <folder>  the backup folder itself (default: backup-pki inside -PkiRoot); the folder is created when it does not exist
+  -Check                only list what would be backed up (no password, nothing written)
+  -List                 list the backups that are in the backup folder
+  -Help
+
+WHERE IT RUNS
+  Windows 11 Home or Pro, 24H2 or newer; Windows Server 2025 Essentials, Standard, Datacenter. Intel or AMD 64 bit (AMD64 / x86-64) ONLY: ARM and
+  32 bit are refused. Administrator PowerShell 7 (pwsh) ONLY: any other window is refused. Prepare-Computer.ps1 installs PowerShell 7 (and OpenSSL 4, Python 3, .NET 8 and 10).
+  A backup holds PRIVATE KEYS: keep the zip and the password apart, in two safe places.
+  The Windows certificate stores are not part of the backup: after a restore run  pki_setup.ps1 -InstallTrust  to trust the PKI again.
+  EXIT CODES   0 ok   1 error   2 not an Administrator window   3 password refused   5 system not supported (Windows version / edition / ARM)
+============================================================
+'@ | Write-Host
+}
+
+if ($Help) { Show-Help; return }
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    Write-Host '[ERROR] Backup-Pki.ps1 needs PowerShell 7 or newer (this window is PowerShell' $PSVersionTable.PSVersion.ToString() '). Run Prepare-Computer.ps1 in an Administrator window to install it, then start this script with  pwsh . Nothing was done.' -ForegroundColor Red
+    exit 4
+}
+
+$ErrorActionPreference = 'Stop'
+#region embedded library (generated by scripts\backup\Build-BackupScripts.ps1 - do not edit here)
+# ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OÜ (NextMantra)
+# Email  : nicko@nextmantra.com
+# ============================================================
+# PkiBackupCommon.ps1  -  the code shared by Backup-Pki.ps1, Restore-Pki.ps1 and Test-PkiBackup.ps1  (SOURCE of the embedded copy)
+#
+# NOT a project module and never loaded at run time: Build-BackupScripts.ps1 pastes this file (and the zip engine of 16_CertPack.ps1) into the three scripts,
+# so each of them is STANDALONE (no other .ps1 is needed, they travel alone inside a backup zip). Edit here, then run Build-BackupScripts.ps1.
+#
+# Provides : the platform gate (Windows 11 Home/Pro 24H2+, Windows Server 2025 Essentials/Standard/Datacenter; Intel/AMD 64 bit only;
+#            Administrator only), the password policy, hashes, the checks of Prepare-Computer, opening a backup .certpacked.
+# Test hooks (never needed on Windows): PKI_FAKE_OS=Kind:Build[:EditionID[:DisplayVersion]]  PKI_FAKE_ARCH=X64|Arm64|X86  PKI_FAKE_ADMIN=1
+#            PKI_BACKUP_PASSWORD=<password> (unattended runs and tests: the environment of a process can be read by others, so prefer the prompt)
+# ============================================================
+
+$script:BkVersion = '5.3.5'
+$script:BkFormat = 'agantra-pki-backup'
+$script:BkFormatVersion = 1
+$script:BkFolderName = 'backup-pki'
+
+# exit codes shared by the three scripts
+#   0 ok   1 error   2 not an Administrator window   3 password refused (policy / wrong)   4 Prepare-Computer.ps1 not run (PowerShell 7, OpenSSL, Python)
+#   5 this system is not supported (Windows version / edition / ARM)   6 a checksum does not match (the backup is damaged or changed)
+
+function Say {
+    param([string]$Level, [string]$Text)
+    $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }
+    Write-Host ('[{0}] {1}' -f $Level, $Text) -ForegroundColor $c
+}
+
+function Stop-Bk {
+    param([string]$Text, [int]$Code = 1)
+    Say 'ERROR' $Text
+    exit $Code
+}
+
+function Write-BkBanner {
+    param([string]$Script, [string]$Title)
+    Write-Host '============================================================'
+    Write-Host " $Script - $Title"
+    Write-Host ' Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   nicko@nextmantra.com'
+    Write-Host '============================================================'
+    Say 'INFO' "$Script version $script:BkVersion"
+}
+
+# ------------------------------------------------------------
+# The computer: Windows, version, edition, CPU, Administrator
+# ------------------------------------------------------------
+function Get-BkOsInfo {
+    # Returns Kind (Client|Server), Build, Product, Edition, Display (24H2 ...), Slug (windows-11-24h2 | windows-server-2025), Text
+    $isWin = ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT)
+    $kind = ''; $build = 0; $product = ''; $ed = ''; $disp = ''
+    if ($isWin) {
+        try {
+            $cv = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+            $build = [int]$cv.CurrentBuildNumber; $product = [string]$cv.ProductName; $kind = [string]$cv.InstallationType; $ed = [string]$cv.EditionID
+            if ($cv.PSObject.Properties['DisplayVersion']) { $disp = [string]$cv.DisplayVersion }
+            elseif ($cv.PSObject.Properties['ReleaseId']) { $disp = [string]$cv.ReleaseId }
+        }
+        catch { $build = [Environment]::OSVersion.Version.Build }
+    }
+    if ($env:PKI_FAKE_OS) {
+        $fp = $env:PKI_FAKE_OS.Split(':'); $kind = $fp[0]; $build = [int]$fp[1]; $product = 'test (PKI_FAKE_OS)'
+        if ($fp.Count -gt 2 -and $fp[2]) { $ed = $fp[2] } elseif ($kind -like 'Server*') { $ed = 'ServerStandard' } else { $ed = 'Professional' }
+        $disp = $(if ($fp.Count -gt 3) { $fp[3] } else { '' })
+    }
+    $isServer = ($kind -like 'Server*')
+    if (-not $disp) { if ($build -ge 26200) { $disp = '25H2' } elseif ($build -ge 26100) { $disp = '24H2' } elseif ($build -gt 0) { $disp = "build$build" } }
+    $slug = ''
+    if ($isServer) { $slug = $(if ($build -ge 26100) { 'windows-server-2025' } elseif ($build -ge 20348) { 'windows-server-2022' } else { "windows-server-build$build" }) }
+    elseif ($build -ge 22000) { $slug = 'windows-11-' + ($disp.ToLowerInvariant() -replace '[^a-z0-9]', '') }
+    elseif ($build -gt 0) { $slug = "windows-build$build" }
+    else { $slug = 'unknown-os' }
+    $text = $(if ($product) { "$product (build $build)" } else { "Windows build $build" })
+    if ($ed) { $text = "$text, edition $ed" }
+    return [pscustomobject]@{ IsWindows = ($isWin -or [bool]$env:PKI_FAKE_OS); Kind = $kind; IsServer = $isServer; Build = $build; Product = $product; Edition = $ed; Display = $disp; Slug = $slug; Text = $text }
+}
+
+function Get-BkCpu {
+    # X64 | Arm64 | X86 | Arm ... (the real computer, also when a program is emulated)
+    if ($env:PKI_FAKE_ARCH) { return $env:PKI_FAKE_ARCH }
+    $a = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    foreach ($v in $env:PROCESSOR_ARCHITEW6432, $env:PROCESSOR_ARCHITECTURE) { if ($v -and $v -match '(?i)ARM') { return 'Arm64' } }
+    return $a
+}
+
+function Test-BkAdministrator {
+    if ($env:PKI_FAKE_OS) { return ($env:PKI_FAKE_ADMIN -eq '1') }
+    try { return ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) }
+    catch { return $false }
+}
+
+function Assert-BkHost {
+    # The same gate for Backup-Pki, Restore-Pki and Test-PkiBackup. Order: Windows -> CPU -> Windows version / edition -> Administrator.
+    # Returns the OS info.
+    $os = Get-BkOsInfo
+    if (-not $os.IsWindows) { Stop-Bk 'These scripts run on Windows only (Windows 11 Home / Pro 24H2 or newer, Windows Server 2025 Essentials / Standard / Datacenter). Nothing was done.' 5 }
+    $cpu = Get-BkCpu
+    if ($cpu -ne 'X64') { Stop-Bk "This computer's processor is: $cpu. Only Intel and AMD 64 bit processors (AMD64 / x86-64) are supported: ARM and 32 bit are NOT. Nothing was done." 5 }
+    $name = $os.Text
+    $txt = "$($os.Edition) $($os.Product)"
+    if ($txt -match '(?i)china|chinese|CountrySpecific') { Stop-Bk "This computer is ${name}: a Chinese edition is NOT supported. Nothing was done." 5 }
+    if ($txt -match '(?i)government|EnterpriseG\b|EnterpriseGN|\bGov\b') { Stop-Bk "This computer is ${name}: a Government edition is NOT supported. Nothing was done." 5 }
+    if ($txt -match '(?i)IoT|Embedded') { Stop-Bk "This computer is ${name}: IoT and Embedded editions are NOT supported. Nothing was done." 5 }
+    if ($os.IsServer) {
+        if ($os.Build -lt 26100) { Stop-Bk "This computer is ${name}: only Windows Server 2025 (build 26100 or newer) is supported for backup and restore. Nothing was done." 5 }
+        if ($os.Edition -and $os.Edition -notmatch '^Server(Standard|Datacenter|Solution|Essentials)(Core|Eval|ACor)?$') { Stop-Bk "This computer is ${name}: only Windows Server 2025 Essentials, Standard and Datacenter are supported. Nothing was done." 5 }
+    }
+    else {
+        if ($os.Build -lt 22000) { Stop-Bk "This computer is ${name}: Windows 10 and earlier are NOT supported (needs Windows 11 24H2 or newer). Nothing was done." 5 }
+        if ($os.Build -lt 26100) { Stop-Bk "This computer is ${name}: Windows 11 before 24H2 is NOT supported (needs 24H2 = build 26100 or newer). Nothing was done." 5 }
+        if ($os.Edition -and $os.Edition -notmatch '^(Core|CoreN|CoreSingleLanguage|Professional|ProfessionalN)$') { Stop-Bk "This computer is ${name}: only Windows 11 Home and Pro are supported. Nothing was done." 5 }
+    }
+    Say 'INFO' "Computer: $name, $cpu (Intel / AMD 64 bit): supported."
+    if (-not (Test-BkAdministrator)) { Stop-Bk 'This is not an Administrator window. Close it, right-click PowerShell 7 (pwsh) -> "Run as administrator", and start the script again. Nothing was done.' 2 }
+    Say 'INFO' ("PowerShell {0}, Administrator window." -f $PSVersionTable.PSVersion)
+    return $os
+}
+
+# ------------------------------------------------------------
+# Prepare-Computer.ps1 must have been run (PowerShell 7, OpenSSL 4, Python 3 - all on the PATH)
+# ------------------------------------------------------------
+function Get-BkDotNetSdks {
+    # the installed .NET SDK versions (dotnet --list-sdks); empty when dotnet is not on the PATH
+    $d = Get-Command 'dotnet' -ErrorAction SilentlyContinue
+    $v = [System.Collections.Generic.List[string]]::new()
+    if (-not $d) { return @() }
+    try { foreach ($l in @(& $d.Source --list-sdks 2>$null)) { if ("$l" -match '^(\d+\.\d+\.\d+[^\s]*)') { [void]$v.Add($Matches[1]) } } } catch { }
+    return $v.ToArray()
+}
+
+function Get-BkPrerequisites {
+    # what Prepare-Computer.ps1 installs: PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8 and .NET SDK 10 - all found on the PATH
+    $r = [ordered]@{ PowerShell = ''; OpenSsl = ''; Python = ''; DotNet = ''; Missing = [System.Collections.Generic.List[string]]::new() }
+    $r.PowerShell = "PowerShell $($PSVersionTable.PSVersion)"
+    if (-not (Get-Command 'pwsh' -ErrorAction SilentlyContinue)) { [void]$r.Missing.Add('PowerShell 7: pwsh is not on the PATH') }
+    $o = Get-Command 'openssl' -ErrorAction SilentlyContinue
+    if (-not $o) { [void]$r.Missing.Add('OpenSSL: openssl is not on the PATH') }
+    else {
+        $v = ''; try { $v = (& $o.Source version 2>&1 | Select-Object -First 1).ToString().Trim() } catch { }
+        $r.OpenSsl = "$v ($($o.Source))"
+        if ($v -notmatch '^OpenSSL (\d+)\.' -or [int]$Matches[1] -lt 4) { [void]$r.Missing.Add("OpenSSL 4 or newer is required, found: $v") }
+    }
+    $py = $null
+    foreach ($n in 'python', 'python3') { foreach ($g in @(Get-Command $n -All -ErrorAction SilentlyContinue)) { if (-not $py -and $g.Source -and $g.Source -notmatch '\\WindowsApps\\') { $py = $g } } }
+    if (-not $py) { [void]$r.Missing.Add('Python 3: python is not on the PATH (the Microsoft Store stub does not count)') }
+    else {
+        $v = ''; try { $v = (& $py.Source --version 2>&1 | Select-Object -First 1).ToString().Trim() } catch { }
+        $r.Python = "$v ($($py.Source))"
+        if ($v -notmatch '^Python 3\.') { [void]$r.Missing.Add("Python 3 is required, found: $v") }
+    }
+    $sdks = @(Get-BkDotNetSdks)
+    $has8 = @($sdks | Where-Object { $_ -like '8.*' }).Count -gt 0
+    $has10 = @($sdks | Where-Object { $_ -like '10.*' }).Count -gt 0
+    $r.DotNet = ".NET SDK $((@($sdks | Where-Object { $_ -like '8.*' -or $_ -like '10.*' }) -join ', '))"
+    if (-not $has8) { [void]$r.Missing.Add('.NET SDK 8: not found (dotnet --list-sdks)') }
+    if (-not $has10) { [void]$r.Missing.Add('.NET SDK 10: not found (dotnet --list-sdks)') }
+    return [pscustomobject]$r
+}
+
+function Assert-BkPrepared {
+    # every requirement checked; ALL that are missing are listed, then: run Prepare-Computer.ps1
+    param([string]$PrepareScript = '.\Prepare-Computer.ps1')
+    $p = Get-BkPrerequisites
+    if ($p.Missing.Count -gt 0) {
+        foreach ($m in $p.Missing) { Say 'ERROR' "Missing: $m" }
+        Stop-Bk ("This computer is not ready: you need to run  $PrepareScript  first (in an Administrator PowerShell; it installs the latest PowerShell 7, OpenSSL 4, Python 3 and the .NET SDK 8 and 10 and puts them on the PATH). Then open a NEW Administrator window with  pwsh  and start this script again. Nothing was done.") 4
+    }
+    Say 'OK' "Required software found: $($p.PowerShell); $($p.OpenSsl); $($p.Python); $($p.DotNet)"
+}
+
+# ------------------------------------------------------------
+# Password
+# ------------------------------------------------------------
+function Test-BkPassword {
+    # The policy of the backup password. Returns the list of problems (empty = fine).
+    param([AllowEmptyString()][string]$Password)
+    $p = [System.Collections.Generic.List[string]]::new()
+    if ([string]::IsNullOrEmpty($Password)) { [void]$p.Add('the password is empty: no password, no backup'); return ,@($p) }
+    if ($Password -cnotmatch '^[\x20-\x7E]+$') { [void]$p.Add('only printable ASCII characters are allowed (letters, digits, symbols, space): no accents, no emoji') }
+    if ($Password.Length -lt 12) { [void]$p.Add("it has $($Password.Length) characters; at least 12 are required") }
+    if ($Password -cnotmatch '[A-Z]') { [void]$p.Add('it needs at least 1 upper case letter (A-Z)') }
+    if ($Password -cnotmatch '[a-z]') { [void]$p.Add('it needs at least 1 lower case letter (a-z)') }
+    if ($Password -cnotmatch '[0-9]') { [void]$p.Add('it needs at least 1 digit (0-9)') }
+    if ($Password -cnotmatch '[^A-Za-z0-9]') { [void]$p.Add('it needs at least 1 special character (for example ! # % + - _ = @)') }
+    return ,@($p)
+}
+
+function ConvertFrom-BkSecure {
+    param([Parameter(Mandatory)][securestring]$Secure)
+    return [System.Net.NetworkCredential]::new('', $Secure).Password
+}
+
+function Read-BkNewPassword {
+    # Asks twice, checks the policy, shows every problem, three tries. Exit 3 when it fails.
+    if ($env:PKI_BACKUP_PASSWORD) {
+        $probs = Test-BkPassword $env:PKI_BACKUP_PASSWORD
+        if ($probs.Count -gt 0) { foreach ($x in $probs) { Say 'ERROR' "Password policy: $x" }; Stop-Bk 'The password (from PKI_BACKUP_PASSWORD) is not allowed by the password policy.' 3 }
+        return $env:PKI_BACKUP_PASSWORD
+    }
+    Write-Host ''
+    Write-Host 'Password policy: at least 12 characters, with at least 1 upper case letter, 1 lower case letter, 1 digit and 1 special character.'
+    Write-Host 'The password is NOT stored anywhere. Without it the backup can never be opened: write it down and keep it in a safe place, apart from the backup.'
+    if ([Console]::IsInputRedirected) { Stop-Bk 'The password must be typed by a person at the prompt (or given in PKI_BACKUP_PASSWORD for an unattended run). No password, no backup.' 3 }
+    for ($try = 1; $try -le 3; $try++) {
+        $a = ConvertFrom-BkSecure (Read-Host -Prompt 'Backup password' -AsSecureString)
+        $probs = Test-BkPassword $a
+        if ($probs.Count -gt 0) {
+            foreach ($x in $probs) { Say 'ERROR' "Password policy: $x" }
+            if ($try -lt 3) { Say 'INFO' "Try again ($try of 3)." }
+            continue
+        }
+        $b = ConvertFrom-BkSecure (Read-Host -Prompt 'Backup password (again)' -AsSecureString)
+        if ($a -cne $b) { Say 'ERROR' 'The two passwords are different.'; if ($try -lt 3) { Say 'INFO' "Try again ($try of 3)." }; continue }
+        return $a
+    }
+    Stop-Bk 'No valid password after 3 tries. No password, no backup. Nothing was done.' 3
+}
+
+function Read-BkExistingPassword {
+    # For restore and the deep check: one prompt, no policy (the policy applied when the backup was made).
+    param([string]$Prompt = 'Backup password')
+    if ($env:PKI_BACKUP_PASSWORD) { return $env:PKI_BACKUP_PASSWORD }
+    if ([Console]::IsInputRedirected) { Stop-Bk 'The password must be typed at the prompt (or given in PKI_BACKUP_PASSWORD for an unattended run). No password, no process.' 3 }
+    $a = ConvertFrom-BkSecure (Read-Host -Prompt $Prompt -AsSecureString)
+    if ([string]::IsNullOrEmpty($a)) { Stop-Bk 'No password was typed. No password, no process.' 3 }
+    return $a
+}
+
+# ------------------------------------------------------------
+# Hashes, names
+# ------------------------------------------------------------
+function Get-BkHash {
+    # SHA-256 and SHA-512 of a file (streamed, hidden files too)
+    param([Parameter(Mandatory)][string]$Path)
+    $fs = [System.IO.File]::OpenRead($Path)
+    try {
+        $s256 = [Convert]::ToHexString([System.Security.Cryptography.SHA256]::HashData($fs)).ToLowerInvariant()
+        [void]$fs.Seek(0, [System.IO.SeekOrigin]::Begin)
+        $s512 = [Convert]::ToHexString([System.Security.Cryptography.SHA512]::HashData($fs)).ToLowerInvariant()
+    }
+    finally { $fs.Dispose() }
+    return [pscustomobject]@{ Sha256 = $s256; Sha512 = $s512 }
+}
+
+function Get-BkShortId {
+    $b = [byte[]]::new(3); [System.Security.Cryptography.RandomNumberGenerator]::Fill($b)
+    return [Convert]::ToHexString($b).ToLowerInvariant()
+}
+
+function Get-BkComputerName {
+    $n = [Environment]::MachineName.ToLowerInvariant() -replace '[^a-z0-9-]', '-'
+    $n = $n.Trim('-'); if (-not $n) { $n = 'computer' }
+    return $n
+}
+
+function Get-BkSumsFile {
+    # Parses "<hash>  <name>" lines (comment lines start with #). Returns an ordered map name -> hash.
+    param([Parameter(Mandatory)][string]$Path)
+    $m = [ordered]@{}
+    foreach ($l in [System.IO.File]::ReadAllLines($Path)) {
+        if ($l -match '^\s*#' -or [string]::IsNullOrWhiteSpace($l)) { continue }
+        if ($l -match '^([0-9a-fA-F]{64}|[0-9a-fA-F]{128})\s+\*?(.+?)\s*$') { $m[$Matches[2]] = $Matches[1].ToLowerInvariant() }
+    }
+    return $m
+}
+
+function Write-BkTextFile {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Content)
+    [System.IO.File]::WriteAllText($Path, $Content, [System.Text.UTF8Encoding]::new($false))
+}
+
+function New-BkTempDirectory {
+    param([string]$Prefix = 'pkibackup')
+    $d = Join-Path ([System.IO.Path]::GetTempPath()) "$Prefix-$([guid]::NewGuid().ToString('N'))"
+    [void][System.IO.Directory]::CreateDirectory($d)
+    return $d
+}
+
+# ------------------------------------------------------------
+# Opening a backup .certpacked
+# ------------------------------------------------------------
+function Open-BkPackage {
+    # Decrypts the .certpacked into a temporary folder, reads certpack.json and checks the SHA-256 of EVERY file.
+    # Returns Dir (delete it when done), Manifest. A wrong password stops with exit 3.
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Password)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { Stop-Bk "Backup file not found: $Path" 1 }
+    $dir = New-BkTempDirectory 'pkibackup-open'
+    try {
+        try { [void](Expand-PkiArchive -Path $Path -Destination $dir -Password $Password) }
+        catch {
+            $m = $_.Exception.Message
+            if ($m -like 'WRONG_PASSWORD*') { Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue; Stop-Bk 'The password is wrong (or the .certpacked file is damaged). Nothing was changed.' 3 }
+            throw
+        }
+        $mf = Join-Path $dir 'certpack.json'
+        if (-not (Test-Path -LiteralPath $mf)) { throw 'This archive has no certpack.json: it is not a PKI backup.' }
+        $man = Get-Content -LiteralPath $mf -Raw | ConvertFrom-Json -AsHashtable
+        if ($man['format'] -ne $script:BkFormat) { throw "This .certpacked is not a PKI backup (format '$($man['format'])'). Transport packages are installed with PkiTransport.ps1, not restored." }
+        if ([int]$man['formatVersion'] -gt $script:BkFormatVersion) { throw "This backup has format version $($man['formatVersion']); this script understands version $($script:BkFormatVersion). Use a newer Restore-Pki.ps1." }
+        $bad = [System.Collections.Generic.List[string]]::new()
+        foreach ($f in @($man['files'])) {
+            $p = Join-Path $dir (([string]$f['path']) -replace '/', [System.IO.Path]::DirectorySeparatorChar)
+            if (-not (Test-Path -LiteralPath $p)) { [void]$bad.Add("$($f['path']) is missing"); continue }
+            if ((Get-BkHash -Path $p).Sha256 -ne [string]$f['sha256']) { [void]$bad.Add("$($f['path']) has a different SHA-256") }
+        }
+        if ($bad.Count -gt 0) { throw ("The backup does not match its own list of files:`n  - " + ($bad -join "`n  - ")) }
+        return [pscustomobject]@{ Dir = $dir; Manifest = $man }
+    }
+    catch { Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue; throw }
+}
+
+# ------------------------------------------------------------
+# Certificates, private keys, the Local Machine certificate store
+# ------------------------------------------------------------
+function Read-BkCertificateFile {
+    # A file with exactly ONE certificate (PEM or DER) -> Thumbprint (SHA-1), Subject, Issuer, IsCa, SelfSigned. Anything else -> $null.
+    param([Parameter(Mandatory)][string]$Path)
+    try {
+        $fi = [System.IO.FileInfo]::new($Path)
+        if ($fi.Length -gt 40000 -or $fi.Length -lt 100) { return $null }
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        $text = [System.Text.Encoding]::ASCII.GetString($bytes)
+        if ($text.Contains('-----BEGIN')) {
+            if ([regex]::Matches($text, '-----BEGIN CERTIFICATE-----').Count -ne 1) { return $null }
+            $c = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($text)
+        }
+        else { $c = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($bytes) }
+        $isCa = $false
+        foreach ($e in $c.Extensions) { if ($e.Oid.Value -eq '2.5.29.19') { $isCa = ([System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]$e).CertificateAuthority } }
+        $o = [pscustomobject]@{ Thumbprint = $c.Thumbprint.ToUpperInvariant(); Subject = $c.Subject; Issuer = $c.Issuer; IsCa = $isCa; SelfSigned = ($c.Subject -eq $c.Issuer) }
+        $c.Dispose()
+        return $o
+    }
+    catch { return $null }
+}
+
+function Get-BkPublicKeyText {
+    # The public key (PEM, white space removed) of a certificate or of a private key, made by OpenSSL; '' when it cannot be read.
+    param([Parameter(Mandatory)][string]$Path, [ValidateSet('cert', 'key')][string]$Kind, [bool]$Der = $false)
+    try {
+        if ($Kind -eq 'cert') { $t = if ($Der) { & openssl x509 -inform DER -in $Path -pubkey -noout 2>$null } else { & openssl x509 -in $Path -pubkey -noout 2>$null } }
+        else { $t = & openssl pkey -in $Path -pubout -passin pass:x 2>$null }
+        if ($LASTEXITCODE -ne 0) { return '' }
+        return (($t -join '') -replace '\s', '')
+    }
+    catch { return '' }
+}
+
+function Get-BkKeyInventory {
+    # Looks at every certificate under the given folders and says whether its PRIVATE KEY is among the files (found by comparing the public keys).
+    # Returns Certificates (Rel, Thumbprint, Subject, IsCa, SelfSigned, HasKey, KeyFile), Keys (count), NoOpenSsl.
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string[]]$Folders)
+    $res = [ordered]@{ Certificates = [System.Collections.Generic.List[object]]::new(); Keys = 0; NoOpenSsl = $false }
+    $files = @()
+    foreach ($f in $Folders) { $d = Join-Path $Root $f; if (Test-Path -LiteralPath $d -PathType Container) { $files += @(Get-ChildItem -LiteralPath $d -Recurse -File -Force) } }
+    $haveSsl = [bool](Get-Command 'openssl' -ErrorAction SilentlyContinue)
+    if (-not $haveSsl) { $res.NoOpenSsl = $true }
+    # private keys: public key text -> file
+    $keyMap = @{}
+    $pfxStems = [System.Collections.Generic.List[string]]::new()
+    foreach ($f in $files) {
+        if ($f.Extension -in '.pfx', '.p12') { [void]$pfxStems.Add(($f.DirectoryName + '|' + [System.IO.Path]::GetFileNameWithoutExtension($f.Name)).ToLowerInvariant()); $res.Keys++; continue }
+        if ($f.Extension -ne '.key' -and $f.Extension -ne '.pem') { continue }
+        if ($f.Length -gt 20000) { continue }
+        $head = [System.IO.File]::ReadAllText($f.FullName)
+        if ($head -notmatch '-----BEGIN (ENCRYPTED |EC |RSA )?PRIVATE KEY-----') { continue }
+        $res.Keys++
+        if ($haveSsl) { $pk = Get-BkPublicKeyText -Path $f.FullName -Kind key; if ($pk) { $keyMap[$pk] = $f.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/' } }
+    }
+    $seen = @{}
+    foreach ($f in $files) {
+        if ($f.Extension -notin '.crt', '.cer', '.pem') { continue }
+        if ($f.Name -like '*.crl.pem') { continue }
+        $ci = Read-BkCertificateFile -Path $f.FullName
+        if ($null -eq $ci) { continue }
+        $rel = $f.FullName.Substring($Root.Length).TrimStart('\', '/') -replace '\\', '/'
+        $der = -not ([System.IO.File]::ReadAllText($f.FullName).Contains('-----BEGIN'))
+        $pub = if ($haveSsl) { Get-BkPublicKeyText -Path $f.FullName -Kind cert -Der $der } else { '' }
+        $keyFile = ''
+        if ($pub -and $keyMap.ContainsKey($pub)) { $keyFile = $keyMap[$pub] }
+        else {
+            $stem = [System.IO.Path]::GetFileNameWithoutExtension($f.Name).ToLowerInvariant() -replace '-(fullchain|chain|bundle)$', ''
+            if ($pfxStems.Contains(($f.DirectoryName + '|' + $stem).ToLowerInvariant())) { $keyFile = '(inside the .pfx next to it)' }
+        }
+        $o = [pscustomobject]@{ Rel = $rel; Thumbprint = $ci.Thumbprint; Subject = $ci.Subject; IsCa = $ci.IsCa; SelfSigned = $ci.SelfSigned; HasKey = [bool]$keyFile; KeyFile = $keyFile }
+        [void]$res.Certificates.Add($o)
+    }
+    return [pscustomobject]$res
+}
+
+function Get-BkLocalMachineThumbprints {
+    # SHA-1 thumbprints (upper case) of LocalMachine\Root and LocalMachine\CA (Intermediate). Test hook: PKI_FAKE_STORE_FILE = a text file, one thumbprint per line.
+    $set = [System.Collections.Generic.HashSet[string]]::new()
+    if ($env:PKI_FAKE_STORE_FILE) {
+        if (Test-Path -LiteralPath $env:PKI_FAKE_STORE_FILE) { foreach ($l in [System.IO.File]::ReadAllLines($env:PKI_FAKE_STORE_FILE)) { $t = ($l -replace '[^0-9A-Fa-f]', '').ToUpperInvariant(); if ($t) { [void]$set.Add($t) } } }
+        return $set
+    }
+    foreach ($n in 'Root', 'CA') {
+        $st = [System.Security.Cryptography.X509Certificates.X509Store]::new($n, [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
+        try { $st.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadOnly); foreach ($c in $st.Certificates) { [void]$set.Add($c.Thumbprint.ToUpperInvariant()) } }
+        finally { $st.Close() }
+    }
+    return $set
+}
+
+function Ensure-PkiDirectory {
+    # needed by 16_CertPack.ps1 (normally from 00_Common, which a backup does not load)
+    param([Parameter(Mandatory)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) { [void][System.IO.Directory]::CreateDirectory($Path) }
+}
+
+
+# ---- zip / AES-256 engine (from scripts\16_CertPack.ps1)
+# ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OÜ (NextMantra)
+# Email  : nicko@nextmantra.com
+# ============================================================
+# 16_CertPack.ps1  -  the password-protected archive layer of the transport (".certpacked")
+#
+# A .certpacked file IS a password-protected archive under another name. Rename it to .zip or .7z and any
+# 7-Zip compatible program opens it with the password. Three kinds:
+#
+#   zip + AES-256   (default)  WinZip AES (AE-2): PBKDF2-HMAC-SHA1, AES-256-CTR, HMAC-SHA1 authentication of every
+#                              entry. Made and read by THIS module with .NET only: no 7-Zip on Windows needed.
+#                              Linux / macOS: 7-Zip (7z, 7zz, 7za) reads it; pki-transport.sh installs it if it can.
+#   zip + ZipCrypto (legacy)   The old PKWARE encryption: weak against known-plaintext attacks. Only for packages
+#                              that carry nothing secret (CA certificates). Plain "unzip -P" reads it everywhere.
+#   7z  + AES-256              LZMA2 with encrypted headers (file names hidden). Needs 7-Zip to make and to read.
+#
+# The kind is found from the first bytes of the file, never from the extension.
+#
+# Provides : Initialize-PkiZipLibrary, Get-PkiArchiveType, New-PkiAesZipArchive, Expand-PkiAesZipArchive,
+#            Get-PkiAesZipEntries, Find-PkiSevenZip, New-PkiSevenZipArchive, Expand-PkiSevenZipArchive,
+#            Expand-PkiArchive, Test-PkiArchivePassword
+# Requires : 00_Common
+# ============================================================
+
+$script:PkiZipSource = @'
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
+
+public static class PkiZip
+{
+    // ---------------------------------------------------------------- CRC-32
+    private static readonly uint[] CrcTable = MakeTable();
+    private static uint[] MakeTable()
+    {
+        var t = new uint[256];
+        for (uint n = 0; n < 256; n++) { uint c = n; for (int k = 0; k < 8; k++) c = ((c & 1) != 0) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1); t[n] = c; }
+        return t;
+    }
+    public static uint Crc32(byte[] data)
+    {
+        uint crc = 0xFFFFFFFFu;
+        for (int i = 0; i < data.Length; i++) crc = CrcTable[(crc ^ data[i]) & 0xFF] ^ (crc >> 8);
+        return ~crc;
+    }
+    private static uint CrcStep(uint crc, byte b) { return CrcTable[(crc ^ b) & 0xFF] ^ (crc >> 8); }
+
+    // ---------------------------------------------------------------- WinZip AES
+    private static void AesKeys(string password, byte[] salt, int keyLen, out byte[] encKey, out byte[] authKey, out byte[] pwv)
+    {
+        byte[] pw = Encoding.UTF8.GetBytes(password);
+        byte[] km = Rfc2898DeriveBytes.Pbkdf2(pw, salt, 1000, HashAlgorithmName.SHA1, 2 * keyLen + 2);
+        encKey = new byte[keyLen]; authKey = new byte[keyLen]; pwv = new byte[2];
+        Buffer.BlockCopy(km, 0, encKey, 0, keyLen);
+        Buffer.BlockCopy(km, keyLen, authKey, 0, keyLen);
+        Buffer.BlockCopy(km, 2 * keyLen, pwv, 0, 2);
+    }
+
+    // AES-CTR with a LITTLE-endian counter that starts at 1 (the WinZip way; not the OpenSSL way)
+    private static byte[] AesCtr(byte[] key, byte[] data)
+    {
+        byte[] output = new byte[data.Length];
+        using (var aes = Aes.Create())
+        {
+            aes.Mode = CipherMode.ECB; aes.Padding = PaddingMode.None; aes.Key = key;
+            using (var enc = aes.CreateEncryptor())
+            {
+                byte[] counter = new byte[16]; counter[0] = 1;
+                byte[] ks = new byte[16];
+                for (int pos = 0; pos < data.Length; pos += 16)
+                {
+                    enc.TransformBlock(counter, 0, 16, ks, 0);
+                    int n = Math.Min(16, data.Length - pos);
+                    for (int i = 0; i < n; i++) output[pos + i] = (byte)(data[pos + i] ^ ks[i]);
+                    for (int i = 0; i < 16; i++) { if (++counter[i] != 0) break; }
+                }
+            }
+        }
+        return output;
+    }
+
+    private static byte[] Mac(byte[] authKey, byte[] cipher)
+    {
+        using (var h = new HMACSHA1(authKey)) { byte[] full = h.ComputeHash(cipher); byte[] t = new byte[10]; Buffer.BlockCopy(full, 0, t, 0, 10); return t; }
+    }
+
+    // ---------------------------------------------------------------- ZipCrypto (legacy)
+    private sealed class ZcKeys
+    {
+        public uint K0 = 0x12345678u, K1 = 0x23456789u, K2 = 0x34567890u;
+        public void Update(byte c)
+        {
+            K0 = CrcStep(K0, c);
+            K1 = (K1 + (K0 & 0xFF)) * 134775813u + 1u;
+            K2 = CrcStep(K2, (byte)(K1 >> 24));
+        }
+        public byte Next() { uint t = (K2 | 2u) & 0xFFFFu; return (byte)(((t * (t ^ 1u)) >> 8) & 0xFFu); }
+        public ZcKeys(string password) { foreach (byte b in Encoding.UTF8.GetBytes(password)) Update(b); }
+    }
+    private static byte[] ZcEncrypt(byte[] data, string password, uint crc)
+    {
+        var k = new ZcKeys(password);
+        byte[] header = new byte[12];
+        byte[] rnd = new byte[11]; RandomNumberGenerator.Fill(rnd);
+        Buffer.BlockCopy(rnd, 0, header, 0, 11);
+        header[11] = (byte)(crc >> 24);
+        byte[] outp = new byte[12 + data.Length];
+        for (int i = 0; i < 12; i++) { byte p = header[i]; outp[i] = (byte)(p ^ k.Next()); k.Update(p); }
+        for (int i = 0; i < data.Length; i++) { byte p = data[i]; outp[12 + i] = (byte)(p ^ k.Next()); k.Update(p); }
+        return outp;
+    }
+
+    // ---------------------------------------------------------------- helpers
+    private static void U16(Stream s, int v) { s.WriteByte((byte)v); s.WriteByte((byte)(v >> 8)); }
+    private static void U32(Stream s, uint v) { s.WriteByte((byte)v); s.WriteByte((byte)(v >> 8)); s.WriteByte((byte)(v >> 16)); s.WriteByte((byte)(v >> 24)); }
+    private static ushort R16(byte[] b, long o) { return (ushort)(b[o] | (b[o + 1] << 8)); }
+    private static uint R32(byte[] b, long o) { return (uint)(b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)); }
+
+    private static void DosTime(DateTime t, out ushort time, out ushort date)
+    {
+        if (t.Year < 1980) t = new DateTime(1980, 1, 1);
+        time = (ushort)((t.Hour << 11) | (t.Minute << 5) | (t.Second / 2));
+        date = (ushort)(((t.Year - 1980) << 9) | (t.Month << 5) | t.Day);
+    }
+    private static DateTime FromDos(ushort time, ushort date)
+    {
+        try { return new DateTime(((date >> 9) & 0x7F) + 1980, Math.Max(1, (date >> 5) & 0x0F), Math.Max(1, date & 0x1F), (time >> 11) & 0x1F, (time >> 5) & 0x3F, (time & 0x1F) * 2); }
+        catch { return DateTime.Now; }
+    }
+
+    // ---------------------------------------------------------------- Create
+    public static void Create(string archivePath, string[] sources, string[] names, string password, string encryption)
+    {
+        if (sources.Length != names.Length) throw new ArgumentException("sources and names differ in length");
+        bool aes = !string.Equals(encryption, "ZipCrypto", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrEmpty(password)) throw new ArgumentException("A password is required");
+        var central = new List<byte[]>();
+        using (var fs = new FileStream(archivePath, FileMode.Create, FileAccess.Write))
+        {
+            for (int i = 0; i < sources.Length; i++)
+            {
+                byte[] data = File.ReadAllBytes(sources[i]);
+                string name = names[i].Replace('\\', '/').TrimStart('/');
+                byte[] nameBytes = Encoding.UTF8.GetBytes(name);
+                ushort dt, dd; DosTime(File.GetLastWriteTime(sources[i]), out dt, out dd);
+                uint crc = Crc32(data);
+
+                byte[] comp; ushort actual = 8;
+                using (var ms = new MemoryStream())
+                {
+                    using (var ds = new DeflateStream(ms, CompressionLevel.Optimal, true)) ds.Write(data, 0, data.Length);
+                    comp = ms.ToArray();
+                }
+                if (comp.Length >= data.Length) { comp = data; actual = 0; }
+
+                byte[] payload, extra; ushort method, verNeeded; uint crcField;
+                if (aes)
+                {
+                    byte[] salt = new byte[16]; RandomNumberGenerator.Fill(salt);
+                    byte[] ek, ak, pwv; AesKeys(password, salt, 32, out ek, out ak, out pwv);
+                    byte[] ct = AesCtr(ek, comp);
+                    byte[] mac = Mac(ak, ct);
+                    payload = new byte[16 + 2 + ct.Length + 10];
+                    Buffer.BlockCopy(salt, 0, payload, 0, 16); Buffer.BlockCopy(pwv, 0, payload, 16, 2);
+                    Buffer.BlockCopy(ct, 0, payload, 18, ct.Length); Buffer.BlockCopy(mac, 0, payload, 18 + ct.Length, 10);
+                    method = 99; verNeeded = 51; crcField = 0;                    // AE-2: no CRC
+                    extra = new byte[] { 0x01, 0x99, 0x07, 0x00, 0x02, 0x00, 0x41, 0x45, 0x03, (byte)(actual & 0xFF), (byte)(actual >> 8) };
+                }
+                else
+                {
+                    payload = ZcEncrypt(comp, password, crc);
+                    method = actual; verNeeded = 20; crcField = crc; extra = new byte[0];
+                }
+                ushort flags = 0x0801;                                          // encrypted + UTF-8 names
+                long offset = fs.Position;
+
+                U32(fs, 0x04034b50u); U16(fs, verNeeded); U16(fs, flags); U16(fs, method); U16(fs, dt); U16(fs, dd);
+                U32(fs, crcField); U32(fs, (uint)payload.Length); U32(fs, (uint)data.Length);
+                U16(fs, nameBytes.Length); U16(fs, extra.Length);
+                fs.Write(nameBytes, 0, nameBytes.Length); fs.Write(extra, 0, extra.Length); fs.Write(payload, 0, payload.Length);
+
+                using (var c = new MemoryStream())
+                {
+                    U32(c, 0x02014b50u); U16(c, 63); U16(c, verNeeded); U16(c, flags); U16(c, method); U16(c, dt); U16(c, dd);
+                    U32(c, crcField); U32(c, (uint)payload.Length); U32(c, (uint)data.Length);
+                    U16(c, nameBytes.Length); U16(c, extra.Length); U16(c, 0); U16(c, 0); U16(c, 0); U32(c, 0x20u); U32(c, (uint)offset);
+                    c.Write(nameBytes, 0, nameBytes.Length); c.Write(extra, 0, extra.Length);
+                    central.Add(c.ToArray());
+                }
+            }
+            long cdStart = fs.Position;
+            foreach (var b in central) fs.Write(b, 0, b.Length);
+            long cdSize = fs.Position - cdStart;
+            U32(fs, 0x06054b50u); U16(fs, 0); U16(fs, 0); U16(fs, central.Count); U16(fs, central.Count);
+            U32(fs, (uint)cdSize); U32(fs, (uint)cdStart); U16(fs, 0);
+        }
+    }
+
+    // ---------------------------------------------------------------- Read
+    private sealed class Entry
+    {
+        public string Name; public ushort Flags, Method, Actual, DosT, DosD; public bool Aes; public int Version, Strength;
+        public uint Crc; public long CSize, USize, Offset;
+    }
+
+    private static List<Entry> ReadDirectory(byte[] a)
+    {
+        long eocd = -1;
+        for (long i = a.Length - 22; i >= Math.Max(0, a.Length - 22 - 65535); i--) { if (R32(a, i) == 0x06054b50u) { eocd = i; break; } }
+        if (eocd < 0) throw new InvalidDataException("Not a zip archive (no end-of-directory record)");
+        int count = R16(a, eocd + 10); long cdOff = R32(a, eocd + 16);
+        if (cdOff == 0xFFFFFFFFu || count == 0xFFFF) throw new NotSupportedException("Zip64 archives are not supported");
+        var list = new List<Entry>();
+        long p = cdOff;
+        for (int n = 0; n < count; n++)
+        {
+            if (R32(a, p) != 0x02014b50u) throw new InvalidDataException("Damaged central directory");
+            var e = new Entry();
+            e.Flags = R16(a, p + 8); e.Method = R16(a, p + 10); e.DosT = R16(a, p + 12); e.DosD = R16(a, p + 14);
+            e.Crc = R32(a, p + 16); e.CSize = R32(a, p + 20); e.USize = R32(a, p + 24);
+            int nl = R16(a, p + 28), el = R16(a, p + 30), cl = R16(a, p + 32);
+            e.Offset = R32(a, p + 42);
+            e.Name = Encoding.UTF8.GetString(a, (int)(p + 46), nl);
+            e.Actual = e.Method;
+            long x = p + 46 + nl, xe = x + el;
+            while (x + 4 <= xe)
+            {
+                int id = R16(a, x), sz = R16(a, x + 2);
+                if (id == 0x9901 && sz >= 7) { e.Aes = true; e.Version = R16(a, x + 4); e.Strength = a[x + 8]; e.Actual = R16(a, x + 9); }
+                x += 4 + sz;
+            }
+            list.Add(e);
+            p += 46 + nl + el + cl;
+        }
+        return list;
+    }
+
+    public static string[] ListNames(string archivePath)
+    {
+        byte[] a = File.ReadAllBytes(archivePath);
+        var r = new List<string>();
+        foreach (var e in ReadDirectory(a)) if (!e.Name.EndsWith("/")) r.Add(e.Name);
+        return r.ToArray();
+    }
+
+    public static string Describe(string archivePath)
+    {
+        byte[] a = File.ReadAllBytes(archivePath);
+        var l = ReadDirectory(a);
+        if (l.Count == 0) return "empty";
+        var e = l[0];
+        if (e.Aes) return "AES-" + (e.Strength == 3 ? "256" : e.Strength == 2 ? "192" : "128");
+        return (e.Flags & 1) != 0 ? "ZipCrypto" : "not encrypted";
+    }
+
+    private static byte[] Inflate(byte[] comp, long usize)
+    {
+        using (var src = new MemoryStream(comp))
+        using (var ds = new DeflateStream(src, CompressionMode.Decompress))
+        using (var dst = new MemoryStream())
+        {
+            ds.CopyTo(dst);
+            if (dst.Length != usize) throw new InvalidDataException("Size mismatch after decompression");
+            return dst.ToArray();
+        }
+    }
+
+    private static byte[] ReadEntry(byte[] a, Entry e, string password)
+    {
+        long o = e.Offset;
+        if (R32(a, o) != 0x04034b50u) throw new InvalidDataException("Damaged local header of " + e.Name);
+        long start = o + 30 + R16(a, o + 26) + R16(a, o + 28);
+        byte[] raw = new byte[e.CSize];
+        Buffer.BlockCopy(a, (int)start, raw, 0, (int)e.CSize);
+        byte[] comp;
+        bool checkCrc = true;
+        if ((e.Flags & 1) == 0 && !e.Aes) { comp = raw; }
+        else if (e.Aes)
+        {
+            int keyLen = e.Strength == 3 ? 32 : e.Strength == 2 ? 24 : 16, saltLen = keyLen / 2;
+            if (raw.Length < saltLen + 2 + 10) throw new InvalidDataException("Damaged AES entry " + e.Name);
+            byte[] salt = new byte[saltLen]; Buffer.BlockCopy(raw, 0, salt, 0, saltLen);
+            byte[] ek, ak, pwv; AesKeys(password, salt, keyLen, out ek, out ak, out pwv);
+            if (raw[saltLen] != pwv[0] || raw[saltLen + 1] != pwv[1]) throw new UnauthorizedAccessException("WRONG_PASSWORD");
+            int clen = raw.Length - saltLen - 2 - 10;
+            byte[] ct = new byte[clen]; Buffer.BlockCopy(raw, saltLen + 2, ct, 0, clen);
+            byte[] mac = new byte[10]; Buffer.BlockCopy(raw, saltLen + 2 + clen, mac, 0, 10);
+            if (!CryptographicOperations.FixedTimeEquals(mac, Mac(ak, ct))) throw new InvalidDataException("AUTHENTICATION_FAILED: " + e.Name + " is damaged or was changed");
+            comp = AesCtr(ek, ct);
+            if (e.Version == 2) checkCrc = false;
+        }
+        else
+        {
+            if (raw.Length < 12) throw new InvalidDataException("Damaged ZipCrypto entry " + e.Name);
+            var k = new ZcKeys(password);
+            byte[] plain = new byte[raw.Length - 12];
+            byte last = 0;
+            for (int i = 0; i < raw.Length; i++)
+            {
+                byte p = (byte)(raw[i] ^ k.Next()); k.Update(p);
+                if (i < 12) last = p; else plain[i - 12] = p;
+            }
+            byte expect = ((e.Flags & 8) != 0) ? (byte)(e.DosT >> 8) : (byte)(e.Crc >> 24);
+            if (last != expect) throw new UnauthorizedAccessException("WRONG_PASSWORD");
+            comp = plain;
+        }
+        byte[] data = (e.Actual == 8) ? Inflate(comp, e.USize) : comp;
+        if (e.Actual != 0 && e.Actual != 8) throw new NotSupportedException("Compression method " + e.Actual + " of " + e.Name);
+        if (data.Length != e.USize) throw new InvalidDataException("Size mismatch of " + e.Name);
+        if (checkCrc && Crc32(data) != e.Crc) throw new UnauthorizedAccessException("WRONG_PASSWORD (or damaged data) in " + e.Name);
+        return data;
+    }
+
+    private static string SafePath(string dest, string name)
+    {
+        string rel = name.Replace('\\', '/').TrimStart('/');
+        if (rel.Length == 0 || rel.IndexOf(':') >= 0) throw new InvalidDataException("Unsafe entry name: " + name);
+        foreach (string seg in rel.Split('/')) if (seg == "..") throw new InvalidDataException("Unsafe entry name (..): " + name);
+        string root = Path.GetFullPath(dest);
+        string full = Path.GetFullPath(Path.Combine(root, rel.Replace('/', Path.DirectorySeparatorChar)));
+        if (!full.StartsWith(root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            throw new InvalidDataException("Unsafe entry name (outside the destination): " + name);
+        return full;
+    }
+
+    // destDir == null: only test (decrypt + authenticate every entry). Returns the entry names.
+    public static string[] Extract(string archivePath, string destDir, string password, string[] prefixes)
+    {
+        byte[] a = File.ReadAllBytes(archivePath);
+        var done = new List<string>();
+        foreach (var e in ReadDirectory(a))
+        {
+            if (e.Name.EndsWith("/")) continue;
+            if (prefixes != null && prefixes.Length > 0)
+            {
+                bool hit = false;
+                foreach (string p in prefixes) { if (e.Name.Replace('\\', '/').StartsWith(p, StringComparison.OrdinalIgnoreCase)) { hit = true; break; } }
+                if (!hit) continue;
+            }
+            byte[] data = ReadEntry(a, e, password);
+            if (!string.IsNullOrEmpty(destDir))        // PowerShell passes $null as ""
+            {
+                string full = SafePath(destDir, e.Name);
+                Directory.CreateDirectory(Path.GetDirectoryName(full));
+                File.WriteAllBytes(full, data);
+                File.SetLastWriteTime(full, FromDos(e.DosT, e.DosD));
+            }
+            done.Add(e.Name);
+        }
+        return done.ToArray();
+    }
+
+    public static string Detect(string path)
+    {
+        byte[] h = new byte[6];
+        using (var f = new FileStream(path, FileMode.Open, FileAccess.Read)) { int n = f.Read(h, 0, 6); if (n < 4) return "unknown"; }
+        if (h[0] == 0x50 && h[1] == 0x4B && (h[2] == 3 || h[2] == 5)) return "zip";
+        if (h[0] == 0x37 && h[1] == 0x7A && h[2] == 0xBC && h[3] == 0xAF && h[4] == 0x27 && h[5] == 0x1C) return "7z";
+        return "unknown";
+    }
+}
+'@
+
+function Initialize-PkiZipLibrary {
+    if (-not ('PkiZip' -as [type])) { Add-Type -TypeDefinition $script:PkiZipSource -Language CSharp }
+}
+
+function Get-PkiArchiveType {
+    # "zip" | "7z" | "unknown", from the first bytes of the file (the extension .certpacked says nothing).
+    param([Parameter(Mandatory)][string]$Path)
+    Initialize-PkiZipLibrary
+    return [PkiZip]::Detect($Path)
+}
+
+function New-PkiAesZipArchive {
+    <#
+    .PARAMETER Files
+        A list of @{ Source = <file on disk>; Entry = <name inside the archive> }
+    .PARAMETER Encryption
+        Aes256 (default) | ZipCrypto
+    #>
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$Files, [Parameter(Mandatory)][string]$Password, [ValidateSet('Aes256', 'ZipCrypto')][string]$Encryption = 'Aes256')
+    Initialize-PkiZipLibrary
+    $src = [string[]]@($Files | ForEach-Object { $_.Source })
+    $ent = [string[]]@($Files | ForEach-Object { $_.Entry })
+    if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Force }
+    [PkiZip]::Create($Path, $src, $ent, $Password, $Encryption)
+}
+
+function Expand-PkiAesZipArchive {
+    # Extracts (or, with no -Destination, only tests) a zip: AES-128/192/256 or ZipCrypto. Entry prefixes filter.
+    # Wrong password: the message starts with WRONG_PASSWORD.
+    param([Parameter(Mandatory)][string]$Path, [string]$Destination, [Parameter(Mandatory)][string]$Password, [string[]]$Prefix)
+    Initialize-PkiZipLibrary
+    $dest = if ([string]::IsNullOrWhiteSpace($Destination)) { $null } else { $Destination }
+    try { return [string[]][PkiZip]::Extract($Path, $dest, $Password, [string[]]@($Prefix)) }
+    catch {
+        $m = $_.Exception.GetBaseException().Message
+        if ($m -like 'WRONG_PASSWORD*') { throw 'WRONG_PASSWORD: the password is wrong (or the file is damaged).' }
+        throw $m
+    }
+}
+
+function Get-PkiAesZipEntries {
+    param([Parameter(Mandatory)][string]$Path)
+    Initialize-PkiZipLibrary
+    return [string[]][PkiZip]::ListNames($Path)
+}
+
+
+function Expand-PkiArchive {
+    # a backup .certpacked is always a zip with AES-256: extracts it (or only tests it when -Destination is empty)
+    param([Parameter(Mandatory)][string]$Path, [string]$Destination, [Parameter(Mandatory)][string]$Password, [string[]]$Prefix)
+    if ((Get-PkiArchiveType -Path $Path) -ne 'zip') { throw "$Path is not a zip archive (first bytes not recognised): it is not a PKI backup, or it is damaged." }
+    return (Expand-PkiAesZipArchive -Path $Path -Destination $Destination -Password $Password -Prefix $Prefix)
+}
+#endregion embedded library
+Set-StrictMode -Version Latest
+
+Set-StrictMode -Version Latest
+
+Write-BkBanner 'Backup-Pki.ps1' 'back up the whole PKI'
+$os = Assert-BkHost
+
+# ---------------------------------------------------------------- where is the PKI, where do the backups go
+if (-not $PkiRoot) { $PkiRoot = $PSScriptRoot }
+$PkiRoot = [System.IO.Path]::GetFullPath($PkiRoot)
+$backupDir = $(if ($BackupRoot) { [System.IO.Path]::GetFullPath($BackupRoot) } else { Join-Path $PkiRoot $script:BkFolderName })
+
+if ($List) {
+    if (-not (Test-Path -LiteralPath $backupDir -PathType Container)) { Say 'INFO' "No backup folder yet: $backupDir"; exit 0 }
+    $zips = @(Get-ChildItem -LiteralPath $backupDir -Filter 'pki-payload-*.zip' -File | Sort-Object Name)
+    Say 'INFO' "$($zips.Count) backup(s) in $backupDir"
+    foreach ($z in $zips) { Write-Host ('  {0}   {1:N0} KB   {2}' -f $z.Name, ($z.Length / 1KB), $z.LastWriteTime.ToString('yyyy-MM-dd HH:mm')) }
+    exit 0
+}
+
+$pkiDir = Join-Path $PkiRoot 'pki'
+if (-not (Test-Path -LiteralPath $pkiDir -PathType Container) -or @(Get-ChildItem -LiteralPath $pkiDir -Recurse -File -Force -ErrorAction SilentlyContinue).Count -eq 0) {
+    Stop-Bk "No PKI found: $pkiDir is missing or empty. Run this script in the project folder, or give -PkiRoot <the folder that holds pki\>. Nothing was done." 1
+}
+
+# ---------------------------------------------------------------- what goes in
+$items = [System.Collections.Generic.List[hashtable]]::new()
+$root = $PkiRoot.TrimEnd('\', '/')
+$dirList = [System.Collections.Generic.List[string]]::new()      # every folder, also the empty ones (issued\ ...)
+function Add-BkTree {
+    param([string]$Dir)
+    [void]$dirList.Add((($Dir.Substring($root.Length).TrimStart('\', '/')) -replace '\\', '/'))
+    foreach ($sd in @(Get-ChildItem -LiteralPath $Dir -Recurse -Directory -Force)) { [void]$dirList.Add((($sd.FullName.Substring($root.Length).TrimStart('\', '/')) -replace '\\', '/')) }
+    foreach ($f in @(Get-ChildItem -LiteralPath $Dir -Recurse -File -Force)) {
+        $rel = $f.FullName.Substring($root.Length).TrimStart('\', '/') -replace '\\', '/'
+        [void]$items.Add(@{ Source = $f.FullName; Entry = "data/$rel"; Rel = $rel })
+    }
+}
+foreach ($d in 'pki', 'leafcerts', 'external-ca', 'csr-signed') { $p = Join-Path $PkiRoot $d; if (Test-Path -LiteralPath $p -PathType Container) { Add-BkTree $p } }
+foreach ($f in @(Get-ChildItem -LiteralPath $PkiRoot -File -Force | Where-Object { $_.Name -like '*_pki.cnf' -or $_.Name -in 'pki_tools.cnf', 'devkit.env' })) {
+    [void]$items.Add(@{ Source = $f.FullName; Entry = "data/$($f.Name)"; Rel = $f.Name })
+}
+$pkis = @(Get-ChildItem -LiteralPath $pkiDir -Directory -Force | ForEach-Object { $_.Name } | Sort-Object)
+$keyCount = @($items | Where-Object { $_.Rel -like '*.key' -or $_.Rel -like '*.pfx' -or $_.Rel -like '*.p12' }).Count
+$bytes = 0L; foreach ($i in $items) { $bytes += ([System.IO.FileInfo]::new($i.Source)).Length }
+
+# ---------------------------------------------------------------- every certificate must have its private key in the backup
+$inv = Get-BkKeyInventory -Root $root -Folders @('pki', 'leafcerts', 'external-ca', 'csr-signed')
+$uniq = @($inv.Certificates | Group-Object Thumbprint | ForEach-Object { $g = @($_.Group); [pscustomobject]@{ Thumbprint = $_.Name; Subject = $g[0].Subject; IsCa = $g[0].IsCa; SelfSigned = $g[0].SelfSigned; HasKey = (@($g | Where-Object { $_.HasKey }).Count -gt 0); Files = @($g | ForEach-Object { $_.Rel }) } })
+$caAll = @($uniq | Where-Object { $_.IsCa })
+$noKey = @($uniq | Where-Object { -not $_.HasKey })
+$pkiInfo = foreach ($n in $pkis) {
+    $mine = @($inv.Certificates | Where-Object { $_.Rel -like "pki/$n/*" -and $_.IsCa } | Group-Object Thumbprint | ForEach-Object { $_.Group[0] })
+    [ordered]@{ name = $n; caCertificates = @($mine | ForEach-Object { [ordered]@{ thumbprint = $_.Thumbprint; subject = $_.Subject; kind = $(if ($_.SelfSigned) { 'root' } else { 'intermediate' }); file = $_.Rel; privateKeyInBackup = $_.HasKey } }) }
+}
+
+Say 'INFO' "PKI folder   : $PkiRoot"
+Say 'INFO' ("To back up   : {0} files, {1:N1} MB, {2} private key / PFX files" -f $items.Count, ($bytes / 1MB), $keyCount)
+Say 'INFO' ("PKI folders  : {0}" -f ($pkis -join ', '))
+if ($inv.NoOpenSsl) { Say 'WARN' 'OpenSSL is not on the PATH: the keys are copied, but certificates and keys could not be matched. Run Prepare-Computer.ps1 for the full check.' }
+else {
+    Say 'INFO' ("Certificates : {0} different ({1} CA: {2} roots, {3} intermediates); private key in the backup for {4} of them" -f $uniq.Count, $caAll.Count, @($caAll | Where-Object { $_.SelfSigned }).Count, @($caAll | Where-Object { -not $_.SelfSigned }).Count, @($uniq | Where-Object { $_.HasKey }).Count)
+    foreach ($c in ($noKey | Select-Object -First 25)) { Say $(if ($c.IsCa) { 'WARN' } else { 'INFO' }) ("No private key in the backup for {0}{1}   ({2}) - it was signed from a request: the key stays with the requester" -f $(if ($c.IsCa) { 'the CA certificate ' } else { 'the certificate ' }), $c.Subject, $c.Files[0]) }
+    if ($noKey.Count -gt 25) { Say 'INFO' "... and $($noKey.Count - 25) more" }
+    if (@($noKey | Where-Object { $_.IsCa }).Count -gt 0) { Say 'WARN' 'A CA certificate without its key cannot issue after a restore (a CA signed by SignExternalCa keeps its key in the other department; or a deleted key).' }
+}
+Say 'INFO' "Backup folder: $backupDir$(if (-not (Test-Path -LiteralPath $backupDir)) { '  (will be created)' })"
+if ($Check) { Say 'INFO' '-Check: nothing was written, no password was asked.'; exit 0 }
+
+# ---------------------------------------------------------------- password: no password, no process
+$password = Read-BkNewPassword
+
+# ---------------------------------------------------------------- build
+$stamp = (Get-Date).ToString('yyyyMMdd')
+$stem = "pki-payload-$stamp-$(Get-BkComputerName)-$($os.Slug)-$(Get-BkShortId)"
+$work = New-BkTempDirectory 'pkibackup-make'
+try {
+    [void][System.IO.Directory]::CreateDirectory($backupDir)
+    $zipPath = Join-Path $backupDir "$stem.zip"
+    if (Test-Path -LiteralPath $zipPath) { Stop-Bk "The backup file exists already: $zipPath (run again for a new unique name)." 1 }
+
+    $files = foreach ($i in $items) { $h = Get-BkHash -Path $i.Source; [ordered]@{ path = $i.Entry; sha256 = $h.Sha256; size = ([System.IO.FileInfo]::new($i.Source)).Length } }
+    $manifest = [ordered]@{
+        format = $script:BkFormat; formatVersion = $script:BkFormatVersion
+        createdUtc = [DateTime]::UtcNow.ToString('o'); generator = "Backup-Pki.ps1 $($script:BkVersion)"
+        source = [ordered]@{ computer = [Environment]::MachineName; os = $os.Text; osSlug = $os.Slug; pkiRoot = $PkiRoot }
+        archive = [ordered]@{ format = 'zip'; encryption = 'AES-256 (WinZip AE-2)' }
+        pkiFolders = @($pkis); pki = @($pkiInfo)
+        keyCheck = [ordered]@{ checked = (-not $inv.NoOpenSsl); certificates = $uniq.Count; withPrivateKey = @($uniq | Where-Object { $_.HasKey }).Count; caCertificates = $caAll.Count; caWithoutKey = @($noKey | Where-Object { $_.IsCa } | ForEach-Object { $_.Subject }) }
+        directories = @($dirList); fileCount = $items.Count; privateKeyFiles = $keyCount
+        files = @($files)
+    }
+    $gen = Join-Path $work 'gen'; [void][System.IO.Directory]::CreateDirectory($gen)
+    $jsonF = Join-Path $gen 'certpack.json'; Write-BkTextFile $jsonF ($manifest | ConvertTo-Json -Depth 6)
+    $sums = [System.Text.StringBuilder]::new()
+    foreach ($f in $files) { [void]$sums.Append("$($f.sha256)  $($f.path)`n") }
+    $sumF = Join-Path $gen 'SHA256SUMS'; Write-BkTextFile $sumF $sums.ToString()
+    $innerReadme = @"
+# ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OU (NextMantra)
+# Email  : nicko@nextmantra.com
+# ============================================================
+PKI BACKUP (inside the .certpacked)  -  Backup-Pki.ps1 version $($script:BkVersion)
+Created : $([DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) UTC on $([Environment]::MachineName) ($($os.Text))
+Content : $($items.Count) files from $PkiRoot  -  folders: $($pkis -join ', ')
+THIS ARCHIVE CONTAINS PRIVATE KEYS. Open it only with Restore-Pki.ps1, or with 7-Zip (rename to .zip). Every file is listed with its SHA-256 in certpack.json and SHA256SUMS.
+"@
+    $irF = Join-Path $gen 'README.txt'; Write-BkTextFile $irF ($innerReadme + "`n")
+
+    $packList = [System.Collections.Generic.List[hashtable]]::new()
+    foreach ($x in @(@($jsonF, 'certpack.json'), @($sumF, 'SHA256SUMS'), @($irF, 'README.txt'))) { [void]$packList.Add(@{ Source = $x[0]; Entry = $x[1] }) }
+    foreach ($i in $items) { [void]$packList.Add(@{ Source = $i.Source; Entry = $i.Entry }) }
+
+    $stage = Join-Path $work $stem; [void][System.IO.Directory]::CreateDirectory($stage)
+    $cp = Join-Path $stage "$stem.certpacked"
+    Say 'INFO' 'Packing and encrypting (AES-256) ...'
+    New-PkiAesZipArchive -Path $cp -Files $packList -Password $password -Encryption Aes256
+    Say 'INFO' 'Checking the .certpacked: decrypting every file again ...'
+    [void](Expand-PkiArchive -Path $cp -Password $password)        # decrypts and authenticates every entry
+    Say 'OK' ("{0}.certpacked  ({1:N0} KB, {2} files)" -f $stem, (([System.IO.FileInfo]::new($cp)).Length / 1KB), $items.Count)
+
+    # the tools next to the .certpacked
+    $tools = foreach ($n in 'Restore-Pki.ps1', 'Test-PkiBackup.ps1', 'Backup-Pki.ps1', 'Prepare-Computer.ps1') {
+        $src = $null
+        foreach ($c in (Join-Path $PSScriptRoot $n), (Join-Path (Join-Path $PSScriptRoot 'trustkit') $n)) { if (-not $src -and (Test-Path -LiteralPath $c)) { $src = $c } }
+        if (-not $src) { Stop-Bk "$n was not found next to this script (or in trustkit\). The backup zip would be incomplete. Nothing was kept." 1 }
+        [pscustomobject]@{ Name = $n; Source = $src }
+    }
+    foreach ($t in $tools) { Copy-Item -LiteralPath $t.Source -Destination (Join-Path $stage $t.Name) -Force }
+
+    $outer = @"
+# ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OU (NextMantra)
+# Email  : nicko@nextmantra.com
+# ============================================================
+PKI BACKUP  -  $stem
+Version : $($script:BkVersion)   (made by Backup-Pki.ps1)
+Created : $([DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) UTC on $([Environment]::MachineName)   $($os.Text)
+Content : $($items.Count) files, $($pkis.Count) PKI folder(s): $($pkis -join ', ')
+Keys    : private key in the backup for $(@($uniq | Where-Object { $_.HasKey }).Count) of $($uniq.Count) certificates (all roots, intermediates and profiles)
+Security: the .certpacked is encrypted with AES-256 and holds PRIVATE KEYS (root and issuing CAs). The password is stored nowhere.
+          Keep this zip and the password in two different safe places.
+
+FILES
+  $stem.certpacked   the encrypted backup (a password-protected zip: rename to .zip to open it with 7-Zip)
+  SHA256SUMS, SHA512SUMS   checksums of every other file in this folder
+  Restore-Pki.ps1    puts the backup back
+  Test-PkiBackup.ps1 checks that the files are unchanged (checksums); -Deep also decrypts the .certpacked
+  Backup-Pki.ps1     makes a new backup (needs the PKI project folder: -PkiRoot)
+  (each script is standalone: it needs no other .ps1)
+  Prepare-Computer.ps1  installs PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8 and 10 and puts them on the PATH
+
+HOW TO RESTORE   (Windows 11 Home/Pro 24H2+ or Windows Server 2025, Intel/AMD 64 bit, Administrator window)
+  1. Unzip this zip. Open Windows PowerShell as Administrator in the unzipped folder.
+  2. .\Prepare-Computer.ps1          (once per computer; then close the window)
+  3. Open a NEW Administrator window with  pwsh  in the same folder.
+  4. .\Test-PkiBackup.ps1            (are the files still valid?)
+  5. .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps     (asks for the password; refuses to overwrite an existing PKI unless -Force)
+  6. In the restored project folder:  .\pki_setup.ps1 -InstallTrust   (trusts the PKI again in the Windows stores)
+  Help of each script:  .\Restore-Pki.ps1 -Help   .\Test-PkiBackup.ps1 -Help   .\Backup-Pki.ps1 -Help
+"@
+    Write-BkTextFile (Join-Path $stage 'README.txt') ($outer + "`n")
+
+    # checksums of everything except the sum files
+    $s256 = [System.Text.StringBuilder]::new(); $s512 = [System.Text.StringBuilder]::new()
+    $hdr = "# Checksums of the files of $stem`n# Check them with Test-PkiBackup.ps1, or:  sha256sum -c SHA256SUMS  /  sha512sum -c SHA512SUMS`n# Author: Nicko Satria Utama - Company: Agantra Inovatif OU (NextMantra) - Email: nicko@nextmantra.com - Version $($script:BkVersion)`n"
+    [void]$s256.Append($hdr); [void]$s512.Append($hdr)
+    foreach ($f in @(Get-ChildItem -LiteralPath $stage -Recurse -File | Sort-Object FullName)) {
+        $rel = $f.FullName.Substring($stage.Length).TrimStart('\', '/') -replace '\\', '/'
+        $h = Get-BkHash -Path $f.FullName
+        [void]$s256.Append("$($h.Sha256)  $rel`n"); [void]$s512.Append("$($h.Sha512)  $rel`n")
+    }
+    Write-BkTextFile (Join-Path $stage 'SHA256SUMS') $s256.ToString()
+    Write-BkTextFile (Join-Path $stage 'SHA512SUMS') $s512.ToString()
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($stage, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $true)
+    $zh = Get-BkHash -Path $zipPath
+    Say 'OK' ("Backup zip: {0}  ({1:N0} KB)" -f $zipPath, (([System.IO.FileInfo]::new($zipPath)).Length / 1KB))
+    Say 'INFO' "SHA-256 of the zip : $($zh.Sha256)"
+    Say 'INFO' "SHA-512 of the zip : $($zh.Sha512)"
+    Write-Host ''
+    Say 'WARN' 'This backup contains PRIVATE KEYS. Keep the zip and the password apart, in two safe places. The password cannot be recovered.'
+    Say 'INFO' 'Next: copy the zip to another disk or computer. Check it later with Test-PkiBackup.ps1.'
+}
+finally { Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue }
+exit 0

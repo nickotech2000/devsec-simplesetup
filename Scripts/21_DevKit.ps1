@@ -117,7 +117,7 @@ function Copy-PkiDevKitTree {
         Copy-Item -LiteralPath $src -Destination $Kit -Force
     }
     $sc = Join-Path $Kit 'scripts'; Ensure-PkiDirectory -Path $sc
-    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -File | Where-Object { $_.Extension -eq '.ps1' }) { Copy-Item -LiteralPath $f.FullName -Destination $sc -Force }
+    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $Root 'scripts') -File | Where-Object { $_.Extension -eq '.ps1' -and $_.Name -ne 'PkiBackupCommon.ps1' }) { Copy-Item -LiteralPath $f.FullName -Destination $sc -Force }
     # the DevKit's own files (devkit\ in the project)
     $dk = Join-Path $Root 'devkit'
     if (-not (Test-Path -LiteralPath $dk -PathType Container)) { throw "DevKit: the folder $dk is missing." }

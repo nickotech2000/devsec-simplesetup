@@ -1,13 +1,31 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 5.2.6                      Updated: 2026-10-13
+ Version : 5.3.5                      Updated: 2026-10-14
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in PKI-Design-with-FIPS-and-PQC.txt (section 10);
            what to run to accept a version is in PKI-Acceptance-Checklists.txt.
  Rule    : major.minor.revision. A major update changes the architecture, a minor one adds a feature, a revision is a fix or any update not called major / minor.
 ====================================================================================================
 
+  5.3.5  2026-10-14  REVISION 5
+    + Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1 are STANDALONE: the shared code is built into each (no lib\ folder, no other .ps1 needed). Sources and builder in scripts\backup\ (10.139).
+    + Prepare-Computer.ps1 installs the .NET SDK 8 and the .NET SDK 10 (latest of each; -Only DotNet) and, for every program, FIRST asks the package manager for the latest version: the latest
+      already installed = nothing is installed; older = updated; missing = installed (10.140).
+    + Restore-Pki.ps1 checks ALL required software (PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8 and 10) and lists what is missing with "you need to run Prepare-Computer.ps1" (10.141).
+    + Restore-Pki.ps1 compares each PKI of the backup, one by one, with the pki folder (file by file, SHA-256) and the Local Machine certificate store (every CA certificate by thumbprint): a PKI that
+      is in the pki folder already, or whose CA certificates are all in the store, is not restored; only what is missing is restored; -Force restores anyway (old folder renamed) (10.142).
+    + Backup-Pki.ps1 matches every certificate with its private key (roots, intermediates, profile / leaf certificates and .pfx), stores the result in the backup (certpack.json "pki", "keyCheck") and warns
+      for a CA certificate without a key; Restore-Pki.ps1 prints it (10.143).
+  5.3.0  2026-10-14  MINOR UPDATE (backup and restore of the whole PKI)
+    + NEW Backup-Pki.ps1: the whole PKI (pki\, leafcerts\, external-ca\, csr-signed\, *_pki.cnf, pki_tools.cnf, devkit.env) into one password-protected .certpacked (AES-256) inside
+      backup-pki\pki-payload-<yyyymmdd>-<computer>-<windows-version>-<6 hex>.zip, with SHA256SUMS / SHA512SUMS, Restore-Pki.ps1, Test-PkiBackup.ps1, Backup-Pki.ps1, Prepare-Computer.ps1, README.txt (10.134, 10.135).
+    + NEW Restore-Pki.ps1 (refuses to overwrite; -Force renames; -Check; -RestrictAccess) and Test-PkiBackup.ps1 (checksums of the zip, -Deep decrypts) - three scripts, three different -Help (10.136).
+    + Password policy for backups: typed by the user, 12+ characters with upper, lower, digit, special; no password, no backup (10.135).
+    + Windows only, PowerShell only: Windows 11 Home / Pro 24H2+, Windows Server 2025 Essentials / Standard / Datacenter; Intel / AMD 64 bit only (ARM refused); Administrator PowerShell 7 only (10.137).
+    + Restore needs Prepare-Computer.ps1 to have been run (PowerShell 7, OpenSSL 4, Python 3 on the PATH) (10.137).
+    + Prepare-Computer.ps1 installs the latest PowerShell 7 too (winget Microsoft.PowerShell, Chocolatey powershell-core): -Only PowerShell (10.138).
+    + backup-pki/ in .gitignore. New manual docs\PkiBackup-MANUAL.txt; the shared code is scripts\PkiBackupCommon.ps1 (not a project module; copied into lib\ of every backup zip).
   5.2.6  2026-10-13  REVISION 4
     + NEW Prepare-Computer.ps1 / prepare-computer.sh (replace Install-OpenSsl.ps1 / install-openssl.sh): OpenSSL + the latest Python 3 from winget / Chocolatey (Windows) and apt / dnf / zypper (Linux) (10.129).
     + openssl and python are put on the PATH when installed but not found (Windows: Machine or User PATH in the registry, a newer OpenSSL goes in front of an older one; Linux: /etc/profile.d or ~/.profile) (10.130).

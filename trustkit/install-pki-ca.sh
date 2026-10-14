@@ -8,12 +8,12 @@
 PKI_PREFIX="__PKI_PREFIX__"      # written by New-PkiTrustKit.ps1; the files in the system store start with it
 PKI_TARGET="__PKI_TARGET__"      # ubuntu | redhat | suse  (auto = found from this machine)
 set -u
-VERSION="5.2.6"
+VERSION="5.3.5"
 
 usage() {
 cat <<'EOF'
 install-pki-ca.sh  -  install the CA certificates of the PKI on this Linux machine (Ubuntu / Debian, RHEL family, SUSE family)
-Version 5.2.6
+Version 5.3.5
 Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 
 WHAT IT DOES

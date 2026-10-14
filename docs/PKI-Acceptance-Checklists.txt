@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.2.6     2026-10-13
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.3.5     2026-10-14
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
@@ -340,6 +340,44 @@
  [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified", no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404).
  [ ] Word 365: sign a document: the Signature Details no longer say "Recoverable"; the server window shows the 200 lines.
  [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
+
+====================================================================================================
+ E34  Revision 5.3.5: standalone backup scripts, .NET 8 + 10, "latest already installed", one-by-one restore
+====================================================================================================
+ [ ] Copy ONLY Backup-Pki.ps1 (or Restore-Pki.ps1, Test-PkiBackup.ps1, Prepare-Computer.ps1) to an empty folder on a Windows 11 24H2+ PC: .\<script> -Help works and the script starts (no "lib\" or
+     "PkiBackupCommon.ps1 is missing" message). A backup zip holds the four scripts, README.txt, SHA256SUMS, SHA512SUMS and the .certpacked - no lib\ folder.
+ [ ] .\Prepare-Computer.ps1 -Check on a PC with everything current: every program says "is the latest version: nothing to install"; no winget install line. With an older .NET SDK 10 (or OpenSSL / Python):
+     "the latest version is x: it will be updated" and the winget command. On a PC without .NET: both SDKs are installed (`dotnet --list-sdks` shows 8.x and 10.x in a NEW window).
+ [ ] .\Restore-Pki.ps1 -Check on a PC missing one of PowerShell 7 / OpenSSL 4 / Python 3 / .NET SDK 8 / .NET SDK 10: EVERY missing item is listed, then "you need to run Prepare-Computer.ps1" (exit 4).
+ [ ] Restore on the PKI machine itself (the PKI is in pki\ and the CAs are in certlm.msc): each PKI is listed with "pki folder: there, all N files identical" and "in Local Machine store" lines;
+     "-> not restored"; "Nothing to restore", nothing changes. Restore into an empty folder on a PC where the CAs are NOT in certlm.msc: "will be restored"; files are written, every file matches.
+     On a PC where the CAs ARE in certlm.msc (Install-PkiCa / pki_setup -InstallTrust) but pki\ is empty: "all N CA certificates are in the Local Machine certificate store" -> not restored (only the
+     leafcerts / settings are written); with -Force the PKI folder (the keys) is restored. Change one byte of one file in pki\: "N identical, 1 different" -> left alone; -Force renames the folder.
+ [ ] Backup-Pki.ps1 prints "Certificates: n different (m CA: ... roots, ... intermediates); private key in the backup for k of them"; a CA made by SignExternalCa shows the WARN "no private key"; openssl x509 /
+     openssl pkey confirm that every root and intermediate key listed is in the zip's .certpacked (open it with 7-Zip). Restore-Pki.ps1 prints the same totals ("Private keys in this backup").
+ [ ] docs\PkiBackup-MANUAL.txt, PrepareComputer-MANUAL.txt, PKI-ChangeLog.txt (5.3.5), design decisions 10.139 - 10.143, README.md, START-HERE.txt; every file shows Version 5.3.5.
+
+====================================================================================================
+ E33  Minor 5.3.0: Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1, Prepare-Computer (PowerShell)
+====================================================================================================
+ [ ] Windows 11 Pro 24H2+ (and Home, Windows Server 2025 Standard), PowerShell 7 started as Administrator, in the project folder: .\Backup-Pki.ps1 -Check lists files, MB, key files and
+     PKI folders, writes nothing, asks nothing. .\Backup-Pki.ps1 -Help, .\Restore-Pki.ps1 -Help and .\Test-PkiBackup.ps1 -Help show three different texts, each with Version, Author, Company, Email.
+ [ ] .\Backup-Pki.ps1: press Enter (empty), then "abc", then "abcdefghijkl", "ABCDEFGHIJKL1", "Abcdefghijkl1" (no special) ... each shows EVERY missing rule and asks again; after three bad tries it ends
+     (exit 3), nothing written. "Abcdefghij1!" (12) is accepted, asked twice; two different entries = error. Then backup-pki\ exists (it was created) and holds
+     pki-payload-<yyyymmdd>-<computer>-windows-11-<24h2|25h2|26h2>-<6 hex>.zip (Server 2025: ...-windows-server-2025-...). The folder is not listed by `git status` (.gitignore).
+ [ ] Unzip it: <name>.certpacked, SHA256SUMS, SHA512SUMS, Restore-Pki.ps1, Test-PkiBackup.ps1, Backup-Pki.ps1, Prepare-Computer.ps1, lib\, README.txt. 7-Zip opens the .certpacked renamed to .zip with the password.
+ [ ] Gates (each: red ERROR, nothing done, exit code): a normal (non-elevated) pwsh = exit 2; Windows PowerShell 5.1 = "needs PowerShell 7" (exit 4); an ARM64 Windows 11 PC (or x64 pwsh on ARM) = exit 5;
+     Windows 11 Enterprise / Pro for Workstations / Education, Windows 11 23H2, Windows 10, Windows Server 2022 = exit 5; any of these also for Restore-Pki.ps1 and Test-PkiBackup.ps1.
+ [ ] .\Test-PkiBackup.ps1 in the unzipped folder: every line OK, exit 0. Add one character to Restore-Pki.ps1 (or flip a byte of the .certpacked): FAIL line for that file, exit 6.
+     -Backup .\backup-pki checks every zip; -Deep asks the password and says the password opens the .certpacked and all N files match; a wrong password = exit 3.
+ [ ] On a computer WITHOUT OpenSSL 4 / Python / PowerShell 7 on the PATH: .\Restore-Pki.ps1 -Destination C:\PKI-Test says what is missing and "Run .\Prepare-Computer.ps1 first" (exit 4).
+     .\Prepare-Computer.ps1 -Check lists PowerShell, OpenSSL, Python; without -Check it installs the latest PowerShell 7 (winget Microsoft.PowerShell), OpenSSL, Python; a NEW pwsh answers `pwsh --version`.
+     -Only PowerShell installs only PowerShell. Windows PowerShell 5.1 can run it.
+ [ ] After Prepare-Computer (new Administrator pwsh): .\Restore-Pki.ps1 -Destination C:\PKI-Test -Check = password right, "every file is valid", nothing written. Without -Check: files written,
+     "every file matches the backup"; compare with the original (fc /b, or Get-FileHash on pki\*). Empty folders (issued\) exist again. A second run without -Force = "These already exist" and nothing
+     changes; with -Force the old pki\ is renamed pki.before-restore-<time>. -RestrictAccess: `icacls C:\PKI-Test\pki` shows only Administrators and SYSTEM.
+ [ ] In the restored folder: .\pki_setup.ps1 -ListPki lists the PKIs; .\pki_setup.ps1 -InstallTrust trusts them again; GenerateLeafCertificate.ps1 -DnsName test.example.com still issues from the restored CAs.
+ [ ] docs\PkiBackup-MANUAL.txt, docs\PKI-ChangeLog.txt (5.3.0 on top), design decisions 10.134 - 10.138, README.md and START-HERE.txt describe the above; every file shows Version 5.3.0.
 
 ====================================================================================================
  E32  Revision 5.2.6: Prepare-Computer, PATH, request kind, PKI already installed

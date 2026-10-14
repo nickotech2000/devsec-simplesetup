@@ -4,7 +4,7 @@ A private, multi-level PKI for development and internal use, written in **PowerS
 It builds the CAs (classic RSA / ECDSA and post-quantum ML-DSA, FIPS and non-FIPS), issues TLS, code-signing, S/MIME, person and Office 365 certificates,
 runs CRL / OCSP / time stamping on Ubuntu, and gives your developers one zip that installs the trust and lets them ask for their own certificates on **Windows or Linux**.
 
-> **Version 5.2.6** · Author: Nicko Satria Utama · Company: Agantra Inovatif OÜ (NextMantra) · Email: nicko@nextmantra.com
+> **Version 5.3.5** · Author: Nicko Satria Utama · Company: Agantra Inovatif OÜ (NextMantra) · Email: nicko@nextmantra.com
 > What changed: [`docs/PKI-ChangeLog.txt`](docs/PKI-ChangeLog.txt) · Which file to read: [`docs/START-HERE.txt`](docs/START-HERE.txt)
 > The PKI itself (`pki/`, `leafcerts/`, every `*.key`, every `<company>_pki.cnf` except `agantra_pki.cnf`) is in `.gitignore` and never goes to Git.
 
@@ -24,6 +24,7 @@ On the machine that holds the PKI (PowerShell 7, OpenSSL 4.0.1+):
 .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com     # certificates, every format
 .\New-PkiTrustKit.ps1 -All -GeneratePassword                   # one zip per system for people who only need to trust the PKI
 .\PkiTransport.ps1 -DevKit -GeneratePassword                   # one zip for developers who also issue certificates
+.\Backup-Pki.ps1                                               # the whole PKI, password protected, into backup-pki\ (Windows, Administrator pwsh)
 ```
 
 Every script has `-Help` (PowerShell) or `--help` (shell). Version numbers are `major.minor.revision`; the zip is `PKI-DevSecOps-<yyyymmdd>-<version>.zip`.
@@ -32,7 +33,7 @@ Every script has `-Help` (PowerShell) or `--help` (shell). Version numbers are `
 
 | Person | Gets | Runs |
 |---|---|---|
-| **Owner of the PKI** | the project | `pki_setup`, `Generate*`, `SignCsr`, `PkiRevocation`, `New-PkiTrustKit`, `PkiTransport` |
+| **Owner of the PKI** | the project | `pki_setup`, `Generate*`, `SignCsr`, `PkiRevocation`, `New-PkiTrustKit`, `PkiTransport`, `Backup-Pki` |
 | **Developer** (issues certificates) | the DevKit zip | `Install-PkiTrust`, `Generate*`, `SignCsr`, `New-PkiCsr` |
 | **Tester / junior / customer** (only trusts the PKI) | a trust-kit zip for his system | `Install-PkiCa`, `Prepare-Computer`, `New-PkiCsr` |
 
@@ -43,7 +44,7 @@ already installed on the computer (Local Machine store, `ca-certificates`) or no
 
 | Step | Windows | Linux |
 |---|---|---|
-| 1. Get OpenSSL and Python, put them on the PATH (once) | `.\Prepare-Computer.ps1` | `./prepare-computer.sh` |
+| 1. Get OpenSSL and Python (Windows: PowerShell 7 and .NET SDK 8 + 10 too), put them on the PATH (once; what is the latest already is not installed again) | `.\Prepare-Computer.ps1` | `./prepare-computer.sh` |
 | 2. Make the key and the request, step by step | `.\New-PkiCsr.ps1` | `./new-pki-csr.sh` |
 | 3. Send **only the `.csr`** to the owner of the PKI | | |
 | 4. The owner signs it (the level follows the request) | `.\SignCsr.ps1 -Csr x.csr` | `./SignCsr.sh --csr x.csr` |
@@ -70,6 +71,7 @@ RSA below 2048, weak curves and hashes below SHA-256 are refused by the request 
 | Move the PKI, DevKit | `PkiTransport.ps1`, `Unpack-PkiTransport.ps1`, `linux/pki-transport.sh` | `PkiTransport-MANUAL.txt`, `DevKit-MANUAL.txt` |
 | CRL / OCSP / TSA server on Ubuntu | `New-PkiServerPackage.ps1`, `linux/pki-server/pki-server.sh` | `PKI-SERVER-MANUAL.txt` |
 | Prepare a computer | `Install-DevEnvironment.ps1` / `.sh` (full project), `Prepare-Computer.ps1` / `.sh` (destination) | `Install-DevEnvironment-MANUAL.txt`, `PrepareComputer-MANUAL.txt` |
+| Back up / restore the whole PKI (password protected, Windows only) | `Backup-Pki.ps1`, `Restore-Pki.ps1`, `Test-PkiBackup.ps1` | `PkiBackup-MANUAL.txt` |
 | Delete a PKI | `pki_remove.ps1` | `-Help` |
 
 ## Several companies
@@ -94,6 +96,7 @@ Every build is a folder of `pki/`: `pki-default-01`, `pki-default-02`, `pki-defa
 
 | | Version |
 |---|---|
+| Backup / restore scripts | Windows 11 Home / Pro 24H2+, Windows Server 2025 Essentials / Standard / Datacenter; Intel / AMD 64 bit only (ARM refused); Administrator PowerShell 7; `Prepare-Computer.ps1` run before a restore (restore checks PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8 and 10). The scripts are standalone; the restore skips every PKI that is in the pki folder or in the Local Machine store already |
 | PowerShell (project scripts) | 7.0+; the destination scripts (`New-PkiCsr`, `Prepare-Computer`, `Install-PkiCa`, `Remove-PkiCa`) also run on Windows PowerShell 5.1 |
 | OpenSSL | 4.0.1+ to build and issue (tested 4.0.1 – 4.0.3). Destination: 3.x or 4.x (ML-DSA needs 3.5+) |
 | Windows | Windows 11 24H2+, Windows Server 2025, Windows Server 2022 (classic track only). Refused (exit 5): Windows 10 and earlier, Windows 11 before 24H2, Server before 2022, Chinese / Government / IoT / SE / Embedded editions |
@@ -110,12 +113,13 @@ All text files are in [`docs/`](docs/); start with `START-HERE.txt`.
 | `PKI-Design-with-FIPS-and-PQC.txt` | design and every decision |
 | `PKI-Acceptance-Checklists.txt` | what to run on your machines |
 | `NewPkiCsr-MANUAL.txt` · `PrepareComputer-MANUAL.txt` · `PkiTrustKit-MANUAL.txt` | the destination side |
+| `PkiBackup-MANUAL.txt` | backup and restore of the whole PKI |
 | `pki_setup-MANUAL.txt` · `PkiProfiles-MANUAL.txt` · the three `Generate…-MANUAL.txt` · `SignCsr-MANUAL.txt` · `SignExternalCa-MANUAL.txt` · `PkiRevocation-MANUAL.txt` | the owner's side |
 | `DevKit-MANUAL.txt` · `PkiTransport-MANUAL.txt` · `Install-DevEnvironment-MANUAL.txt` | kits, transport, bootstrap |
 | `PKI-SERVER-MANUAL.txt` · `PKI-Server-Design.txt` · `PUBLIC-CA-ENTERPRISE-ROOT.txt` | the Ubuntu server; a public CA over the Enterprise Root |
 | `scripts-README.txt` · `linux-README.txt` | PowerShell modules; shell scripts |
 
-Folders: `scripts/` modules · `devkit/` source of the DevKit · `trustkit/` the standalone destination scripts · `linux/` shell scripts and the server · `docs/` everything above.
+Backups go to `backup-pki/` (in `.gitignore`, holds private keys). Folders: `scripts/` modules · `devkit/` source of the DevKit · `trustkit/` the standalone destination scripts · `linux/` shell scripts and the server · `docs/` everything above.
 
 ## Security
 
@@ -126,8 +130,8 @@ Folders: `scripts/` modules · `devkit/` source of the DevKit · `trustkit/` the
 
 ## Status and testing
 
-Built and tested on Ubuntu 24.04 with PowerShell 7 and OpenSSL 4.0.3: PKI build, all generators, transport, DevKit, trust kits, request maker → signing → verification against the system store.
+Built and tested on Ubuntu 24.04 with PowerShell 7 and OpenSSL 4.0.3: PKI build, all generators, transport, DevKit, trust kits, request maker → signing → verification against the system store, backup → check → restore (identical files; the Windows checks simulated).
 **Not tested on real systems:** Windows 11 / Server (certificate stores, winget and Chocolatey installs, PATH changes in the registry, `icacls`, Windows PowerShell 5.1; the platform gate was only simulated with `PKI_FAKE_OS`),
-Linux distributions other than Ubuntu (simulated with `PKI_OS_RELEASE_FILE`), systemd / nginx on a real server. What to run on your machines: `docs/PKI-Acceptance-Checklists.txt`.
+the real Windows checks of Backup / Restore (version names, ARM, Administrator, `icacls`), Linux distributions other than Ubuntu (simulated with `PKI_OS_RELEASE_FILE`), systemd / nginx on a real server. What to run on your machines: `docs/PKI-Acceptance-Checklists.txt`.
 
 Author: Nicko Satria Utama · Company: Agantra Inovatif OÜ (NextMantra) · Email: nicko@nextmantra.com

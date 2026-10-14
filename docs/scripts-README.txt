@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 5.2.6      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.5      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -209,3 +209,5 @@ NoCR / release words, PQC short label                  agantra_pki.cnf [ ca_name
 5.2.2 scripts\22_CsrSigning.ps1: Get-PkiCsrAutoLevel (the level follows the request), the development-SAN marker, PEN policies, serialNumber in OV; trustkit\ also holds New-PkiCsr.ps1 / new-pki-csr.sh and Prepare-Computer.ps1 / prepare-computer.sh (standalone, copied into the trust-kit zips, the DevKit and the transport kit).
 
 5.1.0 trustkit\: Install-PkiCa.ps1 / install-pki-ca.sh (install every PKI of the .certpacked, write the list of what was installed), Remove-PkiCa.ps1 / remove-pki-ca.sh (NEW: remove by company, all, or organization), selfextract templates. New-PkiTrustKit.ps1 builds the single multi-PKI .certpacked itself (no PkiTransport.ps1 -Pack call any more).
+
+5.3.5 scripts\backup\: the SOURCE of Backup-Pki.ps1, Restore-Pki.ps1 and Test-PkiBackup.ps1 (*.src.ps1), PkiBackupCommon.ps1 (gate, password policy, hashes, requirement check, certificate / key inventory, Local Machine store) and Build-BackupScripts.ps1. The builder pastes PkiBackupCommon.ps1 and the zip engine of 16_CertPack.ps1 into each source and writes the three finished, STANDALONE scripts to the project root (they need no other .ps1). Edit the sources, run  pwsh -File .\scripts\backup\Build-BackupScripts.ps1 , never edit the three root scripts by hand. Not in the module catalog (PkiModules.ps1). See PkiBackup-MANUAL.txt

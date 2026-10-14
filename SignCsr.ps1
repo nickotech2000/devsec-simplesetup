@@ -64,7 +64,7 @@ function Show-SignCsrHelp {
     @'
 ============================================================
  SignCsr.ps1 - sign the certificate request (CSR) of another department with our PKI
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

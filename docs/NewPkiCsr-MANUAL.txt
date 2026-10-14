@@ -1,6 +1,6 @@
 ====================================================================================================
  New-PkiCsr.ps1 / new-pki-csr.sh  -  ask the PKI for a certificate: make your key and your request (CSR)
- Version 5.2.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.5          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
 1. WHAT IT IS FOR
@@ -11,7 +11,7 @@
    change the certificate stores. When the trust kit installed the PKI they say so ("PKI already installed on this computer: agantra").
 
 2. THE SHORT WAY
-      Windows     .\Prepare-Computer.ps1            (once: OpenSSL + Python + PATH)        .\New-PkiCsr.ps1
+      Windows     .\Prepare-Computer.ps1            (once: PowerShell 7 + OpenSSL + Python + PATH)        .\New-PkiCsr.ps1
       Linux       ./prepare-computer.sh               (once)                                 ./new-pki-csr.sh
    Answer the questions. Press Enter to skip an optional one. The folder csr-requests\<name>_<date-time>\ holds:
       <name>.key          your private key - KEEP IT SECRET             <name>.csr      the request - send THIS file

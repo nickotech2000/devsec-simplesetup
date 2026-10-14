@@ -1,7 +1,7 @@
 ====================================================================================================
  DevKit  -  USER MANUAL   (PkiTransport.ps1 -DevKit: one zip for the developers)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI                    Version 5.2.6                    2026-10-13
+ Agantra Inovatif Enterprise PKI                    Version 5.3.5                    2026-10-13
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PkiTransport-MANUAL.txt     (the .certpacked, -Pack, -Install)
           GenerateLeafCertificate-MANUAL.txt  GeneratePersonLeafCertificate-MANUAL.txt  GenerateOffice365LeafCertificate-MANUAL.txt  SignCsr-MANUAL.txt
@@ -240,7 +240,7 @@
  ---- Install-PkiTrust.ps1 -Help ----------------------------------------------------------------
 ============================================================
  Install-PkiTrust.ps1 - DevKit installer for Windows
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -270,7 +270,7 @@ EXIT  0 ok   other: see the message (not Windows 11 25H2+, not elevated, wrong p
  ---- Install-PkiTrust.sh --help ----------------------------------------------------------------
 ============================================================
  Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -298,7 +298,7 @@ OPTIONS
  ---- Make-ShExecutable.ps1 -Help ---------------------------------------------------------------
 ============================================================
  Make-ShExecutable.ps1 - make the .sh files executable (Windows developers)
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -321,7 +321,7 @@ make-executable.sh [folder]     folder = this script's folder by default
  ---- GenerateLeafCertificate.sh --help ---------------------------------------------------------
 ============================================================
  GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu)
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -375,7 +375,7 @@ Certificates made from a DevKit copy are NOT in the CRL / OCSP database of the m
  ---- GeneratePersonLeafCertificate.sh --help ---------------------------------------------------
 ============================================================
  GeneratePersonLeafCertificate.sh - person certificates from a JSON file (Linux / Ubuntu, DevKit)
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -405,7 +405,7 @@ Output: leafcerts/persons/<folder>/  (.crt .key .pub .pfx -chain -fullchain pers
  ---- GenerateOffice365LeafCertificate.sh --help ------------------------------------------------
 ============================================================
  GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux / Ubuntu, DevKit)
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -433,7 +433,7 @@ OPTIONS
  ---- SignCsr.sh --help -------------------------------------------------------------------------
 ============================================================
  SignCsr.sh - sign the certificate request (CSR) of another department with our PKI
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

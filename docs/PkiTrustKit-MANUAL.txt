@@ -1,6 +1,6 @@
 ====================================================================================================
  Trust kits  -  the CA certificates of the PKI (no key) + small standalone scripts, one zip per system
- Version 5.2.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.5          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
 1. WHAT IT IS, WHO IT IS FOR
@@ -19,7 +19,7 @@
 
 3. WHAT IS IN EVERY ZIP
    Windows zip     Install-PkiCa.ps1      install the PKI                       Remove-PkiCa.ps1     take a PKI away again
-                   New-PkiCsr.ps1         make a key + request step by step     Prepare-Computer.ps1 install OpenSSL + Python, put them on the PATH      + the .certpacked
+                   New-PkiCsr.ps1         make a key + request step by step     Prepare-Computer.ps1 install PowerShell 7 + .NET SDK 8 and 10 (Windows) + OpenSSL + Python, put them on the PATH      + the .certpacked
    Linux zips      install-pki-ca.sh      remove-pki-ca.sh      new-pki-csr.sh      prepare-computer.sh                                                      + the .certpacked
    All scripts are standalone: no other file of the project, no OpenSSL needed for the installers. The certificate request tools are described in NewPkiCsr-MANUAL.txt and
    PrepareComputer-MANUAL.txt. They work whether or not the PKI is installed on the computer.

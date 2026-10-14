@@ -28,7 +28,7 @@ if ($Help) {
 @'
 ============================================================
  Setup-GitRepo.ps1 - make the private GitHub repository clone-and-run on Ubuntu / WSL
- Version 5.2.6     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.5     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
 WHY
   Windows git does not know the Unix execute bit: a new .sh is stored with mode 100644 and a Linux clone gets files that cannot be

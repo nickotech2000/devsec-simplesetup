@@ -42,13 +42,13 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$script:Version = '5.2.6'
+$script:Version = '5.3.5'
 
 if ($Help) {
 @'
 ============================================================
  New-PkiTrustKit.ps1 - trust kits (CA certificates + a standalone installer) for Windows, Ubuntu, Red Hat family, SUSE family
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
 ============================================================
 FOR WHOM
@@ -59,7 +59,7 @@ WHAT YOU GET (in a new folder with a unique name inside .\transport\)
   transport\pki-trust-<pki-name>-<unique>-<date>-<time>\
       windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  Remove-PkiCa.ps1  New-PkiCsr.ps1  Prepare-Computer.ps1  +  <name>.certpacked  (AES-256)
       ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  remove-pki-ca.sh  new-pki-csr.sh  prepare-computer.sh  +  <name>.certpacked  (ZipCrypto, see below)
-      (Certificate request tools: New-PkiCsr.ps1 / new-pki-csr.sh make a key and a certificate request step by step; Prepare-Computer.ps1 / prepare-computer.sh install OpenSSL and Python and put them on the PATH. Manual: docs\NewPkiCsr-MANUAL.txt)
+      (Certificate request tools: New-PkiCsr.ps1 / new-pki-csr.sh make a key and a certificate request step by step; Prepare-Computer.ps1 / prepare-computer.sh install (PowerShell 7 on Windows,) OpenSSL and Python and put them on the PATH. Manual: docs\NewPkiCsr-MANUAL.txt)
       redhat-pki-...zip     suse-pki-...zip                 the same for the Red Hat family and the SUSE family
       PASSWORD.txt                                          the password of the .certpacked (send it by ANOTHER way than the zips)
       README.txt                                            what to tell the people
@@ -474,7 +474,7 @@ try {
         [void]$lines.Add('')
     }
     [void]$lines.Add('Check only (changes nothing):  Windows  .\Install-PkiCa.ps1 -Check     Linux  bash install-pki-ca.sh --check')
-    [void]$lines.Add('Certificate request:  Windows  .\Prepare-Computer.ps1 (once: OpenSSL + Python + PATH), then .\New-PkiCsr.ps1     Linux  bash prepare-computer.sh (once: OpenSSL + Python + PATH), then bash new-pki-csr.sh   - send ONLY the .csr to the owner of the PKI.')
+    [void]$lines.Add('Certificate request:  Windows  .\Prepare-Computer.ps1 (once: PowerShell 7 + OpenSSL + Python + PATH), then .\New-PkiCsr.ps1     Linux  bash prepare-computer.sh (once: PowerShell 7 + OpenSSL + Python + PATH), then bash new-pki-csr.sh   - send ONLY the .csr to the owner of the PKI.')
     [void]$lines.Add('Remove:  Windows  .\Remove-PkiCa.ps1 -List | -Pki <name> | -All     Linux  bash remove-pki-ca.sh --list | --pki <name> | --all   (add -Check / --check to only show)')
     [System.IO.File]::WriteAllText((Join-Path $runDir 'README.txt'), ($hdr + ($lines -join "`n") + "`n"), $utf8)
 }

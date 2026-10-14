@@ -1,6 +1,6 @@
 ====================================================================================================
  START HERE  -  which file for which job
- Version 5.2.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 5.3.5          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
  Every script has a short help:  -Help (PowerShell)  or  --help (shell). The manuals below say the same with more examples. README.md in the project root is the front page.
@@ -10,10 +10,11 @@
    Sign what others send me ............ SignCsr-MANUAL.txt (servers, people, code: LEAF requests)   SignExternalCa-MANUAL.txt (a CA of a department: CA requests)
    Revoke, CRL, OCSP, time stamping .... PkiRevocation-MANUAL.txt, PKI-SERVER-MANUAL.txt
    Give it to other people ............. PkiTrustKit-MANUAL.txt (trust only)   DevKit-MANUAL.txt (also issue)   PkiTransport-MANUAL.txt (the .certpacked)
+   Back up / restore the whole PKI ..... PkiBackup-MANUAL.txt   (Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1; Windows only, Administrator PowerShell 7; each script standalone)
 
  I RECEIVED A TRUST KIT OR A DEVKIT
    Trust the PKI on my computer ........ PkiTrustKit-MANUAL.txt   (DevKit: DevKit-MANUAL.txt)
-   Get OpenSSL and Python ready ........ PrepareComputer-MANUAL.txt
+   Get PowerShell 7, OpenSSL, Python ... PrepareComputer-MANUAL.txt
    Ask for my own certificate .......... NewPkiCsr-MANUAL.txt   (a server / person certificate, or the certificate of a new intermediate CA)
 
  I WANT TO KNOW WHY, OR WHAT CHANGED

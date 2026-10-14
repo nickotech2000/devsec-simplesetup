@@ -6,7 +6,7 @@
 # Run:  bash __SHNAME__   (or  chmod +x  and  ./__SHNAME__ ). It unpacks the zip that is appended to this file into the CURRENT folder
 # (or --dir FOLDER). It only extracts. The PKI is installed afterwards by the script that comes out:  bash install-pki-ca.sh
 SKIP=__SKIP__
-echo "[INFO] self-extract version 5.2.6" >&2
+echo "[INFO] self-extract version 5.3.5" >&2
 DEST="$PWD"
 while [ $# -gt 0 ]; do
   case "$1" in

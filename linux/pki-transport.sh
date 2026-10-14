@@ -35,12 +35,12 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.2.6"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="5.3.5"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
 
-VERSION="5.2.6"
+VERSION="5.3.5"
 PREFIX_NAME="agantra-pki-"                 # every file this script puts in the system store starts with this
 OSSL_MIN_MAJOR=4; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=1
 OSSL_BUILD_VERSION="4.0.3"                 # the version --install-openssl builds
@@ -51,7 +51,7 @@ usage() {
 cat <<'EOF'
 ============================================================
  pki-transport.sh - DESTINATION script for Linux (macOS is refused since 5.0.0)
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

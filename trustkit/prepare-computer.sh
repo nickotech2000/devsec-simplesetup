@@ -27,17 +27,17 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    echo "[INFO] $(basename "$0") version 5.2.6" >&2
+    echo "[INFO] $(basename "$0") version 5.3.5" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="5.2.6"
+VERSION="5.3.5"
 
 show_help() {
 cat <<'EOF'
 ============================================================
  prepare-computer.sh - get this Linux computer ready: OpenSSL + the latest Python 3, both on the PATH
- Version 5.2.6
+ Version 5.3.5
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
