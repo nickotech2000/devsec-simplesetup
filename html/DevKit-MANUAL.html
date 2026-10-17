@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.1">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
 <meta name="description" content="One zip for a developer: trust plus the tools to issue certificates.">
 <title>DevKit - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.1</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -175,7 +175,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  You need     : A PKI to pack.
  Start with   : Owner: section 5. Developer: section 6 (Windows) or Ubuntu steps.
  Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI                    Version 6.4.1                     2026-10-17
+<div class="code"><pre> Agantra Inovatif Enterprise PKI                    Version 6.4.3                     2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Related: <a href="PkiTransport-MANUAL.html">PkiTransport-MANUAL.txt</a>     (the .certpacked, -Pack, -Install)
           <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>  <a href="GeneratePersonLeafCertificate-MANUAL.html">GeneratePersonLeafCertificate-MANUAL.txt</a>  <a href="GenerateOffice365LeafCertificate-MANUAL.html">GenerateOffice365LeafCertificate-MANUAL.txt</a>  <a href="SignCsr-MANUAL.html">SignCsr-MANUAL.txt</a>
@@ -420,9 +420,9 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    Both scripts have -Help / --help and the manual <a href="Install-DevEnvironment-MANUAL.html">Install-DevEnvironment-MANUAL.txt</a>.
    Install-PkiTrust.ps1 -InstallMissing / Install-PkiTrust.sh --install-openssl call the same logic.</pre></div>
 <h2 id="14-the-help-help-texts-of-the-kit-scripts">14  THE -HELP / --HELP TEXTS OF THE KIT SCRIPTS<a class="anchor" href="#14-the-help-help-texts-of-the-kit-scripts" aria-label="Link to this section">#</a></h2>
-<p>(The PowerShell generators&#39; -Help texts are in their own manuals: <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a> section 13, <a href="GeneratePersonLeafCertificate-MANUAL.html">GeneratePersonLeafCertificate-MANUAL.txt</a>, <a href="GenerateOffice365LeafCertificate-MANUAL.html">GenerateOffice365LeafCertificate-MANUAL.txt</a>, <a href="PkiTransport-MANUAL.html">PkiTransport-MANUAL.txt</a>. Below: the scripts that exist only in the kit, identical to what they print.)</p>
+<p>(The PowerShell generators&#39; -Help texts are in their own manuals: <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a> section 17, <a href="GeneratePersonLeafCertificate-MANUAL.html">GeneratePersonLeafCertificate-MANUAL.txt</a>, <a href="GenerateOffice365LeafCertificate-MANUAL.html">GenerateOffice365LeafCertificate-MANUAL.txt</a>, <a href="PkiTransport-MANUAL.html">PkiTransport-MANUAL.txt</a>. Below: the scripts that exist only in the kit, identical to what they print.)</p>
 <h3 id="install-pkitrust-ps1-help">---- Install-PkiTrust.ps1 -Help ----------------------------------------------------------------<a class="anchor" href="#install-pkitrust-ps1-help" aria-label="Link to this section">#</a></h3>
-<p>Install-PkiTrust.ps1 - DevKit installer for Windows Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>Install-PkiTrust.ps1 - DevKit installer for Windows Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs\DevKit-MANUAL.txt     Linux twin: Install-PkiTrust.sh</pre></div>
 <div class="code"><pre>WHAT IT DOES
   1. Finds the .certpacked next to this script (or -Package) and asks for its password.
@@ -449,7 +449,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 EXIT  0 ok   other: see the message (not Windows 11 25H2+, not elevated, wrong password, OpenSSL
              missing)</pre></div>
 <h3 id="install-pkitrust-sh-help">---- Install-PkiTrust.sh --help ----------------------------------------------------------------<a class="anchor" href="#install-pkitrust-sh-help" aria-label="Link to this section">#</a></h3>
-<p>Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs/DevKit-MANUAL.txt     Windows twin: Install-PkiTrust.ps1</pre></div>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>USAGE   (run as your normal user: the script asks sudo only for the system store and for missing
         packages)
@@ -475,7 +475,7 @@ EXIT  0 ok   other: see the message (not Windows 11 25H2+, not elevated, wrong p
   --package FILE  --password-file FILE  --trust-only  --reset  --yes  --install-openssl  --skip-openssl-check  --openssl FILE
   --7z FILE  --trust roots|enterprise|all-ca|none  --version  --help</pre></div>
 <h3 id="make-shexecutable-ps1-help">---- Make-ShExecutable.ps1 -Help ---------------------------------------------------------------<a class="anchor" href="#make-shexecutable-ps1-help" aria-label="Link to this section">#</a></h3>
-<p>Make-ShExecutable.ps1 - make the .sh files executable (Windows developers) Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>Make-ShExecutable.ps1 - make the .sh files executable (Windows developers) Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs\DevKit-MANUAL.txt     Linux twin: make-executable.sh</pre></div>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\Make-ShExecutable.ps1                    all *.sh and lib\*.sh of this folder
  .\Make-ShExecutable.ps1 -Path &lt;folder&gt;     another folder (recursive)
@@ -486,7 +486,7 @@ make-executable.sh [folder]     folder = this script&#39;s folder by default
   1. CRLF -&gt; LF in every *.sh, *.py, *.env (sed; a CRLF script fails with  $&#39;\r&#39;: command not found)
   2. chmod +x on every *.sh</pre></div>
 <h3 id="generateleafcertificate-sh-help">---- GenerateLeafCertificate.sh --help ---------------------------------------------------------<a class="anchor" href="#generateleafcertificate-sh-help" aria-label="Link to this section">#</a></h3>
-<p>GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu) Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu) Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateLeafCertificate.ps1
  Needs  : bash, openssl 3.0+ (4.0.1+ recommended). The PKI must be installed first:
           ./Install-PkiTrust.sh</pre></div>
@@ -534,7 +534,7 @@ roots (chain, and no CRL / OCSP when you asked for none) before the script repor
 numbers are random 128-bit. Certificates made from a DevKit copy are NOT in the CRL / OCSP database
 of the master PKI: they are development certificates.</pre></div>
 <h3 id="generatepersonleafcertificate-sh-help">---- GeneratePersonLeafCertificate.sh --help ---------------------------------------------------<a class="anchor" href="#generatepersonleafcertificate-sh-help" aria-label="Link to this section">#</a></h3>
-<p>GeneratePersonLeafCertificate.sh - person certificates from a JSON file (Linux / Ubuntu, DevKit) Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>GeneratePersonLeafCertificate.sh - person certificates from a JSON file (Linux / Ubuntu, DevKit) Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs/DevKit-MANUAL.txt      Windows twin: GeneratePersonLeafCertificate.ps1</pre></div>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>USAGE
   ./GeneratePersonLeafCertificate.sh --example-file persons.json     write an example (5 made-up
@@ -561,7 +561,7 @@ of the master PKI: they are development certificates.</pre></div>
 Output: leafcerts/persons/&lt;folder&gt;/  (.crt .key .pub .pfx -chain -fullchain person-info.json) and a
         batch summary (.tsv).</pre></div>
 <h3 id="generateoffice365leafcertificate-sh-help">---- GenerateOffice365LeafCertificate.sh --help ------------------------------------------------<a class="anchor" href="#generateoffice365leafcertificate-sh-help" aria-label="Link to this section">#</a></h3>
-<p>GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux / Ubuntu, DevKit) Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux / Ubuntu, DevKit) Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateOffice365LeafCertificate.ps1</pre></div>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>USAGE
   ./GenerateOffice365LeafCertificate.sh --example-file office365.json
@@ -583,7 +583,7 @@ Output: leafcerts/persons/&lt;folder&gt;/  (.crt .key .pub .pfx -chain -fullchai
   --out DIR (default ./leafcerts)  --pfx-password TEXT  --openssl FILE  --help  --version
   --release N (default: the LATEST release of the PKI)  --no-ca-revocation-info (the NoCR family)</pre></div>
 <h3 id="signcsr-sh-help">---- SignCsr.sh --help -------------------------------------------------------------------------<a class="anchor" href="#signcsr-sh-help" aria-label="Link to this section">#</a></h3>
-<p>SignCsr.sh - sign the certificate request (CSR) of another department with our PKI Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>SignCsr.sh - sign the certificate request (CSR) of another department with our PKI Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs/SignCsr-MANUAL.txt  Design: docs/PKI-Design-with-FIPS-and-PQC.txt (10.72, section 20)
           The PowerShell twin: SignCsr.ps1 (same rules)
  Needs  : bash, openssl 3.0+ (4.0.1+ recommended; ML-DSA / Quantum needs 4.x), python3. The DevKit
@@ -674,7 +674,7 @@ HIS SIDE
    docs\Create-WebServerConfig-MANUAL.txt and docs\Sign-Code-MANUAL.txt
  Help: .\Create-WebServerConfig.ps1 -Help     ./Sign-Code.sh --help</pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PkiTrustKit-MANUAL.html"><small>&larr; Previous</small>Trust kit</a><a class="nx" href="PkiTransport-MANUAL.html"><small>Next &rarr;</small>Transport package</a></nav>
-<p class="crumb">Made from DevKit-MANUAL.txt by Build-HtmlDocs.ps1 6.4.1.</p>
+<p class="crumb">Made from DevKit-MANUAL.txt by Build-HtmlDocs.ps1 6.4.3.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-devkit-is-and-who-it-is-for">1  WHAT THE DEVKIT IS AND WHO IT IS FOR</a><a href="#2-making-the-devkit-the-lead-on-the-machine-with-the-pki-fol">2  MAKING THE DEVKIT  (the lead; on the machine with the pki folder)</a><a href="#3-what-is-inside-one-folder-its-name-the-zip-name">3  WHAT IS INSIDE  (one folder; its name = the zip name)</a><a href="#4-what-is-not-inside-keys">4  WHAT IS NOT INSIDE  (keys)</a><a href="#5-sending-it-to-the-developers">5  SENDING IT TO THE DEVELOPERS</a><a href="#6-windows-step-by-step-windows-11-25h2-or-newer-powershell-7">6  WINDOWS: STEP BY STEP  (Windows 11 25H2 or newer, PowerShell 7)</a><a href="#7-linux-ubuntu-step-by-step-copy-and-paste">7  LINUX / UBUNTU: STEP BY STEP  (copy and paste)</a><a href="#8-what-the-shell-generators-do-and-do-not-do">8  WHAT THE SHELL GENERATORS DO AND DO NOT DO</a><a href="#9-serial-numbers-revocation-and-the-keys-in-the-kit">9  SERIAL NUMBERS, REVOCATION, AND THE KEYS IN THE KIT</a><a href="#10-troubleshooting">10  TROUBLESHOOTING</a><a href="#11-limits-you-must-know">11  LIMITS YOU MUST KNOW</a><a href="#12-signing-the-request-csr-of-a-colleague-signcsr-ps1-signcs">12  SIGNING THE REQUEST (CSR) OF A COLLEAGUE: SignCsr.ps1 / SignCsr.sh</a><a href="#13-preparing-the-machine-openssl-4-0-3-and-the-path-install">13  PREPARING THE MACHINE: OPENSSL 4.0.3 AND THE PATH  (Install-DevEnvironment.ps1 / .sh, independent of everything else in the kit)</a><a href="#14-the-help-help-texts-of-the-kit-scripts">14  THE -HELP / --HELP TEXTS OF THE KIT SCRIPTS</a><a class="l3" href="#install-pkitrust-ps1-help">---- Install-PkiTrust.ps1 -Help ----------------------------------------------------------------</a><a class="l3" href="#install-pkitrust-sh-help">---- Install-PkiTrust.sh --help ----------------------------------------------------------------</a><a class="l3" href="#make-shexecutable-ps1-help">---- Make-ShExecutable.ps1 -Help ---------------------------------------------------------------</a><a class="l3" href="#generateleafcertificate-sh-help">---- GenerateLeafCertificate.sh --help ---------------------------------------------------------</a><a class="l3" href="#generatepersonleafcertificate-sh-help">---- GeneratePersonLeafCertificate.sh --help ---------------------------------------------------</a><a class="l3" href="#generateoffice365leafcertificate-sh-help">---- GenerateOffice365LeafCertificate.sh --help ------------------------------------------------</a><a class="l3" href="#signcsr-sh-help">---- SignCsr.sh --help -------------------------------------------------------------------------</a><a class="l3" href="#exit-codes-0-ok-1-error-2-the-request-does-not-follow-the-sp">EXIT CODES   0 ok   1 error   2 the request does not follow the spec</a><a href="#the-server-kit-inside-the-devkit-4-9-5">THE SERVER KIT INSIDE THE DEVKIT  (4.9.5)</a><a href="#certificate-request-tools-in-the-devkit-5-2-2">CERTIFICATE REQUEST TOOLS IN THE DEVKIT  (5.2.2)</a><a href="#new-in-6-3-6-web-server-and-code-signing-tools">NEW IN 6.3.6: WEB SERVER AND CODE SIGNING TOOLS</a></aside>
@@ -684,7 +684,7 @@ HIS SIDE
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.1</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

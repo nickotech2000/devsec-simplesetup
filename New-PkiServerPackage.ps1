@@ -35,14 +35,14 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$script:Version = '6.4.1'
+$script:Version = '6.4.3'
 $root = $PSScriptRoot
 
 function Show-PackageHelp {
     @'
 ============================================================
  New-PkiServerPackage.ps1 - the PKI + the Linux scripts as ONE zip for Ubuntu 24.04 / 26.04
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email:
                                  nicko@nextmantra.com
 ============================================================
@@ -297,7 +297,7 @@ Get-ChildItem -LiteralPath $linuxDir -Recurse -File -Force | ForEach-Object {
 $cn = $profile.ConfigPath
 if ($CrlOnly) { }
 elseif (Test-Path -LiteralPath $cn) { Add-File -Path $cn -Name "$RootName/$(Split-Path -Leaf $cn)" } else { Write-Msg "not found, not packed: $cn" 'WARN' }
-# 6.4.1: the web server configuration generator (nginx / Apache, Ubuntu and RHEL style) goes into every package
+# 6.4.2: the web server configuration generator (nginx / Apache, Ubuntu and RHEL style) goes into every package
 foreach ($wf in 'Create-WebServerConfig.sh', 'Create-WebServerConfig.ps1') {
     $wp = Join-Path $root $wf
     if (Test-Path -LiteralPath $wp -PathType Leaf) { Add-File -Path $wp -Name "$RootName/$wf" } else { Write-Msg "not found, not packed: $wf" 'WARN' }

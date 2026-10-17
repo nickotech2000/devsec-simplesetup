@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 6.4.1      2026-10-17
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 6.4.3      2026-10-17
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt  Manuals: pki_setup-MANUAL.txt,
@@ -489,6 +489,32 @@
  Signature Details no longer say "Recoverable"; the server window shows the 200 lines. [ ] Ctrl+C
  stops the server; delete the lines from the hosts file. The script itself never writes to the hosts
  file.
+
+====================================================================================================
+ E41  Version 6.4.3: Person and Office 365 manuals and -Help
+====================================================================================================
+ [ ] .\GeneratePersonLeafCertificate.ps1 -Help and .\GenerateOffice365LeafCertificate.ps1 -Help:
+ stop after a page on a terminal (space bar = next page). Piped to a file they print everything.
+ No line is longer than 100 columns. Same for the two --help of the .sh twins.
+ [ ] Follow section 4 of each manual on a clean machine: -ExampleFile, -ValidateOnly, then the
+ run. Each issued signer has a folder with .pfx, .key and the .sha256 and .sha512 files.
+ sha256sum -c <name>.sha256 says OK for every line.
+ [ ] Office: import the .pfx, trust the root, sign a Word document (section 11 of the Office
+ manual). Note what Word shows for the revocation status.
+ [ ] The HTML pages for both manuals read well at 720p and in dark mode.
+
+====================================================================================================
+ E40  Version 6.4.2: GenerateLeafCertificate manual and -Help
+====================================================================================================
+ [ ] .\GenerateLeafCertificate.ps1 -Help: stops after a page on a terminal (space bar = next
+ page). Piped to a file it prints everything. No line is longer than 100 columns. The order is the
+ order of the manual. Same for ./GenerateLeafCertificate.sh --help.
+ [ ] docs\GenerateLeafCertificate-MANUAL.txt: follow sections 3 and 4 on a clean machine. One
+ command makes 7 certificates in .\leafcerts\<name>\, one folder for each purpose, each with a
+ .sha256 and a .sha512 file. sha256sum -c <name>.sha256 says OK for every line.
+ [ ] The recipes of section 14 run as written. A message of section 15 is produced when you do
+ the wrong thing on purpose, and the fix works.
+ [ ] The HTML page GenerateLeafCertificate-MANUAL.html reads well at 720p and in dark mode.
 
 ====================================================================================================
  E39  Version 6.4.1: pki_setup manual and -Help

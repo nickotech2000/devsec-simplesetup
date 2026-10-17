@@ -1,5 +1,5 @@
 linux/  -  the shell scripts of the Agantra Inovatif PKI (same repository as the PowerShell scripts)
-Version 6.4.1   Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+Version 6.4.3   Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 
  READ THIS FIRST
 ----------------------------------------------------------------------------------------------------

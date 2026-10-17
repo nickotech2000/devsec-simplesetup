@@ -52,7 +52,7 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '6.4.1'
+$script:ToolVersion = '6.4.3'
 $script:DevSanMarker = 'add-development-san.pki-marker.invalid'
 
 function Show-Help {
@@ -60,7 +60,7 @@ function Show-Help {
 ============================================================
  New-PkiCsr.ps1 - make a key and a certificate request (CSR) step by step (for the DESTINATION
  computer)
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

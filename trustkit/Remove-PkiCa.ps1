@@ -28,7 +28,7 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$script:KitVersion = '6.4.1'
+$script:KitVersion = '6.4.3'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }
@@ -39,7 +39,7 @@ if ($Help) {
 @'
 ============================================================
  Remove-PkiCa.ps1  -  take PKIs away again that Install-PkiCa.ps1 installed (Windows)
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
                                nicko@nextmantra.com
 ============================================================

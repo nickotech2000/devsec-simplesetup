@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.1">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
 <meta name="description" content="Revoke certificates and run the CRL, OCSP and timestamp services.">
 <title>Revocation, CRL, OCSP, time stamp - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.1</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -229,7 +229,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    See <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a> and <a href="PKI-Server-Design.html">PKI-Server-Design.txt</a>.</pre></div>
 <p>8  THE TIME STAMPING CERTIFICATE - DO I NEED A SPECIAL ONE? No. A time stamp server needs a normal leaf certificate whose ONLY extended key usage is timeStamping and which is marked CRITICAL (RFC 3161 2.3). That is exactly the TimeStamping certificate of GenerateLeafCertificate.ps1 and of this script. Recommended extras (done here): long validity, own policy OID, Classic non-FIPS RSA for universal verification. Not needed: a separate CA, a special hierarchy, a code-signing EKU (code signing tools only need to TRUST the TSA chain).</p>
 <p>9  FULL -Help TEXT (same as .\PkiRevocation.ps1 -Help)</p>
-<p>PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif O&#220; (NextMantra) Email  : nicko@nextmantra.com</p>
+<p>PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif O&#220; (NextMantra) Email  : nicko@nextmantra.com</p>
 <div class="code"><pre> Manual : docs\PkiRevocation-MANUAL.txt  Server: docs\PKI-SERVER-MANUAL.txt  Design:
           docs\PKI-Server-Design.txt
  Needs  : PowerShell 7+, OpenSSL 4.x (see Install-DevEnvironment.ps1) and a PKI made by
@@ -301,7 +301,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
   .\PkiRevocation.ps1 -Action SignCsr -Csr .\ocsp-q1-ev.csr -For Ocsp -Ca q1-ev</pre></div>
 <p>5.0.0: -Pki &lt;name&gt; chooses the company&#39;s PKI (default agantra); folders are pki\pki-&lt;name&gt;-&lt;NN&gt;. <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a>.</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="Sign-Code-MANUAL.html"><small>&larr; Previous</small>Code signing</a><a class="nx" href="PKI-SERVER-MANUAL.html"><small>Next &rarr;</small>The PKI server (Ubuntu)</a></nav>
-<p class="crumb">Made from PkiRevocation-MANUAL.txt by Build-HtmlDocs.ps1 6.4.1.</p>
+<p class="crumb">Made from PkiRevocation-MANUAL.txt by Build-HtmlDocs.ps1 6.4.3.</p>
 
 </div>
 
@@ -311,7 +311,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.1</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 6.4.1                      Updated: 2026-10-17
+ Version : 6.4.3                      Updated: 2026-10-17
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,35 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  6.4.3  2026-10-17  REVISION
+    + GeneratePersonLeafCertificate and GenerateOffice365LeafCertificate: both manuals are written
+      again from the start in short, dry English for people who are new to PKI: what the script
+      does, the words you need, before you start, first run step by step, what is inside the
+      certificate, the JSON file (table of keys), one person without a file, the files and the
+      hash files, level and quadrant, revocation switches, recipes, problems and answers, limits,
+      all options, what was tested (10.174). The Office manual adds a chapter "Use the
+      certificate in Office".
+    + The -Help of both scripts and the --help of both .sh twins are written again with the order
+      of the manuals, 100 columns at most, one page at a time (space bar = next page).
+    + The manuals no longer carry a copy of -Help. A chapter lists the options and points to -Help.
+    + The Word 365 note is now one clear rule: -NoRevocationInfo did not remove the message in the
+      author's test; make the CRL address reachable with Start-PkiCrlServer.ps1.
+    + HTML documents are built again from the new text. Script logic is unchanged.
+
+  6.4.2  2026-10-17  REVISION
+    + GenerateLeafCertificate: the manual is written again from the start
+      (docs\GenerateLeafCertificate-MANUAL.txt) in short, dry English for people who are new to
+      PKI: what the script does, the words you need, before you start, first run step by step, the
+      seven certificates, the files you get, hash files, where the files go, level and quadrant,
+      subject and names, keys and validity, revocation switches, development SAN, recipes,
+      problems and answers, limits, all options, what was tested (10.173).
+    + GenerateLeafCertificate -Help and GenerateLeafCertificate.sh --help are written again with
+      the order of the manual, 100 columns at most, one page at a time (space bar = next page).
+    + The manual no longer carries a copy of -Help. Chapter 17 lists the options and points to
+      -Help. Other manuals that named "section 13" now name section 17.
+    + Glossary: purpose, CN and custom EKU.
+    + HTML documents are built again from the new text. Script logic is unchanged.
 
   6.4.1  2026-10-17  MINOR UPDATE (minor 4, revision 1)
     + pki_setup: the manual is written again from the start (docs\pki_setup-MANUAL.txt) in short,

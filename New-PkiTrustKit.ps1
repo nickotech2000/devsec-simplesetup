@@ -42,7 +42,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$script:Version = '6.4.1'
+$script:Version = '6.4.3'
 
 function Out-PagedHelp {
     # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
@@ -78,7 +78,7 @@ if ($Help) {
 ============================================================
  New-PkiTrustKit.ps1 - trust kits (CA certificates + a standalone installer) for Windows, Ubuntu,
  Red Hat family, SUSE family
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email:
                                  nicko@nextmantra.com
 ============================================================

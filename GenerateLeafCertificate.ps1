@@ -129,339 +129,190 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $script:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$script:PkiHashFileAlgs = @($HashFile)      # 6.4.1: <name>.sha256 / .sha512 next to every certificate
+$script:PkiHashFileAlgs = @($HashFile)      # 6.4.2: <name>.sha256 / .sha512 next to every certificate
 
 function Show-PkiLeafHelp {
     @'
-============================================================
- GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI
- Version 6.4.1
+====================================================================================================
+ GenerateLeafCertificate.ps1  -  make the certificates of the Agantra Inovatif Enterprise PKI
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Manual : docs\GenerateLeafCertificate-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt
- (section 15)
- Ubuntu : GenerateLeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl, no
- PowerShell needed.
- Needs  : PowerShell 7+, OpenSSL 4.x with the FIPS module and ML-DSA, and a PKI made by
- pki_setup.ps1.
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\GenerateLeafCertificate-MANUAL.txt        Words : docs\GLOSSARY.txt
+ Linux  : GenerateLeafCertificate.sh (DevKit). It needs bash and openssl only.
 
 WHAT IT DOES
-  ONE RUN makes a certificate for EVERY purpose, each in EVERY format, validates all of them, and
-  writes them to
-      <script folder>\leafcerts\<name>\<purpose>\      (NOT inside the pki folder)
-  The "set" is SEVEN certificates, because TLS comes in THREE variants:
-      ServerAuth        TLS server only                 CodeSigning      code signing (Authenticode and others)
-      ClientAuth        TLS client only (mutual TLS)    TimeStamping     RFC 3161 time stamping (critical, alone)
-      ServerClientAuth  TLS server AND client in ONE    OcspSigning      OCSP responder (with the
-      no-check extension)
-      EmailProtection   S/MIME (EKU emailProtection + clientAuth, so the same certificate also logs
-                        in to mutual TLS / VPN / 802.1X)
-  Every certificate has its own purpose, its own key and its own folder. The three TLS certificates
-  carry the same names but are three separate certificates: one for servers (serverAuth), one for
-  clients (clientAuth) and one that is both (serverAuth + clientAuth, for a service that is server
-  and client, for example mutual TLS between services).
-  Mixing other purposes in one certificate is possible (see -Purpose) but not the default: code
-  signing and TLS should not share a certificate.
-  If the set folder exists, a NEW folder <name>_<yyyyMMdd>-<HHmmss> is created. Nothing is
-  overwritten.
-  The same generator makes the default EV leaves of pki_setup.ps1.
+  One command makes SEVEN certificates, each in all file formats, and checks every one:
+      .\GenerateLeafCertificate.ps1 -DnsName www.example.com
+  Files go to  .\leafcerts\<name>\<purpose>\   (never into the pki folder).
+  Nothing is overwritten. A second run makes a new folder: <name>_<yyyyMMdd>-<HHmmss>.
+  A set is all or nothing. If one certificate fails, the new folder is removed.
 
-BEFORE IT STARTS
-  1. UNBLOCK + UNLOCK: the script folder (scripts, certificates, keys, leafcerts), children and
-     recursive, loses the Windows "downloaded from the Internet" mark and the Read-only attribute.
-     Every run. -Unblock does it on its own.
-  2. OpenSSL: must be 4.x and have the FIPS provider (fipsmodule.cnf) and native ML-DSA. What THIS
-     run needs and is missing stops the script; what it does not need is a warning. Both suggest the
-     fix: run Install-DevEnvironment.ps1 (OpenSSL with FIPS and quantum support).
-     .\GenerateLeafCertificate.ps1 -Check
+QUICK START
+  1. Check OpenSSL ........ .\GenerateLeafCertificate.ps1 -Check
+  2. Make the set ......... .\GenerateLeafCertificate.ps1 -DnsName www.example.com
+  3. See what was made .... .\GenerateLeafCertificate.ps1 -List
+  Defaults: EV level, Classic track, no FIPS, RSA 2048 (code signing RSA 4096), 397 days.
 
-USAGE
-  .\GenerateLeafCertificate.ps1 -DnsName www.example.com                      EV, Classic: the `
-        whole set, all formats
-  .\GenerateLeafCertificate.ps1 -DV -DnsName a.example.com,b.example.com
-  .\GenerateLeafCertificate.ps1 -OV -Classic -FIPS -DnsName api.example.com -KeyType ECDSA -Curve `
-        P-384
-  .\GenerateLeafCertificate.ps1 -EV -Quantum -DnsName mtls.example.com        ML-DSA leaves `
-        (OpenSSL services, mTLS)
-  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -ExcludePurpose `
-        TimeStamping,OcspSigning
-  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth `
-        -Format PFX   (3 certs)
-  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerClientAuth   (1 cert)
-  .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         the set + development SAN
-  .\GenerateLeafCertificate.ps1 -EV -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose `
-        ServerAuth,ClientAuth
-  .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"   CN = `
-        O = Example Ltd
-  .\GenerateLeafCertificate.ps1 -OV -Purpose DocumentSigning -Format PFX          Office 365 / `
-        Office document signature
-  .\GenerateLeafCertificate.ps1 -OV -Purpose DocumentSigning,DocumentSigningAdobe   Office and `
-        Adobe PDF in ONE certificate
-  .\GenerateLeafCertificate.ps1 -OV -Purpose 1.3.6.1.4.1.99999.1.2                  a custom EKU OID
-  .\GenerateLeafCertificate.ps1 -List                                         leaf certificates `
-        made so far
-  .\GenerateLeafCertificate.ps1 -Unblock                                      unblock + unlock the `
-        folders, then stop
+BEFORE YOU START
+  * The PKI exists (pki_setup.ps1 was run).     * PowerShell 7 or newer.
+  * OpenSSL 4.x with the FIPS module and ML-DSA. A missing part that THIS run needs stops the
+    script. Fix: .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip, then open a NEW window.
+  * Files from a zip may be blocked. Every start unblocks and unlocks the script folders.
+    -Unblock does only that.
+
+THE SEVEN CERTIFICATES
+  ServerAuth         TLS server                    folder serverauth
+  ClientAuth         TLS client (mutual TLS)       folder clientauth
+  ServerClientAuth   TLS server AND client         folder serverauth-clientauth
+  CodeSigning        sign programs and scripts     folder codesigning
+  EmailProtection    S/MIME e-mail + client login  folder emailprotection
+  TimeStamping       RFC 3161 time stamp server    folder timestamping
+  OcspSigning        OCSP responder                folder ocspsigning
+  Each one has its own key. The three TLS ones are three separate certificates.
+
+CHOOSE PURPOSES
+  -ExcludePurpose <list>  Leave purposes out of the set, for example TimeStamping,OcspSigning.
+  -AllPurposes            The set. This is the default. The switch only says it out loud.
+  -Purpose <list>         NOT a set. ONE certificate with exactly these purposes, for example
+                          ServerAuth,EmailProtection. Do not combine it with -ExcludePurpose.
+                          TimeStamping and OcspSigning must stand alone.
+                          ServerAuth,ClientAuth (nothing else) makes the three TLS certificates.
+                          Extra purposes, only with -Purpose:
+                            DocumentSigning       Word, Excel, PowerPoint, Microsoft 365
+                            DocumentSigningAdobe  Adobe Acrobat and Reader PDF
+                            1.3.6.1.4.1.99999.1.2 your own purpose, a dotted number (custom EKU)
+                          Both document purposes in one certificate:
+                          -Purpose DocumentSigning,DocumentSigningAdobe
 
 LEVEL AND QUADRANT   (defaults: -EV, -Classic, no -FIPS)
-  -DV | -OV | -EV      Domain / Organization / Extended validation. Chooses the intermediate
-                       q<N>-dv|ov|ev.
-  -Classic | -Quantum  Classic: RSA or ECDSA leaf.  Quantum: ML-DSA leaf.
-  -FIPS                FIPS quadrant (FIPS provider).  Quadrant NUMBERS (parameters, ids, folders):
-                       -Classic = 1, -Classic -FIPS = 2, -Quantum = 3, -Quantum -FIPS = 4.  In NAMES
-                       the number is Q1 = non-FIPS, Q2 = FIPS in BOTH tracks (Classic Q1 / Q2,
-                       Quantum Q1 / Q2), also in the file names of the leaves; see .\pki_setup.ps1
-                       -ShowNames.
-  Browser-facing sites and Windows servers: Classic (quadrants 1 / 2). Quantum: OpenSSL-based
-  services and mutual TLS.
-  A quadrant the PKI does not have (built with -ClassicPKI or -Quadrant) is refused with the fix.
-
-HASH FILES  (6.4.1)
-  -HashFile <list>        For every certificate a hash file per algorithm is written next to it:
-                            <name>.sha256   <name>.sha512   (default)
-                          Possible values: sha256 sha384 sha512 sha3-256 sha3-384 sha3-512 None.
-                          Each line is "<hash>  <file>" (the format of sha256sum), for every .crt
-                          .pem .cer .der .p7b
-                          .pfx of that name. Check it:  sha256sum -c <name>.sha256   (Linux / macOS)
-                          or  Get-FileHash <file> -Algorithm SHA256  (Windows).
-
-PURPOSES
-  (none) | -AllPurposes   One certificate for EACH purpose (the set above). -AllPurposes only says
-                          it out loud.
-  -ExcludePurpose <list>  Leave purposes out of the set: ServerAuth ClientAuth ServerClientAuth
-                          CodeSigning EmailProtection TimeStamping OcspSigning (the two document
-                          purposes are not in the set). (-ExcludePurpose ServerClientAuth drops the
-                          combined certificate and keeps the two separate ones.)
-  -Purpose <list>         NOT a set (with two exceptions below): ONE certificate that carries
-                          exactly these purposes, for example ServerAuth,EmailProtection.
-                          TimeStamping and OcspSigning must stand alone. Cannot be combined with
-                          -AllPurposes / -ExcludePurpose. Also in the list (5.3.7), NOT part of the
-                          default set - ask for them with -Purpose:
-                            DocumentSigning       EKU 1.3.6.1.4.1.311.10.3.12 (Microsoft Document
-                                            Signing): Word, Excel, PowerPoint,
-                                                  Office 365 / Microsoft 365, other office programs
-                                                  (LibreOffice ...). Key usage digitalSignature +
-                                                  nonRepudiation.
-                            DocumentSigningAdobe  EKU 1.2.840.113583.1.1.5 (Adobe Authentic
-                            Documents Trust): Adobe Acrobat / Reader PDF.
-                          Both in one certificate:  -Purpose DocumentSigning,DocumentSigningAdobe
-                          A CUSTOM EKU is any dotted OID in the same list, for example
-                            -Purpose 1.3.6.1.4.1.99999.1.2          or   -Purpose
-                                            ServerAuth,1.3.6.1.4.1.99999.1.2
-                          (digits and dots, first arc 0, 1 or 2, at least three arcs). It is written
-                          into extendedKeyUsage as it is and checked in the finished certificate. A
-                          custom OID is not trusted by anything until the program that uses it is
-                          told so.
-                          ServerAuth,ClientAuth (nothing else)  -> THREE certificates: server only,
-                          client only and
-                                                                   server + client (the TLS part of
-        the set).
-                          ServerClientAuth                      -> ONE certificate with serverAuth +
-                                            clientAuth.
-  Names per purpose in a set:
-      ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary,
-      wildcard *.example.com
-                               allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is
-                               given.
-      EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the
-                               e-mail address. EVERY e-mail certificate carries the extended key
-                               usages emailProtection AND clientAuth.
-      CodeSigning              no SAN; its own short subject (see CODE SIGNING SUBJECT).
-      TimeStamping, OcspSigning   no SAN; CN = "<company or -CommonName> Time Stamping | OCSP
-                                  Responder".
-
-TIME STAMPING CERTIFICATE (RFC 3161)
-  No special certificate type is needed: the TimeStamping leaf of this script IS the time stamp
-  server certificate (EKU timeStamping, critical, the only purpose). Defaults: Quadrant 1 = Classic,
-  non-FIPS (never quantum unless you ask), RSA, valid 1825 days, certificate policy OID <your PEN
-  arc>.1.4 (1.3.6.1.4.1.67096.1.4) added next to the CA's DV/OV/EV policy.
-  -TimestampQuadrant 1|2|3|4   1 Classic non-FIPS (default)  2 Classic FIPS  3 Quantum non-FIPS  4 Quantum FIPS (prepared for the future;
-                               the PKI server kit signs RSA / ECDSA only)
-  -TimestampPolicyOid <oid>    the TSA policy OID (also written to tsa.cnf default_policy by the
-                               server kit)
-  -TimestampDays <n>           validity of the time stamp certificate     -OcspDays <n>   validity of OCSP responder certificates
-  Config: [ timestamp ] Quadrant / PolicyOid / Days in agantra_pki.cnf.  Keys of the OCSP / TSA
-  certificates can also be made on the server (pki-server.sh csr) and signed with PkiRevocation.ps1
-  -Action SignCsr.
-
-REVOCATION INFORMATION   (4.9.5)
-  -NoCrl             no CRL distribution point in ANY generated certificate (the whole set, or the
-                     one certificate)
-  -NoOcsp            no OCSP URL (Authority Information Access OCSP) in any generated certificate
-  -NoRevocationInfo  both. The CA issuer URL (caIssuers) stays. Use it for development / Office /
-                     offline systems that say "cannot connect to the revocation server". Such a
-                     certificate cannot be checked or revoked by CRL / OCSP; leaf-info.json records
-                     revocationInfo {crlDistributionPoints, ocsp}.   Same switches:
-                     GeneratePersonLeafCertificate.ps1, GenerateOffice365LeafCertificate.ps1. NoCR:
-                     with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or
-                     -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR
-                     PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
+  -DV | -OV | -EV         Domain / Organization / Extended validation. Picks the intermediate CA.
+  -Classic | -Quantum     Classic = RSA or ECDSA. Quantum = ML-DSA.
+  -FIPS                   Use the FIPS provider.
+  Quadrant numbers:       -Classic = 1,  -Classic -FIPS = 2,  -Quantum = 3,  -Quantum -FIPS = 4.
+  In file names the digit is Q1 = no FIPS and Q2 = FIPS, in both tracks.
+  Use Classic for browsers, IIS, Kestrel and Java. Use Quantum for OpenSSL services only.
+  A quadrant the PKI does not have is refused, with the way to build it.
 
 NAMES
-  -DnsName <a,b>   -IpAddress <a,b>   -EmailAddress <a,b>   -CommonName <text>
-  Given on the command line = exactly these names. -CommonName replaces the CN of the TLS
-  certificates and is the base of the CN of Time Stamping and OCSP signing (code signing: see CODE
-  SIGNING SUBJECT).
+  -DnsName <a,b>     -IpAddress <a,b>     -EmailAddress <a,b>     -CommonName <text>
+  The first DNS name is the CN and the folder name. Wildcards (*.example.com) are allowed.
+  With no names, the [ leaf_san ] list of agantra_pki.cnf is used.
+  ServerAuth and ClientAuth need a DNS name or an IP. EmailProtection needs an e-mail address.
+  -CommonName replaces the CN of the TLS certificates.
 
-DEVELOPMENT SAN   (-AddDevelopmentSAN)
-  E-MAIL (S/MIME) with -AddDevelopmentSAN (4.9.4): the certificate gets the algorithm of
-  GeneratePersonLeafCertificate.ps1 by default: ECDSA P-384, SHA-512
-                       (Quadrants 1 and 2; -KeyType / -Curve / -Hash win), key usage
-                       digitalSignature + nonRepudiation + keyAgreement. The policies are the same
-                       as those of every OV / EV certificate (level OID, company PEN OIDs, High
-                       Assurance for OV; CPS URL by level), see -CpsUrl.
-  Adds the development list to the SAN. It is MERGED with the names you give (yours stay first, the
-  CN is your first name; duplicates are removed). With no -DnsName the names of [ leaf_san ] come
-  first. The list:
-      DNS    nextmantra.com  www.nextmantra.com  *.nextmantra.com  localhost  local.dev
-             nextmantra.internal  *.nextmantra.internal  nextmantra.developer
-             *.nextmantra.developer nextmantra.api  *.nextmantra.api  nextmantra.ldap
-             *.nextmantra.ldap agantra.internal  *.agantra.internal  agantra.developer
-             *.agantra.developer agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap
-             (21 names)
-      IP     127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200  172.16.0.1 - 172.16.0.200
-             192.168.1.1 - 192.168.1.100  192.168.2.1 - 192.168.2.100  (603 in all,
-             every address of the four ranges is written)
-      E-MAIL nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com
-      airlangga@nextmantra.com
-  Where it goes: ServerAuth, ClientAuth, ServerClientAuth (and any certificate with one of them):
-  everything.
-  EmailProtection: the e-mail addresses only. CodeSigning, TimeStamping, OcspSigning: nothing (they
-  carry no SAN).
-  EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail
-  address) are deliberately NOT applied, so an EV leaf with -AddDevelopmentSAN is the way to make
-  EV-looking certificates for development. The EV subject, the EV policy and the 397-day limit stay.
-  A warning is printed and leaf-info.json says developmentSan / evSanOverride = true. FOR
-  DEVELOPMENT ONLY: a public CA would not issue such a certificate.
-  Change the list in [ development_san ] of agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last,
-  email.n); without that section the built-in list above is used. A range may have at most 1024
-  addresses.
-
-CODE SIGNING SUBJECT   (-CodeSigningCompany)
-  -CodeSigningCompany <name>   CN = O = <name>. Empty: CN = O = the organization (-Organization or
-                               the cnf; default Agantra Inovatif OU). Alias: -CodesignCompany.
-  The subject of every code signing certificate is short, at every level (DV, OV, EV):
-      C = EE   ST = Tallinn   L = Tallinn   O = <company>   CN = <company>
-  -Country / -State / -Locality change C, ST and L. Nothing else is written: no OU, street, postal
-  code, contact fields and, at -EV, none of the EV-only fields (serialNumber, businessCategory,
-  jurisdiction*). <company> may not be longer than 64 characters. -CommonName does not apply to code
-  signing.
-
-KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
-  -KeyType RSA|ECDSA|MLDSA   Default: quadrant 1 RSA, 2 ECDSA, 3 / 4 MLDSA. Quantum quadrants take
-                             MLDSA only.
-  -KeyBits <n>               RSA 2048 | 3072 | 4096 | 8192 (default 2048; below 2048 is rejected).
-  -Curve P-256|P-384|P-521   ECDSA (default P-256; smaller curves are rejected).
-  -PqcAlgorithm mldsa44|65|87  ML-DSA parameter set (default mldsa65, from the configuration).
-  -Hash sha256|sha384|sha512 Digest of the signature (default: the issuer's). SHA-1, SHA-224, MD5
-  ... rejected. Code signing is FORCED up: RSA >= 4096, ECDSA >= P-384, ML-DSA >= 65, SHA-256 or
-  stronger (a note says so).
-
-VALIDITY AND POLICIES
-  -Days <n>            Default: EV 397 days (the maximum, for every purpose), OV 3 years, DV 5
-                       years. Never longer than the issuer.
-  -Policy <list>       Extra certificate policies: "OID" or "OID|CPS-URL". The level policy (EV
-                       2.23.140.1.1, OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [ policy_oids ] / [
-                       iana_pen ] and these are written.
-  -CpsUrl <url>        CPS pointer on every policy of a DV / OV certificate (default
-                       https://nextmantra.com/security/certs).
-  -CpsUrlEv <url>      CPS pointer on every policy of an EV certificate (default
-                       https://nextmantra.com/security/certs/ev-cps.pdf).
-  POLICIES of a leaf: the level policy (DV 2.23.140.1.2.1 | OV 2.23.140.1.2.2 | EV 2.23.140.1.1),
-  the company policy 1.3.6.1.4.1.<PEN>.1 and its level policy
-                       (.1.1 EV, .1.2 OV, .1.3 DV), and for EVERY OV certificate the HIGH ASSURANCE
-                       policy 1.3.6.1.4.1.<PEN>.1.5 ([ policy_oids ] HighAssurance).
-                       Each policy carries the CPS pointer above.
-
-SUBJECT   (DV: CN only.  OV: CN O OU L ST C street postalCode + contact.  EV: OV + serialNumber,
-           businessCategory, jurisdiction*, and -Duns)
+SUBJECT   (DV: CN.  OV: company and address.  EV: OV plus business fields.)
   -Organization -OrganizationalUnit -Country -State -Locality -Street -PostalCode
   -Serial -BusinessCategory -JurisdictionCountry -JurisdictionState -JurisdictionLocality
-  -Duns <number>       EV: written as organizationIdentifier = DUNS+<number> (a private convention)
-  -ContactName -ContactEmail -ContactPhone      Defaults come from [ subject_ov ] / [ subject_ev ].
+  -Duns <number>      EV: organizationIdentifier = DUNS+<number> (a private convention)
+  -ContactName -ContactEmail -ContactPhone       Defaults: [ subject_ov ] / [ subject_ev ].
+  CODE SIGNING SUBJECT: always short:  C = EE  ST = Tallinn  L = Tallinn  O = CN = <company>.
+      -CodeSigningCompany <name>   (alias -CodesignCompany). Empty = your organization.
+      -Country / -State / -Locality change C, ST, L. The name may have 64 characters at most.
 
-OUTPUT   (ALL formats in ONE go by default)
-  -Format <list>       PEM .pem | DER .der | CER .cer (DER) | CERT .cert (PEM) | P7B .p7b (leaf +
-                       chain) |
-                       RFC7468 .rfc7468.pem (strict PEM) | PFX .pfx | ALL.   Default ALL.
-                       ALWAYS written: <stem>.crt  .key (PKCS#8)  .pub  .pub.der (public key)
-                       -fullchain.crt  -chain.crt  .cnf
-                       A FIPS leaf also gets <stem>-fips.pfx (FIPS-conformant PKCS#12).
-  -OutputRoot <path>   Folder that receives the leaf folders (default <script folder>\leafcerts).
-  -Password <text>     PFX password (default Abc12345!, the lab password of the PKI).    -LegacyPfx
-                       3DES / SHA-1 PFX. Friendly name inside every leaf PFX (shown in certlm.msc
-                       after the import): "<Primary EKU> for <CN> Sign by : <Intermediate CA CN>",
-                       for example "Server Authentication for nextmantra.com Sign by : Agantra EV
-                       RSA-4096 G1 CA".
+KEYS, HASHES AND VALIDITY   (weak values are REJECTED, not corrected)
+  -KeyType RSA|ECDSA|MLDSA     Default: Q1 RSA, Q2 ECDSA, Q3 and Q4 MLDSA.
+  -KeyBits 2048|3072|4096|8192 Default 2048.
+  -Curve P-256|P-384|P-521     Default P-256.
+  -PqcAlgorithm mldsa44|65|87  Default mldsa65.
+  -Hash sha256|sha384|sha512   Default: the issuer's. SHA-1, SHA-224 and MD5 are rejected.
+  Code signing is raised: RSA 4096, ECDSA P-384, ML-DSA 65, SHA-256 or stronger.
+  -Days <n>                    EV 397 days, OV 3 years, DV 5 years. Never longer than the issuer.
+  -Policy <list>               Extra policies: "OID" or "OID|CPS-URL".
+  -CpsUrl <url>                CPS pointer for DV and OV
+                               (default https://nextmantra.com/security/certs).
+  -CpsUrlEv <url>              CPS pointer for EV (default .../security/certs/ev-cps.pdf).
+  Every leaf has the level policy and the company policies. Every OV leaf also has High Assurance.
+
+TIME STAMPING AND OCSP
+  The TimeStamping leaf IS the RFC 3161 time stamp server certificate (critical, stands alone).
+  -TimestampQuadrant 1|2|3|4   Default 1 (Classic, no FIPS). 3 and 4 are for the future.
+  -TimestampPolicyOid <oid>    The TSA policy OID.
+  -TimestampDays <n>           Default 1825.            -OcspDays <n>   Default 365.
+  Config: [ timestamp ] in agantra_pki.cnf.
+
+FILES YOU GET   (-Format <list>, default ALL)
+  Always:  <name>.crt  .key (PKCS#8, PRIVATE)  .pub  .pub.der  -fullchain.crt  -chain.crt  .cnf
+  Formats: PEM .pem   DER .der   CER .cer   CERT .cert   P7B .p7b   RFC7468 .rfc7468.pem
+           PFX .pfx (key + chain + password). A FIPS leaf also gets <name>-fips.pfx.
+  Also in every folder: convert-formats.ps1, leaf-info.json and, for ServerAuth and ClientAuth,
+  tls-guidance.txt. In the set folder: leaf-set.json.
+  -Password <text>     PFX password. Default Abc12345! (the lab password).
+  -LegacyPfx           3DES / SHA-1 PFX for very old software.
   -NoGuidance          Do not write convert-formats.ps1 and tls-guidance.txt.
-  -InstallPfx          Windows: also import the leaf PFX files into LocalMachine\My (elevated). Only
-                       the leaf.
-  Written in every purpose folder (unless -NoGuidance):
-      convert-formats.ps1   clean PowerShell with the exact OpenSSL syntax for every format of this
-                            leaf
-      tls-guidance.txt      TLS 1.2 / 1.3, HTTP/2, HTTP/3 (ServerAuth and ClientAuth only)
-      leaf-info.json        what was issued (also added to leafcerts\leaf-index.json)
-  Written in the set folder:  leaf-set.json
+  -InstallPfx          Windows: also import the leaf PFX files into LocalMachine\My (administrator).
+  -OutputRoot <path>   Where the leaf folders go. Default .\leafcerts.
 
-NAMES OF THE FOLDERS AND FILES   (agantra_pki.cnf [ leaf_names ]; defaults in
-                                 scripts\01b_CaNaming.ps1)
-  OutputFolder = leafcerts   Folder = {Name}   Stem = {Name}-{Level}-{Tag}   UniqueSuffix = _{Date}-{Time}
-  PurposeFolder = {PurposeName}   PurposeStem = {Name}-{Purpose}-{Level}-{Tag}
-  Tokens: {Name} {Level} {Quadrant} {Tag} {Algorithm} {Track} {Fips} {Purpose} {PurposeName} {Date}
-  {Time}
-  Example: leafcerts\www.example.com\serverauth\www.example.com-server-ev-q1-rsa2048.crt
+HASH FILES
+  -HashFile <list>   A hash file for every certificate: <name>.sha256 and <name>.sha512 (default).
+                     Values: sha256 sha384 sha512 sha3-256 sha3-384 sha3-512 None.
+  Each line is "<hash>  <file>". It covers .crt .pem .cer .cert .der .p7b .rfc7468.pem .pfx.
+  Check:  sha256sum -c <name>.sha256      (Windows: Get-FileHash <file> -Algorithm SHA256)
 
-INFORMATION, UNBLOCK AND UNLOCK
-  -List                Show the leaf certificates made so far.      -Check   OpenSSL readiness only.
-  -Unblock             UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder, the pki
-                       folder and the leaf folder, children and recursive, list the programs that
-                       hold files open, and stop. (A script that is blocked the very first time
-                       needs once:
-                        Get-ChildItem -Path . -Recurse -File | Unblock-File )
-  -ConfigFile <path>   Configuration file (default agantra_pki.cnf next to the script).
-  -PkiRoot <path>      The PKI folder (default: the latest release in .\pki\).
-  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
-                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
-                       release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL /
-                       OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot <folder> names one PKI folder and
-                                            overrides both.
-  -OpenSslPath <path>  Use this openssl (4.x).        -FipsModuleConfig <path>   fipsmodule.cnf of
-                       the FIPS module.
-  -Verbose             Show every OpenSSL command.    -Help   This text.
+REVOCATION SWITCHES
+  -NoCrl             No CRL address in the certificates.
+  -NoOcsp            No OCSP address. The CA issuer address stays.
+  -NoRevocationInfo  Both. For offline or development systems. The certificate then cannot be
+                     checked or revoked by CRL or OCSP.
+  -NoCaRevocationInfo  Sign with the NoCR family of CAs. Without a NoCR PKI the script stops;
+                     build one: .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust
 
-LIMITATIONS
-  * ML-DSA leaves (-Quantum) work with OpenSSL 3.5+ services and mutual TLS. Windows Schannel
-    (Kestrel / IIS on Windows), Java 25 and the browsers do not accept them for HTTPS today: use a
-    Classic leaf there.
-  * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. EV
-    certificates are capped at 397 days.
-  * -AddDevelopmentSAN makes certificates that are NOT EV-conformant in their SAN (by intent);
-    development only. A SAN with 428 entries makes every TLS certificate about 6 KB larger than
-    usual.
-  * A set is all or nothing: if one certificate fails, the new set folder is removed.
-  * Leaves of version 4.6 are in pki\leafcerts; they are not moved. Files are UTF-8 without BOM, LF
-    endings, except convert-formats.ps1 (UTF-8 with BOM, CRLF).
+DEVELOPMENT SAN   (-AddDevelopmentSAN, DEVELOPMENT ONLY)
+  Adds 21 DNS names, 603 IP addresses and 4 e-mail addresses after your own names.
+  ServerAuth, ClientAuth, ServerClientAuth: everything. EmailProtection: e-mails only.
+  CodeSigning, TimeStamping, OcspSigning: nothing.
+  With -EV the EV SAN rules are NOT applied. A warning is printed. leaf-info.json says
+  developmentSan = true. A public CA would never issue such a certificate.
+  Change the list in [ development_san ] of agantra_pki.cnf (a range: 1024 addresses at most).
+  The e-mail certificate then uses ECDSA P-384 / SHA-512 by default.
 
-WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
-                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
-                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
-                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
-                pki-<name>-nocr-NN).
+WHICH PKI
+  -Pki <name>          The company. File <name>_pki.cnf. Default: agantra.
+                       List them: .\pki_setup.ps1 -ListPki
+  -PkiRoot <path>      One PKI folder. Default: the latest release in .\pki\.
+  -Release <n>         Use release n. A deleted release = the latest, with a warning.
+  -ConfigFile <path>   The configuration file. Default agantra_pki.cnf.
+  -OpenSslPath <path>  Use this openssl (4.x).     -FipsModuleConfig <path>   fipsmodule.cnf.
 
-WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
-  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
-  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
-  Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
-  editions. Linux (pwsh): the distributions of the
-  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
+INFORMATION
+  -List      Leaf certificates made so far.        -Check    OpenSSL readiness only.
+  -Unblock   Unblock and unlock the folders, then stop.
+  -Verbose   Show every OpenSSL command.           -Help     This text.
+
+FILE NAMES   (agantra_pki.cnf [ leaf_names ])
+  Example:  leafcerts\www.example.com\serverauth\www.example.com-server-ev-q1-rsa2048.crt
+  Tokens: {Name} {Level} {Quadrant} {Tag} {Algorithm} {Track} {Fips} {Purpose} {PurposeName}
+          {Date} {Time}. An unknown token stops the script at the start.
+
+RECIPES
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com `
+        -ExcludePurpose TimeStamping,OcspSigning
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com `
+        -Purpose ServerClientAuth -Format PFX
+  .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"
+  .\GenerateLeafCertificate.ps1 -DV -Purpose EmailProtection -EmailAddress user@example.com
+  .\GenerateLeafCertificate.ps1 -OV -Classic -FIPS -DnsName api.example.com `
+        -KeyType ECDSA -Curve P-384
+  .\GenerateLeafCertificate.ps1 -EV -Quantum -DnsName mtls.example.com
+  .\GenerateLeafCertificate.ps1 -EV -DnsName api.nextmantra.com -AddDevelopmentSAN
+  .\GenerateLeafCertificate.ps1 -OV -DnsName lab.example.com -NoRevocationInfo
+
+LIMITS
+  * ML-DSA leaves (-Quantum): Windows Schannel, Java 25 and browsers do not accept them for HTTPS.
+  * Private PKI: wildcard and internal names work here. A public CA would refuse some.
+  * EV leaves are capped at 397 days. -AddDevelopmentSAN leaves are not EV-conformant.
+  * Protect the folder: it holds private keys and the PFX password. Never e-mail a .key file.
+  * Leaves of version 4.6 are in pki\leafcerts. They are not moved.
+
+WHERE IT RUNS
+  Windows 11 24H2 or newer, Windows Server 2025, and Windows Server 2022 (Classic track only).
+  Linux with pwsh. Refused (exit 5): Windows 10, older Windows 11, macOS and special editions.
+
+EXIT CODES
+  0 done       1 error or not ready       5 this system is refused
 '@
 }
 

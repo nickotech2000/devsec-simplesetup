@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.1">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
 <meta name="description" content="Certificates for Microsoft Office and Office 365 users.">
 <title>Office 365 certificates - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.1</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,135 +168,246 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Certificates</p>
 <h1>Office 365 certificates</h1>
 <p class="lead">Certificates for Microsoft Office and Office 365 users.</p>
-<div class="meta"><span class="chip">certificates Version 6.4.1</span><span class="chip">Author : Nicko Satria Utama</span><span class="chip">Company: Agantra Inovatif OU (NextMantra)</span><span class="chip">Email : nicko@nextmantra.com</span></div>
-<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l3"><a href="#exit-codes-0-ok-1-an-error-or-a-failed-signer">EXIT CODES   0 ok   1 an error or a failed signer</a></li><li class="l2"><a href="#hash-files-6-3-6">HASH FILES (6.3.6)</a></li></ol></details>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l3"><a href="#certificates">certificates.</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#5-what-is-inside-the-certificate">5  WHAT IS INSIDE THE CERTIFICATE</a></li><li class="l2"><a href="#6-the-json-file">6  THE JSON FILE</a></li><li class="l2"><a href="#7-one-signer-no-file">7  ONE SIGNER, NO FILE</a></li><li class="l2"><a href="#8-the-files-you-get-and-hash-files">8  THE FILES YOU GET, AND HASH FILES</a></li><li class="l2"><a href="#9-level-quadrant-keys-validity">9  LEVEL, QUADRANT, KEYS, VALIDITY</a></li><li class="l2"><a href="#10-revocation-switches-no-crl-no-ocsp">10  REVOCATION SWITCHES (NO CRL, NO OCSP)</a></li><li class="l2"><a href="#11-use-the-certificate-in-office">11  USE THE CERTIFICATE IN OFFICE</a></li><li class="l2"><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#15-all-options">15  ALL OPTIONS</a></li><li class="l2"><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - Office / Microsoft 365 signing certificates
+ Version 6.4.3           2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> What it is   : Makes certificates for Microsoft Office / 365 users (e-mail and document signing).
- Who reads it : The PKI owner or IT staff.
- You need     : A PKI, OpenSSL 4, a JSON list of users.
- Start with   : Copy office365.example.json, edit it, run the script.
- Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
-<div class="code"><pre> Manual : docs\GenerateOffice365LeafCertificate-MANUAL.txt  Design :
-          docs\PKI-Design-with-FIPS-and-PQC.txt (10.63)
- Ubuntu : GenerateOffice365LeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash +
-          openssl + python3.
- Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.  Same mechanism as
-          GeneratePersonLeafCertificate.ps1.</pre></div>
-<div class="code"><pre>WHAT IT MAKES   (a certificate to sign Word / Excel / PowerPoint / PDF documents; NOT a qualified
-                certificate)
-  Extended key usage   Document Encryption 1.3.6.1.4.1.311.80.1  +  Secure Email / S/MIME
-                       1.3.6.1.5.5.7.3.4  +  Document Signing 1.3.6.1.4.1.311.10.3.12
-                       (-NoDocumentSigningEku leaves out the Microsoft Document Signing OID: then
-                       only the first two)
-  Key usage            critical: Digital Signature (signing) + Non-Repudiation (contentCommitment) +
-                       Key Encipherment (RSA: the key exchange of document encryption) ECDSA keys
-                       cannot encipher keys: they get Key Agreement instead. Office document
-                       encryption (IRM / S/MIME) is RSA based: use RSA there.
-  Subject              [serialNumber = &lt;ID&gt;]  givenName  surname  CN = &lt;Given&gt; &lt;Surname&gt;  C = &lt;country, default EE&gt;   (names as you give them; UTF-8)
-  SAN                  rfc822Name = the e-mail address (the Microsoft 365 account).  -DnsFromEmail
-                       (or &quot;dnsFromEmail&quot;: true) adds DNS:&lt;domain&gt; and DNS:*.&lt;domain&gt;.
-  Key                  Classic PKI only (Office uses the Windows CryptoAPI / CNG). RSA is the
-                       default and the most compatible: RSA 4096 (minimum 2048, enforced). ECDSA:
-                       -KeyType ECDSA, P-384 (default) or P-256 / P-521 (minimum P-256, enforced).
-                       Digest: the SHA-2 family only (SHA-1, MD5 and shorter are refused). The
-                       issuing CA decides (SHA-256 on Q1 RSA, SHA-384 on Q2 EC) unless -Hash
-                       sha256|sha384|sha512.  Office baseline: SHA-256; SHA-384 / SHA-512 are
-                       supported.
-  Level                OV (default). EV with -Level EV (397 days). DV is never used.     Quadrant 1 = Classic NON-FIPS (default); -Fips or -Quadrant 2 = Classic FIPS.
-  Policies             the same as every OV / EV certificate: level policy, company PEN policies,
-                       the High Assurance policy (OV), each with the CPS pointer (OV
-                       <a href="https://nextmantra.com/security/certs" target="_blank" rel="noopener noreferrer">https://nextmantra.com/security/certs</a>, EV .../ev-cps.pdf).
-  Validity             730 days (OV) by default, -Days; cut to what the issuing CA has left.
-  Output               leafcerts\office365\&lt;name&gt;\  every format (PEM DER CER CERT P7B RFC7468 PFX),
-                       key + public key, chain, leaf-info.json, office365-info.json,
-                       OFFICE-NOTES.txt (how to use it), and one office365-batch-&lt;date&gt;.json summary
-                       per run (no passwords in it).</pre></div>
-<div class="code"><pre>ONE SIGNER
-  .\GenerateOffice365LeafCertificate.ps1 -GivenName Budi -Surname Santoso -Email budi.santoso@example.co.id [-Country ID] [-IdCode STAFF-0001]
-  -GivenName / -Surname  Several given names are allowed.        -Email &lt;address&gt;   REQUIRED.
-  -IdCode &lt;text&gt;         Optional identifier (staff number, national ID, passport ...). Goes to the
-                         subject serialNumber (-SerialNumber replaces it,
-                         -SerialNumberFormat &quot;{IdType}{Country}-{IdCode}&quot; builds it).   -IdType &lt;code&gt;  optional label.
-  -Country &lt;CC&gt;          Two letters, default EE ([ office365 ] Country).
-  -CommonName &lt;text&gt;     Replaces the CN.   -CommonNameFormat &quot;{Given} {Surname}&quot;  tokens {Given}
-                                            {Surname} {SurnameFirst} {IdCode} {Country}; max 64
-                                            characters.
-  REVOCATION INFORMATION  (4.9.4)   by default the certificate has the CRL distribution point, the
-                                    OCSP URL and the CA issuer URL of the issuing CA.
-  -NoCrl                 No CRL distribution point (crlDistributionPoints extension) in the
-                         certificate.
-  -NoOcsp                No OCSP URL (the OCSP method of Authority Information Access); the CA
-                         issuer URL stays.
-  -NoRevocationInfo      Both: no CRL and no OCSP. Use it when Word / Excel / Outlook say &quot;cannot
-                         connect to the revocation server&quot; because the URLs of this private PKI
-                         cannot be reached from the machine that checks the signature. Without any
-                         revocation URL a client has nothing to check: it accepts the certificate
-                         until it expires. The certificate is still recorded in the CA database
-                         (PkiRevocation.ps1 can still revoke it and the CRL lists it), but a client
-                         that has no URL will not learn about it. Per signer in the JSON file:
-                         &quot;noCrl&quot;, &quot;noOcsp&quot;, &quot;noRevocationInfo&quot; (true | false). Defaults for all: [
-                         office365 ] NoCrl / NoOcsp in agantra_pki.cnf.
-  -KeepCase              Names are kept as given (default for Office; [ office365 ] KeepCase).</pre></div>
-<div class="code"><pre>MANY SIGNERS - A JSON FILE  (JSON only; CSV is not accepted)
-  .\GenerateOffice365LeafCertificate.ps1 -ExampleFile .\office365.json      writes an example with 5 people (3 isGenerate true) and stops
-  .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -ValidateOnly   checks the file, shows the table, issues nothing
-  .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json
-  { &quot;persons&quot;: [ { &quot;isGenerate&quot;: true, &quot;givenName&quot;: &quot;Budi&quot;, &quot;surname&quot;: &quot;Santoso&quot;, &quot;email&quot;:
-  &quot;budi.santoso@example.co.id&quot;, &quot;country&quot;: &quot;ID&quot; }, { ... } ] }
-  Keys (any spelling or case):  givenName  surname  email  (required)     isGenerate (true | false; default true; false = skipped, not even checked)
-  idCode  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  noCrl  noOcsp  noRevocationInfo  (optional)
-  Keys that start with _ are comments. Every signer with isGenerate true is checked BEFORE anything
-  is written: one error = nothing is issued, all errors are listed. A signer is then issued on its
-  own; a failure removes that signer&#39;s folder and the run goes on (-StopOnError stops). Exit 1 when
-  one failed.</pre></div>
-<div class="code"><pre>CERTIFICATE OPTIONS
-  -Level OV|EV   -Quadrant 1|2   -Fips   -KeyType RSA|ECDSA   -KeyBits 2048|3072|4096|8192   -NoDocumentSigningEku   -Curve P-256|P-384|P-521   -Hash   -Days &lt;n&gt;
-  -Policy &lt;oid|oid=cps&gt;  -CpsUrl &lt;url&gt;  -CpsUrlEv &lt;url&gt;
-  -Password &lt;text&gt;       Password of the PFX (default Abc12345!; the password key of a signer
-                         replaces it). CHANGE IT for real use.
-  -Format &lt;list&gt;         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)
-  -OutputRoot &lt;path&gt;     Default leafcerts\office365.
-  -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then
-                         stop.
-  -ConfigFile &lt;path&gt; -PkiRoot &lt;path&gt; -OpenSslPath &lt;path&gt; -FipsModuleConfig &lt;path&gt; -Verbose   as in pki_setup.ps1.
-  -Release &lt;n&gt;         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
-                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
-                       release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-&lt;name&gt;-nocr-&lt;NN&gt;, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot &lt;folder&gt; names one PKI folder and
-                                                   overrides both.</pre></div>
-<div class="code"><pre>USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
-  1  Import the .pfx into Current User &gt; Personal (double click, or -InstallPfx). Office finds the private key there.
-  1b Word / Excel say &quot;cannot connect to the revocation server&quot;? The cause is an UNKNOWN revocation status (certutil -verify -urlfetch: REVOCATION_STATUS_UNKNOWN). -NoRevocationInfo / the NoCR PKI does NOT cure it in Word 365. Issue from the normal PKI and run .\Start-PkiCrlServer.ps1 (elevated; add the printed lines to the hosts file): the CRLs are then reachable on this machine; then  certutil -urlcache * delete.
-  2  The Root CA of this PKI must be trusted on the machine that OPENS the document (pki_setup.ps1 -InstallTrust, or the Root in Trusted Root Certification Authorities);
-     otherwise Office shows the signature as &quot;not trusted&quot;.
-  3  Word / Excel / PowerPoint: File &gt; Info &gt; Protect Document &gt; Add a Digital Signature.  PDF signing in Adobe needs the same trust on that machine.
-  4  The certificate is also an encryption certificate (Document Encryption, Secure Email, Key Encipherment): publish the .cer for people who encrypt for you.
-  This is an own-PKI certificate: Microsoft 365 does not treat it as a certificate of a public trust
-  list.</pre></div>
-<div class="code"><pre>DEFAULTS IN agantra_pki.cnf   [ office365 ]   Days  Level  CommonNameFormat  SerialNumberFormat
-                                              Country  KeyType  KeyBits  Curve  DnsFromEmail
-                                              KeepCase  NoCrl  NoOcsp</pre></div>
-<h3 id="exit-codes-0-ok-1-an-error-or-a-failed-signer">EXIT CODES   0 ok   1 an error or a failed signer<a class="anchor" href="#exit-codes-0-ok-1-an-error-or-a-failed-signer" aria-label="Link to this section">#</a></h3>
-<p>5.0.0: -Pki &lt;name&gt; chooses the company&#39;s PKI (default agantra). Same OS rules as every script: <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a> section 6.</p>
-<h2 id="hash-files-6-3-6">HASH FILES (6.3.6)<a class="anchor" href="#hash-files-6-3-6" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> For every certificate file set, the script writes hash files next to the files:
-   &lt;name&gt;.sha256    &lt;name&gt;.sha512
- Each line is &quot;&lt;hash&gt;  &lt;file name&gt;&quot;, so you can check them with:   sha256sum -c &lt;name&gt;.sha256
- Use -HashFile (PowerShell) or --hash-file (shell) to choose other hashes, for example sha384.
- The hash files only show that a file was not changed or damaged. They do not replace the signature.</pre></div>
+<div class="code"><pre> What it is   : A script. It makes certificates that sign Word, Excel and PowerPoint documents
+                (and PDF in Adobe). The same certificate can also encrypt documents and e-mail.
+ Who reads it : IT staff and the PKI owner. No PKI knowledge is needed. Every new word is
+                explained in <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.
+ Time needed  : 15 minutes to read sections 1 to 5. A run of 3 people takes less than a minute.
+ You need     : The PKI from pki_setup.ps1, PowerShell 7 and OpenSSL 4.
+ Start with   : Section 3 (Before you start), then section 4 (First run, step by step).
+ Linux twin   : GenerateOffice365LeafCertificate.sh (bash, openssl and python3).
+ Same idea as : GeneratePersonLeafCertificate.ps1. Read its manual if you need ID-card style</pre></div>
+<h3 id="certificates">certificates.<a class="anchor" href="#certificates" aria-label="Link to this section">#</a></h3>
+<div class="code"><pre> Related manuals:
+   <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>                       build the PKI first, trust the root (section 7)
+   <a href="GeneratePersonLeafCertificate-MANUAL.html">GeneratePersonLeafCertificate-MANUAL.txt</a>   certificates for people (login, e-mail)
+   <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>         servers and code signing
+   <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>                   revoke a certificate, CRL
+ Help in the terminal:   .\GenerateOffice365LeafCertificate.ps1 -Help     (one page at a time)</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What the script does                       9  Level, quadrant, keys, validity
+    2  The words you need                        10  Revocation switches (no CRL, no OCSP)
+    3  Before you start                          11  Use the certificate in Office
+    4  First run, step by step                   12  Recipes, copy and paste
+    5  What is inside the certificate            13  Problems and answers
+    6  The JSON file                             14  Limits you must know
+    7  One signer, no file                       15  All options
+    8  The files you get, and hash files         16  What was tested, what was not</pre></div>
+<h2 id="1-what-the-script-does">1  WHAT THE SCRIPT DOES<a class="anchor" href="#1-what-the-script-does" aria-label="Link to this section">#</a></h2>
+<p>You write a list of signers in a JSON file. A signer is a person who signs documents. For each signer the script: 1. checks the data, 2. makes a new private key, 3. signs a certificate with the intermediate CA, 4. checks the certificate against the roots, 5. writes the files, the hash files and a short guide (OFFICE-NOTES.txt).</p>
+<p>All checks run BEFORE anything is written. One error in the list means that nothing is issued and every error is shown. After that each signer is issued alone. If one fails, that folder is removed and the run goes on.</p>
+<p>This is a certificate from YOUR OWN PKI. Microsoft 365 does not treat it as a certificate from a public trust list. A computer shows the signature as trusted only when the root of this PKI is installed on it. It is NOT a qualified certificate.</p>
+<h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Signer       A person on your list. They sign documents.
+ Signature    A mark in a document that proves who signed and that the content did not change.
+ EKU          &quot;Extended Key Usage&quot;. The list of purposes inside the certificate.
+ RSA, ECDSA   Two kinds of keys. RSA can encrypt documents. ECDSA can only sign.
+ PFX          One file with the key and the certificate. It has a password. You import it into
+              Windows.
+ CRL, OCSP    Ways for a program to ask &quot;was this certificate revoked?&quot;.
+ isGenerate   A switch in the JSON file. true = make it. false = skip this signer.
+ Full list    <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.</pre></div>
+<h2 id="3-before-you-start">3  BEFORE YOU START<a class="anchor" href="#3-before-you-start" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre>   1. The PKI exists (pki_setup.ps1 was run, folder .\pki).
+   2. PowerShell 7 or newer.              Check:  pwsh -v
+   3. OpenSSL 4.x.                        Fix:  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+      (as administrator, then open a NEW window)
+   4. Files from a zip may be blocked. The script unblocks its own folders at every start.
+      To do only that:  .\GenerateOffice365LeafCertificate.ps1 -Unblock</pre></div>
+<p>Where it runs: Windows 11 24H2 or newer, Windows Server 2025 and 2022, and Linux with pwsh. Windows 10 and macOS are refused (exit code 5). Classic only (Office uses Windows CryptoAPI and CNG, so there are no Quantum certificates).</p>
+<h2 id="4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP<a class="anchor" href="#4-first-run-step-by-step" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Step 1   Write an example file. It has 5 made-up people:
+              .\GenerateOffice365LeafCertificate.ps1 -ExampleFile .\office365.json
+ Step 2   Open office365.json in a text editor. Change the people to your people.
+          The e-mail must be the address of the Microsoft 365 account.
+ Step 3   Check the file. Nothing is issued:
+              .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -ValidateOnly
+ Step 4   Issue the certificates:
+              .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json
+ Step 5   Open .\leafcerts\office365. There is one folder for each signer.
+ Step 6   Give each signer the .pfx file and the password. Send the password on another channel.
+          Change the default password first:   -Password &quot;YourOwnSecret&quot;
+ Step 7   On the signer&#39;s computer: import the .pfx (section 11) and install the root of the PKI.</pre></div>
+<h2 id="5-what-is-inside-the-certificate">5  WHAT IS INSIDE THE CERTIFICATE<a class="anchor" href="#5-what-is-inside-the-certificate" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Purposes     Document Encryption (1.3.6.1.4.1.311.80.1)
+              Secure Email, also called S/MIME (1.3.6.1.5.5.7.3.4)
+              Document Signing (1.3.6.1.4.1.311.10.3.12)
+              -NoDocumentSigningEku leaves out the last one.
+ Key usage    Digital signature, non-repudiation, and key encipherment (RSA) or key agreement
+              (ECDSA). Critical.
+ Subject      [serialNumber = ID, optional]  givenName  surname  CN = &quot;Given Surname&quot;  C = country
+              Names stay as you typed them (UTF-8). Default country is EE.
+ SAN          The e-mail address (the Microsoft 365 account). -DnsFromEmail also adds DNS:&lt;domain&gt;
+              and DNS:*.&lt;domain&gt;.
+ Key          RSA 4096 by default. This is the most compatible. Minimum RSA 2048.
+              ECDSA: -KeyType ECDSA, P-384 by default. Minimum P-256.
+              ECDSA cannot encrypt documents. Use RSA when the certificate must encrypt.
+ Digest       SHA-2 only. SHA-1 and MD5 are refused. The issuing CA decides (SHA-256 on quadrant 1,
+              SHA-384 on quadrant 2) unless you set -Hash sha256|sha384|sha512.
+ Level        OV by default. EV with -Level EV (397 days). Never DV.
+ Validity     730 days for OV. -Days changes it. Never longer than the issuing CA.
+ Policies     The level policy, the company policies, High Assurance (OV). Each has a CPS pointer.
+ Revocation   CRL, OCSP and CA issuer addresses of the issuing CA (section 10).</pre></div>
+<h2 id="6-the-json-file">6  THE JSON FILE<a class="anchor" href="#6-the-json-file" aria-label="Link to this section">#</a></h2>
+<p>JSON only. A CSV file is refused. Keys that start with _ are comments. Key names may use any case. Example:</p>
+<div class="code"><pre>     { &quot;persons&quot;: [
+         { &quot;isGenerate&quot;: true, &quot;givenName&quot;: &quot;Budi&quot;, &quot;surname&quot;: &quot;Santoso&quot;,
+           &quot;email&quot;: &quot;budi.santoso@example.co.id&quot;, &quot;country&quot;: &quot;ID&quot; }
+     ] }</pre></div>
+<div class="code"><pre> REQUIRED keys:   givenName  surname  email
+ Optional keys:   isGenerate  idCode  idType  serialNumber  country  level  quadrant  days  keyType
+                  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  noCrl
+                  noOcsp  noRevocationInfo
+ isGenerate false = skip this signer and do not even check it. Default true.
+ idCode (staff number, national ID, passport ...) goes into the subject serialNumber.</pre></div>
+<h2 id="7-one-signer-no-file">7  ONE SIGNER, NO FILE<a class="anchor" href="#7-one-signer-no-file" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     .\GenerateOffice365LeafCertificate.ps1 -GivenName Budi -Surname Santoso `
+         -Email budi.santoso@example.co.id -Country ID -IdCode STAFF-0001</pre></div>
+<div class="code"><pre> -IdCode          Optional. Goes to the subject serialNumber (-SerialNumber replaces it).
+ -IdType          Optional label.
+ -SerialNumberFormat &quot;{IdType}{Country}-{IdCode}&quot; builds the serialNumber.
+ -CommonName      Replaces the CN.
+ -CommonNameFormat &quot;{Given} {Surname}&quot;. Tokens: {Given} {Surname} {SurnameFirst} {IdCode}
+                  {Country}. 64 characters at most.
+ -KeepCase        Names stay as typed. This is the default for Office.</pre></div>
+<h2 id="8-the-files-you-get-and-hash-files">8  THE FILES YOU GET, AND HASH FILES<a class="anchor" href="#8-the-files-you-get-and-hash-files" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> .\leafcerts\office365\                        (-OutputRoot changes it)
+   office365-batch-&lt;date&gt;.json                 summary of the run (no passwords in it)
+   &lt;folder per signer&gt;\
+     &lt;name&gt;.crt .pem .cert                     certificate, PEM text
+     &lt;name&gt;.cer .der                           certificate, binary
+     &lt;name&gt;.p7b                                certificate + chain, no key
+     &lt;name&gt;.rfc7468.pem                        strict PEM
+     &lt;name&gt;.key                                the PRIVATE key. Keep it secret.
+     &lt;name&gt;.pub  &lt;name&gt;.pub.der                the public key
+     &lt;name&gt;.pfx                                key + certificate + chain, with a password
+     &lt;name&gt;-chain.crt  &lt;name&gt;-fullchain.crt    the chain without / with the leaf
+     convert-formats.ps1                       commands to convert this certificate
+     leaf-info.json  office365-info.json       what was issued
+     OFFICE-NOTES.txt                          how to use it in Office
+     &lt;name&gt;.sha256  &lt;name&gt;.sha512              hash files</pre></div>
+<div class="code"><pre> HASH FILES. A hash is a short fingerprint of a file. If one byte changes, the hash changes.
+ Each line is &quot;&lt;hash&gt;  &lt;file&gt;&quot;. Check the files:
+     Linux and macOS:   sha256sum -c &lt;name&gt;.sha256
+     Windows:           Get-FileHash &lt;file&gt; -Algorithm SHA256
+ Choose algorithms:  -HashFile sha256,sha384    Allowed: sha256 sha384 sha512 sha3-256 sha3-384
+                     sha3-512. Turn off: -HashFile None</pre></div>
+<div class="code"><pre> Other file options:  -Password   -Format PEM,PFX   -LegacyPfx   -NoGuidance   -InstallPfx
+                      (Windows: import into the user store)</pre></div>
+<h2 id="9-level-quadrant-keys-validity">9  LEVEL, QUADRANT, KEYS, VALIDITY<a class="anchor" href="#9-level-quadrant-keys-validity" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Level      -Level OV (default) or -Level EV (397 days at most).
+ Quadrant   1 = Classic, no FIPS (default).   2 = Classic with FIPS: use -Fips or -Quadrant 2.
+ Keys       -KeyType RSA|ECDSA   -KeyBits 2048|3072|4096|8192   -Curve P-256|P-384|P-521   -Hash
+ Validity   -Days &lt;n&gt;
+ Policies   -Policy &quot;OID&quot; or &quot;OID=<a href="https://cps.example.com" target="_blank" rel="noopener noreferrer">https://cps.example.com</a>&quot;   -CpsUrl (OV)   -CpsUrlEv (EV)
+ Defaults for all runs: section [ office365 ] of agantra_pki.cnf (Days, Level, CommonNameFormat,
+ SerialNumberFormat, Country, KeyType, KeyBits, Curve, DnsFromEmail, KeepCase, NoCrl, NoOcsp).
+ Which PKI: -Pki &lt;name&gt;, -PkiRoot &lt;path&gt;, -Release &lt;n&gt; (default: the latest),
+ -NoCaRevocationInfo (the NoCR family).</pre></div>
+<h2 id="10-revocation-switches-no-crl-no-ocsp">10  REVOCATION SWITCHES (NO CRL, NO OCSP)<a class="anchor" href="#10-revocation-switches-no-crl-no-ocsp" aria-label="Link to this section">#</a></h2>
+<p>Word, Excel and Outlook ask the CRL or OCSP address of the certificate whether it was revoked. If they cannot reach the address, they say &quot;cannot connect to the revocation server&quot;.</p>
+<div class="code"><pre>     -NoCrl              no CRL address
+     -NoOcsp             no OCSP address (the CA issuer address stays)
+     -NoRevocationInfo   both</pre></div>
+<div class="code"><pre> In the JSON file: &quot;noCrl&quot;, &quot;noOcsp&quot;, &quot;noRevocationInfo&quot; for one signer.
+ With these switches the NoCR PKI signs the certificate. Without a NoCR PKI the script stops.
+ Build it with:   .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust
+ A client that has no address cannot learn that the certificate was revoked.</pre></div>
+<div class="code"><pre> IMPORTANT. In the author&#39;s test, -NoRevocationInfo did NOT remove the message in Word 365. The
+ reliable fix is to make the CRL address reachable:
+     .\Start-PkiCrlServer.ps1        (as administrator; serves the CRLs on this machine)
+     pki-server.sh                   (on a real server)
+ To see what fails:   certutil -verify -urlfetch &lt;name&gt;.cer</pre></div>
+<h2 id="11-use-the-certificate-in-office">11  USE THE CERTIFICATE IN OFFICE<a class="anchor" href="#11-use-the-certificate-in-office" aria-label="Link to this section">#</a></h2>
+<p>OFFICE-NOTES.txt in every folder says the same.</p>
+<div class="code"><pre> Step 1   Import the .pfx into Current User &gt; Personal. Double-click it, or use -InstallPfx.
+          Office finds the private key there.
+ Step 2   The root CA of this PKI must be trusted on the computer that OPENS the document. Run
+          pki_setup.ps1 -InstallTrust, or put the root into Trusted Root Certification
+          Authorities. Without it Office shows &quot;not trusted&quot;.
+ Step 3   Word, Excel, PowerPoint: File &gt; Info &gt; Protect Document &gt; Add a Digital Signature.
+          PDF in Adobe needs the same trust on that computer.
+ Step 4   The certificate can also encrypt (Document Encryption, Secure Email, key encipherment,
+          RSA only). Publish the .cer file for people who encrypt for you.</pre></div>
+<h2 id="12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE<a class="anchor" href="#12-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Check a file, issue nothing
+     .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -ValidateOnly</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Issue everyone, own password
+     .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -Password &quot;Secret1!&quot;</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> ECDSA, signing only
+     .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -KeyType ECDSA -Curve P-384</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Without the Document Signing purpose
+     .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -NoDocumentSigningEku</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> EV, FIPS, SHA-384
+     .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -Level EV -Fips -Hash sha384</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Add the domain names of the e-mail to the SAN
+     .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -DnsFromEmail</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> No CRL and no OCSP
+     .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -NoRevocationInfo</pre></div>
+<h2 id="13-problems-and-answers">13  PROBLEMS AND ANSWERS<a class="anchor" href="#13-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Problem                                           Cause and fix
+ ------------------------------------------------  -------------------------------------------
+ &quot;cannot connect to the revocation server&quot;         The CRL address cannot be reached. Run
+                                                   Start-PkiCrlServer.ps1 (section 10).
+ Word shows &quot;Recoverable Signature&quot;                The revocation status is unknown. Same fix.
+ Signature shows &quot;not trusted&quot;                     The root is not installed on the computer
+                                                   that opens the file (section 11, step 2).
+ Office cannot find the certificate                Import the .pfx into Current User &gt; Personal.
+ The certificate cannot encrypt documents          It is ECDSA. Make an RSA certificate.
+ The person file must be a JSON file               CSV is refused. Use -ExampleFile for the shape.
+ The file is not valid JSON                        A comma or a quote is wrong. The message says
+                                                   where.
+ &quot;... is missing.&quot;                                 A required key (givenName, surname, email).
+ &quot;Level DV is not used&quot;                            Use OV or EV.
+ &quot;OpenSSL 4.0 or newer ... not found&quot;              Install OpenSSL 4 (section 3).
+ No NoCR PKI found                                 Build it (section 10).
+ Files are read-only or blocked                    .\GenerateOffice365LeafCertificate.ps1 -Unblock
+ Exit code 1                                       A signer failed, or an error. Read the list.</pre></div>
+<h2 id="14-limits-you-must-know">14  LIMITS YOU MUST KNOW<a class="anchor" href="#14-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>Not a qualified certificate. Microsoft 365 does not trust it by itself.</li><li>Classic only. RSA is best. ECDSA signs but cannot encrypt documents.</li><li>The default PFX password is a lab password. Change it. Never e-mail a .key file.</li><li>The signature is only as trusted as the root on the checking computer.</li><li>-NoRevocationInfo does not remove the Word 365 message (section 10).</li><li>A certificate made from a DevKit copy is not in the CRL / OCSP database of the master PKI.</li></ul>
+<h2 id="15-all-options">15  ALL OPTIONS<a class="anchor" href="#15-all-options" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The full list is in the terminal, one page at a time:
+     .\GenerateOffice365LeafCertificate.ps1 -Help
+     (Linux: ./GenerateOffice365LeafCertificate.sh --help)</pre></div>
+<div class="code"><pre> Group             Options
+ ----------------  ----------------------------------------------------------------------
+ Input             -File -ExampleFile -ValidateOnly -StopOnError
+ One signer        -GivenName -Surname -Email -Country -IdCode -IdType -SerialNumber
+                   -SerialNumberFormat -CommonName -CommonNameFormat -KeepCase -DnsFromEmail
+ Certificate       -Level -Quadrant -Fips -KeyType -KeyBits -Curve -Hash -Days -Policy
+                   -CpsUrl -CpsUrlEv -NoDocumentSigningEku
+ Revocation        -NoCrl -NoOcsp -NoRevocationInfo -NoCaRevocationInfo
+ Output            -Password -Format -LegacyPfx -NoGuidance -InstallPfx -HashFile -OutputRoot
+ Which PKI         -Pki -PkiRoot -Release -ConfigFile
+ Other             -Unblock -OpenSslPath -FipsModuleConfig -Verbose -Help</pre></div>
+<p>Exit codes: 0 = done. 1 = an error or a failed signer. 5 = this system is refused.</p>
+<h2 id="16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#16-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Tested (Linux, OpenSSL 4, a fresh PKI):
+   * -ExampleFile, -ValidateOnly and a run of 3 signers: subject, SAN, purposes, files, hash
+     files, validation against the roots.
+   * -Help runs; the manual and the help fit 100 columns.
+ NOT tested:
+   * Importing the PFX and signing in a real Word, Excel, PowerPoint or Adobe.
+   * -InstallPfx and the Windows certificate stores.
+   * Document encryption with the certificate.
+   * The .sh twin on RHEL and SUSE.</pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="GeneratePersonLeafCertificate-MANUAL.html"><small>&larr; Previous</small>Person certificates</a><a class="nx" href="SignCsr-MANUAL.html"><small>Next &rarr;</small>Sign a request (CSR)</a></nav>
-<p class="crumb">Made from GenerateOffice365LeafCertificate-MANUAL.txt by Build-HtmlDocs.ps1 6.4.1.</p>
+<p class="crumb">Made from GenerateOffice365LeafCertificate-MANUAL.txt by Build-HtmlDocs.ps1 6.4.3.</p>
 
 </div>
-<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a class="l3" href="#exit-codes-0-ok-1-an-error-or-a-failed-signer">EXIT CODES   0 ok   1 an error or a failed signer</a><a href="#hash-files-6-3-6">HASH FILES (6.3.6)</a></aside>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a class="l3" href="#certificates">certificates.</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a><a href="#5-what-is-inside-the-certificate">5  WHAT IS INSIDE THE CERTIFICATE</a><a href="#6-the-json-file">6  THE JSON FILE</a><a href="#7-one-signer-no-file">7  ONE SIGNER, NO FILE</a><a href="#8-the-files-you-get-and-hash-files">8  THE FILES YOU GET, AND HASH FILES</a><a href="#9-level-quadrant-keys-validity">9  LEVEL, QUADRANT, KEYS, VALIDITY</a><a href="#10-revocation-switches-no-crl-no-ocsp">10  REVOCATION SWITCHES (NO CRL, NO OCSP)</a><a href="#11-use-the-certificate-in-office">11  USE THE CERTIFICATE IN OFFICE</a><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a><a href="#15-all-options">15  ALL OPTIONS</a><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.1</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

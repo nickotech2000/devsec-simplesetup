@@ -28,7 +28,7 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
@@ -238,7 +238,7 @@ pki_package() {
     || pki_warn "PFX could not be written"
 }
 
-# pki_hash_files <dir> <stem> <list>   (6.4.1)  <stem>.sha256 / <stem>.sha512 ...: one file per algorithm next to the certificate.
+# pki_hash_files <dir> <stem> <list>   (6.4.2)  <stem>.sha256 / <stem>.sha512 ...: one file per algorithm next to the certificate.
 # Lines are "<hash>  <file>" (sha256sum format) for every <stem>.crt .pem .cer .der .p7b .pfx that exists. list = sha256,sha512 | sha384 | None
 pki_hash_files() {
   local d="$1" s="$2" list="${3:-sha256,sha512}" ha hcmd ext

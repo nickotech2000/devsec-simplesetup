@@ -29,11 +29,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="6.4.1"
+VERSION="6.4.3"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/pki-lib.sh"
 
@@ -42,81 +42,90 @@ help_pager() {  # help text: one screen at a time on a terminal (Space = next pa
 }
 usage() {
 cat <<'EOF'
-============================================================
- GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu)
- Version 6.4.1
+====================================================================================================
+ GenerateLeafCertificate.sh  -  make leaf certificates from the DevKit (Linux)
+ Version 6.4.3
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
- Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
- Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateLeafCertificate.ps1
- Needs  : bash, openssl 3.0+ (4.0.1+ recommended). The PKI must be installed first:
- ./Install-PkiTrust.sh
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : docs/GenerateLeafCertificate-MANUAL.txt     Windows twin: GenerateLeafCertificate.ps1
+ Runs on: Linux (VM, bare metal, WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+          Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE. Other systems: error, exit 5.
+ Needs  : bash and openssl 3.0+ (4.0.1+ recommended). Install the PKI trust first:
+          ./Install-PkiTrust.sh
 
-USAGE
-  ./GenerateLeafCertificate.sh --dns www.example.com                         OV set: one \
-        certificate per purpose
+WHAT IT DOES
+  One command makes SEVEN certificates, one for each purpose, and checks every one:
+      ./GenerateLeafCertificate.sh --dns www.example.com
+  Files go to  ./leafcerts/<name>/<purpose>/.  Nothing is overwritten.
+  Each folder: <name>.crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json and hash files.
+  Serial numbers are random 128-bit. Every certificate is checked against the roots (and for no
+  CRL / OCSP when you asked for none) before it is reported.
+  Certificates made from a DevKit copy are NOT in the CRL / OCSP database of the master PKI.
+  They are development certificates.
+
+QUICK START
+  ./GenerateLeafCertificate.sh --dns www.example.com
   ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth
   ./GenerateLeafCertificate.sh --dns app.example.com --add-development-san --no-revocation-info
   ./GenerateLeafCertificate.sh --purpose EmailProtection --email me@example.com
+  Default level here is OV (the PowerShell twin uses EV).
 
 LEVEL AND TRACK
-  --ov (default)  --ev  --dv          Level. EV: 397 days at most, CPS = ev-cps.pdf, no High
-  Assurance policy.
-  --quadrant 1|2   1 = Classic non-FIPS (default, RSA)    2 = Classic FIPS (ECDSA).   --fips = --quadrant 2
-  (The Quantum quadrants 3 and 4 need the PowerShell generator.)
-
-HASH FILES (6.4.1)
-  --hash-file A,B       a hash file per algorithm next to every certificate: <name>.sha256 and
-                        <name>.sha512 (default); sha256, sha384, sha512 or None. Each line is
-                        "<hash>  <file>": check with  sha256sum -c <name>.sha256
+  --ov (default)  --ev  --dv   Level. EV: 397 days at most, CPS = ev-cps.pdf, no High Assurance.
+  --quadrant 1|2               1 = Classic, no FIPS (default, RSA).  2 = Classic FIPS (ECDSA).
+  --fips                       Same as --quadrant 2.
+  The Quantum quadrants 3 and 4 need GenerateLeafCertificate.ps1.
 
 PURPOSES
-  none given            the SET: one certificate per purpose (ServerAuth, ClientAuth,
-                        ServerClientAuth, CodeSigning, EmailProtection, TimeStamping, OcspSigning),
-                        each in its own folder
-  --purpose A,B         ONE certificate with these purposes (ServerAuth ClientAuth ServerClientAuth
-                        CodeSigning EmailProtection TimeStamping OcspSigning; TimeStamping and
-                        OcspSigning stand alone) Also (5.3.7, not in the set): DocumentSigning
-                        (Microsoft Office / Office 365 / other office, EKU 1.3.6.1.4.1.311.10.3.12),
-                        DocumentSigningAdobe (Adobe Acrobat PDF, EKU 1.2.840.113583.1.1.5) and any
-                        CUSTOM EKU as a dotted OID, e.g. --purpose
-                        DocumentSigning,1.3.6.1.4.1.99999.1.2
-  --exclude-purpose A,B take these out of the set
+  (none given)           The SET: ServerAuth, ClientAuth, ServerClientAuth, CodeSigning,
+                         EmailProtection, TimeStamping, OcspSigning. Each in its own folder.
+  --purpose A,B          ONE certificate with these purposes. TimeStamping and OcspSigning stand
+                         alone. Extra purposes (not in the set):
+                           DocumentSigning       Microsoft Office and Microsoft 365
+                           DocumentSigningAdobe  Adobe Acrobat PDF
+                           1.3.6.1.4.1.99999.1.2 your own purpose as a dotted number
+                         Example: --purpose DocumentSigning,1.3.6.1.4.1.99999.1.2
+  --exclude-purpose A,B  Take these out of the set.
 
 NAMES
-  --dns a,b   --ip a,b   --email a,b   --cn TEXT
-  --add-development-san    merge the development list (DNS, IP, e-mail of devkit.env) into the SAN.
-                           S/MIME gets the e-mail addresses only, and ECDSA P-384 / SHA-512 by
-                           default (like GeneratePersonLeafCertificate).
+  --dns a,b    --ip a,b    --email a,b    --cn TEXT
+  --add-development-san   Add the development names (DNS, IP, e-mail of devkit.env) to the SAN.
+                          For development only. S/MIME gets the e-mails only, with ECDSA P-384 /
+                          SHA-512 by default.
 
-KEY AND SIGNATURE
-  --key-type rsa|ecdsa   --key-bits 2048|3072|4096|8192   --curve P-256|P-384|P-521   --hash sha256|sha384|sha512
-  Defaults: Quadrant 1 RSA 2048, Quadrant 2 ECDSA P-256; code signing is raised to RSA 4096 / ECDSA
-  P-384.
-  --days N                 validity (default: OV and DV from the configuration, EV 397)
+KEYS AND VALIDITY
+  --key-type rsa|ecdsa    --key-bits 2048|3072|4096|8192    --curve P-256|P-384|P-521
+  --hash sha256|sha384|sha512        Weaker hashes are rejected.
+  Defaults: Quadrant 1 RSA 2048, Quadrant 2 ECDSA P-256. Code signing is raised to RSA 4096 or
+  ECDSA P-384.
+  --days N                Default: OV and DV from the configuration, EV 397.
+
+HASH FILES
+  --hash-file A,B         A hash file for every certificate: <name>.sha256 and <name>.sha512
+                          (default). Values: sha256 sha384 sha512 None.
+                          Each line is "<hash>  <file>". Check:  sha256sum -c <name>.sha256
 
 REVOCATION INFORMATION
-  --no-crl                 no CRL distribution point in any generated certificate
-  --no-ocsp                no OCSP URL (the caIssuers URL stays)
-  --no-revocation-info     both
+  --no-crl                No CRL address in any certificate.
+  --no-ocsp               No OCSP address (the CA issuer address stays).
+  --no-revocation-info    Both.
 
-OUTPUT
-  --out DIR                default ./leafcerts          --pfx-password TEXT   default Abc12345! (the lab password)
-  --openssl FILE           use this openssl             --help, -h   this text      --version
-  --release N              the release of the PKI (R1, R2 ...). Default: the LATEST. A deleted
-                           release = the latest, with a warning.
-  --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the
-                           normal family.
+WHICH PKI
+  --release N             Release of the PKI (R1, R2 ...). Default: the latest. A deleted
+                          release = the latest, with a warning.
+  --no-ca-revocation-info Use the NoCR family (CA certificates without CRL / OCSP).
 
-Each folder: <name>.crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json. Every certificate
-is verified against the
-roots (chain, and no CRL / OCSP when you asked for none) before the script reports it. Serial
-numbers are random 128-bit.
-Certificates made from a DevKit copy are NOT in the CRL / OCSP database of the master PKI: they are
-development certificates.
+OUTPUT AND OTHER
+  --out DIR               Default ./leafcerts.
+  --pfx-password TEXT     Default Abc12345! (the lab password).
+  --openssl FILE          Use this openssl.
+  --help, -h              This text.        --version   Print the version.
+
+EXIT CODES
+  0 done      1 error      5 this system is refused
 EOF
 }
 

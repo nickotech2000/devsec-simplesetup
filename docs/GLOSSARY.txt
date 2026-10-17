@@ -3,7 +3,7 @@
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
- Version: 6.4.1
+ Version: 6.4.3
 ====================================================================================================
 
  READ THIS FIRST
@@ -44,6 +44,24 @@
  PEM, CRT, CER, DER, PFX
    File formats. PEM is text (-----BEGIN ...). DER is binary. CRT and CER are certificates, in
    either form. PFX (PKCS#12) holds a certificate and its key together, with a password.
+
+ Purpose (of a certificate)
+   What the certificate may be used for: a web server, a web client, code signing, e-mail, time
+   stamping or OCSP. The list is stored inside the certificate (see EKU). Do not mix purposes.
+
+ CN (Common Name)
+   The main name in the subject of a certificate, for example www.example.com. Browsers check the
+   SAN, not the CN.
+
+ Custom EKU
+   A purpose you invent, written as a dotted number such as 1.3.6.1.4.1.99999.1.2. No program trusts
+   it until that program is told to.
+
+ S/MIME
+   A standard for signed and encrypted e-mail. A certificate with the Secure Email purpose does it.
+
+ Signer
+   A person who signs documents with a certificate, for example in Word, Excel or a PDF.
 
  Hash (SHA-256, SHA-512)
    A short fingerprint of a file. If one byte changes, the hash changes. The .sha256 and .sha512

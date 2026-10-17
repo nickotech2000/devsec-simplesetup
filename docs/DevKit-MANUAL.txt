@@ -10,7 +10,7 @@
  Start with   : Owner: section 5. Developer: section 6 (Windows) or Ubuntu steps.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
- Agantra Inovatif Enterprise PKI                    Version 6.4.1                     2026-10-17
+ Agantra Inovatif Enterprise PKI                    Version 6.4.3                     2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: PkiTransport-MANUAL.txt     (the .certpacked, -Pack, -Install)
           GenerateLeafCertificate-MANUAL.txt  GeneratePersonLeafCertificate-MANUAL.txt  GenerateOffice365LeafCertificate-MANUAL.txt  SignCsr-MANUAL.txt
@@ -329,14 +329,14 @@
  14  THE -HELP / --HELP TEXTS OF THE KIT SCRIPTS
 ====================================================================================================
  (The PowerShell generators' -Help texts are in their own manuals:
- GenerateLeafCertificate-MANUAL.txt section 13, GeneratePersonLeafCertificate-MANUAL.txt,
+ GenerateLeafCertificate-MANUAL.txt section 17, GeneratePersonLeafCertificate-MANUAL.txt,
  GenerateOffice365LeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt. Below: the scripts that exist
  only in the kit, identical to what they print.)
 
  ---- Install-PkiTrust.ps1 -Help ----------------------------------------------------------------
 ============================================================
  Install-PkiTrust.ps1 - DevKit installer for Windows
- Version 6.4.1
+ Version 6.4.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -373,7 +373,7 @@ EXIT  0 ok   other: see the message (not Windows 11 25H2+, not elevated, wrong p
  ---- Install-PkiTrust.sh --help ----------------------------------------------------------------
 ============================================================
  Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu
- Version 6.4.1
+ Version 6.4.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -409,7 +409,7 @@ OPTIONS
  ---- Make-ShExecutable.ps1 -Help ---------------------------------------------------------------
 ============================================================
  Make-ShExecutable.ps1 - make the .sh files executable (Windows developers)
- Version 6.4.1
+ Version 6.4.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -434,7 +434,7 @@ make-executable.sh [folder]     folder = this script's folder by default
  ---- GenerateLeafCertificate.sh --help ---------------------------------------------------------
 ============================================================
  GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu)
- Version 6.4.1
+ Version 6.4.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -497,7 +497,7 @@ of the master PKI: they are development certificates.
  ---- GeneratePersonLeafCertificate.sh --help ---------------------------------------------------
 ============================================================
  GeneratePersonLeafCertificate.sh - person certificates from a JSON file (Linux / Ubuntu, DevKit)
- Version 6.4.1
+ Version 6.4.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -534,7 +534,7 @@ Output: leafcerts/persons/<folder>/  (.crt .key .pub .pfx -chain -fullchain pers
  ---- GenerateOffice365LeafCertificate.sh --help ------------------------------------------------
 ============================================================
  GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux /
- Ubuntu, DevKit) Version 6.4.1
+ Ubuntu, DevKit) Version 6.4.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -566,7 +566,7 @@ OPTIONS
  ---- SignCsr.sh --help -------------------------------------------------------------------------
 ============================================================
  SignCsr.sh - sign the certificate request (CSR) of another department with our PKI
- Version 6.4.1
+ Version 6.4.2
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

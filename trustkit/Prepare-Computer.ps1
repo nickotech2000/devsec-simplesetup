@@ -26,14 +26,14 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '6.4.1'
+$script:ToolVersion = '6.4.3'
 
 function Show-Help {
 @'
 ============================================================
  Prepare-Computer.ps1 - get this Windows computer ready: PowerShell 7 + .NET SDK 8 and 10 + OpenSSL
  4 + the latest Python, all on the PATH
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

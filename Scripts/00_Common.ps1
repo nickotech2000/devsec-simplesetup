@@ -184,7 +184,7 @@ function ConvertTo-PkiLfFile {
 }
 
 # ------------------------------------------------------------
-# Hash files (6.4.1):  <stem>.sha256  <stem>.sha384  <stem>.sha512  <stem>.sha3-256 ...
+# Hash files (6.4.2):  <stem>.sha256  <stem>.sha384  <stem>.sha512  <stem>.sha3-256 ...
 # One file per algorithm; every line is "<hash>  <file name>", the format of sha256sum / sha512sum, so
 #     sha256sum -c name.sha256            (Linux / macOS)        Get-FileHash on Windows
 # checks the files next to it. Only the files named <stem>.<extension> that exist are listed.

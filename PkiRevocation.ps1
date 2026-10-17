@@ -60,7 +60,7 @@ function Show-PkiRevocationHelp {
     @'
 ============================================================
  PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

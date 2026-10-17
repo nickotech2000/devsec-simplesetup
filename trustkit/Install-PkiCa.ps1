@@ -40,7 +40,7 @@ function Show-Help {
  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
                                nicko@nextmantra.com
 ============================================================
-Version 6.4.1
+Version 6.4.3
 
 WHAT IT DOES
   Opens the .certpacked file that came in the same zip (it asks for the password) and installs the
@@ -95,7 +95,7 @@ NOTES
 '@ | Write-Host
 }
 if ($Help) { Show-Help; return }
-$script:KitVersion = '6.4.1'
+$script:KitVersion = '6.4.3'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }

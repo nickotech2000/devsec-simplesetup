@@ -1,6 +1,6 @@
 ====================================================================================================
  Prepare-Computer.ps1 / prepare-computer.sh  -  (PowerShell 7 and .NET SDK 8 + 10 on Windows) + OpenSSL + the latest Python, on the PATH
- Version 6.4.1          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.4.3          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
  READ THIS FIRST

@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 6.4.1                      Updated: 2026-10-17
+ Version : 6.4.3                      Updated: 2026-10-17
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,25 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.174 DECIDED   (6.4.3) Person and Office 365 documents. The manuals, -Help and --help of
+                 GeneratePersonLeafCertificate and GenerateOffice365LeafCertificate follow the
+                 rules of 10.171 and 10.173. The two scripts share one mechanism, so the two
+                 manuals have the same chapter order, and a reader who knows one knows the other.
+                 The JSON keys are a table (key, what it does, default). The hash file text is a
+                 chapter part, not an appendix. The Word 365 revocation advice is stated once, in
+                 the revocation chapter, with the one fix that worked in the author's test. The
+                 Office manual gets a step-by-step "use it in Office" chapter. Removed because it
+                 was a copy: the full -Help text inside each manual.
+10.173 DECIDED   (6.4.2) GenerateLeafCertificate documents. The manual, -Help and --help of the leaf
+                 generator follow the rules of 10.171: short sentences, the command first, a table
+                 for options and for "message -> cause -> fix", the same order in manual and help,
+                 and no copy of -Help inside the manual. The chapters follow the work: what it
+                 does, words, before you start, first run, the seven certificates, files, hash
+                 files, folders, level and quadrant, names, keys, revocation switches,
+                 development SAN, recipes, problems, limits, options, tests. Removed because they
+                 are history, not help: the "what changed in 4.7 / 4.9.x" chapters (the change log
+                 keeps them). The .sh twin help says plainly what it cannot do (Quantum
+                 quadrants) and that its default level is OV, while the .ps1 default is EV.
 10.172 DECIDED   (6.4.1) Glossary words. GLOSSARY.txt gets the words that the pki_setup manual and
                  -Help use: quadrant, track, release, NoCR, profile, Enterprise Root, Quadrant Root,
                  PEN, SAN, pathlen, EKU, ML-DSA, ML-KEM, DV / OV / EV and PFX. The rule: a word that

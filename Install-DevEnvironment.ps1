@@ -75,7 +75,7 @@ function Show-DevEnvHelp {
     @'
 ============================================================
  Install-DevEnvironment.ps1 - Windows 11 developer bootstrap
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

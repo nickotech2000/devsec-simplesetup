@@ -11,7 +11,7 @@
  Start with   : Read the quick start.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
- Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 6.4.1      2026-10-17
+ Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 6.4.3      2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt,
           PKI-Design-with-FIPS-and-PQC.txt (section 18)

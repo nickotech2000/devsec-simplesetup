@@ -28,11 +28,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    echo "[INFO] $(basename "$0") version 6.4.1" >&2
+    echo "[INFO] $(basename "$0") version 6.4.3" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="6.4.1"
+VERSION="6.4.3"
 DEVSAN_MARKER="add-development-san.pki-marker.invalid"
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
@@ -43,7 +43,7 @@ cat <<'EOF'
 ============================================================
  new-pki-csr.sh - make a key and a certificate request (CSR) step by step (for the DESTINATION
  computer)
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

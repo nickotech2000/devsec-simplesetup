@@ -27,11 +27,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    echo "[INFO] $(basename "$0") version 6.4.1" >&2
+    echo "[INFO] $(basename "$0") version 6.4.3" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="6.4.1"
+VERSION="6.4.3"
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
   if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
@@ -41,7 +41,7 @@ cat <<'EOF'
 ============================================================
  prepare-computer.sh - get this Linux computer ready: OpenSSL + the latest Python 3, both on the
  PATH
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

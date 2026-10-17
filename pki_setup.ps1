@@ -132,7 +132,7 @@ function Show-PkiHelp {
     @'
 ====================================================================================================
  pki_setup.ps1  -  build your own private PKI
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

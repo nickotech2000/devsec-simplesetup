@@ -3,7 +3,7 @@
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 6.4.1
+# Version: 6.4.3
 # ============================================================
 #requires -Version 7.0
 <#
@@ -19,7 +19,7 @@ param(
     [switch]$Help
 )
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '6.4.1'
+$script:ToolVersion = '6.4.3'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 function Out-PagedHelp {
     # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
@@ -54,7 +54,7 @@ if ($Help) {
 @'
 ====================================================================================================
  Build-HtmlDocs.ps1 - make the HTML documentation from the text documents
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -223,7 +223,7 @@ function Convert-BlockLines {
             return "<$tag>" + (($items | ForEach-Object { '<li>' + (Add-InlineMarkup $_) + '</li>' }) -join '') + "</$tag>"
         }
     }
-    # decision line "10.150 DECIDED (6.4.1) text"
+    # decision line "10.150 DECIDED (6.4.2) text"
     if ($Lines[0] -match '^\s*(\d+\.\d+[a-z]?)\s+(DECIDED|FIXED|OPEN|NOTE|CHANGED|REJECTED|DONE|ANSWERED)\b\s*(.*)$') {
         $rest = ($Lines | Select-Object -Skip 1 | ForEach-Object { $_.Trim() }) -join ' '
         $first = $Matches[3]

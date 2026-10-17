@@ -27,52 +27,69 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="6.4.1"; TOOL="GenerateOffice365LeafCertificate.sh"
+VERSION="6.4.3"; TOOL="GenerateOffice365LeafCertificate.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/pki-lib.sh"; . "$HERE/lib/pki-person.sh"
 
 usage() {
 cat <<'EOF'
-============================================================
- GenerateOffice365LeafCertificate.sh - Microsoft Office / 365 document signing certificates (Linux /
- Ubuntu, DevKit)
- Version 6.4.1
+====================================================================================================
+ GenerateOffice365LeafCertificate.sh  -  Office / Microsoft 365 signing certificates (Linux, DevKit)
+ Version 6.4.3
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
- Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
- Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateOffice365LeafCertificate.ps1
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : docs/GenerateOffice365LeafCertificate-MANUAL.txt
+ Windows twin: GenerateOffice365LeafCertificate.ps1
+ Runs on: Linux (VM, bare metal, WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+          Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE. Other systems: error, exit 5.
+ Needs  : bash, openssl and python3. Install the PKI trust first: ./Install-PkiTrust.sh
 
-USAGE
-  ./GenerateOffice365LeafCertificate.sh --example-file office365.json
+WHAT IT DOES
+  Makes one certificate for each signer of a JSON list. It signs Word, Excel, PowerPoint and PDF
+  documents, and can encrypt them. It is NOT a qualified certificate.
+
+QUICK START
+  ./GenerateOffice365LeafCertificate.sh --example-file office365.json      write an example
+  ./GenerateOffice365LeafCertificate.sh --file office365.json --validate-only
   ./GenerateOffice365LeafCertificate.sh --file office365.json --no-revocation-info
 
-CERTIFICATE
-  EKU : Document Encryption (1.3.6.1.4.1.311.80.1) + Secure Email (emailProtection) + Document
-  Signing (1.3.6.1.4.1.311.10.3.12;
-        --no-document-signing-eku leaves the last one out).
-  KU  : digitalSignature + nonRepudiation + keyEncipherment (RSA) / keyAgreement (ECDSA: signs,
-  cannot encrypt documents).
-  Key : RSA 4096 by default (Office minimum RSA 2048 / ECDSA P-256), SHA-2 only. Folder:
-  leafcerts/office365/.
-  Subject: serialNumber (optional ID), givenName, surname, CN "Given Surname", C. SAN: rfc822Name =
-  the e-mail.
+THE CERTIFICATE
+  Purposes  Document Encryption (1.3.6.1.4.1.311.80.1), Secure Email (emailProtection) and
+            Document Signing (1.3.6.1.4.1.311.10.3.12; --no-document-signing-eku leaves it out).
+  Key usage digitalSignature + nonRepudiation + keyEncipherment (RSA) or keyAgreement (ECDSA).
+            ECDSA signs but cannot encrypt documents.
+  Key       RSA 4096 by default (Office minimum RSA 2048 / ECDSA P-256). SHA-2 only.
+  Subject   [serialNumber = ID], givenName, surname, CN "Given Surname", C.
+  SAN       rfc822Name = the e-mail. --dns-from-email adds the domain and *.domain.
+  Folder    leafcerts/office365/
 
 OPTIONS
   --file F  --example-file F  --validate-only  --stop-on-error  --no-document-signing-eku
   --dns-from-email
-  --level OV|EV (--ev)  --quadrant 1|2 (--fips)  --key-type rsa|ecdsa  --key-bits N  --curve P-256|P-384|P-521  --hash sha256|sha384|sha512  --days N
-  --no-crl  --no-ocsp  --no-revocation-info     use these when Word / Excel say "cannot connect to
-            the revocation server"
-  --out DIR (default ./leafcerts)  --hash-file LIST (sha256,sha512 default; sha384; None)
-  --pfx-password TEXT  --openssl FILE  --help  --version
-  --release N (default: the LATEST release of the PKI)  --no-ca-revocation-info (the NoCR family)
+  --level OV|EV (--ev)  --quadrant 1|2 (--fips)
+  --key-type rsa|ecdsa  --key-bits N  --curve P-256|P-384|P-521  --hash sha256|sha384|sha512
+  --days N
+  --no-crl  --no-ocsp  --no-revocation-info    Use when Word / Excel say "cannot connect to the
+                                               revocation server". It may not remove the message in
+                                               Word 365: make the CRL address reachable instead.
+  --release N                 Release of the PKI. Default: the latest.
+  --no-ca-revocation-info     Use the NoCR family of CAs.
+  --out DIR                   Default ./leafcerts.
+  --hash-file LIST            Hash files per certificate. Default sha256,sha512. Also sha384, None.
+                              Check:  sha256sum -c <name>.sha256
+  --pfx-password TEXT         Default Abc12345! (lab password). Change it.
+  --openssl FILE              Use this openssl.
+  --help, -h                  This text.        --version   Print the version.
+
+EXIT CODES
+  0 done      1 an error or a failed signer      5 this system is refused
 EOF
 }
 person_main office365 "$@"

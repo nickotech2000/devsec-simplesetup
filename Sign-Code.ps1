@@ -3,7 +3,7 @@
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 6.4.1
+# Version: 6.4.3
 # ============================================================
 #requires -Version 7.0
 <#
@@ -51,14 +51,14 @@ param(
     [switch]$Help
 )
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '6.4.1'
+$script:ToolVersion = '6.4.3'
 $script:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Show-SignCodeHelp {
 @'
 ====================================================================================================
  Sign-Code.ps1 - sign your code with a code-signing certificate
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

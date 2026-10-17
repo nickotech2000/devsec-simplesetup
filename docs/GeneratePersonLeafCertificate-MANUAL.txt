@@ -1,141 +1,335 @@
-============================================================
- GeneratePersonLeafCertificate.ps1 - certificates of PERSONS (e-mail + client authentication)
- Version 6.4.1
- Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
- Email  : nicko@nextmantra.com
-============================================================
+====================================================================================================
+ GeneratePersonLeafCertificate.ps1  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - person certificates          Version 6.4.3           2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
 ----------------------------------------------------------------------------------------------------
- What it is   : Makes certificates for people from a JSON list.
- Who reads it : The PKI owner or HR/IT staff.
- You need     : A PKI, OpenSSL 4, a JSON list of people.
- Start with   : Copy persons.example.json, edit it, run the script.
- Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+ What it is   : A script. It makes one certificate for each person on a list. The certificate
+                signs and encrypts e-mail and logs the person in to systems (mutual TLS, VPN).
+ Who reads it : IT staff, HR staff and the PKI owner. No PKI knowledge is needed. Every new word
+                is explained in GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+ Time needed  : 15 minutes to read sections 1 to 4. A run of 3 people takes less than a minute.
+ You need     : The PKI from pki_setup.ps1, PowerShell 7 and OpenSSL 4.
+ Start with   : Section 3 (Before you start), then section 4 (First run, step by step).
+ Linux twin   : GeneratePersonLeafCertificate.sh (bash, openssl and python3).
 ----------------------------------------------------------------------------------------------------
- Manual : docs\GeneratePersonLeafCertificate-MANUAL.txt  Design :
-          docs\PKI-Design-with-FIPS-and-PQC.txt (10.59)
- Ubuntu : GeneratePersonLeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl
-          + python3.
- Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.
+ Related manuals:
+   pki_setup-MANUAL.txt                       build the PKI first
+   GenerateLeafCertificate-MANUAL.txt         certificates for servers and code
+   GenerateOffice365LeafCertificate-MANUAL.txt  certificates to sign Word, Excel and PDF
+   DevKit-MANUAL.txt                          the Linux twin
+   PkiRevocation-MANUAL.txt                   revoke a certificate
+ Help in the terminal:   .\GeneratePersonLeafCertificate.ps1 -Help     (one page at a time)
 
-WHAT IT MAKES   (the form of a national ID card certificate; NOT a qualified certificate)
-  Subject      serialNumber = <the ID>   givenName = NICKO SATRIA   surname = UTAMA   CN = UTAMA,NICKO SATRIA,<ID>   C = <country, default EE>
-               (this order; UTF-8, names in capitals unless -KeepCase)
-  The ID       ANY identifier of the person: national ID (KTP/NIK, isikukood ...), passport, driver
-               licence, tax number, staff number. There is no country-specific check
-               (-CheckEstonianId switches the Estonian check digit test on for EE).
-  SAN          rfc822Name = the e-mail address, and the DNS names TAKEN FROM IT:
-               nicko@nextmantra.com  ->  DNS:nextmantra.com  and  DNS:*.nextmantra.com
-               (-NoDnsFromEmail, or "dnsFromEmail": false for one person, leaves them out). No IP
-               address.
-  EKU          Client Authentication + Secure E-mail (emailProtection)
-  Key usage    critical: digitalSignature + keyAgreement (ECDSA) | keyEncipherment (RSA);
-               -NonRepudiation adds nonRepudiation
-  Key          Classic PKI only: ECDSA P-384 (default, as the ID-card sample) or RSA; signature
-               digest SHA-512 (-Hash).  Quadrant 1 = Classic NON-FIPS (default); -Fips or -Quadrant
-               2 = Classic FIPS.
-  Level        OV (default). EV with -Level EV (valid 397 days then). DV is never used for a person.
-  Validity     730 days (OV) by default, -Days; cut to what the issuing CA has left.
-  Policies     the level policy + PEN + -Policy; CRL / OCSP / CA issuer URLs of the issuing CA
-               (q1-ov by default)
-  Output       leafcerts\persons\<id>-<SURNAME>-<GIVEN>\  every format (PEM DER CER CERT P7B RFC7468
-               PFX), key + public key, chain, leaf-info.json, person-info.json, and one
-               persons-batch-<date>.json summary per run (no passwords in it).
-
-ONE PERSON
-  .\GeneratePersonLeafCertificate.ps1 -IdCode 3674010101900001 -GivenName Budi -Surname Santoso -Email budi.santoso@example.co.id -Country ID
-  -IdCode <text>         The ID (any kind).        -IdType <code>   optional short code: PNO PAS IDC
-                                                                    TIN NIK DL ... (only a label,
-                                                                    used by -SerialNumberFormat)
-  -GivenName / -Surname  Several given names are allowed ("NICKO SATRIA").
-  -Email <address>       REQUIRED. Becomes the rfc822Name; the DNS names come from its domain.
-  -Country <CC>          Two letters, default EE ([ person ] Country).
-  -SerialNumber <text>   The subject serialNumber. Default = the ID.   -SerialNumberFormat
-                                                                       "{IdType}{Country}-{IdCode}"
-                                                                       gives the ETSI form
-                                                                       PNOEE-37605030299
-  -CommonName <text>     Replaces the CN.  -CommonNameFormat "{Surname},{Given},{IdCode}"  tokens
-                         {Surname} {Given} {IdCode} {Country} {SurnameFirst}; max 64 characters.
-
-MANY PERSONS - A JSON FILE  (JSON only; CSV is not accepted)
-  .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.json    writes an example with 5 people
-                                                                     (3 of them isGenerate true) and
-                                                                     stops
-  .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -ValidateOnly   checks the file and shows the table, issues nothing
-  .\GeneratePersonLeafCertificate.ps1 -File .\persons.json
-  { "persons": [ { "isGenerate": true, "idCode": "3674010101900001", "serialNumber":
-  "3674010101900001", "givenName": "Budi", "surname": "Santoso",
-                   "email": "budi.santoso@example.co.id", "country": "ID" }, { ... } ] }
-  Keys (any spelling or case):  idCode  givenName  surname  email   (required)       isGenerate (true | false; default true; false = skipped, not even checked)
-  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  noCrl  noOcsp  noRevocationInfo   (optional)
-  Keys that start with _ are comments. A missing optional key takes the default / the command line
-  value. Every person with isGenerate true is checked BEFORE anything is written: one error =
-  nothing is issued, every error is listed. A person is then issued on its own; a failure removes
-  that person's folder and the run goes on (-StopOnError stops at the first failure). Exit 1 when
-  one failed.
-
-CERTIFICATE OPTIONS
-  -Level OV|EV           OV (default: q1-ov).  EV: issuer q1-ev, limited to 397 days.  There is no
-                         DV.
-  -Quadrant 1|2, -Fips   1 Classic non-FIPS (default), 2 Classic FIPS.  The Quantum quadrants are not used for persons.
-  -KeyType RSA|ECDSA  -KeyBits  -Curve  as in GenerateLeafCertificate.ps1.   -Hash sha256|sha384|sha512   signature digest, default SHA-512 (the ID-card sample).
-                         The sample is ECC P-384 (ECDH_P384) signed ecdsa-with-SHA-512: the leaf
-                         here has exactly that key and digest. The SIGNATURE ALGORITHM follows the
-                         issuing CA: Q2 (ECDSA P-384 CA) gives ecdsa-with-SHA512; Q1 (RSA 4096 CA,
-                         the non-FIPS default) gives sha512WithRSAEncryption.
-  -Days <n>  -Policy <oid|oid=cps>  -NonRepudiation
-  -CpsUrl <url>          CPS pointer on every OV policy (default https://nextmantra.com/security/certs).   -CpsUrlEv <url>  on every EV policy (default .../security/certs/ev-cps.pdf).
-  POLICIES               level policy (OV 2.23.140.1.2.2), company policy 1.3.6.1.4.1.<PEN>.1 and
-                         1.3.6.1.4.1.<PEN>.1.2, and for OV the HIGH ASSURANCE policy
-                         1.3.6.1.4.1.<PEN>.1.5 - each with the CPS pointer.
-  -QcStatements          Adds the qcStatements extension with QcType eSign (ETSI 0.4.0.1862.1.6.1)
-                         like the ID card. It is NOT QcCompliance: this PKI is private and does not
-                         issue qualified certificates.
-  REVOCATION INFORMATION  (4.9.4)   by default the certificate has the CRL distribution point, the
-                                    OCSP URL and the CA issuer URL of the issuing CA.
-  -NoCrl                 No CRL distribution point (crlDistributionPoints extension) in the
-                         certificate.
-  -NoOcsp                No OCSP URL (the OCSP method of Authority Information Access); the CA
-                         issuer URL stays.
-  -NoRevocationInfo      Both: no CRL and no OCSP. Use it when Word / Excel / Outlook say "cannot
-                         connect to the revocation server" because the URLs of this private PKI
-                         cannot be reached from the machine that checks the signature. Without any
-                         revocation URL a client has nothing to check: it accepts the certificate
-                         until it expires. The certificate is still recorded in the CA database
-                         (PkiRevocation.ps1 can still revoke it and the CRL lists it), but a client
-                         that has no URL will not learn about it. Per signer in the JSON file:
-                         "noCrl", "noOcsp", "noRevocationInfo" (true | false). Defaults for all: [
-                         person ] NoCrl / NoOcsp in agantra_pki.cnf.
-  -KeepCase              Do not convert the names to capitals.
-  -Password <text>       Password of the PFX (default Abc12345!; the password key of a person
-                         replaces it). CHANGE IT for real use.
-  -Format <list>         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)
-  -OutputRoot <path>     Default leafcerts\persons.
-  -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then
-                         stop.
-  -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
-  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
-                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
-                       release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot <folder> names one PKI folder and
-                                                   overrides both.
-
-DEFAULTS IN agantra_pki.cnf   [ person ]   Days  Level  CommonNameFormat  SerialNumberFormat
-                                           Country  KeyType  Curve  DnsFromEmail  NoCrl  NoOcsp
-EXIT CODES   0 ok   1 an error or a failed person
-============================================================
-
-5.0.0: -Pki <name> chooses the company's PKI (default agantra). Same OS rules as every script:
-PkiProfiles-MANUAL.txt section 6.
+ CONTENTS
+    1  What the script does                       9  Level, quadrant, keys, validity
+    2  The words you need                        10  Revocation switches (no CRL, no OCSP)
+    3  Before you start                          11  Recipes, copy and paste
+    4  First run, step by step                   12  Problems and answers
+    5  What is inside the certificate            13  Limits you must know
+    6  The JSON file                             14  All options
+    7  One person, no file                       15  What was tested, what was not
+    8  The files you get, and hash files
 
 ====================================================================================================
- HASH FILES (6.3.6)
+ 1  WHAT THE SCRIPT DOES
 ====================================================================================================
- For every certificate file set, the script writes hash files next to the files:
-   <name>.sha256    <name>.sha512
- Each line is "<hash>  <file name>", so you can check them with:   sha256sum -c <name>.sha256
- Use -HashFile (PowerShell) or --hash-file (shell) to choose other hashes, for example sha384.
- The hash files only show that a file was not changed or damaged. They do not replace the signature.
+ You write a list of people in a JSON file. The script reads it and, for each person:
+   1. checks the data,
+   2. makes a new private key,
+   3. signs a certificate with the intermediate CA,
+   4. checks the certificate against the roots,
+   5. writes the files and the hash files.
+
+ The certificate has the shape of a national ID card certificate (name, ID number, e-mail).
+ It is NOT a qualified certificate. The law of no country treats it as an ID card.
+
+ All checks run BEFORE anything is written. One error in the list means that nothing is issued
+ and every error is shown. After that each person is issued alone. If one person fails, that
+ person's folder is removed and the run goes on.
+
+====================================================================================================
+ 2  THE WORDS YOU NEED
+====================================================================================================
+ Person       One row of your list: ID, given name, surname, e-mail.
+ ID           Any identifier: national ID, passport, driver licence, tax number, staff number.
+ S/MIME       Signed and encrypted e-mail. Outlook and Thunderbird use it.
+ mutual TLS   Both sides show a certificate. The person certificate is the client side.
+ SAN          "Subject Alternative Name". Here: the e-mail and the domain names.
+ PFX          One file with the key and the certificate. It has a password.
+ isGenerate   A switch in the JSON file. true = make it. false = skip this person.
+ Full list    GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+
+====================================================================================================
+ 3  BEFORE YOU START
+====================================================================================================
+   1. The PKI exists (pki_setup.ps1 was run, folder .\pki).
+   2. PowerShell 7 or newer.              Check:  pwsh -v
+   3. OpenSSL 4.x.                        Fix:  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+      (as administrator, then open a NEW window)
+   4. Files from a zip may be blocked. The script unblocks its own folders at every start.
+      To do only that:  .\GeneratePersonLeafCertificate.ps1 -Unblock
+
+ Where it runs: Windows 11 24H2 or newer, Windows Server 2025 and 2022, and Linux with pwsh.
+ Windows 10 and macOS are refused (exit code 5). Persons are Classic only (no Quantum).
+
+====================================================================================================
+ 4  FIRST RUN, STEP BY STEP
+====================================================================================================
+ Step 1   Write an example file. It has 5 made-up people:
+              .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.json
+ Step 2   Open persons.json in a text editor. Change the people to your people.
+ Step 3   Check the file. Nothing is issued:
+              .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -ValidateOnly
+          You see a table: number, ID, name, e-mail, level, quadrant and the domain names.
+          A skipped person shows "SKIPPED (isGenerate false)".
+ Step 4   Issue the certificates:
+              .\GeneratePersonLeafCertificate.ps1 -File .\persons.json
+ Step 5   Read the result:
+              OK   3674010101900001 SANTOSO BUDI   budi.santoso@example.co.id   until 2028-10-16
+              [OK] 3 certificate(s) issued, 0 failed, 2 skipped (isGenerate false).
+ Step 6   Open .\leafcerts\persons. There is one folder for each person.
+ Step 7   Give each person the .pfx file and the password. Send the password on another channel.
+
+ Change the PFX password before real use. The default Abc12345! is a lab password:
+              .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -Password "YourOwnSecret"
+
+====================================================================================================
+ 5  WHAT IS INSIDE THE CERTIFICATE
+====================================================================================================
+ Subject      serialNumber = the ID      givenName      surname      CN      C = country
+              Names are written in capitals (-KeepCase keeps them as typed).
+              CN = SURNAME,GIVEN NAME,ID  (example: SANTOSO,BUDI,3674010101900001)
+ SAN          The e-mail address. Also two domain names taken from it:
+              budi.santoso@example.co.id  gives  DNS:example.co.id  and  DNS:*.example.co.id
+              Switch the domain names off: -NoDnsFromEmail, or "dnsFromEmail": false.
+ Purposes     Client authentication and secure e-mail.
+ Key usage    Digital signature, plus key agreement (ECDSA) or key encipherment (RSA).
+              -NonRepudiation adds the non-repudiation bit.
+ Key          ECDSA P-384 by default. RSA with -KeyType RSA. Digest SHA-512 (-Hash changes it).
+ Level        OV by default. EV with -Level EV. A person never gets DV.
+ Validity     OV 730 days. EV 397 days. -Days changes it. Never longer than the issuing CA.
+ Policies     The level policy, the company policies and -Policy. OV also gets High Assurance.
+ Revocation   CRL, OCSP and CA issuer addresses of the issuing CA (section 10).
+
+ Default country is EE. The ID has no country-specific check. For Estonian IDs, -CheckEstonianId
+ turns the check-digit test on.
+ -QcStatements adds the "eSign" statement like an ID card. It does NOT say "qualified".
+ The signature algorithm follows the issuing CA: quadrant 1 (RSA CA) gives sha512WithRSA, quadrant 2
+ (ECDSA CA) gives ecdsa-with-SHA512.
+
+====================================================================================================
+ 6  THE JSON FILE
+====================================================================================================
+ JSON only. A CSV file is refused. Keys that start with _ are comments. Key names may use any
+ case. Example:
+
+     { "persons": [
+         { "isGenerate": true, "idCode": "3674010101900001", "givenName": "Budi",
+           "surname": "Santoso", "email": "budi.santoso@example.co.id", "country": "ID" },
+         { "isGenerate": false, "idCode": "AB1234567", "givenName": "Jaan", "surname": "Tamm",
+           "email": "jaan.tamm@example.ee" }
+     ] }
+
+ REQUIRED keys:   idCode  givenName  surname  email
+ Optional keys:
+
+ Key               What it does                                         Default
+ ----------------  ---------------------------------------------------  ---------------------
+ isGenerate        false = skip this person, do not even check it       true
+ idType            Short label of the ID: PNO PAS IDC TIN NIK DL         none
+ serialNumber      The subject serialNumber                              the ID
+ country           Two letters                                           EE
+ level             OV or EV                                              OV
+ quadrant          1 or 2                                                1
+ days              1 to 36500 (EV: 397 at most)                          730
+ keyType           RSA or ECDSA                                          ECDSA
+ keyBits, curve    RSA size, ECDSA curve                                 P-384
+ commonName        Replaces the CN (64 characters at most)               built from the names
+ password          PFX password of this person                           -Password
+ name              Folder name                                           built from ID and names
+ policy            Extra policy                                          none
+ dnsFromEmail      true or false                                         true
+ noCrl, noOcsp,    true or false                                         false
+ noRevocationInfo
+
+ Two people with the same country, ID, level and quadrant are refused.
+
+====================================================================================================
+ 7  ONE PERSON, NO FILE
+====================================================================================================
+     .\GeneratePersonLeafCertificate.ps1 -IdCode 3674010101900001 -GivenName Budi `
+         -Surname Santoso -Email budi.santoso@example.co.id -Country ID
+
+ -File and the single-person options cannot be used together.
+ Name formats (tokens in braces):
+     -CommonNameFormat "{Surname},{Given},{IdCode}"      tokens {Surname} {Given} {IdCode}
+                                                         {Country} {SurnameFirst}
+     -SerialNumberFormat "{IdType}{Country}-{IdCode}"    gives PNOEE-37605030299 (ETSI form)
+
+====================================================================================================
+ 8  THE FILES YOU GET, AND HASH FILES
+====================================================================================================
+ .\leafcerts\persons\                          (-OutputRoot changes it)
+   persons-batch-<date>.json                   summary of the run (no passwords in it)
+   3674010101900001-Santoso-Budi\              one folder for each person
+     <name>.crt .pem .cert                     certificate, PEM text
+     <name>.cer .der                           certificate, binary
+     <name>.p7b                                certificate + chain, no key
+     <name>.rfc7468.pem                        strict PEM
+     <name>.key                                the PRIVATE key. Keep it secret.
+     <name>.pub  <name>.pub.der                the public key
+     <name>.pfx                                key + certificate + chain, with a password
+     <name>-chain.crt  <name>-fullchain.crt    the chain without / with the leaf
+     <name>.cnf                                OpenSSL settings that made it
+     convert-formats.ps1                       commands to convert this certificate
+     leaf-info.json  person-info.json          what was issued
+     <name>.sha256  <name>.sha512              hash files
+
+ A name looks like:  3674010101900001-Santoso-Budi-ov-q1-ecdsa-p384.crt
+
+ HASH FILES. A hash is a short fingerprint of a file. If one byte changes, the hash changes.
+ Each line of a hash file is "<hash>  <file>". Check the files:
+     Linux and macOS:   sha256sum -c <name>.sha256
+     Windows:           Get-FileHash <file> -Algorithm SHA256
+ Choose algorithms:  -HashFile sha256,sha384    Allowed: sha256 sha384 sha512 sha3-256 sha3-384
+                     sha3-512. Turn off: -HashFile None
+ Hash files show that a file was not damaged. They do not replace the signature.
+
+ Other file options:  -Format PEM,PFX (some formats only)   -LegacyPfx (3DES, very old software)
+                      -NoGuidance (no convert-formats.ps1)   -InstallPfx (Windows: import into the
+                      user store)   -Unblock
+
+====================================================================================================
+ 9  LEVEL, QUADRANT, KEYS, VALIDITY
+====================================================================================================
+ Level      -Level OV (default, issuer q1-ov) or -Level EV (issuer q1-ev, 397 days at most).
+ Quadrant   1 = Classic, no FIPS (default).   2 = Classic with FIPS: use -Fips or -Quadrant 2.
+ Keys       -KeyType RSA|ECDSA   -KeyBits   -Curve   -Hash sha256|sha384|sha512
+ Validity   -Days <n>
+ Policies   -Policy "OID" or "OID=https://cps.example.com"
+            -CpsUrl (OV, default https://nextmantra.com/security/certs)
+            -CpsUrlEv (EV, default https://nextmantra.com/security/certs/ev-cps.pdf)
+ Defaults for all runs: section [ person ] of agantra_pki.cnf (Days, Level, CommonNameFormat,
+ SerialNumberFormat, Country, KeyType, Curve, DnsFromEmail, NoCrl, NoOcsp).
+ Which PKI: -Pki <name>, -PkiRoot <path>, -Release <n> (default: the latest),
+ -NoCaRevocationInfo (the NoCR family).
+
+====================================================================================================
+ 10  REVOCATION SWITCHES (NO CRL, NO OCSP)
+====================================================================================================
+ Normal certificates point to the CRL and the OCSP server of the CA. Word, Excel or Outlook may
+ say "cannot connect to the revocation server" when they cannot reach those addresses.
+
+     -NoCrl              no CRL address
+     -NoOcsp             no OCSP address (the CA issuer address stays)
+     -NoRevocationInfo   both
+
+ In the JSON file, use "noCrl", "noOcsp" and "noRevocationInfo" for one person.
+ With these switches the NoCR PKI signs the certificate. Without a NoCR PKI the script stops. Build
+ it with:   .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust
+ A client that has no address cannot learn that the certificate was revoked. The CA still records
+ it, and the CRL still lists it.
+ Word 365 still shows "Recoverable Signature" with these switches. The reliable fix is to issue from
+ the normal PKI and run .\Start-PkiCrlServer.ps1 as administrator. It serves the CRLs on this
+ machine.
+
+====================================================================================================
+ 11  RECIPES, COPY AND PASTE
+====================================================================================================
+ Check a file, issue nothing
+     .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -ValidateOnly
+
+ Issue all people, stop at the first failure
+     .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -StopOnError
+
+ EV certificates, FIPS, own password
+     .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -Level EV -Fips -Password "Secret1!"
+
+ RSA instead of ECDSA
+     .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -KeyType RSA -KeyBits 3072
+
+ For an offline lab, no CRL and no OCSP
+     .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -NoRevocationInfo
+
+ Names as typed, not in capitals
+     .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -KeepCase
+
+ Only the PFX and one hash
+     .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -Format PFX -HashFile sha256
+
+====================================================================================================
+ 12  PROBLEMS AND ANSWERS
+====================================================================================================
+ Message                                              Cause and fix
+ ---------------------------------------------------  ---------------------------------------
+ "Use -File OR -IdCode / -GivenName / -Surname"       You used both. Use one way.
+ "Give one person ... or a file"                      You gave neither.
+ "-Fips and -Quadrant 1 contradict each other"        Remove one.
+ "The person file must be a JSON file"                CSV is refused. Write a JSON file. Use
+                                                      -ExampleFile to see the shape.
+ "The person file is not valid JSON"                  A comma or a quote is wrong. The message
+                                                      says where.
+ "The person file contains no person."                The list is empty.
+ "... is missing."                                    A required key (idCode, givenName,
+                                                      surname, email) is missing.
+ "Country must be a two-letter ISO code"              Use EE, ID, FI ...
+ "Level DV is not used for person certificates"       Use OV or EV.
+ "Quadrant must be 1 ... or 2"                        Persons are Classic only.
+ "an EV certificate may not be valid longer than 397" Lower -Days / "days".
+ "the same ID ... is already on person N"             A duplicate row. Remove one.
+ "OpenSSL 4.0 or newer ... not found"                 Install OpenSSL 4 (section 3).
+ No NoCR PKI found                                    Build it (section 10).
+ Files are read-only or blocked                       .\GeneratePersonLeafCertificate.ps1 -Unblock
+ Outlook says the certificate is not trusted          The root is not installed on that computer.
+                                                      See pki_setup-MANUAL.txt, section 7.
+ Exit code 1                                          A person failed, or an error. Read the list.
+
+====================================================================================================
+ 13  LIMITS YOU MUST KNOW
+====================================================================================================
+ * Not a qualified certificate. Not a legal ID. -QcStatements is a label, nothing more.
+ * Classic only. Quantum certificates for persons do not exist in this script.
+ * The default PFX password is a lab password. Change it. Never e-mail a .key file.
+ * Names with special characters (= + " and similar) are refused. Names are UTF-8.
+ * A certificate made from a DevKit copy is not in the CRL / OCSP database of the master PKI.
+ * The PKI server learns about new certificates after New-PkiServerPackage.ps1 and
+   pki-server.sh update.
+ * Keep the batch summary: it lists who got a certificate and until when.
+
+====================================================================================================
+ 14  ALL OPTIONS
+====================================================================================================
+ The full list is in the terminal, one page at a time:
+     .\GeneratePersonLeafCertificate.ps1 -Help
+     (Linux: ./GeneratePersonLeafCertificate.sh --help)
+
+ Group             Options
+ ----------------  ----------------------------------------------------------------------
+ Input             -File -ExampleFile -ValidateOnly -StopOnError
+ One person        -IdCode -IdType -GivenName -Surname -Email -Country -SerialNumber
+                   -SerialNumberFormat -CommonName -CommonNameFormat
+ Names             -KeepCase -NoDnsFromEmail -CheckEstonianId
+ Certificate       -Level -Quadrant -Fips -KeyType -KeyBits -Curve -Hash -Days -Policy
+                   -CpsUrl -CpsUrlEv -NonRepudiation -QcStatements
+ Revocation        -NoCrl -NoOcsp -NoRevocationInfo -NoCaRevocationInfo
+ Output            -Password -Format -LegacyPfx -NoGuidance -InstallPfx -HashFile -OutputRoot
+ Which PKI         -Pki -PkiRoot -Release -ConfigFile
+ Other             -Unblock -OpenSslPath -FipsModuleConfig -Verbose -Help
+
+ Exit codes: 0 = done. 1 = an error or a failed person. 5 = this system is refused.
+
+====================================================================================================
+ 15  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested (Linux, OpenSSL 4, a fresh PKI):
+   * -ExampleFile, -ValidateOnly and a run of 3 people (OV and EV): subjects, SAN, files, hash
+     files, validation against the roots.
+   * -Help runs; the manual and the help fit 100 columns.
+ NOT tested:
+   * -InstallPfx and the Windows certificate stores.
+   * Outlook, Thunderbird and VPN clients that use the certificate.
+   * Quadrant 2 (FIPS) persons and RSA persons in this revision.
+   * The .sh twin on RHEL and SUSE.

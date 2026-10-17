@@ -4,7 +4,7 @@
 # Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 # ============================================================
 # Takes PKIs away again that install-pki-ca.sh put on this Linux machine: one company, several, or all.  Run:  ./remove-pki-ca.sh --help
-VERSION="6.4.1"
+VERSION="6.4.3"
 set -u
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
@@ -14,7 +14,7 @@ usage() {
 cat <<'EOT'
 ============================================================
  remove-pki-ca.sh  -  remove PKIs that install-pki-ca.sh installed (Linux)
- Version 6.4.1
+ Version 6.4.3
  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
                                nicko@nextmantra.com
 ============================================================
