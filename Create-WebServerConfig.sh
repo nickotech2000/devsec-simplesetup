@@ -4,13 +4,13 @@
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 6.4.3
+# Version: 6.4.7
 # ============================================================
 # Create-WebServerConfig.sh - nginx and Apache configuration for a leaf certificate (HTTPS only).
 # Bash twin of Create-WebServerConfig.ps1. Needs bash 4+ and OpenSSL. Manual: docs/Create-WebServerConfig-MANUAL.txt
 set -u
 if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then echo "[ERROR] bash 4 or newer is needed (macOS: brew install bash)." >&2; exit 1; fi
-VERSION=6.4.3
+VERSION=6.4.7
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
@@ -20,7 +20,7 @@ show_help() {
 cat <<'HELP_EOF'
 ====================================================================================================
  Create-WebServerConfig.sh - nginx and Apache configuration for a leaf certificate (HTTPS only)
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

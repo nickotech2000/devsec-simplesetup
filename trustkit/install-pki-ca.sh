@@ -8,50 +8,79 @@
 PKI_PREFIX="__PKI_PREFIX__"      # written by New-PkiTrustKit.ps1; the files in the system store start with it
 PKI_TARGET="__PKI_TARGET__"      # ubuntu | redhat | suse  (auto = found from this machine)
 set -u
-VERSION="6.4.3"
+VERSION="6.4.7"
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
   if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
 }
 usage() {
 cat <<'EOF'
-install-pki-ca.sh  -  install the CA certificates of the PKI on this Linux machine (Ubuntu / Debian, RHEL family, SUSE family)
-Version 6.4.3
-Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+====================================================================================================
+ install-pki-ca.sh  -  make this Linux computer trust the PKI
+ Version 6.4.7
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : PkiTrustKit-MANUAL.txt (ask the sender)    Twin: Install-PkiCa.ps1 (Windows)
+ Needs  : bash, and python3 or unzip (or 7z) to open the package. sudo (unless you are root).
+          The ca-certificates tools of your distribution.
+
+WHAT IT IS
+  The zip you got holds a .certpacked file. It contains the CA certificates of one or more PKIs.
+  This script opens it (it asks for the password) and puts the root CAs into the system
+  certificate store. After that, certificates from this PKI are trusted on this computer.
+  The package holds NO private key.
+
+QUICK START
+  1. Unzip the zip. Open a terminal in that folder.
+  2. Run:    bash install-pki-ca.sh
+  3. Type the password. The sender gave it to you by another way than the zip.
+  4. If sudo asks for a password, type YOUR password.
 
 WHAT IT DOES
-  (5.1.0) ONE .certpacked can hold the PKIs of SEVERAL companies (for example agantra and raksaka) and several releases of each: all are installed in one run.
-  What was installed is written to /var/lib/pki-trust-kit/installed.tsv; take PKIs away again with  remove-pki-ca.sh --list | --pki NAME | --all  (same zip).
-  Opens the .certpacked file that came in the same zip (it asks for the password) into the folder  pki/  next to this script, and
-  puts every ROOT CA (top root, track roots, quadrant roots) into the system certificate store (the "ca-certificates" of this distribution).
-  The intermediate CA certificates are kept in  pki/ca/intermediates  (and the chains in pki/ca/chains): a client needs only the roots.
-  The package holds NO private key. An older version of the same PKI is replaced: its files in the system store are removed first.
-  The zip and the pki folder stay.
-
-HOW TO RUN (copy the zip to the machine, unzip it, open a terminal in that folder)
-    bash install-pki-ca.sh
-  The password comes from the person who sent you the zip (by another way than the zip). sudo is used for the system store (you may be asked for YOUR password).
-
-OPTIONS
-  --password TEXT      the password (else the variable PKI_PACKAGE_PASSWORD, else --password-file, else you are asked)
-  --password-file F    read the password from the first line of this file
-  --package FILE       a .certpacked (repeat it for several; default: every .certpacked next to this script - a kit of ALL releases has one per release)
-  --target T           ubuntu | redhat | suse | auto   (default: this script's own target, checked against the machine)
-  --firefox            also make Firefox trust the PKI (user profiles of the user who runs this: policy "use the system certificates"
-                       and, when certutil is installed, the roots are imported into the profile databases). Close Firefox first.
-  --check              show what would be done, change nothing
-  --help
+  - Opens the package into the folder pki/ next to the script.
+  - Puts every ROOT (top root, track roots, quadrant roots) into the system store as
+    pki-<company>-<release>-<root>.crt.
+  - Keeps the intermediate CAs in pki/ca/intermediates and the chains in pki/ca/chains. A client
+    needs only the roots.
+  - An older version of the same PKI is replaced: its old files in the system store go first.
+  - Writes a list of what it installed: /var/lib/pki-trust-kit/installed.tsv.
+    remove-pki-ca.sh (same zip) uses this list to take the PKI away again.
+  - The zip and the folder pki/ stay.
+  A kit can hold the PKIs of several companies and several releases. All are installed in one run.
 
 WHERE THE ROOTS GO
-  ubuntu   /usr/local/share/ca-certificates/   then  update-ca-certificates       (Ubuntu, Debian, Mint)
-  redhat   /etc/pki/ca-trust/source/anchors/   then  update-ca-trust extract       (RHEL, CentOS Stream, Rocky, Alma, Oracle, Fedora)
-  suse     /etc/pki/trust/anchors/             then  update-ca-certificates       (SLES, openSUSE)
+  ubuntu   /usr/local/share/ca-certificates/    then update-ca-certificates
+  redhat   /etc/pki/ca-trust/source/anchors/    then update-ca-trust extract
+  suse     /etc/pki/trust/anchors/              then update-ca-certificates
 
-SUPPORTED  Ubuntu 24.04 / 26.04 or newer, CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+ (15, 16 ...),
-           openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Any other distribution or older version is REFUSED with an error (exit 5), nothing is changed.
+OPTIONS
+  --password TEXT      The password. Better not: it shows in the process list. Without it the
+                       script uses PKI_PACKAGE_PASSWORD, then --password-file, then it asks you.
+  --password-file F    Read the password from the first line of this file.
+  --package FILE       A .certpacked. Repeat it for several. Default: every .certpacked next to
+                       the script.
+  --target T           ubuntu | redhat | suse | auto. Default: the target of this script, checked
+                       against the machine.
+  --firefox            Also make Firefox trust the PKI (the profiles of the user who runs this).
+                       It sets the policy "use the system certificates" and, when certutil is
+                       installed, imports the roots into the profile databases. Close Firefox first.
+  --check              Show what would be done. Change nothing.
+  --help, -h           This text.
 
-NEEDS    bash, and one of: python3 or unzip (or 7z) to open the package; sudo (unless you are root); ca-certificates tools of the distribution.
-EXIT     0 done   1 error   3 wrong password   5 this Linux distribution / version is not supported
+EXIT CODES
+  0 done    1 error    3 wrong password    5 this Linux is not supported
+
+SUPPORTED  (anything else: exit 5, nothing changed)
+  Ubuntu 24.04 / 26.04 or newer, CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle Linux 10+,
+  SUSE Linux Enterprise 15+ (15, 16 ...), openSUSE 15+ (Leap 15, 16 ..., Tumbleweed).
+
+PROBLEMS
+  "wrong password" (exit 3): ask the sender. Check for spaces and typing mistakes.
+  "no tool to open the package": install python3 or unzip (sudo apt install python3).
+====================================================================================================
 EOF
 }
 

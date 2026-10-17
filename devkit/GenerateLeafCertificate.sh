@@ -29,11 +29,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.7"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="6.4.3"
+VERSION="6.4.7"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/pki-lib.sh"
 
@@ -44,7 +44,7 @@ usage() {
 cat <<'EOF'
 ====================================================================================================
  GenerateLeafCertificate.sh  -  make leaf certificates from the DevKit (Linux)
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

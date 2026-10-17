@@ -43,12 +43,12 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.7"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
 
-VERSION="4.9.5"
+VERSION="6.4.7"
 SCRIPT_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
 OSSL_MIN_MAJOR=3; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=0        # set again after the options: system 3.0.0, ppa / build 4.0.1
 OSSL_SOURCE="system"                       # system | ppa | build
@@ -61,98 +61,99 @@ help_pager() {  # help text: one screen at a time on a terminal (Space = next pa
 }
 usage() {
 cat <<'EOF'
-============================================================
- Install-DevEnvironment.sh - Linux and macOS developer bootstrap
- Version 4.9.5
-Version 6.4.3
+====================================================================================================
+ Install-DevEnvironment.sh  -  install the developer tools on Linux, and prove OpenSSL
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
- Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
- Manual : docs/Install-DevEnvironment-MANUAL.txt     Windows sibling: Install-DevEnvironment.ps1
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : docs/Install-DevEnvironment-MANUAL.txt     Twin: Install-DevEnvironment.ps1 (Windows)
+ Runs on: Linux (VM, bare metal, WSL): Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle 10+,
+          SLES / openSUSE 15+. Other systems: error, exit 5.
+ Needs  : bash, Internet access, root or sudo (not for --check and --unblock).
 
-WHAT IT DOES
-  Installs what is MISSING, verifies each component, and prints a summary. Nothing that is already
-  there is replaced.
-    tools      curl, tar, gzip, unzip, ca-certificates, compiler, make, perl
-    7zip       7-Zip: the archive tool of the .certpacked transport (AES-256 zip, 7z)
-    openssl    DEFAULT = the OpenSSL of your distribution (apt install openssl): Ubuntu 26.04 \
-          ships 3.5.x (ML-DSA, ML-KEM), Ubuntu 24.04
-               ships 3.0.x (Classic RSA / ECDSA only). Nothing is built, nothing is replaced, the
-               PATH is not touched. Enough for the DevKit generators (GenerateLeafCertificate.sh
-               ...). Then PROVEN: version, FIPS provider, ML-DSA, ML-KEM.
-               --openssl-source ppa     OpenSSL 4 from YOUR PPA (package nicko-su-openssl4,
-                                        ppa:nickotech2000/nicko-su-prod), Ubuntu 24.04 / 26.04.
-               --openssl-source build   OpenSSL 4.0.1+ as a FULL build from the official source
-                                        (SHA-256 checked) into --openssl-prefix, link openssl4 in
-                                        /usr/local/bin. This is what pki_setup.ps1 needs on a CA
-                                        machine (it requires 4.x).
-    nginx      YOUR nginx from YOUR PPA (ppa:nickotech2000/nicko-su-prod, package nicko-su-nginx
-               1.31.x). Ubuntu 24.04 / 26.04 only; other systems skip it. For the CRL / OCSP / time
-               stamp server (linux/pki-server/pki-server.sh installs it by itself as well).
-    git python go node php dotnet pwsh     developer tools (distribution packages; pwsh from the
-                                           PowerShell GitHub release)
+WHAT IT IS
+  A bootstrap for a Linux developer computer. It installs what is MISSING, checks each component
+  and prints a summary. It never replaces or removes what is already there.
+  For the PKI tools alone you need only OpenSSL and 7-Zip: use  --only openssl,7zip.
 
-USAGE
-  ./Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; \
-        changes nothing
-  ./Install-DevEnvironment.sh --yes                        install everything that is missing
-  ./Install-DevEnvironment.sh --yes --only openssl,7zip    only these (what the PKI scripts need)
-  ./Install-DevEnvironment.sh --yes --only nginx           only nginx from the PPA
-  ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa     OpenSSL 4 from the PPA \
-        instead of the distribution's
-  ./Install-DevEnvironment.sh --yes --skip php,dotnet      everything except these
-  ./Install-DevEnvironment.sh --dry-run --only openssl     show the commands, run nothing
-  ./Install-DevEnvironment.sh --unblock                    UNBLOCK + UNLOCK this folder, then stop
+QUICK START
+  1. Look first. Nothing is changed, no root needed:   ./Install-DevEnvironment.sh --check
+  2. See the commands without running them:    ./Install-DevEnvironment.sh --dry-run --yes
+  3. Install what the PKI tools need:
+        sudo ./Install-DevEnvironment.sh --yes --only openssl,7zip
+  4. Everything:                               sudo ./Install-DevEnvironment.sh --yes
+  5. Open a NEW shell (the PATH is read when a shell starts).
+
+COMPONENTS
+  tools    curl, tar, gzip, unzip, ca-certificates, compiler, make, perl
+  7zip     7-Zip: the archive tool of the .certpacked transport (AES-256 zip, 7z)
+  openssl  Default = the OpenSSL of your distribution. Ubuntu 26.04 ships 3.5.x (ML-DSA, ML-KEM).
+           Ubuntu 24.04 ships 3.0.x (Classic RSA and ECDSA only). Nothing is built, nothing is
+           replaced, the PATH is not touched. Enough for the DevKit generators.
+           --openssl-source ppa     OpenSSL 4 from your PPA (package nicko-su-openssl4,
+                                    ppa:nickotech2000/nicko-su-prod). Ubuntu 24.04 / 26.04, amd64.
+           --openssl-source build   OpenSSL 4.0.1+ as a FULL build from the official source
+                                    (SHA-256 checked) into --openssl-prefix, and a link openssl4
+                                    in /usr/local/bin. pki_setup.ps1 on a CA machine needs 4.x.
+  nginx    nginx from your PPA (package nicko-su-nginx 1.31.x). Ubuntu 24.04 / 26.04 only; other
+           systems skip it. For the CRL, OCSP and time stamp server.
+  git, python, go, node, php, dotnet, pwsh    Developer tools. Distribution packages; pwsh from the
+           PowerShell GitHub release (checksum verified) into /opt/microsoft/powershell, linked
+           as /usr/local/bin/pwsh.
+  Every component is checked after the install: the program must be found.
+
+OPENSSL: WHAT "READY" MEANS
+  The script proves, on the binary it will use: the version, the FIPS provider, ML-DSA, ML-KEM.
+  What is "ready" depends on --openssl-source: system 3.0.0+, ppa and build 4.0.1+.
+  What the chosen OpenSSL cannot do is shown as NOTE (not a failure).
+  Exit 0 = ready, 4 = not ready.
 
 OPTIONS
-  --only LIST            Comma-separated components (above). Default: all.      --skip LIST   All except these.
-  --check                Scan only: components found, OpenSSL readiness. Exit 0 when OpenSSL is
-                         ready, 4 when not. (ready = the OpenSSL of the chosen --openssl-source:
-                         3.0.0+ for system, 4.0.1+ for ppa / build)
-  --yes, -y              Do not ask. Needed when there is no terminal.         --dry-run   Print system-changing commands.
-  --openssl-source S     system (default) | ppa | build   (see openssl above).
-  --ppa PPA              The PPA for nginx and OpenSSL 4. Default ppa:nickotech2000/nicko-su-prod.   --nginx-package P   Default nicko-su-nginx.
-  --openssl-prefix DIR   (build) Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS:
-                         /usr/local/openssl-4.0.3).
+  --only LIST            Comma list of components. Default: all.
+  --skip LIST            All except these.
+  --check                Scan only. No root needed.
+  --yes, -y              Do not ask. Needed when there is no terminal.
+  --dry-run              Print the commands that change the system. Run nothing.
+  --openssl-source S     system (default) | ppa | build.
+  --ppa PPA              The PPA for nginx and OpenSSL 4. Default ppa:nickotech2000/nicko-su-prod.
+  --nginx-package P      Default nicko-su-nginx.
+  --openssl-prefix DIR   (build) Where OpenSSL goes. Default /opt/openssl-4.0.3.
   --openssl-version V    (build) Build this version instead of 4.0.3 (4.0.1 or newer).
-  --no-path              (ppa / build) Do not put the OpenSSL 4 bin folder on the PATH (default: it
-                         is put FIRST on the PATH of every login shell: /etc/profile.d/openssl4.sh
-                         with sudo, else a marked block in ~/.profile and ~/.bashrc).
-  --openssl-no-docs      Skip the manual pages (shorter build). The cryptography is still the FULL
-                         build.
-  --openssl-jobs N       Parallel compile jobs. Default: the number of CPU cores.
-  --unblock              UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, immutable, locked
-                         flags) this script's folder, children and recursive, then stop. The same is
+  --openssl-no-docs      (build) Skip the manual pages. Shorter. The cryptography is still FULL.
+  --openssl-jobs N       (build) Parallel compile jobs. Default: the number of CPU cores.
+  --no-path              (ppa, build) Do not put the OpenSSL 4 bin folder on the PATH. Default: it
+                         goes FIRST on the PATH of login shells: /etc/profile.d/openssl4.sh (sudo),
+                         else a marked block in ~/.profile and ~/.bashrc.
+  --unblock              Set write permission, make scripts executable and remove the immutable
+                         flag where chattr exists, for this script's folder, then stop. The same is
                          done silently at every start.
-  --version              Show the version.                                     --help, -h   This text.
+  --version              Show the version.         --help, -h   This text.
 
-OPENSSL BUILD TIME  (only with --openssl-source build; be warned)
-  A full build compiles hundreds of files. About 5 minutes on 8 cores, 15 to 25 on 2 cores, and over
-  an hour on ONE core (measured: more than 30 minutes without finishing on a 1-core VM). Use a
-  machine with cores, or --openssl-no-docs.
+BUILD TIME  (only with --openssl-source build; be warned)
+  A full build compiles hundreds of files. About 5 minutes on 8 cores, 15 to 25 on 2 cores, and
+  over an hour on ONE core. Use a machine with cores.
 
-PLATFORMS  (family: package manager)
-  Ubuntu, Debian: apt     RHEL, CentOS Stream, Rocky, Oracle, Alma: dnf (yum)     SLES, openSUSE: zypper     macOS: Homebrew
-  macOS needs the Xcode command line tools (xcode-select --install) for the OpenSSL build and
-  Homebrew for the others.
+EXAMPLES
+  ./Install-DevEnvironment.sh --check
+  sudo ./Install-DevEnvironment.sh --yes --only openssl,7zip
+  sudo ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa
+  sudo ./Install-DevEnvironment.sh --yes --only nginx
+  sudo ./Install-DevEnvironment.sh --yes --skip php,dotnet
+  ./Install-DevEnvironment.sh --dry-run --only openssl --openssl-source build
 
-EXIT CODES   0 ok   1 error   2 platform not supported   4 OpenSSL not ready   6 a component could not be installed
+LIMITS
+  Package names differ between distributions and versions. Each component is tried with the usual
+  names and then checked, never assumed. dotnet, node, go and php are best effort: your
+  distribution may not ship a current version. The PPA and the source build are not tested with
+  the real packages (see the manual, section 17).
 
-LIMITATIONS
-  * Needs root (or sudo) to install packages and into /opt. Not needed for --check and --unblock.
-  * Package names differ between distributions and versions; each component is tried with the usual
-    names and then verified, never assumed. dotnet, node, go and php are best effort (your
-    distribution may not ship a current version).
-  * The PPA (ppa:nickotech2000/nicko-su-prod) publishes nicko-su-nginx 1.31.6 and nicko-su-openssl4
-    4.0.3 for Ubuntu 24.04 (noble) and 26.04 (resolute), amd64. add-apt-repository, the package
-    names and the installed paths were not testable in the author's sandbox (no PPA access):
-    --dry-run shows the commands; the result is verified, never assumed.
-  * Tested on Ubuntu 24.04 (real apt). The other platforms are tested only by simulation
-    (--dry-run). The OpenSSL source build was NOT completed here (a 1-core VM); the Configure step,
-    the download, the checksum and the readiness checks were tested.
+EXIT CODES
+  0 ok    1 error    5 platform not supported    4 OpenSSL not ready
+  6 a component could not be installed
+====================================================================================================
 EOF
 }
 

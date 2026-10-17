@@ -73,63 +73,91 @@ $ErrorActionPreference = 'Stop'
 
 function Show-DevEnvHelp {
     @'
-============================================================
- Install-DevEnvironment.ps1 - Windows 11 developer bootstrap
- Version 6.4.3
+====================================================================================================
+ Install-DevEnvironment.ps1  -  install the developer tools on Windows, and prove OpenSSL 4
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Manual : docs\Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling:
- Install-DevEnvironment.sh
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\Install-DevEnvironment-MANUAL.txt     Twin: linux/Install-DevEnvironment.sh
+ Needs  : Windows PowerShell 5.1 or PowerShell 7, winget, Internet access. An ELEVATED window,
+          except for -Check, -Help and -Unblock.
 
-WHAT IT DOES   (run in an ELEVATED PowerShell; -Check, -Help and -Unblock need no elevation)
-  Installs through WinGet what is missing: PowerShell 7, .NET 10 and 8 SDK, Node.js, Go, PHP,
-  Python, Git, 7-Zip, FireDaemon
-  OpenSSL (FIPS + quantum-safe), Windows Terminal. Then it PROVES OpenSSL: version 4.0.1 or newer,
-  FIPS provider active,
-  ML-DSA sign / verify, ML-KEM key generation, ML-DSA inside the FIPS provider.
+WHAT IT IS
+  A bootstrap for a developer computer. It installs with winget what is MISSING. It never replaces
+  or removes what is already there. Then it PROVES that OpenSSL can do what the PKI needs.
+  For the PKI tools alone you need only OpenSSL and 7-Zip: use  -Only OpenSSL,7Zip.
 
-USAGE
-  .\Install-DevEnvironment.ps1                          everything
-  .\Install-DevEnvironment.ps1 -Check                   scan only: what is installed, OpenSSL `
-        readiness; changes nothing
-  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip       just these (what the PKI scripts need)
-  .\Install-DevEnvironment.ps1 -SkipPHP -SkipGo         everything except these
-  .\Install-DevEnvironment.ps1 -Unblock                 UNBLOCK + UNLOCK this folder, children and `
-        recursive, then stop
+QUICK START
+  1. Look first. Nothing is changed, no elevation needed:   .\Install-DevEnvironment.ps1 -Check
+  2. Start PowerShell with "Run as administrator".
+  3. Just what the PKI tools need:     .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+     Or everything:                    .\Install-DevEnvironment.ps1
+  4. Close the window. Open a NEW one (the PATH is read when a window starts).
 
-PARAMETERS
-  -Only <list>           PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, OpenSSL, 7Zip,
-                         WindowsTerminal. Installs only these.
+COMPONENTS  (winget package)
+  PowerShell       Microsoft.PowerShell
+  DotNet           Microsoft.DotNet.SDK.10 and .8
+  NodeJS           OpenJS.NodeJS
+  Go               GoLang.Go
+  PHP              PHP.PHP
+  Python           Python.PythonInstallManager
+  Git              Git.Git
+  OpenSSL          FireDaemon.OpenSSL (+ fipsmodule.cnf)
+  7Zip             7zip.7zip
+  WindowsTerminal  Microsoft.WindowsTerminal
+  Every component is checked after the install: the program must be found. A package manager that
+  "finishes" but leaves nothing on the PATH is reported as FAIL.
+
+OPENSSL: WHAT "READY" MEANS
+  The PKI needs the FIPS provider (Quadrants 2 and 4) and the post-quantum algorithms ML-DSA and
+  ML-KEM (Quadrants 3 and 4). A "light" or stripped OpenSSL is refused. The script proves, on the
+  binary it will use:
+     version          4.0.1 or newer
+     FIPS provider    loads with fipsmodule.cnf and reports active
+     ML-DSA           an ML-DSA-65 key signs and verifies
+     ML-KEM           an ML-KEM-768 key is made
+     ML-DSA in FIPS   an ML-DSA-65 key inside the FIPS provider (only a warning when missing)
+  It also checks that the machine-wide OPENSSL_CONF loads without provider errors.
+  What the script does: installs FireDaemon.OpenSSL; if it reports less than 4.0.1 it runs "winget
+  upgrade"; writes fipsmodule.cnf (openssl fipsinstall), OPENSSL_MODULES, OPENSSL_CONF and a master
+  openssl.cnf that activates default and FIPS; adds the OpenSSL bin folder to the machine Path.
+  The PKI scripts ignore OPENSSL_CONF: they use their own configuration.
+
+OPTIONS
+  -Only <list>        Install only these: PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, OpenSSL,
+                      7Zip, WindowsTerminal.
   -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipOpenSSL
-  -SkipWindowsTerminal -Skip7Zip
-  -Check                 Scan only. Exit code 0 when OpenSSL is ready, 4 when it is not.
-  -WithOqsProvider       Also download the third-party oqsprovider (NOT needed: OpenSSL 4 has native
-                         ML-DSA and ML-KEM). Without it the master openssl.cnf does not mention
-                         oqsprovider at all.
-  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) every file below this
-                         script's folder, then stop. The same is done silently at every start,
-                         before anything else.
-  -Help                  This text.
+  -SkipWindowsTerminal -Skip7Zip        Leave these out.
+  -Check              Scan only. Exit 0 when OpenSSL is ready, 4 when not.
+  -WithOqsProvider    Also download the third-party oqsprovider. NOT needed: OpenSSL 4 has native
+                      ML-DSA and ML-KEM. Without it the master openssl.cnf does not mention
+                      oqsprovider (a missing DLL named there makes every openssl command print
+                      errors).
+  -Unblock            Remove the "downloaded from the Internet" mark and the Read-only attribute
+                      from every file below this script's folder, then stop. The same is done
+                      silently at every start.
+  -Help               This text.
 
-OPENSSL
-  FireDaemon.OpenSSL is installed by WinGet. If it reports less than 4.0.1 the script runs "winget
-  upgrade". It then writes fipsmodule.cnf (openssl fipsinstall), the machine variables
-  OPENSSL_MODULES and OPENSSL_CONF, and a master openssl.cnf that activates the default and FIPS
-  providers. The PKI scripts ignore OPENSSL_CONF (they use their own configuration).
+EXAMPLES
+  .\Install-DevEnvironment.ps1 -Check
+  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+  .\Install-DevEnvironment.ps1 -SkipPHP -SkipGo
+  .\Install-DevEnvironment.ps1 -Unblock
 
-EXIT CODES   0 ok   1 error (for example not elevated)   4 OpenSSL not ready
+LOG
+  %ProgramData%\Agantra\WindowsDeveloperBootstrap\Logs
 
-WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
-  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
-  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
-  Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
-  editions. Linux (pwsh): the distributions of the
-  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
+EXIT CODES   0 ok    1 error (for example: not elevated)    4 OpenSSL not ready
+             5 this system is not supported
+
+WHERE IT RUNS
+  Windows 11 24H2 or newer, Windows Server 2025 and 2022. Refused (exit 5, nothing done): Windows 10
+  and earlier, Windows 11 before 24H2, Server before 2022, and the Chinese, Government, IoT, SE and
+  Embedded editions.
+====================================================================================================
 '@
 }
 function Out-PagedHelp {

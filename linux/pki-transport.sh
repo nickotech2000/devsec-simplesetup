@@ -35,12 +35,12 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.7"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
 
-VERSION="6.4.3"
+VERSION="6.4.7"
 PREFIX_NAME="agantra-pki-"                 # every file this script puts in the system store starts with this
 OSSL_MIN_MAJOR=4; OSSL_MIN_MINOR=0; OSSL_MIN_PATCH=1
 OSSL_BUILD_VERSION="4.0.3"                 # the version --install-openssl builds
@@ -52,136 +52,104 @@ help_pager() {  # help text: one screen at a time on a terminal (Space = next pa
 }
 usage() {
 cat <<'EOF'
-============================================================
- pki-transport.sh - DESTINATION script for Linux (macOS is refused since 5.0.0)
- Version 6.4.3
+====================================================================================================
+ pki-transport.sh  -  unpack a .certpacked and install the trust on Linux
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
- Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
- Manual : docs/PkiTransport-MANUAL.txt     Help: ./pki-transport.sh --help
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : docs/PkiTransport-MANUAL.txt (section 9)
+ Runs on: Linux (VM, bare metal, WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+          Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE. Other systems (macOS too): error,
+          exit 5.
 
-WHAT IT DOES  (and nothing else)
-  1. SCAN         the platform, privileges, OpenSSL 4.0.1+, the certificate-store tools, an archive
-     tool.
-  2. PREPARE      installs what is missing: the certificate-store tooling of your Linux, 7-Zip (for
-     AES-256 zip and
-                  7z packages), and - with your consent - OpenSSL 4 built from the official source
-                  release.
-  3. UNPACK       the .certpacked (a password-protected zip or 7z; the extension says nothing, the
-     first bytes do),
-                  checks the SHA-256 of every file, writes what you select to a folder.
-  4. INSTALL      the CA certificates in the SYSTEM certificate store of this machine (Linux: the
-     ca-certificates
-                  store of your distribution; macOS: the System keychain), then proves with OpenSSL
-                  4 that the chains verify against it.
+WHAT IT DOES   (and nothing else)
+  1. SCAN
+  The platform, privileges, OpenSSL 4.0.1+, the certificate-store tools, an archive tool.
+  2. PREPARE  Installs what is missing: the store tools, 7-Zip, and (with your consent) OpenSSL 4,
+              built from the official source release.
+  3. UNPACK   The .certpacked. Checks the SHA-256 of every file. Writes what you select to a folder.
+  4. INSTALL  The CA certificates in the SYSTEM store. Then OpenSSL 4 proves the chains against it.
 
-USAGE
-  ./pki-transport.sh --package dev.certpacked                         unpack the CA certificates, \
-        install the roots
-  ./pki-transport.sh --package dev.certpacked --no-trust              unpack only
-  ./pki-transport.sh --package dev.certpacked --extract roots         only the roots
-  ./pki-transport.sh --package dev.certpacked --extract intermediates only the DV / OV / EV CAs
-  ./pki-transport.sh --package dev.certpacked --extract ca,leafcerts  CAs and the leaf certificates
-  ./pki-transport.sh --package dev.certpacked --extract fullchain     everything the package holds
+QUICK START   (root or sudo is needed to install; not for --list or --no-trust)
+  sudo ./pki-transport.sh --package dev.certpacked --yes     Unpack the CAs, install the roots
+  ./pki-transport.sh --check                                 The scan only
+
+COMMON COMMANDS
+  ./pki-transport.sh --package dev.certpacked --no-trust              Unpack only
+  ./pki-transport.sh --package dev.certpacked --extract roots         Only the roots
+  ./pki-transport.sh --package dev.certpacked --extract ca,leafcerts  CAs and leaf certificates
+  ./pki-transport.sh --package dev.certpacked --extract fullchain     Everything in the package
   ./pki-transport.sh --package dev.certpacked --extract leafcerts --leaf 'www*' --no-trust
-  ./pki-transport.sh --package dev.certpacked --list                  what is inside; nothing \
-        written
-  ./pki-transport.sh --check                                          the scan only
-  ./pki-transport.sh --package dev.certpacked --remove-trust          take the package's CAs out \
-        of the store
+  ./pki-transport.sh --package dev.certpacked --list
+  What is inside; nothing written
+  ./pki-transport.sh --package dev.certpacked --remove-trust          Take the CAs out of the store
 
 OPTIONS
-  --package FILE        The .certpacked.                                          (also: the first
-                        plain argument)
-  --password TEXT       Package password. Visible in a process list: prefer --password-file, the
-                        environment variable
-  --password-file FILE  PKI_TRANSPORT_PASSWORD, or the prompt (not echoed).
-  --dest DIR            Where to write the files. Default ./certpacked-received/<package name>.
+  --package FILE        The .certpacked (also: the first plain argument).
+  --password TEXT       The password. Visible in the process list: prefer the prompt,
+  --password-file FILE  a file, or the variable PKI_TRANSPORT_PASSWORD.
+  --dest DIR            Where to write. Default ./certpacked-received/<package name>.
   --extract LIST        Comma-separated:
-                          roots          ca/roots/*.crt (Enterprise, Track and Quadrant roots) +
-                                         ca-bundle-roots.crt
-                          intermediates  ca/intermediates/*.crt (DV, OV and EV CAs)
-                          chains         ca/chains/*-fullchain.crt (each intermediate + its parents)
-                                         and the bundles
-                          ca             roots + intermediates + chains + bundles + CRLs   (default)
-                          leafcerts      the leafcerts folders (leaf certificates AND their private
-                                         keys), if packed
-                          pki            the PKI folder with the CA private keys (a DevKit: only the
-                                         issuing CAs' keys), if packed
-                          all            everything in the package;  fullchain is the same
-  --leaf WILDCARD       With leafcerts: only these leaf sets (top-level folder names), e.g. 'www*'.
-                        Several: comma.
+                          roots          ca/roots/*.crt and ca-bundle-roots.crt
+                          intermediates  ca/intermediates/*.crt (DV, OV, EV CAs)
+                          chains         ca/chains/*-fullchain.crt and the bundles
+                          ca             roots + intermediates + chains + bundles + CRLs (default)
+                          leafcerts      the leafcerts folders (certificates AND private keys)
+                          pki            the PKI with the CA private keys (a DevKit: the issuing
+                                         CAs' keys only)
+                          all            everything in the package (fullchain is the same)
+  --leaf WILDCARD       With leafcerts: only these leaf sets, e.g. 'www*'. Several: comma.
   --trust MODE          Which CAs go into the system store:
-                          roots (default)  every root: Enterprise, Track and Quadrant roots (a Linux
-                          store has one
-                                           kind of anchor; this follows the Windows layout where all
-                                           roots are trusted)
-                          enterprise       only the Enterprise Root (servers must send the whole
-                                           chain)
-                          all-ca           roots AND intermediates (macOS: intermediates without
-                                           trust settings)
-                          none             install nothing (same as --no-trust)
-  --no-trust            Unpack only.            --remove-trust   Remove this package's CAs (or every
-                                                                 ${PREFIX_NAME}* file).
-  --list                Show scope, CAs, leaves, files; write nothing.      --check   The scan only.
-  --force               Overwrite files in --dest that exist and differ.    --no-verify  Skip the
-                        OpenSSL chain proof.
+                          roots (default)  every root. A Linux store has one kind of anchor.
+                          enterprise       only the Enterprise Root (servers must send the chain).
+                          all-ca           roots and intermediates.
+                          none             install nothing (same as --no-trust).
+  --no-trust            Unpack only.
+  --remove-trust        Remove this package's CAs (without --package: every agantra-pki-* file).
+  --list                Show scope, CAs, leaves and files. Write nothing.
+  --check               The scan only.
+  --force               Overwrite files in --dest that exist and differ.
+  --no-verify           Skip the OpenSSL chain proof.
 
 PREPARATION
-  --yes, -y             Do not ask: install what is missing (packages, 7-Zip). Needed when there is
-                        no terminal.
-  --dry-run             Print every system-changing command instead of running it. Unpacking into
-                        --dest still happens.
-  --install-openssl     Install OpenSSL 4 as a FULL build (FIPS provider, ML-DSA / ML-KEM, shared
-                        libraries, headers, docs) from the official source release into
-                        --openssl-prefix (default /opt/openssl-4.0.3), through
-                        Install-DevEnvironment.sh when it sits next to this script. Without the
-                        option the script asks (exit code 4 when there is no terminal). An OpenSSL 4
-                        that lacks the FIPS module or ML-DSA is NOT accepted (a stripped build). The
-                        build takes minutes on several cores and over an hour on ONE core.
-  --openssl-prefix DIR  Where --install-openssl installs. Default /opt/openssl-4.0.3.
-  --openssl FILE        Use this openssl binary (4.0.1 or newer).
-  --skip-openssl-check  Continue without OpenSSL 4 (the chain proof is skipped). Not recommended.
+  --yes, -y             Do not ask. Install what is missing. Needed when there is no terminal.
+  --dry-run             Print every system-changing command. Unpacking into --dest still happens.
+  --install-openssl     Build a FULL OpenSSL 4 (FIPS, ML-DSA, ML-KEM) from the official release into
+                        --openssl-prefix, through Install-DevEnvironment.sh when it is next to this
+                        script. Without it the script asks (exit 4 without a terminal). A stripped
+                        build is NOT accepted. About 5 minutes on 8 cores, over an hour on one core.
+  --openssl-prefix DIR  Where it installs. Default /opt/openssl-4.0.3.
+  --openssl FILE        Use this openssl (4.0.1 or newer).
+  --skip-openssl-check  Go on without OpenSSL 4. The chain proof is skipped. Not recommended.
   --7z FILE             Use this 7-Zip program (7zz, 7z, 7za).
-  --store-dir DIR       Linux, unknown distribution: the directory of trust anchors.
-  --update-cmd CMD      Linux, unknown distribution: the command that rebuilds the store (run as
-                        root).
-  --destdir DIR         Prefix for the store directory (image builds, tests): nothing is run to
-                        update the store.
-  --unblock             UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, locked, immutable
-                        flags) this script's folder and --dest, children and recursive, then stop.
-                        The same is done silently at every start.
-  --version             Show the version.          --help, -h   This text.
+  --store-dir DIR       Another Linux: the directory of the trust anchors.
+  --update-cmd CMD      Another Linux: the command that rebuilds the store (run as root).
+  --destdir DIR         Prefix for the store directory (image builds, tests). The store is not
+                        rebuilt.
+  --unblock             Unlock this script's folder and --dest (write bit, immutable flag), then
+                        stop. This is also done silently at every start.
+  --version             Print the version.        --help, -h   This text.
 
-PLATFORMS  (family -> store directory -> command)
-  Ubuntu, Debian                     /usr/local/share/ca-certificates   update-ca-certificates
-  RHEL, CentOS Stream, Rocky, Oracle, Alma   /etc/pki/ca-trust/source/anchors   update-ca-trust
-  extract
-  SLES, openSUSE (Leap, Tumbleweed)  /etc/pki/trust/anchors             update-ca-certificates
-  macOS (M2, M4, Intel)              /Library/Keychains/System.keychain security add-trusted-cert
-  If the certificate-store tooling is not installed, the package ca-certificates is installed first.
+SYSTEM STORES   (family -> directory -> command)
+  Ubuntu                              /usr/local/share/ca-certificates   update-ca-certificates
+  CentOS Stream, RHEL, Rocky, Oracle  /etc/pki/ca-trust/source/anchors   update-ca-trust extract
+  SUSE Linux Enterprise, openSUSE     /etc/pki/trust/anchors             update-ca-certificates
+  The files it adds are named agantra-pki-*. If the store tools are missing, ca-certificates is
+  installed first.
 
-EXIT CODES   0 ok   1 error   2 platform not supported   4 OpenSSL 4.0.1+ missing   5 wrong password
-             6 a prerequisite could not be installed
-
-LIMITATIONS
-  * Needs root (or sudo) to install into the system store and to install packages. Not needed for
-    --list or --no-trust.
-  * 7-Zip packages for your distribution are tried in this order (best effort; EPEL is needed on the
-    RHEL family): 7zip, p7zip + p7zip-plugins, p7zip-full. A ZipCrypto zip needs only unzip. Use
-    --7z when you have 7-Zip elsewhere.
+LIMITS
+  * 7-Zip packages are tried in this order (best effort; the RHEL family needs EPEL): 7zip,
+    p7zip + p7zip-plugins, p7zip-full. A ZipCrypto zip needs only unzip. Or use --7z.
   * --install-openssl compiles OpenSSL: it needs a compiler, make and perl (installed when you
-    agree). 5 minutes on 8 cores, over an hour on one core. The checksum of the tarball is taken
-    from the same official release page. The result is proven (FIPS provider, ML-DSA, ML-KEM) before
-    the script goes on.
-  * macOS: ML-DSA (post-quantum) certificates may be refused by the macOS keychain; classic CAs
-    install.
-  * Tested on Ubuntu 24.04 (real store, real packages). The other platforms are tested only by
-    simulation (--dry-run): the commands are the documented ones of each distribution, but never ran
-    on them. macOS never ran.
+    agree). The checksum of the tarball comes from the same release page. The result is proven.
+  * Tested on Ubuntu 24.04 (real store, real packages). Other families only by --dry-run.
+
+EXIT CODES
+  0 done   1 error   2 platform not supported   4 OpenSSL 4.0.1+ missing   5 wrong password
+  6 a prerequisite could not be installed
 EOF
 }
 

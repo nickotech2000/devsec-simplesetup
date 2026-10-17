@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.7">
 <meta name="description" content="Sign a certificate request that someone sent you.">
 <title>Sign a request (CSR) - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.7</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,269 +168,317 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Certificates</p>
 <h1>Sign a request (CSR)</h1>
 <p class="lead">Sign a certificate request that someone sent you.</p>
-<div class="meta"><span class="chip">Version 6.4.3</span><span class="chip">Author : Nicko Satria Utama</span><span class="chip">Company: Agantra Inovatif OU (NextMantra)</span><span class="chip">Email : nicko@nextmantra.com</span></div>
-<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#a-which-script-for-which-request-who-signs-what">A  WHICH SCRIPT FOR WHICH REQUEST  (who signs what)</a></li><li class="l2"><a href="#b-how-the-request-is-checked-every-line-of-the-report-has-a">B  HOW THE REQUEST IS CHECKED  (every line of the report has a code in [ ], used below)</a></li><li class="l2"><a href="#c-what-the-certificate-looks-like">C  WHAT THE CERTIFICATE LOOKS LIKE</a></li><li class="l2"><a href="#d-how-he-makes-a-request-examples-he-keeps-the-private-key-y">D  HOW HE MAKES A REQUEST  (examples; he keeps the private key, you never see it)</a></li><li class="l2"><a href="#e-worked-examples-the-report-of-a-request-that-does-not-foll">E  WORKED EXAMPLES  (the report of a request that does not follow the spec)</a></li><li class="l2"><a href="#f-the-devkit-developers-sign-requests-of-their-own-colleague">F  THE DEVKIT (developers sign requests of their own colleagues)</a></li><li class="l2"><a href="#g-problems">G  PROBLEMS</a></li><li class="l3"><a href="#script-it-only-reads-the-request">script; it only reads the request).</a></li></ol></details>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-signcsr-does">1  WHAT SIGNCSR DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-the-four-steps-in-detail">5  THE FOUR STEPS IN DETAIL</a></li><li class="l2"><a href="#6-which-ca-signs">6  WHICH CA SIGNS</a></li><li class="l2"><a href="#7-the-rules-a-csr-must-follow">7  THE RULES A CSR MUST FOLLOW</a></li><li class="l2"><a href="#8-read-the-report">8  READ THE REPORT</a></li><li class="l2"><a href="#9-what-you-get">9  WHAT YOU GET</a></li><li class="l2"><a href="#10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS</a></li><li class="l2"><a href="#11-the-devkit-developers-sign-too">11  THE DEVKIT: DEVELOPERS SIGN TOO</a></li><li class="l2"><a href="#12-report-codes-the-table">12  REPORT CODES (THE TABLE)</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l3"><a href="#pkiprofiles-manual-txt-the-pki-option-glossary-txt-glossary">PkiProfiles-MANUAL.txt (the -Pki option)   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - sign a colleague&#39;s request     Version 6.4.7   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
+ Scripts: SignCsr.ps1 (Windows, Linux with PowerShell)   SignCsr.sh (Linux, DevKit)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> What it is   : Signs a certificate request (CSR) that someone sent you.
- Who reads it : The owner of the PKI.
- You need     : The .csr file and your PKI.
- Start with   : Run the quick example in the first section.
- Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
-<div class="code"><pre> Manual : docs\SignCsr-MANUAL.txt  Design : docs\PKI-Design-with-FIPS-and-PQC.txt (10.72, section
-          20)
- Ubuntu : SignCsr.sh (same options, written --like-this): in the DevKit, or devkit\SignCsr.sh of the
-          project.
- Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1 (or the DevKit unpacked with
-          Install-PkiTrust).</pre></div>
-<div class="code"><pre>WHAT IT DOES
-  A department has made its OWN private key and a CSR (the request) and sent you only the CSR. This
-  script
-    1. READS the request and CHECKS it against the specification of this PKI (key, signature,
-       subject, names, validity),
-       printing every finding in colour with the reason and the fix:   red ERROR   yellow WARN   green OK   cyan INFO
-    2. refuses it when there is an ERROR (exit code 2, nothing is signed), or signs it with the
-       right INTERMEDIATE CA,
-    3. writes the result into a NEW folder (never overwritten):
-           csr-signed\&lt;name&gt;_&lt;yyyyMMdd-HHmmss&gt;\
-               &lt;name&gt;.crt &lt;name&gt;.cer       his certificate (PEM and DER)
-               &lt;name&gt;-fullchain.crt        his certificate + our CA chain: the file for his server
-               &lt;name&gt;-chain.crt            our CA chain       &lt;name&gt;.p7b  certificate + chain for
-                                                              Windows
-               root.crt                    our Enterprise Root (clients must trust it)    our-ca-bundle.crt  chain + root
-               &lt;name&gt;.csr  sign-info.json  README.txt        (README.txt tells HIM what to do with
-                                                             the files)
-       and one line in csr-signed\signed-csr.tsv. Send him the folder (never any private key: we
-       have none of his, he has none of ours).
-  The certificate is recorded in the index.txt of the issuing CA: it can be revoked
-  (PkiRevocation.ps1 -Action Revoke) and then shows in the CRL.</pre></div>
-<div class="code"><pre>WHO SIGNS
-  The INTERMEDIATE CA of the level and quadrant:   q&lt;N&gt;-dv | q&lt;N&gt;-ov | q&lt;N&gt;-ev
-  -DV | -OV | -EV                  the level. DV = domain only, OV = organization, EV = extended
-                                   validation. WITHOUT one of them the level follows the request
-                                   (5.2.2): the EV information complete (businessCategory,
-                                   serialNumber, jurisdictionC) = EV; a company (C and O) = OV; a
-                                   common name only = DV. A request made by New-PkiCsr.ps1 /
-                                   new-pki-csr.sh therefore gets the right level by itself. -Classic
-                                   and Quadrant 1 (non-FIPS) stay the default; -Quantum / -FIPS
-                                   decide otherwise.
-  -Classic (default) | -Quantum    the track.   -FIPS   the FIPS quadrant (Classic: Q2, Quantum:
-                                                        Q4). Without -FIPS: Q1 / Q3, non-FIPS.
-  Roots never sign a request here: a request for a CA certificate is signed by the owner of the
-  Quadrant Roots with SignExternalCa.ps1.</pre></div>
-<div class="code"><pre>THE SPEC A REQUEST MUST FOLLOW (each deviation is an ERROR or WARN in the report)
-  Signature  valid (proves he owns the key), SHA-256 or stronger.
-  Key        Classic: RSA 2048 / 3072 / 4096 / 8192 or ECDSA P-256 / P-384 / P-521.     Quantum: ML-DSA-44 / 65 / 87.
-             -Purpose CodeSigning needs RSA 4096+ / ECDSA P-384+ / ML-DSA-65+.   Never: RSA &lt; 2048, other curves, Ed25519, DSA.
-             A Classic request cannot get a Quantum issuer and the reverse.
-  Subject    DV: CN only (other fields are dropped, with a warning).
-             OV: C (2 letters), O and CN required; ST, L recommended; OU, street, postalCode, name,
-                 emailAddress, telephoneNumber, serialNumber (company ID) allowed.
-             EV: OV + ST, L, serialNumber, businessCategory (Private Organization | Government
-                 Entity | Business Entity | Non-Commercial Entity)  and jurisdictionC required;
-                 jurisdictionST, postalCode recommended.
-             CodeSigning: C, O, CN (CN = the company name = O).    Anything else in the subject is
-                                                                   an ERROR for that level.
-  Names      TLS (ServerAuth, ClientAuth, ServerClientAuth): DNS names and IP addresses. A request
-             without a SAN gets the CN as DNS name (WARN). EV: no wildcard, no IP address, no
-             internal name (.internal .local .lan ...), no e-mail address. EmailProtection: e-mail
-             addresses (SAN email:) only.  CodeSigning, TimeStamping, OcspSigning: no names (dropped
-             with a WARN).
-  Validity   DV 5 years, OV 3 years, EV 397 days (the maximum; a longer -Days is an ERROR),
-             TimeStamping 5 years, OcspSigning 1 year. Never longer than the issuing CA.
-  Ignored    keyUsage, extendedKeyUsage, CRL / OCSP URLs asked for in the request: THIS PKI sets
-             them (from -Purpose and -Level). The CRL and OCSP addresses are those of the issuing CA
-             that signs (q&lt;N&gt;-&lt;level&gt;), whatever the request says. A policy OID of the request is
-             added ONLY when it is in the IANA private enterprise arc 1.3.6.1.4.1.&lt;PEN&gt; (the company
-             policy, 5.2.2); other policy OIDs are ignored with a WARN.
-             A request for CA:TRUE is refused.   Policies: the level policy, the PEN policies and
-                                                 the High Assurance policy (OV), as for any leaf.</pre></div>
-<div class="code"><pre>OPTIONS
-  -Csr &lt;file&gt;              His request (PEM).
-  -CsrType Auto|Leaf|IntermediateCA   the kind of request (5.2.6, default Auto). Auto recognises it:
-                                      CA:TRUE = a CA request, names without CA:TRUE = a leaf
-                                      request.
-                           This script signs LEAF requests; a CA request is refused with the command
-                           to use (SignExternalCa.ps1). New-PkiCsr.ps1 -CertificateType decides what
-                           it makes.
-  -DV | -OV | -EV          Level (default: from the request, see WHO SIGNS).          -Classic | -Quantum   Track (default Classic).          -FIPS   FIPS quadrant.
-  -Purpose &lt;p&gt;             ServerAuth (default) | ClientAuth | ServerClientAuth | CodeSigning |
-                           EmailProtection | TimeStamping | OcspSigning
-  -Days &lt;n&gt;                Validity in days (default by level; EV at most 397; cut to what the
-                           issuer still has).
-  -Name &lt;text&gt;             Name of the output folder and files (default: his CN).
-  -OutFolder &lt;path&gt;        Where the per-request folders go (default: .\csr-signed next to the pki
-                           folder).
-  -AddDevelopmentSAN       merge the development SAN list (DNS, IP, e-mail of [ development_san ])
-                           into the names, like GenerateLeafCertificate.ps1. A request made by
-                           New-PkiCsr.ps1 can ask for it itself (a marker name in its SAN); the
-                           marker is never put in the certificate. (5.2.2)
-  -Policy &lt;oid|cps ...&gt;    Extra policy &quot;OID|CPS-URL&quot; for this certificate.
-  -NoCrl -NoOcsp -NoRevocationInfo   leave the CRL distribution point and / or the OCSP URL out of
-                                     the certificate.
-  -Check                   Only check the request and print the report; sign nothing.
-  -Strict                  Warnings count as errors.
-  -NoColor                 Plain text (also when the environment variable NO_COLOR is set).
-  -List                    List the earlier requests (csr-signed\signed-csr.tsv) and stop.
-  -WriteShellEnv           Write devkit.env next to this script, so that devkit\SignCsr.sh can sign
-                           on this PKI too (Linux / WSL), and stop.
-  -Unblock                 UNBLOCK and UNLOCK the script folder and the pki folder, then stop.
-  -ConfigFile &lt;path&gt; -PkiRoot &lt;path&gt; -OpenSslPath &lt;path&gt; -FipsModuleConfig &lt;path&gt; -Verbose   as in pki_setup.ps1.   -Help   this text.
-  -Release &lt;n&gt;         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
-                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
-                       release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-&lt;name&gt;-nocr-&lt;NN&gt;, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot &lt;folder&gt; names one PKI folder and
-                                                   overrides both.</pre></div>
-<div class="code"><pre>HIS SIDE (he makes the key and the request himself and keeps the key)
-  EASY WAY (5.2.2): New-PkiCsr.ps1 / new-pki-csr.sh asks the questions one by one
-  (docs\NewPkiCsr-MANUAL.txt); Prepare-Computer.ps1 / prepare-computer.sh install OpenSSL. By hand:
-  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out web01.key
-  openssl req -new -key web01.key -sha256 -subj &quot;/CN=web01.dept.example&quot; -addext &quot;subjectAltName=DNS:web01.dept.example&quot; -out web01.csr
-  (OV adds /C=EE/ST=Harju/L=Tallinn/O=Dept Ltd ;  EV adds /serialNumber=.../businessCategory=Private Organization/jurisdictionC=EE.)
-  Windows without OpenSSL:  certreq -new request.inf web01.csr   (the .inf holds the subject and the
-                                                                 SAN)</pre></div>
-<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>EXAMPLES
-  .\SignCsr.ps1 -Csr .\web01.csr                                    DV, Classic non-FIPS (q1-dv), TLS server
-  .\SignCsr.ps1 -Csr .\web01.csr -OV -Purpose ServerClientAuth      OV (q1-ov), server and client authentication
-  .\SignCsr.ps1 -Csr .\web01.csr -EV -FIPS -Check                   would q2-ev sign it? print the
-                                                                    report only
-  .\SignCsr.ps1 -Csr .\sign.csr -OV -Purpose CodeSigning -NoRevocationInfo
-  .\SignCsr.ps1 -Csr .\pq.csr -Quantum -OV                          ML-DSA request, quantum quadrant 3 (q3-ov)
-  .\SignCsr.ps1 -List
-EXIT CODES   0 ok (signed, or -Check passed)   1 error (the message says why)   2 the request does not follow the spec (the report says where)</pre></div>
-<h2 id="a-which-script-for-which-request-who-signs-what">A  WHICH SCRIPT FOR WHICH REQUEST  (who signs what)<a class="anchor" href="#a-which-script-for-which-request-who-signs-what" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>   Request of                      Script                       Signs with                        Where it runs</pre></div>
-<div class="code"><pre>   a server, person, code signer   SignCsr.ps1 / SignCsr.sh     an INTERMEDIATE CA (DV default)   the original PKI AND the DevKit (developers)
-   a CA of a department            SignExternalCa.ps1           a CLASSIC QUADRANT ROOT           the original PKI only (the DevKit has no root key)
-   (anything involving a root)     -                            -                                 only you, on the original PKI</pre></div>
-<ul><li>Intermediates sign leaf certificates only (pathLenConstraint 0). SignCsr refuses CA:TRUE requests and says where to go.</li><li>A DevKit holds the six (or twelve, with the Quantum quadrants) ISSUING CA keys and nothing else: it can run SignCsr, never SignExternalCa.</li></ul>
-<h2 id="b-how-the-request-is-checked-every-line-of-the-report-has-a">B  HOW THE REQUEST IS CHECKED  (every line of the report has a code in [ ], used below)<a class="anchor" href="#b-how-the-request-is-checked-every-line-of-the-report-has-a" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>   Colours   ERROR red (nothing is signed, exit code 2)   WARN yellow (signed; read it)   OK green   INFO cyan.   -NoColor / --no-color / NO_COLOR=1 for plain text.
-   Each ERROR and WARN names the field, says what is wrong, and gives the fix on the next line.
-   -Check / --check prints the report only. -Strict / --strict: WARN = ERROR.</pre></div>
-<div class="code"><pre>   Key and signature
-     KEY-SIGNATURE         the signature of the request does not verify (changed file, or not signed
-                           with the key inside)
-     KEY-ALG               key type not accepted (Ed25519, Ed448, DSA, RSA-PSS key ...)
-     KEY-RSA-SMALL         RSA below 2048                  KEY-RSA-ODD  size not 2048 / 3072 / 4096
-                                                           / 8192
-     KEY-CURVE             ECDSA curve not P-256 / P-384 / P-521
-     KEY-CS-RSA / -CURVE / -MLDSA    code signing needs RSA 4096+, ECDSA P-384+, ML-DSA-65+      (KEY-CA-RSA / KEY-CA-CURVE: the same for a CA key)
-     KEY-QUANTUM-REQUIRED  Quadrant 3 / 4 (-Quantum) accepts ML-DSA keys only       KEY-CLASSIC-REQUIRED  a Classic request with an ML-DSA key
-     KEY-DIGEST            the request is signed with MD5 / SHA-1 / SHA-224 (SHA-256 or stronger is
-                           required; ML-DSA needs no digest)</pre></div>
-<div class="code"><pre>   Subject (by level)
-     DV   CN only. Other attributes: WARN SUBJ-DV-DROP (they are not in the certificate).
-     OV   required C, O, CN   recommended ST, L   allowed OU street postalCode name emailAddress
-                                                  telephoneNumber
-     EV   OV + required ST, L, serialNumber, businessCategory, jurisdictionC   recommended jurisdictionST, postalCode   (+ jurisdictionL, organizationIdentifier allowed)
-     CodeSigning   C, O, CN (CN = O recommended, WARN SUBJ-CS-CN)
-     SUBJ-REQ-&lt;attr&gt;       missing required attribute      SUBJ-REC-&lt;attr&gt;   missing recommended attribute        SUBJ-ATTR-&lt;attr&gt;   attribute not allowed at this level
-     SUBJ-FMT-C / -jurisdictionC   not 2 upper-case letters          SUBJ-FMT-businessCategory   not one of the four allowed values
-     SUBJ-LEN-&lt;attr&gt;       too long (CN, O, OU 64; ST, L 128)     SUBJ-DUP-&lt;attr&gt;   attribute twice      SUBJ-CN-CHAR  &#39;/&#39; or &#39;\&#39; in the CN      SUBJ-EMPTY   no subject
-   Names
-     SAN-NONE              TLS without a DNS name / IP, S/MIME without an e-mail address (the CN is
-                           used when it is a host name or e-mail: SAN-DERIVED, WARN)
-     SAN-DNS-INVALID  SAN-IP-INVALID  SAN-EMAIL-INVALID      syntax          SAN-WILDCARD  WARN (allowed outside EV)          SAN-DROPPED / SAN-OTHER   names this purpose does not carry
-     SAN-EV-WILDCARD  SAN-EV-IP  SAN-EV-INTERNAL  SAN-EV-EMAIL     EV rules (internal = .internal
-                                                                   .local .localhost .lan .corp
-                                                                   .home .intranet .private .test
-                                                                   .invalid .developer .api .ldap,
-                                                                   or no dot)
-     SUBJ-CN-NOT-SAN       DV: the CN is not one of the names
-   Other
-     EXT-CA                the request asks for CA:TRUE             EXT-IGNORED   (INFO) key usage / EKU / policies of the request are not used: this PKI decides
-     VAL-EV                -Days above 397 for an EV certificate    SUBJ-OUR-CA   (SignExternalCa) the CN is the name of one of our CAs</pre></div>
-<h2 id="c-what-the-certificate-looks-like">C  WHAT THE CERTIFICATE LOOKS LIKE<a class="anchor" href="#c-what-the-certificate-looks-like" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>   Decided by US, not by the request:   basicConstraints CA:FALSE (critical)   keyUsage / extendedKeyUsage from -Purpose and the key type
-        ServerAuth / ServerClientAuth   digitalSignature (+ keyEncipherment for RSA)   serverAuth [+ clientAuth]
-        ClientAuth                      digitalSignature                              clientAuth
-        EmailProtection                 digitalSignature, nonRepudiation (+ keyEncipherment RSA | keyAgreement ECDSA)   emailProtection + clientAuth
-        CodeSigning                     digitalSignature                              codeSigning
-        TimeStamping                    digitalSignature (EKU critical, alone)        timeStamping + the time stamp policy OID
-        OcspSigning                     digitalSignature                              OCSPSigning + id-pkix-ocsp-nocheck
-   Policies: CA/B Forum level policy, our PEN policies, High Assurance (OV), CPS pointers (EV:
-             ev-cps.pdf), as for every leaf of this PKI.
-   CRL distribution point and OCSP / caIssuers URLs of the issuing CA (not with -NoCrl / -NoOcsp).
-   Subject key identifier, authority key identifier. SAN: the validated names of the request.
-   Subject: DV = CN; OV / EV = the subject of the request, in its order. Serial: the next one of the
-   issuing CA (original PKI) or a random 128-bit number (DevKit: its own counter, randomised at
-   install). Issuer: q&lt;N&gt;-dv|ov|ev  (N = 1 Classic non-FIPS, 2 Classic FIPS, 3 Quantum non-FIPS, 4
-   Quantum FIPS). Signature digest: SHA-256 (RSA CA), SHA-384 (ECDSA CA), none (ML-DSA).</pre></div>
-<h2 id="d-how-he-makes-a-request-examples-he-keeps-the-private-key-y">D  HOW HE MAKES A REQUEST  (examples; he keeps the private key, you never see it)<a class="anchor" href="#d-how-he-makes-a-request-examples-he-keeps-the-private-key-y" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>   OpenSSL (Windows with OpenSSL, Linux, macOS)
-     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out web01.key
-     openssl req -new -key web01.key -sha256 -out web01.csr \
-        -subj &quot;/C=EE/ST=Harju/L=Tallinn/O=Dept Ltd/OU=IT/CN=web01.dept.example&quot; -addext
-        &quot;subjectAltName=DNS:web01.dept.example,DNS:www.dept.example&quot;
-     ECDSA:   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 -pkeyopt
-              ec_param_enc:named_curve -out web01.key
-     ML-DSA:  openssl genpkey -algorithm ML-DSA-65 -out web01.key        (Quantum quadrants, OpenSSL 3.5+ / 4.x)
-     EV subject adds:  /serialNumber=12345678/businessCategory=Private Organization/jurisdictionC=EE
-   Windows without OpenSSL: save as request.inf, then   certreq -new request.inf web01.csr   (the private key stays in his Windows store)
-        [NewRequest]
-        Subject = &quot;CN=web01.dept.example, O=Dept Ltd, C=EE&quot;
-        KeyLength = 2048
-        KeySpec = 1
-        Exportable = FALSE
-        MachineKeySet = TRUE
-        HashAlgorithm = SHA256
-        RequestType = PKCS10
-        [Extensions]
-        2.5.29.17 = &quot;{text}&quot;
-        _continue_ = &quot;DNS=web01.dept.example&amp;&quot;
-   Exchange: he sends ONLY the .csr; you send back the folder (never a .key). Check the SHA-256 in
-             sign-info.json with him if the channel is not trusted.
-   After you sign, he installs the certificate:   Windows  certreq -accept web01.cer   |   Linux / nginx  ssl_certificate web01-fullchain.crt; ssl_certificate_key web01.key</pre></div>
-<h2 id="e-worked-examples-the-report-of-a-request-that-does-not-foll">E  WORKED EXAMPLES  (the report of a request that does not follow the spec)<a class="anchor" href="#e-worked-examples-the-report-of-a-request-that-does-not-foll" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>   .\SignCsr.ps1 -Csr .\shop.csr -EV                                       ./SignCsr.sh --csr shop.csr --ev
+<div class="code"><pre> What it is   : A script that checks the certificate request (CSR) of a colleague and, if it is
+                good, signs it with the right intermediate CA of your PKI.
+ Who reads it : The person who SIGNS requests: the owner of the PKI, or a developer who has a
+                DevKit. No PKI knowledge is needed. Every new word is explained in <a href="GLOSSARY.html">GLOSSARY.txt</a>
+                and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.
+ Time needed  : 10 minutes to read sections 1 to 5. A signing takes a few seconds.
+ You need     : A PKI from pki_setup.ps1 (or a DevKit) and the CSR file of your colleague.
+ Start with   : Section 4 (Quick start).</pre></div>
+<div class="code"><pre> Related manuals:
+   <a href="NewPkiCsr-MANUAL.html">NewPkiCsr-MANUAL.txt</a>        how your colleague makes the key and the CSR (step by step)
+   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>           the zip that lets developers sign (sections 11 and 17)
+   <a href="SignExternalCa-MANUAL.html">SignExternalCa-MANUAL.txt</a>   sign a CSR for a CA certificate (SignCsr refuses these)
+   <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>    revoke a certificate you signed
+   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>   why it is built this way (senior staff, 10.72 and section 20)
+ Help in the terminal:   .\SignCsr.ps1 -Help     ./SignCsr.sh --help      (one page at a time)</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What SignCsr does                       10  What the certificate contains
+    2  The words you need                      11  The DevKit: developers sign too
+    3  Before you start                        12  Report codes (the table)
+    4  Quick start                             13  Recipes, copy and paste
+    5  The four steps in detail                14  Problems and answers
+    6  Which CA signs                          15  Limits you must know
+    7  The rules a CSR must follow             16  All options
+    8  Read the report                         17  What was tested, what was not
+    9  What you get                            18  Other documents</pre></div>
+<h2 id="1-what-signcsr-does">1  WHAT SIGNCSR DOES<a class="anchor" href="#1-what-signcsr-does" aria-label="Link to this section">#</a></h2>
+<p>Your colleague needs a certificate for a server, a person or a program. He makes his OWN private key and a request file (CSR) on his own computer. He sends you ONLY the CSR. SignCsr then does three things:</p>
+<div class="code"><pre>     COLLEAGUE                                   YOU (SignCsr)
+     private key (stays with him)
+     web01.csr   ---------------------------&gt;   1. checks the CSR against the rules
+                                                2. signs it (only if there is no error)
+     web01 folder  &lt;---------------------------  3. writes a folder with the certificate</pre></div>
+<p>You never see his private key. He never sees yours. Only the CSR goes one way and only the certificate goes back.</p>
+<p>SignCsr signs LEAF certificates (servers, people, code signing, e-mail). It does NOT sign the certificate of a new CA. That is another script (section 6).</p>
+<h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> CSR            Certificate Signing Request. A file with his public key and his name. No secret.
+ Leaf           A certificate for a server, a person or a program. It cannot sign other
+                certificates.
+ Intermediate   A CA below the root. It signs leaf certificates. Its name is q&lt;N&gt;-dv, q&lt;N&gt;-ov or
+                q&lt;N&gt;-ev.
+ Level          DV, OV or EV. How much the name inside the certificate was checked:
+                DV = domain name only, OV = company too, EV = company, registration, country.
+ Quadrant       One of four PKI families. Q1 = Classic, not FIPS. Q2 = Classic, FIPS.
+                Q3 = Quantum, not FIPS. Q4 = Quantum, FIPS.
+ SAN            Subject Alternative Name. The host names, IP addresses or e-mail addresses that
+                the certificate is valid for.
+ CN             Common Name. The main name in the subject, for example web01.dept.example.
+ Chain          His certificate, then the CA that signed it, then the root.
+ Revoke         Declare a certificate bad before it ends.</pre></div>
+<h2 id="3-before-you-start">3  BEFORE YOU START<a class="anchor" href="#3-before-you-start" aria-label="Link to this section">#</a></h2>
+<ul><li>A PKI made by pki_setup.ps1 in this project, or a DevKit that was installed with Install-PkiTrust (section 11).</li><li>PowerShell 7 and OpenSSL 4 for SignCsr.ps1. bash, OpenSSL 3 or newer and python3 for SignCsr.sh.</li><li>The CSR file. Ask your colleague to use New-PkiCsr.ps1 or new-pki-csr.sh (<a href="NewPkiCsr-MANUAL.html">NewPkiCsr-MANUAL.txt</a>). Then the level and the names are right at the first try.</li><li>A computer that is allowed: Windows 11 24H2 or newer, Windows Server 2025 (everything), Windows Server 2022 (Classic only, no Quantum). Linux: Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle 10+, SLES / openSUSE 15+. Others: error, exit 5, nothing is done.</li></ul>
+<h2 id="4-quick-start">4  QUICK START<a class="anchor" href="#4-quick-start" aria-label="Link to this section">#</a></h2>
+<p>Put web01.csr in the project folder, then:</p>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     .\SignCsr.ps1 -Csr .\web01.csr -Check     (Linux: ./SignCsr.sh --csr web01.csr --check)
+     (read the report, fix every red ERROR with your colleague)
+     .\SignCsr.ps1 -Csr .\web01.csr            (Linux: ./SignCsr.sh --csr web01.csr)</pre></div>
+<p>The new folder is csr-signed\web01_&lt;date&gt;-&lt;time&gt;\. Send it to your colleague. The file for his web server is web01-fullchain.crt.</p>
+<h2 id="5-the-four-steps-in-detail">5  THE FOUR STEPS IN DETAIL<a class="anchor" href="#5-the-four-steps-in-detail" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Step 1  Check only. -Check prints the report and signs nothing. Do it every time.
+ Step 2  Read the report (section 8). Red ERROR = he must make a new CSR. Yellow WARN = read it;
+         the CSR is allowed but something was changed or dropped.
+ Step 3  Sign. Run the same command without -Check. Add -DV, -OV or -EV only when you want to force
+         the level. Add -Purpose when the certificate is not for a TLS server (section 16).
+ Step 4  Send the folder. README.txt inside tells him what to do with each file. The folder has no
+         private key. If the channel is not trusted, compare the SHA-256 in sign-info.json with him.</pre></div>
+<p>Every run makes a NEW folder. Nothing is overwritten. The line in csr-signed\signed-csr.tsv shows all earlier runs: .\SignCsr.ps1 -List.</p>
+<h2 id="6-which-ca-signs">6  WHICH CA SIGNS<a class="anchor" href="#6-which-ca-signs" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Request of                     Script                      Signs with                 Runs on
+ -----------------------------  --------------------------  -------------------------  ------------
+ server, person, code signer    SignCsr.ps1 / SignCsr.sh    an INTERMEDIATE CA         PKI machine
+                                                                                       and DevKit
+ a CA of a department           SignExternalCa.ps1          a Classic QUADRANT ROOT    PKI machine
+                                                                                       only
+ anything with a root           -                           -                          only you</pre></div>
+<div class="code"><pre> The intermediate is named q&lt;N&gt;-&lt;level&gt;:  q1-dv  q1-ov  q1-ev  (and q2, q3, q4).
+ - Level: -DV, -OV or -EV. Without one, the CSR decides:
+     complete EV data (businessCategory + serialNumber + jurisdictionC)  -&gt;  EV
+     company name and country (O and C)                                    -&gt;  OV
+     common name only                                                      -&gt;  DV
+ - Track: Classic is the default. -Quantum uses Q3 (Q4 with -FIPS). An ML-DSA CSR needs -Quantum.
+ - FIPS: -FIPS uses Q2 (Classic) or Q4 (Quantum). Without it: Q1 or Q3.
+ - A CSR with CA:TRUE is refused. The message names the script to use: SignExternalCa.ps1.
+   Intermediates sign leaf certificates only (pathLenConstraint 0). A root never signs here.</pre></div>
+<h2 id="7-the-rules-a-csr-must-follow">7  THE RULES A CSR MUST FOLLOW<a class="anchor" href="#7-the-rules-a-csr-must-follow" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Signature   Valid (it proves he owns the key). SHA-256 or stronger. ML-DSA needs no digest.
+ Key         Classic: RSA 2048, 3072, 4096, 8192, or ECDSA P-256, P-384, P-521.
+             Quantum: ML-DSA-44, ML-DSA-65, ML-DSA-87.
+             Code signing: RSA 4096 or more, ECDSA P-384 or more, ML-DSA-65 or more.
+             Never: RSA below 2048, other curves, Ed25519, DSA.
+             A Classic CSR cannot get a Quantum issuer. A Quantum CSR cannot get a Classic issuer.
+ Subject     DV: CN only. Other fields are dropped (WARN).
+             OV: C (2 letters), O and CN are required. ST and L are recommended. Allowed: OU,
+                 street, postalCode, name, emailAddress, telephoneNumber, serialNumber.
+             EV: OV plus ST, L, serialNumber, businessCategory and jurisdictionC. businessCategory
+                 is one of: Private Organization, Government Entity, Business Entity,
+                 Non-Commercial Entity. Recommended: jurisdictionST, postalCode.
+             Code signing: C, O, CN (CN = the company name = O).
+             Anything else in the subject is an ERROR for that level.
+ Names       TLS (ServerAuth, ClientAuth, ServerClientAuth): DNS names and IP addresses.
+             No SAN: the CN becomes the DNS name (WARN).
+             EV: no wildcard, no IP address, no internal name (.internal .local .lan ...), no
+             e-mail address.
+             E-mail certificate: e-mail addresses only.
+             Code signing, time stamping, OCSP: no names. They are dropped (WARN).
+ Validity    DV 5 years. OV 3 years. EV 397 days at most (a longer -Days is an ERROR).
+             Time stamping 5 years. OCSP signing 1 year. Never longer than the CA that signs.
+ Ignored     keyUsage, extendedKeyUsage, CRL and OCSP addresses in the CSR. Your PKI sets them
+             from -Purpose and the level. A policy OID in the CSR is kept ONLY inside the company
+             arc 1.3.6.1.4.1.&lt;PEN&gt; (the IANA number of your company).</pre></div>
+<h2 id="8-read-the-report">8  READ THE REPORT<a class="anchor" href="#8-read-the-report" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Colour    Meaning
+ --------  ----------------------------------------------------------------------------------
+ ERROR     red. The CSR breaks a rule. Nothing is signed. Exit code 2.
+ WARN      yellow. Allowed, but something is changed or dropped. Read it. -Strict makes it ERROR.
+ OK        green. The check passed.
+ INFO      cyan. A fact.</pre></div>
+<p>Every ERROR and WARN names the field, says what is wrong and gives the fix on the next line, with a code in [ ] (section 12). Plain text: -NoColor, --no-color or NO_COLOR=1.</p>
+<p>Example of a bad CSR:</p>
+<div class="code"><pre>   .\SignCsr.ps1 -Csr .\shop.csr -EV
      [ERROR] serialNumber    The subject has no serialNumber, required for EV.
-                             [SUBJ-REQ-serialNumber] fix: Add /serialNumber=17344131 to the subject
-                             (the value is yours).
-     [ERROR] businessCategory  businessCategory &#39;Bank&#39; is not one of: Private Organization, Government Entity, Business Entity, Non-Commercial Entity.
+                             [SUBJ-REQ-serialNumber] fix: add /serialNumber=17344131 to the
+                             subject (the value is yours).
+     [ERROR] businessCategory  &#39;Bank&#39; is not one of: Private Organization, Government Entity,
+                             Business Entity, Non-Commercial Entity.
      [ERROR] DNS             &#39;*.shop.example&#39;: an EV certificate may not contain a wildcard name.
                              [SAN-EV-WILDCARD]
      [WARN]  postalCode      The subject has no postalCode (recommended for EV).
-     Result: 3 error(s), 1 warning(s). The request does NOT follow the specification of this PKI:
-             nothing was signed.  (exit code 2)</pre></div>
-<h2 id="f-the-devkit-developers-sign-requests-of-their-own-colleague">F  THE DEVKIT (developers sign requests of their own colleagues)<a class="anchor" href="#f-the-devkit-developers-sign-requests-of-their-own-colleague" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>   The DevKit (PkiTransport.ps1 -DevKit) contains SignCsr.ps1 and SignCsr.sh, independent of the
-   original machine: they sign with the issuing CA keys of the kit, for ALL of its intermediates (DV
-   / OV / EV, Classic non-FIPS / FIPS, and Quantum when the PKI has those quadrants). Windows:
-   PowerShell 7.  Ubuntu: bash + openssl + python3.
-       .\SignCsr.ps1 -Csr .\web01.csr -OV            ./SignCsr.sh --csr web01.csr --ov
-   * The kit can NEVER sign a root: SignExternalCa.ps1 is not in the kit, and the kit has no
-     Quadrant Root key. Requests for a CA certificate go to you.
-   * Certificates signed from a kit are recorded in the kit&#39;s own index.txt, not in the master CRL /
-     OCSP: you can not revoke them one by one; revoke the intermediate if a kit leaks.
-   * The serial numbers of a kit are random per copy (set at install), so two kits never issue the
-     same serial.
-   * Linux, original PKI:  .\SignCsr.ps1 -WriteShellEnv   writes devkit.env; then   bash devkit/SignCsr.sh --csr web01.csr --ov   (the shell version then uses the original PKI folder and records in its index.txt).</pre></div>
-<h2 id="g-problems">G  PROBLEMS<a class="anchor" href="#g-problems" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>   &quot;This PKI has no Quadrant 3&quot;      the PKI was built without the Quantum quadrants (pki_setup.ps1
-                                     -Quadrant 1,2,3,4).
-   &quot;The private key of ... is not here&quot;   a DevKit made with -DevKitNoKeys, or the key lives on the
-                                          PKI server.
-   exit code 2                       the report names every deviation; fix the request (he makes a
-                                     new one) - or choose another level / purpose / quadrant.
-   verification FAILED in README.txt   the chain does not reach the root file next to it: was the
-                                       PKI rebuilt after the CA was loaded? Run pki_setup.ps1
-                                       -Verify.
-   SignCsr.sh: &quot;python3 is needed&quot;   Ubuntu: sudo apt install python3 (the checker is a small python</pre></div>
-<h3 id="script-it-only-reads-the-request">script; it only reads the request).<a class="anchor" href="#script-it-only-reads-the-request" aria-label="Link to this section">#</a></h3>
-<p>5.0.0: -Pki &lt;name&gt; chooses the company&#39;s PKI (default agantra). Windows Server 2022: classic only (-Quantum is an error). <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a>.</p>
+     Result: 3 error(s), 1 warning(s). Nothing was signed.  (exit code 2)</pre></div>
+<h2 id="9-what-you-get">9  WHAT YOU GET<a class="anchor" href="#9-what-you-get" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> A new folder:  csr-signed\&lt;name&gt;_&lt;yyyyMMdd-HHmmss&gt;\   (Linux: &lt;yyyymmdd-HHMMSS&gt;)</pre></div>
+<div class="code"><pre> File                  What it is
+ --------------------  --------------------------------------------------------------------
+ &lt;name&gt;.crt  .cer      His certificate (PEM and DER).
+ &lt;name&gt;-fullchain.crt  His certificate + the CA chain. This is the file for his web server.
+ &lt;name&gt;-chain.crt      The CA chain only.
+ &lt;name&gt;.p7b            Certificate + chain for Windows.
+ root.crt              Your Enterprise Root. His clients must trust it.
+ our-ca-bundle.crt     Chain + root.
+ &lt;name&gt;.csr            His request, kept for the record.
+ sign-info.json        What was signed, the SHA-256, the CA, the dates.
+ README.txt            What HE must do with the files.</pre></div>
+<div class="code"><pre> Plus one line in csr-signed\signed-csr.tsv. The certificate is recorded in the index.txt of the
+ issuing CA, so it can be revoked (PkiRevocation.ps1 -Action Revoke, <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>).
+ After you sign, he installs it:
+   Windows  certreq -accept web01.cer
+   nginx    ssl_certificate web01-fullchain.crt;  ssl_certificate_key web01.key;</pre></div>
+<h2 id="10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS<a class="anchor" href="#10-what-the-certificate-contains" aria-label="Link to this section">#</a></h2>
+<p>Decided by YOU (the PKI), not by the request: CA:FALSE (critical), keyUsage and extendedKeyUsage.</p>
+<div class="code"><pre> -Purpose                   keyUsage                                        extendedKeyUsage
+ -------------------------  ----------------------------------------------  -------------------
+ ServerAuth                 digitalSignature (+ keyEncipherment for RSA)    serverAuth
+ ServerClientAuth           the same                                        serverAuth, clientAuth
+ ClientAuth                 digitalSignature                                clientAuth
+ EmailProtection            digitalSignature, nonRepudiation (+ key...)     emailProtection,
+                                                                            clientAuth
+ CodeSigning                digitalSignature                                codeSigning
+ TimeStamping               digitalSignature                                timeStamping (critical,
+                                                                            alone) + policy OID
+ OcspSigning                digitalSignature                                OCSPSigning + nocheck</pre></div>
+<p>Also inside: the policies (level policy, your PEN policies, High Assurance for OV, the EV CPS), the CRL address and the OCSP / caIssuers addresses of the issuing CA (not with -NoCrl / -NoOcsp), the key identifiers, and the validated names. Subject: DV = the CN. OV and EV = the subject of the request. Serial: the next one of the issuing CA (DevKit: random, see section 11). Signature digest: SHA-256 (RSA CA), SHA-384 (ECDSA CA), none (ML-DSA).</p>
+<h2 id="11-the-devkit-developers-sign-too">11  THE DEVKIT: DEVELOPERS SIGN TOO<a class="anchor" href="#11-the-devkit-developers-sign-too" aria-label="Link to this section">#</a></h2>
+<p>The DevKit (PkiTransport.ps1 -DevKit, <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>) holds SignCsr.ps1 and SignCsr.sh. They work on their own: no original PKI computer is needed.</p>
+<ul><li>The kit signs with ALL its intermediates (DV, OV, EV; Classic non-FIPS and FIPS; Quantum when the PKI has those quadrants).</li><li>The kit can NEVER sign a root. SignExternalCa.ps1 is not in the kit and the kit has no root key. A CSR for a CA certificate goes to you.</li><li>The certificate goes into the index.txt of the KIT, not into the master CRL or OCSP. You cannot revoke it one by one. If a kit leaks, revoke the intermediate.</li><li>The serial numbers of a kit are random per copy (set at install). Two kits never make the same serial.</li><li>Linux with the original PKI: run .\SignCsr.ps1 -WriteShellEnv. It writes devkit.env. Then bash devkit/SignCsr.sh --csr web01.csr --ov signs on the original PKI folder.</li></ul>
+<h2 id="12-report-codes-the-table">12  REPORT CODES (THE TABLE)<a class="anchor" href="#12-report-codes-the-table" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Key and signature
+   KEY-SIGNATURE        The signature of the CSR does not verify (file changed, or not signed with
+                        the key inside).
+   KEY-ALG              Key type not accepted (Ed25519, Ed448, DSA, RSA-PSS).
+   KEY-RSA-SMALL        RSA below 2048.         KEY-RSA-ODD   RSA size is not 2048/3072/4096/8192.
+   KEY-CURVE            ECDSA curve is not P-256, P-384 or P-521.
+   KEY-CS-RSA, KEY-CS-CURVE, KEY-CS-MLDSA   Code signing needs RSA 4096+, ECDSA P-384+, ML-DSA-65+.
+   KEY-CA-RSA, KEY-CA-CURVE                 The same for the key of a CA.
+   KEY-QUANTUM-REQUIRED   Quadrant 3 or 4 (-Quantum) takes ML-DSA keys only.
+   KEY-CLASSIC-REQUIRED   A Classic request with an ML-DSA key.
+   KEY-DIGEST           The CSR is signed with MD5, SHA-1 or SHA-224. SHA-256 or stronger needed.
+ Subject
+   SUBJ-REQ-&lt;attr&gt;      A required attribute is missing.
+   SUBJ-REC-&lt;attr&gt;      A recommended attribute is missing (WARN).
+   SUBJ-ATTR-&lt;attr&gt;     The attribute is not allowed at this level.
+   SUBJ-DV-DROP         DV: other attributes are dropped (WARN).
+   SUBJ-FMT-C, SUBJ-FMT-jurisdictionC   Not 2 capital letters.
+   SUBJ-FMT-businessCategory   Not one of the four allowed values.
+   SUBJ-LEN-&lt;attr&gt;      Too long (CN, O, OU: 64. ST, L: 128).
+   SUBJ-DUP-&lt;attr&gt;      The attribute is there twice.
+   SUBJ-CN-CHAR         A &#39;/&#39; or &#39;\&#39; in the CN.            SUBJ-EMPTY   No subject.
+   SUBJ-CS-CN           Code signing: CN should equal O (WARN).
+   SUBJ-CN-NOT-SAN      DV: the CN is not one of the names.
+ Names
+   SAN-NONE             No usable name. The CN is used when it is a host name or an e-mail address
+                        (SAN-DERIVED, WARN).
+   SAN-DNS-INVALID, SAN-IP-INVALID, SAN-EMAIL-INVALID   Syntax error.
+   SAN-WILDCARD         Wildcard name (WARN; allowed outside EV).
+   SAN-DROPPED, SAN-OTHER   Names that this purpose does not carry.
+   SAN-EV-WILDCARD, SAN-EV-IP, SAN-EV-INTERNAL, SAN-EV-EMAIL   EV rules. Internal means .internal
+                        .local .localhost .lan .corp .home .intranet .private .test .invalid
+                        .developer .api .ldap, or no dot.
+ Other
+   EXT-CA               The CSR asks for CA:TRUE.
+   EXT-IGNORED          INFO. Key usage, EKU, policies of the CSR are not used.
+   VAL-EV               -Days above 397 for EV.
+   SUBJ-OUR-CA          (SignExternalCa) the CN is the name of one of our CAs.</pre></div>
+<h2 id="13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE<a class="anchor" href="#13-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Web server, level from the CSR:       .\SignCsr.ps1 -Csr .\web01.csr
+ Check only:                           .\SignCsr.ps1 -Csr .\web01.csr -Check
+ Server and client login, OV:          .\SignCsr.ps1 -Csr .\web01.csr -OV -Purpose ServerClientAuth
+ Would the FIPS EV CA sign it?         .\SignCsr.ps1 -Csr .\web01.csr -EV -FIPS -Check
+ Code signing, no CRL/OCSP address:    .\SignCsr.ps1 -Csr .\sign.csr -OV -Purpose CodeSigning `
+                                           -NoRevocationInfo
+ Quantum (ML-DSA) CSR:                 .\SignCsr.ps1 -Csr .\pq.csr -Quantum -OV
+ Add the development names:            .\SignCsr.ps1 -Csr .\web01.csr -AddDevelopmentSAN
+ Earlier requests:                     .\SignCsr.ps1 -List
+ Linux:                                ./SignCsr.sh --csr web01.csr --ov --purpose ServerClientAuth</pre></div>
+<div class="code"><pre> How HE makes the CSR by hand (New-PkiCsr.ps1 is easier):
+     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out web01.key
+     openssl req -new -key web01.key -sha256 -out web01.csr \
+        -subj &quot;/C=EE/ST=Harju/L=Tallinn/O=Dept Ltd/OU=IT/CN=web01.dept.example&quot; \
+        -addext &quot;subjectAltName=DNS:web01.dept.example,DNS:www.dept.example&quot;
+     ECDSA:   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-384 \
+                 -pkeyopt ec_param_enc:named_curve -out web01.key
+     ML-DSA:  openssl genpkey -algorithm ML-DSA-65 -out web01.key       (OpenSSL 3.5+ or 4.x)
+     EV adds: /serialNumber=12345678/businessCategory=Private Organization/jurisdictionC=EE
+ Windows without OpenSSL: save this as request.inf, then   certreq -new request.inf web01.csr
+     [NewRequest]
+     Subject = &quot;CN=web01.dept.example, O=Dept Ltd, C=EE&quot;
+     KeyLength = 2048
+     KeySpec = 1
+     Exportable = FALSE
+     MachineKeySet = TRUE
+     HashAlgorithm = SHA256
+     RequestType = PKCS10
+     [Extensions]
+     2.5.29.17 = &quot;{text}&quot;
+     _continue_ = &quot;DNS=web01.dept.example&amp;&quot;</pre></div>
+<h2 id="14-problems-and-answers">14  PROBLEMS AND ANSWERS<a class="anchor" href="#14-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Exit code 2, &quot;does not follow the spec&quot;
+     Read the report. Fix the CSR (he makes a new one) or choose another level, purpose or
+     quadrant. Nothing was signed.
+ &quot;This PKI has no Quadrant 3&quot;
+     The PKI was built without the Quantum quadrants. Build with pki_setup.ps1 -Quadrant 1,2,3,4.
+ &quot;The private key of ... is not here&quot;
+     A DevKit made with -DevKitNoKeys, or the key lives on the PKI server.
+ &quot;verification FAILED&quot; in README.txt
+     The chain does not reach the root file next to it. Was the PKI rebuilt after the CA was
+     loaded? Run pki_setup.ps1 -Verify.
+ SignCsr.sh: &quot;python3 is needed&quot;
+     sudo apt install python3. The checker is a small script. It only reads the CSR.
+ &quot;A CA request is refused&quot;
+     The CSR has CA:TRUE. Use SignExternalCa.ps1 (<a href="SignExternalCa-MANUAL.html">SignExternalCa-MANUAL.txt</a>).
+ &quot;NoCR PKI missing&quot;
+     -NoCrl, -NoOcsp or -NoRevocationInfo needs the NoCR family. Run
+     pki_setup.ps1 -NoCaRevocationInfo -InstallTrust first.
+ Exit code 5
+     This computer is refused (section 3). Nothing was done.</pre></div>
+<h2 id="15-limits-you-must-know">15  LIMITS YOU MUST KNOW<a class="anchor" href="#15-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>SignCsr signs only leaf certificates. A CA certificate goes to SignExternalCa.ps1.</li><li>It cannot make a certificate stronger than the CA that signs it. The validity is cut to what the CA still has.</li><li>It trusts the CSR only for the key, the subject and the names. It does NOT check that the company in an OV or EV subject really exists. That check is your job, before you sign.</li><li>A certificate signed in a DevKit is not in the master CRL. See section 11.</li><li>Windows Server 2022: Classic only. -Quantum is an error.</li></ul>
+<h2 id="16-all-options">16  ALL OPTIONS<a class="anchor" href="#16-all-options" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> SignCsr.ps1 (Windows)          SignCsr.sh (Linux)         Meaning
+ -----------------------------  -------------------------  ----------------------------------------
+ -Csr &lt;file&gt;                    --csr FILE                 His CSR (PEM). Required.
+ -CsrType Auto|Leaf|IntermediateCA  --csr-type auto|leaf   Kind of request. Default Auto.
+ -DV  -OV  -EV                  --dv  --ov  --ev          Level. Default: from the CSR.
+ -Classic  -Quantum             --classic  --quantum       Track. Default Classic.
+ -FIPS                          --fips                     FIPS quadrant.
+ -Purpose &lt;p&gt;                   --purpose P                ServerAuth (default), ClientAuth,
+                                                           ServerClientAuth, CodeSigning,
+                                                           EmailProtection, TimeStamping,
+                                                           OcspSigning.
+ -Days &lt;n&gt;                      --days N                   Validity in days. EV: 397 at most.
+ -Name &lt;text&gt;                   --name TEXT                Folder and file name. Default: his CN.
+ -OutFolder &lt;path&gt;              --out DIR                  Where the folders go.
+ -AddDevelopmentSAN             --add-development-san     Add the development names.
+ -Policy &lt;oid|cps&gt;              --policy &quot;OID|CPS-URL&quot;     One extra policy.
+ -NoCrl -NoOcsp -NoRevocationInfo
+                                --no-crl --no-ocsp         Leave the CRL / OCSP address out.
+                                --no-revocation-info
+ -Check                         --check                    Report only. Sign nothing.
+ -Strict                        --strict                   WARN counts as ERROR.
+ -NoColor                       --no-color                 Plain text.
+ -List                          --list                     Show earlier requests.
+ -WriteShellEnv                 -                          Write devkit.env for SignCsr.sh.
+ -Unblock                       -                          Unblock and unlock the folders.
+ -Pki &lt;name&gt;                    -                          Which company PKI (default agantra).
+ -Release &lt;n&gt;                   --release N                Which release. Default: the latest.
+ -NoCaRevocationInfo            --no-ca-revocation-info    Use the NoCR family.
+ -PkiRoot &lt;folder&gt;              --pki-home DIR             One PKI folder / the PKI home.
+ -ConfigFile -OpenSslPath -FipsModuleConfig -Verbose   --openssl FILE     Tool paths, details.
+ -Help                          --help, -h                 The help. --version prints the version.
+ Exit codes: 0 ok, 1 error, 2 the CSR breaks a rule, 5 this system is refused.</pre></div>
+<h2 id="17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#17-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
+<p>Tested on Ubuntu 24.04 with OpenSSL 4.0.3 and PowerShell 7: -Check, signing, a refused CA request, the folder contents, and SignCsr.sh in a DevKit. NOT tested: a real Windows (the platform gate was simulated), Windows PowerShell is not used by this script, real RHEL / SUSE machines, certreq with a real Windows key store. Run the acceptance steps in <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a> (E44).</p>
+<h2 id="18-other-documents">18  OTHER DOCUMENTS<a class="anchor" href="#18-other-documents" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> <a href="NewPkiCsr-MANUAL.html">NewPkiCsr-MANUAL.txt</a>   <a href="SignExternalCa-MANUAL.html">SignExternalCa-MANUAL.txt</a>   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>   <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a></pre></div>
+<h3 id="pkiprofiles-manual-txt-the-pki-option-glossary-txt-glossary">PkiProfiles-MANUAL.txt (the -Pki option)   GLOSSARY.txt   GLOSSARY-ENGLISH.txt<a class="anchor" href="#pkiprofiles-manual-txt-the-pki-option-glossary-txt-glossary" aria-label="Link to this section">#</a></h3>
+<p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="GenerateOffice365LeafCertificate-MANUAL.html"><small>&larr; Previous</small>Office 365 certificates</a><a class="nx" href="SignExternalCa-MANUAL.html"><small>Next &rarr;</small>Sign a CA of a department</a></nav>
-<p class="crumb">Made from SignCsr-MANUAL.txt by Build-HtmlDocs.ps1 6.4.3.</p>
+<p class="crumb">Made from SignCsr-MANUAL.txt by Build-HtmlDocs.ps1 6.4.7.</p>
 
 </div>
-<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#a-which-script-for-which-request-who-signs-what">A  WHICH SCRIPT FOR WHICH REQUEST  (who signs what)</a><a href="#b-how-the-request-is-checked-every-line-of-the-report-has-a">B  HOW THE REQUEST IS CHECKED  (every line of the report has a code in [ ], used below)</a><a href="#c-what-the-certificate-looks-like">C  WHAT THE CERTIFICATE LOOKS LIKE</a><a href="#d-how-he-makes-a-request-examples-he-keeps-the-private-key-y">D  HOW HE MAKES A REQUEST  (examples; he keeps the private key, you never see it)</a><a href="#e-worked-examples-the-report-of-a-request-that-does-not-foll">E  WORKED EXAMPLES  (the report of a request that does not follow the spec)</a><a href="#f-the-devkit-developers-sign-requests-of-their-own-colleague">F  THE DEVKIT (developers sign requests of their own colleagues)</a><a href="#g-problems">G  PROBLEMS</a><a class="l3" href="#script-it-only-reads-the-request">script; it only reads the request).</a></aside>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-signcsr-does">1  WHAT SIGNCSR DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-the-four-steps-in-detail">5  THE FOUR STEPS IN DETAIL</a><a href="#6-which-ca-signs">6  WHICH CA SIGNS</a><a href="#7-the-rules-a-csr-must-follow">7  THE RULES A CSR MUST FOLLOW</a><a href="#8-read-the-report">8  READ THE REPORT</a><a href="#9-what-you-get">9  WHAT YOU GET</a><a href="#10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS</a><a href="#11-the-devkit-developers-sign-too">11  THE DEVKIT: DEVELOPERS SIGN TOO</a><a href="#12-report-codes-the-table">12  REPORT CODES (THE TABLE)</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a class="l3" href="#pkiprofiles-manual-txt-the-pki-option-glossary-txt-glossary">PkiProfiles-MANUAL.txt (the -Pki option)   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.7</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

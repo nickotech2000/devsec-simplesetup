@@ -21,39 +21,54 @@ param(
 
 function Show-Help {
 @'
-============================================================
- Test-PkiBackup.ps1 - is the backup (the .certpacked) still valid?
- Version 6.4.3
+====================================================================================================
+ Test-PkiBackup.ps1  -  is the backup still intact?
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
-WHAT IT DOES
-  Reads SHA256SUMS and SHA512SUMS of the backup and compares them with the real files: the
-  .certpacked, the scripts, the README. A single changed byte (a damaged disk, a bad copy, a changed
-  script) is found. No password is needed and nothing is changed or restored.
-  -Deep   also asks for the backup password, decrypts the .certpacked and checks the SHA-256 of
-          every file inside (proves the password still works).
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\PkiBackup-MANUAL.txt     Related: Backup-Pki.ps1, Restore-Pki.ps1
+ Needs  : Windows, an Administrator PowerShell 7 window. No other .ps1 file.
 
-USE
-  .\Test-PkiBackup.ps1                          (run from the unzipped backup folder: it checks `
-        the folder it is in)
-  .\Test-PkiBackup.ps1 -Backup <path>           <path> = one backup zip | an unzipped backup folder
-                                                | the backup-pki folder (every zip in it is checked)
-  .\Test-PkiBackup.ps1 -Backup .\backup-pki -Deep
+WHAT IT IS
+  A disk can rot. A copy can fail. This script compares the files of a backup with the checksums
+  written when the backup was made. One changed byte is found. It changes nothing and restores
+  nothing.
+
+QUICK START
+  1. Open PowerShell 7 as administrator.
+  2. In the unzipped backup folder:       .\Test-PkiBackup.ps1
+  3. For a zip or a whole backup folder:  .\Test-PkiBackup.ps1 -Backup .\backup-pki
+  4. Now and then, also open the backup:  .\Test-PkiBackup.ps1 -Backup .\backup-pki -Deep
+  Run it after every copy, and from time to time.
+
+WHAT IT CHECKS
+  It reads SHA256SUMS and SHA512SUMS and compares them with the real files: the .certpacked, the
+  scripts and the README. No password is needed.
+  -Deep also asks for the backup password, opens the .certpacked and checks the SHA-256 of every
+  file inside. This proves that the password still works.
+
+OUTPUT
+  One line per file: OK or FAIL, then a total. A changed byte, a missing file or an extra file is a
+  FAIL (exit 6).
 
 OPTIONS
-  -Backup <path>   what to check (see above). Default: the folder of this script.
-  -Deep            decrypt the .certpacked too (asks for the password)
-  -Help
+  -Backup <path>   What to check: one backup zip, an unzipped backup folder, or the backup-pki
+                   folder (every zip in it is checked). Default: the folder of this script.
+  -Deep            Also decrypt the .certpacked (asks for the password).
+  -Help            This text.
 
-STANDALONE   This script needs no other .ps1 (the shared code is built into it).
-OUTPUT   one line per file: OK or FAIL, then a total. EXIT CODES   0 everything is valid   1 error   2 not an Administrator window   3 wrong password
-         5 system not supported (Windows version / edition / ARM)   6 a checksum does not match (the
-         backup is damaged or was changed)
-WHERE IT RUNS   Windows 11 Home or Pro 24H2+, Windows Server 2025 Essentials / Standard /
-                Datacenter; Intel or AMD 64 bit only; Administrator PowerShell 7.
-============================================================
+WHERE IT RUNS
+  Windows 11 Home or Pro 24H2+, or Windows Server 2025 (Essentials, Standard, Datacenter). Intel
+  or AMD 64 bit only. Administrator PowerShell 7.
+
+EXIT CODES
+  0 everything is valid    1 error    2 not an Administrator window    3 wrong password
+  5 system not supported (Windows version, edition, ARM)
+  6 a checksum does not match (the backup is damaged or was changed)
+====================================================================================================
 '@ | Write-Host
 }
 

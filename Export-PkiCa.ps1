@@ -58,7 +58,7 @@ function Show-ExportPkiCaHelp {
     @'
 ====================================================================================================
  Export-PkiCa.ps1 - take CA certificates out of the PKI, ready for a CDN, a proxy or a load balancer
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -265,7 +265,7 @@ function Invoke-PkiExportOne {
     foreach ($t in $Targets) { $bn = "ca-bundle.$($t.Tag).pem"; [System.IO.File]::WriteAllText((Join-Path $out $bn), $bundleTarget[$t.Tag].ToString(), [System.Text.UTF8Encoding]::new($false)); [void]$all.Add($bn) }
     # README
     $r = [System.Text.StringBuilder]::new()
-    [void]$r.AppendLine('CA certificates exported by Export-PkiCa.ps1 (version 6.4.3)')
+    [void]$r.AppendLine('CA certificates exported by Export-PkiCa.ps1 (version 6.4.7)')
     [void]$r.AppendLine("Where   : $Where")
     [void]$r.AppendLine("When    : $((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))")
     [void]$r.AppendLine("Private keys: $(if ($WithKeys) { 'INCLUDED, encrypted (see the .key.pem and .pfx files). Keep this folder like a safe.' } else { 'NOT included. Everything in this folder is public information.' })")
@@ -289,7 +289,7 @@ function Invoke-PkiExportOne {
     if ($warnings.Count -gt 0) { [void]$r.AppendLine(''); [void]$r.AppendLine('WARNINGS'); foreach ($w in $warnings) { [void]$r.AppendLine("  - $w") } }
     [System.IO.File]::WriteAllText((Join-Path $out 'README.txt'), $r.ToString(), [System.Text.UTF8Encoding]::new($false)); [void]$all.Add('README.txt')
     # info + sums of everything
-    $info = [ordered]@{ tool = 'Export-PkiCa.ps1 6.4.3'; created = (Get-Date).ToString('o'); where = $Where; privateKeys = $WithKeys; targets = @($Targets | ForEach-Object { $_.Tag }); certificates = @($summary) }
+    $info = [ordered]@{ tool = 'Export-PkiCa.ps1 6.4.7'; created = (Get-Date).ToString('o'); where = $Where; privateKeys = $WithKeys; targets = @($Targets | ForEach-Object { $_.Tag }); certificates = @($summary) }
     if ($Facts) { foreach ($k in $Facts.Keys) { $info[$k] = $Facts[$k] } }
     [System.IO.File]::WriteAllText((Join-Path $out 'export-info.json'), ($info | ConvertTo-Json -Depth 8), [System.Text.UTF8Encoding]::new($false)); [void]$all.Add('export-info.json')
     $sumAlgs = @($HashChoice | Where-Object { $_ -in 'All', 'sha256', 'sha384', 'sha512' } | ForEach-Object { if ($_ -eq 'All') { 'sha256', 'sha384', 'sha512' } else { $_ } } | Select-Object -Unique)

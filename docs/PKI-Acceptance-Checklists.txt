@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 6.4.3      2026-10-17
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 6.4.7      2026-10-17
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt  Manuals: pki_setup-MANUAL.txt,
@@ -489,6 +489,63 @@
  Signature Details no longer say "Recoverable"; the server window shows the 200 lines. [ ] Ctrl+C
  stops the server; delete the lines from the hosts file. The script itself never writes to the hosts
  file.
+
+====================================================================================================
+ E45  Version 6.4.7: PkiBackup, PrepareComputer and Install-DevEnvironment manuals and -Help
+====================================================================================================
+ [ ] -Help / --help of Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1, Prepare-Computer.ps1,
+ prepare-computer.sh, Install-DevEnvironment.ps1 and Install-DevEnvironment.sh: one page at a time
+ (space bar) on a terminal; everything when piped. No line longer than 100 columns.
+ [ ] PkiBackup: follow sections 4 and 12 of docs\PkiBackup-MANUAL.txt on a Windows 11 24H2+
+ machine in an Administrator PowerShell 7: -Check, backup, Test-PkiBackup -Deep, restore into an
+ empty folder, pki_setup.ps1 -InstallTrust. Section 14: cause the problems on purpose (a wrong
+ password, a changed byte, Windows PowerShell 5.1).
+ [ ] PrepareComputer: -Check, then the install on a clean Windows 11 machine with winget, and on
+ a clean Ubuntu machine. A NEW window finds pwsh, dotnet, openssl and python.
+ [ ] Install-DevEnvironment: -Check; -Only OpenSSL,7Zip on Windows; on Ubuntu --only openssl,7zip
+ (system OpenSSL) and, if you can, --openssl-source ppa. Section 12: cause the problems on purpose.
+
+====================================================================================================
+ E44  Version 6.4.6: SignCsr, NewPkiCsr, PkiRevocation and PkiTrustKit manuals and -Help
+====================================================================================================
+ [ ] -Help / --help of SignCsr.ps1, SignCsr.sh, New-PkiCsr.ps1, new-pki-csr.sh, PkiRevocation.ps1,
+ New-PkiTrustKit.ps1, Install-PkiCa.ps1, install-pki-ca.sh, Remove-PkiCa.ps1 and remove-pki-ca.sh:
+ one page at a time (space bar) on a terminal; everything when piped. No line over 100 columns.
+ [ ] SignCsr: follow section 4 of docs\SignCsr-MANUAL.txt with a CSR from New-PkiCsr. -Check shows
+ the report; the signing makes the folder of section 9; a CA request is refused with exit 2 and the
+ name SignExternalCa.ps1.
+ [ ] NewPkiCsr: follow section 4 on Windows (PowerShell 5.1 and 7) and on Linux. The folder of
+ section 9 appears. The .key has limited rights (icacls / chmod 600).
+ [ ] PkiRevocation: Status, Revoke a test certificate, NewCrl, NewOcsp -Replace. Check the CRL with
+ openssl crl -in ... -noout -text. Section 14: cause the problems on purpose.
+ [ ] PkiTrustKit: build with -All. On Windows 11 24H2+ install in a normal and in an administrator
+ window, then Remove-PkiCa.ps1 -List and -Pki. On Ubuntu bash install-pki-ca.sh and
+ remove-pki-ca.sh. A site signed by the PKI opens without a warning in Edge and Firefox (-Firefox).
+
+====================================================================================================
+ E43  Version 6.4.5: PkiTransport manual and -Help
+====================================================================================================
+ [ ] .\PkiTransport.ps1 -Help, .\Unpack-PkiTransport.ps1 -Help and ./pki-transport.sh --help: one
+ page at a time (space bar) on a terminal; everything when piped. No line longer than 100 columns.
+ [ ] Follow section 4 of docs\PkiTransport-MANUAL.txt: -Pack -GeneratePassword -Kit, copy, then
+ -Install on a Windows 11 24H2+ machine (administrator) and pki-transport.sh --yes on Ubuntu. The
+ roots are in the store. -RemoveTrust / --remove-trust takes exactly them out.
+ [ ] -Pack -DevKit and -Server make their zips. The server zip holds no private key.
+ [ ] Section 14 of the manual: cause the problems on purpose (wrong password, ZipCrypto with keys);
+ the messages match.
+
+====================================================================================================
+ E42  Version 6.4.4: DevKit manual, START-HERE and help of the kit scripts
+====================================================================================================
+ [ ] Build a kit: .\PkiTransport.ps1 -DevKit -GeneratePassword. The kit holds START-HERE.txt with
+ the version and the date filled in (no {{...}} left).
+ [ ] Windows: follow section 8 of docs\DevKit-MANUAL.txt on a clean Windows 11 machine. The roots
+ appear in Local Machine > Trusted Root Certification Authorities. Run Make-ShExecutable.ps1.
+ [ ] Linux: follow section 9 on a clean Ubuntu machine: make-executable.sh, Install-PkiTrust.sh,
+ GenerateLeafCertificate.sh. Check the hash files with sha256sum -c.
+ [ ] -Help / --help of Install-PkiTrust, Make-ShExecutable, make-executable and SignCsr.sh: one
+ page at a time (space bar), no line longer than 100 columns.
+ [ ] Section 15 of the manual: cause the problems on purpose; the fixes work.
 
 ====================================================================================================
  E41  Version 6.4.3: Person and Office 365 manuals and -Help

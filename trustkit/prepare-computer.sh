@@ -27,61 +27,74 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    echo "[INFO] $(basename "$0") version 6.4.3" >&2
+    echo "[INFO] $(basename "$0") version 6.4.7" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="6.4.3"
+VERSION="6.4.7"
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
   if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
 }
 show_help() {
 cat <<'EOF'
-============================================================
- prepare-computer.sh - get this Linux computer ready: OpenSSL + the latest Python 3, both on the
- PATH
- Version 6.4.3
+====================================================================================================
+ prepare-computer.sh  -  get this Linux computer ready for the PKI tools
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
-WHAT IT DOES   (run it once; sudo is used for the install)
-  1. OpenSSL   looks for openssl; installs the package "openssl" (+ ca-certificates) of your
-     distribution when it is missing or older than 3.0.
-  2. Python    looks for python3 (3.10 or newer); installs the newest Python 3 your distribution
-     offers (+ pip, venv) when it is missing or older.
-  3. PATH      makes sure `openssl` and `python3` work in a new shell: when a newer OpenSSL sits in
-     a folder that is not on the PATH (for example /opt/openssl4/bin),
-               that folder is put in front of the PATH for all users (/etc/profile.d/pki-openssl.sh,
-               as root) or for you (~/.profile).
-  Package managers:   Ubuntu 24 / 26: apt     CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10: dnf     SLES 15 / 16, openSUSE Leap 15 / 16, Tumbleweed: zypper
-  Whatever OpenSSL version the distribution ships (3.x or 4.x) is accepted. RSA / ECDSA need 3.0,
-  ML-DSA (quantum) needs 3.5 or 4: if you have less, the script says so;
-  OpenSSL 4 can be added with linux/Install-DevEnvironment.sh --openssl-source ppa|build (full
-  project).
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : docs/PrepareComputer-MANUAL.txt     Twin: Prepare-Computer.ps1 (Windows)
+ Needs  : bash, Internet access to the package source, sudo (unless you are root).
 
-USAGE   ./prepare-computer.sh [options]
-  --only all|openssl|python   what to prepare (default all)
-  --check     only look: say what is there, what would be installed, what would be added to the
-              PATH. Nothing is changed.
-  --yes       do not ask before installing
-  --force     install / update the packages even when a good version is already there
-  --no-path   do not touch the PATH
-  -h | --help
+WHAT IT IS
+  The PKI tools need OpenSSL and Python 3. This script looks for each one. It installs what is
+  missing or too old with the package manager of your distribution, and makes sure both work in a
+  NEW shell (the PATH). Run it once on a new computer.
+  It never touches certificates. If the PKI is already installed on this computer, nothing changes.
 
-AFTER IT
-  Open a NEW shell (or: . /etc/profile), then:   openssl version     python3 --version     ./new-pki-csr.sh
-  If the PKI is already installed on this computer (ca-certificates, from install-pki-ca.sh),
-  nothing changes: this script does not touch certificates.
+QUICK START
+  1. Look first. Nothing is changed:    ./prepare-computer.sh --check
+  2. Install what is missing:           ./prepare-computer.sh
+  3. Open a NEW shell (or: . /etc/profile). Test:   openssl version     python3 --version
+
+WHAT IT DOES
+  1. OpenSSL   Looks for openssl. Installs the package "openssl" (+ ca-certificates) of your
+               distribution when it is missing or older than 3.0.
+  2. Python    Looks for python3 (3.10 or newer). Installs the newest Python 3 that your
+               distribution offers (+ pip, venv) when it is missing or older.
+  3. PATH      When a newer OpenSSL sits in a folder that is not on the PATH (for example
+               /opt/openssl4/bin), that folder is put in front: for all users in
+               /etc/profile.d/pki-openssl.sh (as root), or for you in ~/.profile.
+
+  Package managers
+     Ubuntu 24 / 26                                       apt
+     CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10 dnf
+     SLES 15 / 16, openSUSE Leap 15 / 16, Tumbleweed      zypper
+  Any OpenSSL that the distribution ships (3.x or 4.x) is accepted. RSA and ECDSA need 3.0. ML-DSA
+  (quantum) needs 3.5 or 4. If you have less, the script says so. To add OpenSSL 4 use
+  linux/Install-DevEnvironment.sh --openssl-source ppa|build (Install-DevEnvironment-MANUAL.txt).
+
+OPTIONS
+  --only all|openssl|python   What to prepare. Default all.
+  --check      Only look: what is there, what would be installed, what would be added to the PATH.
+  --yes        Do not ask before installing.
+  --force      Install or update the packages even when a good version is already there.
+  --no-path    Do not touch the PATH.
+  -h, --help   This text.
+
+EXIT CODES
+  0 ok    1 error
+  4 something is still missing (OpenSSL below 3.0, Python not found, no package manager)
+  5 this system is not supported
 
 WHERE IT RUNS
-  Linux: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES 15+, openSUSE
-  15+ (VM, bare metal, WSL).
-  Needs Internet access to the repositories of the distribution (RHEL: a registered subscription).
-  On Windows use Prepare-Computer.ps1.
-  EXIT CODES   0 ok   1 error   4 something is still missing (OpenSSL below 3.0, Python not found)   5 system not supported
-============================================================
+  Linux (VM, bare metal, WSL): Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle Linux 10+,
+  SLES / openSUSE 15+. Other systems: exit 5, nothing is done.
+  It needs the repositories of the distribution (RHEL: a registered subscription).
+====================================================================================================
 EOF
 }
 

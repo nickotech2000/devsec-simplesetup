@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.7">
 <meta name="description" content="Let a computer trust your PKI (no keys inside).">
 <title>Trust kit - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.7</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -163,97 +163,234 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
 <p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
 </nav>
-<main class="wrap" id="content">
+<main class="wrap has-toc" id="content">
 <div class="page">
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Give the PKI to other people</p>
 <h1>Trust kit</h1>
 <p class="lead">Let a computer trust your PKI (no keys inside).</p>
-<div class="meta"><span class="chip">Version 6.4.3 Author: Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email: nicko@nextmantra.com</span></div>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-a-trust-kit-is">1  WHAT A TRUST KIT IS</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-what-is-in-every-zip">3  WHAT IS IN EVERY ZIP</a></li><li class="l2"><a href="#4-quick-start-owner">4  QUICK START (OWNER)</a></li><li class="l2"><a href="#5-build-the-kits">5  BUILD THE KITS</a></li><li class="l2"><a href="#6-send-the-kit">6  SEND THE KIT</a></li><li class="l2"><a href="#7-install-the-kit-receiver">7  INSTALL THE KIT (RECEIVER)</a></li><li class="l2"><a href="#8-take-a-pki-away-again">8  TAKE A PKI AWAY AGAIN</a></li><li class="l2"><a href="#9-supported-systems">9  SUPPORTED SYSTEMS</a></li><li class="l2"><a href="#10-what-is-installed-and-where">10  WHAT IS INSTALLED, AND WHERE</a></li><li class="l2"><a href="#11-which-pki-goes-into-a-kit">11  WHICH PKI GOES INTO A KIT</a></li><li class="l2"><a href="#12-several-pkis-in-one-kit">12  SEVERAL PKIs IN ONE KIT</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l3"><a href="#pkiprofiles-manual-txt-glossary-txt-glossary-english-txt">PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - let other computers trust your PKI     Version 6.4.7   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
+ Scripts: New-PkiTrustKit.ps1 (builds the kits)   Install-PkiCa.ps1 / install-pki-ca.sh (install)
+          Remove-PkiCa.ps1 / remove-pki-ca.sh (remove)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> What it is   : Makes a small kit that lets other computers trust your PKI (no private keys inside).
- Who reads it : The owner of the PKI, and people who receive the kit.
- You need     : A PKI to pack; Administrator rights to install.
- Start with   : Read the first section.
- Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
-<ol><li>WHAT IT IS, WHO IT IS FOR For people who must TRUST the PKI and do nothing else: junior developers, QA, customer testers. They get ONE zip for their system, unzip it, run ONE script, type the password. A trust kit holds public certificates only (CA certificates, no private key). Developers who also issue certificates use the DevKit (<a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>).</li></ol>
-<div class="code"><pre>2. BUILD THE KITS  (on the PKI machine, PowerShell 7)
-      .\New-PkiTrustKit.ps1 -All -GeneratePassword                   all four systems: Windows,
-                                                                     Ubuntu, Red Hat family, SUSE
-                                                                     family
-      .\New-PkiTrustKit.ps1 -Target Windows,Ubuntu                    some of them
-      .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka                 the PKIs of SEVERAL companies
-                                                                      in ONE .certpacked per zip
-                                                                      (the latest release of each)
-      .\New-PkiTrustKit.ps1 -All -AllProfiles                         every company, every release          -AllReleases   every release of the chosen company
-      .\New-PkiTrustKit.ps1 -All -SelfExtract                         also .cmd / .sh files that
-                                                                      only EXTRACT the zip (the
-                                                                      installer stays a script you
-                                                                      can read)
-      .\New-PkiTrustKit.ps1 -All -Release 2 | -NoCaRevocationInfo     a given release | the NoCR family
-   Result: transport\pki-trust-&lt;name&gt;-&lt;unique&gt;-&lt;date&gt;-&lt;time&gt;\ with windows-pki-...zip,
-           ubuntu-pki-...zip, redhat-pki-...zip, suse-pki-...zip, PASSWORD.txt, README.txt.
-   Send the zips and the password by DIFFERENT ways. Windows zips use AES-256; Linux zips use
-   ZipCrypto (python3 / unzip read it everywhere; the content is public anyway).</pre></div>
-<div class="code"><pre>3. WHAT IS IN EVERY ZIP
-   Windows zip     Install-PkiCa.ps1      install the PKI                       Remove-PkiCa.ps1     take a PKI away again
-                   New-PkiCsr.ps1         make a key + request step by step     Prepare-Computer.ps1 install PowerShell 7 + .NET SDK 8 and 10 (Windows) + OpenSSL + Python, put them on the PATH      + the .certpacked
-   Linux zips      install-pki-ca.sh      remove-pki-ca.sh      new-pki-csr.sh      prepare-computer.sh                                                      + the .certpacked
-   All scripts are standalone: no other file of the project, no OpenSSL needed for the installers.
-   The certificate request tools are described in <a href="NewPkiCsr-MANUAL.html">NewPkiCsr-MANUAL.txt</a> and
-   <a href="PrepareComputer-MANUAL.html">PrepareComputer-MANUAL.txt</a>. They work whether or not the PKI is installed on the computer.</pre></div>
-<div class="code"><pre>4. WHAT THE PEOPLE DO
-   Windows (Windows 11 24H2+, Windows Server 2022 / 2025; Windows PowerShell 5.1 or PowerShell 7)
-      unzip, open PowerShell in the folder:   powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1     then type the password.
-      Administrator window -&gt; Local Machine stores (all users).   Normal window -&gt; Current User
-                                                                  stores (Windows asks to confirm
-                                                                  each root: click Yes).
-      Roots -&gt; Trusted Root Certification Authorities. Intermediates -&gt; Intermediate Certification
-      Authorities. An older version of the same organization is replaced; other organizations are
-      never touched. Windows Server 2022 gets the classic CAs only (the post-quantum ones are
-      skipped with a warning). At the end only the install script and the package are deleted (the
-      zip stays; the other scripts of the zip stay). -Keep keeps them. -Firefox, -Check, -Scope
-      Machine|User|Auto.
-   Linux (Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle Linux 10+, SLES / openSUSE 15+)
-      unzip, then:   bash install-pki-ca.sh     type the password (sudo is called by the script).
-      The roots go to the system store (ubuntu /usr/local/share/ca-certificates +
-      update-ca-certificates; redhat /etc/pki/ca-trust/source/anchors + update-ca-trust; suse
-      /etc/pki/trust/anchors + update-ca-certificates), named pki-&lt;company&gt;-&lt;release&gt;-&lt;root&gt;.crt.
-      The opened package stays in pki/. --firefox, --check, --password-file.
-   Several PKIs in one kit: the installer installs every PKI of the .certpacked (one line per PKI)
-   and writes a list of what it installed:
-      Windows %ProgramData%\PkiTrustKit\installed.tsv (Local Machine) or %LOCALAPPDATA%\PkiTrustKit\installed.tsv      Linux /var/lib/pki-trust-kit/installed.tsv
-   Then (optional): Prepare-Computer, then New-PkiCsr / new-pki-csr.sh to ask for your own
-   certificate.</pre></div>
-<div class="code"><pre>5. TAKING A PKI AWAY AGAIN
-   Remove-PkiCa.ps1 / remove-pki-ca.sh are standalone (no password) and work like RemoveTrust /
-   RemoveAllTrust of the PKI machine:
-      .\Remove-PkiCa.ps1 -List | -Pki raksaka | -Pki agantra,raksaka | -All | -Org &quot;Raksaka&quot;        add -Check to only show        (Linux: --list --pki --all --org --check)
-   With the list file they remove exactly what the installer put there; -Org / --org works without
-   it (certificates whose organization contains the text).</pre></div>
-<ol><li>WHY THESE CHOICES One standalone file per job, readable by the people who run it. Roots only to Linux (that is its trust model); intermediates to the Windows intermediate store. Replacement is by organization name: the old and new generation of a PKI share it. A kit with all PKIs replaces older certificates of those organizations, so install a kit of ALL PKIs when people must trust everything. -AllReleases is not combined with -Release, -NoCaRevocationInfo or -PkiRoot. A kit with several PKIs is about 0.8 MB bigger per PKI and encryption type.</li></ol>
-<div class="code"><pre>7. SUPPORTED SYSTEMS  (checked first; anything else: exit 5, nothing changed)
-   Windows 11 24H2+ and Windows Server 2025: everything.   Windows Server 2022: classic only.   Refused: Windows 10 and earlier, Windows 11 before 24H2, Server before 2022,
-   Chinese / Government / IoT / SE / Embedded editions.   Linux: the list above. Debian, AlmaLinux,
-                                                          Fedora, Mint, older releases and macOS are
-                                                          refused.
-   Test variables: PKI_FAKE_OS=Client:19045 (Windows), PKI_OS_RELEASE_FILE=&lt;file&gt; (Linux),
-                   PKI_ANCHOR_DIR / PKI_UPDATE_CMD / PKI_BUNDLE_FILE, PKI_KIT_STATE_DIR.</pre></div>
-<ol><li>TESTED / NOT TESTED Tested on Ubuntu 24.04 with PowerShell 7: kit build, the Ubuntu install for real (system store, replace, check, remove), the request tools after the install (the returned certificate verifies against the system store), RHEL / SUSE paths with test folders, the Windows script in PowerShell 7 against the .NET store of a Linux user. NOT tested: a real Windows (Local Machine / Current User stores, security questions, Windows PowerShell 5.1, antivirus reaction), real RHEL / SUSE machines, a real Firefox. Try the Windows kit on one laptop and one QA machine first.</li></ol>
-<ol><li>NOTES The installer needs the password: -Password on the command line shows in a process list; the prompt or PKI_PACKAGE_PASSWORD does not. Downloaded scripts carry the Internet mark: the -ExecutionPolicy Bypass command above avoids &quot;running scripts is disabled&quot;. Every text file the</li></ol>
-<h3 id="scripts-generate-starts-with-the-author-company-email-block">scripts generate starts with the Author / Company / Email block.<a class="anchor" href="#scripts-generate-starts-with-the-author-company-email-block" aria-label="Link to this section">#</a></h3>
+<div class="code"><pre> What it is   : A small kit that makes a computer TRUST your PKI. One zip per operating system, one
+                script inside, one password. The kit holds public certificates only. No private
+                key.
+ Who reads it : Sections 1 to 6: the OWNER of the PKI who builds the kits. Section 7: the PEOPLE who
+                receive a kit (junior developers, testers, customers). No PKI knowledge is needed.
+                Every new word is explained in <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.
+ Time needed  : 10 minutes to read. Building the kits takes about one minute.
+ You need     : Owner: a PKI from pki_setup.ps1 and PowerShell 7. People: Windows 11 or Linux, and
+                Administrator rights (or sudo) to install for all users.
+ Start with   : Owners: section 4. Receivers: section 7.</pre></div>
+<div class="code"><pre> Related manuals:
+   <a href="NewPkiCsr-MANUAL.html">NewPkiCsr-MANUAL.txt</a>        the request tool that is inside every kit
+   <a href="PrepareComputer-MANUAL.html">PrepareComputer-MANUAL.txt</a>  the tool that installs OpenSSL, Python, PowerShell 7
+   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>           the bigger kit for developers who also SIGN certificates
+   <a href="PkiTransport-MANUAL.html">PkiTransport-MANUAL.txt</a>     carry the whole PKI (with keys) to another machine
+   <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>        build the PKI first
+ Help in the terminal:   .\New-PkiTrustKit.ps1 -Help     .\Install-PkiCa.ps1 -Help
+                         .\Remove-PkiCa.ps1 -Help        bash install-pki-ca.sh --help
+                         bash remove-pki-ca.sh --help     (one page at a time)</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What a trust kit is                     10  What is installed, and where
+    2  The words you need                      11  Which PKI goes into a kit
+    3  What is in every zip                    12  Several PKIs in one kit
+    4  Quick start (owner)                     13  Recipes, copy and paste
+    5  Build the kits                          14  Problems and answers
+    6  Send the kit                            15  Limits you must know
+    7  Install the kit (receiver)              16  All options
+    8  Take a PKI away again                   17  What was tested, what was not
+    9  Supported systems                       18  Other documents</pre></div>
+<h2 id="1-what-a-trust-kit-is">1  WHAT A TRUST KIT IS<a class="anchor" href="#1-what-a-trust-kit-is" aria-label="Link to this section">#</a></h2>
+<p>Your PKI signs certificates. A computer only believes them if it TRUSTS the CA certificates of your PKI. A trust kit brings those CA certificates to the computer.</p>
+<div class="code"><pre>     OWNER                                           RECEIVER
+     New-PkiTrustKit.ps1 -All
+        windows-pki-....zip   --- (e-mail, share) --&gt;  unzip, run Install-PkiCa.ps1, password
+        ubuntu-pki-....zip
+        PASSWORD.txt          --- (another way) ----&gt;  the password</pre></div>
+<p>The kit is for people who only TRUST. They do not sign and they need no key. Developers who also issue certificates use the DevKit (<a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>).</p>
+<h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Trust          The computer accepts certificates that this PKI signed.
+ Root           The top CA certificate. It goes to the &quot;trusted roots&quot; store.
+ Intermediate   A CA below the root. Windows keeps it in a second store.
+ Store          The place where the operating system keeps trusted certificates.
+ .certpacked    One encrypted file with the CA certificates (public only).
+ Local Machine  The Windows store for ALL users. Needs an Administrator window.
+ Current User   The Windows store for ONE user. No Administrator needed.
+ Kit            The zip: scripts + the .certpacked.
+ PEN            A company number. Not needed for the kit.</pre></div>
+<h2 id="3-what-is-in-every-zip">3  WHAT IS IN EVERY ZIP<a class="anchor" href="#3-what-is-in-every-zip" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Windows zip   Install-PkiCa.ps1       install the PKI
+               Remove-PkiCa.ps1        take a PKI away again
+               New-PkiCsr.ps1          make a key and a request, step by step
+               Prepare-Computer.ps1    install PowerShell 7, .NET SDK 8 and 10, OpenSSL, Python and
+                                       put them on the PATH
+               + the .certpacked
+ Linux zips    install-pki-ca.sh   remove-pki-ca.sh   new-pki-csr.sh   prepare-computer.sh
+ (ubuntu,      + the .certpacked
+ redhat, suse)</pre></div>
+<p>All scripts stand alone. No other file of the project is needed. The installers need no OpenSSL. The request tools work whether or not the PKI is installed on the computer.</p>
+<h2 id="4-quick-start-owner">4  QUICK START (OWNER)<a class="anchor" href="#4-quick-start-owner" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     .\New-PkiTrustKit.ps1 -All</pre></div>
+<p>This builds the kits for all four systems for the latest release of your PKI. Open transport\pki-trust-&lt;name&gt;-&lt;unique&gt;-&lt;date&gt;-&lt;time&gt;\. Send each person the zip for his system. Send the password (PASSWORD.txt) by ANOTHER way.</p>
+<h2 id="5-build-the-kits">5  BUILD THE KITS<a class="anchor" href="#5-build-the-kits" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     .\New-PkiTrustKit.ps1 -All                        all four systems
+     .\New-PkiTrustKit.ps1 -Target Windows,Ubuntu      some of them (Windows, Ubuntu, Redhat, SUSE)
+     .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka   several companies in ONE .certpacked
+     .\New-PkiTrustKit.ps1 -All -AllReleases           every release of the company
+     .\New-PkiTrustKit.ps1 -All -AllProfiles           every company, every release
+     .\New-PkiTrustKit.ps1 -All -SelfExtract           also .cmd / .sh files that only EXTRACT
+     .\New-PkiTrustKit.ps1 -All -Release 2             a given release
+     .\New-PkiTrustKit.ps1 -All -NoCaRevocationInfo    the NoCR family</pre></div>
+<p>Result: transport\pki-trust-&lt;name&gt;-&lt;unique&gt;-&lt;date&gt;-&lt;time&gt;\ with</p>
+<div class="code"><pre>   windows-pki-....zip   ubuntu-pki-....zip   redhat-pki-....zip   suse-pki-....zip
+   PASSWORD.txt          README.txt (what to tell the people)</pre></div>
+<p>&lt;name&gt; is &lt;PkiName&gt;-r&lt;release&gt;, or &lt;PkiName&gt;-nocr-r&lt;release&gt;, or &lt;PkiName&gt;-all. Several companies: agantra-raksaka. More than three: multipki. -AllProfiles: allpki-all. &lt;unique&gt; is 6 random characters, the same for the whole run.</p>
+<p>The password: by default a strong password is made and written to PASSWORD.txt. Windows zips use AES-256. Linux zips use ZipCrypto, because python3, unzip and 7z open it on every distribution. The content is public anyway: the password guards against a wrong or changed package, it is not a secret keeper.</p>
+<p>-SelfExtract: a Windows .cmd (double click) or a Linux .sh (bash file.sh, or --dir F) that only EXTRACTS the zip. The installer stays a script you can read.</p>
+<h2 id="6-send-the-kit">6  SEND THE KIT<a class="anchor" href="#6-send-the-kit" aria-label="Link to this section">#</a></h2>
+<ul><li>Send the zip and the password by DIFFERENT ways (zip by e-mail, password by chat or phone).</li><li>Tell the receiver which zip is his. README.txt in the folder has the text.</li><li>There is no private key in any file. Even so, send only to the people who need it.</li><li>Tell the receivers to try it on one laptop and one QA machine first.</li></ul>
+<h2 id="7-install-the-kit-receiver">7  INSTALL THE KIT (RECEIVER)<a class="anchor" href="#7-install-the-kit-receiver" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> WINDOWS (Windows 11 24H2 or newer, Windows Server 2022 or 2025)
+   1. Unzip. Open PowerShell in that folder.
+   2. powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
+   3. Type the password.
+   Administrator window = Local Machine stores (all users). Normal window = Current User stores;
+   Windows then asks about each root: click Yes. Roots go to &quot;Trusted Root Certification
+   Authorities&quot;, intermediates to &quot;Intermediate Certification Authorities&quot;. An older version of the
+   same organization is replaced. Other organizations are never touched. Windows Server 2022 gets
+   the Classic CAs only (the post-quantum ones are skipped, with a warning).
+   At the end the extracted files, the install script and the .certpacked are deleted. The zip and
+   the other scripts stay. -Keep keeps everything. Options: -Firefox, -Check, -Scope
+   Machine|User|Auto.</pre></div>
+<div class="code"><pre> LINUX (Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle 10+, SLES / openSUSE 15+)
+   1. Unzip. Open a terminal in that folder.
+   2. bash install-pki-ca.sh
+   3. Type the password. The script calls sudo by itself.
+   The roots go to the system store: Ubuntu /usr/local/share/ca-certificates (and
+   update-ca-certificates), Red Hat family /etc/pki/ca-trust/source/anchors (and update-ca-trust),
+   SUSE /etc/pki/trust/anchors (and update-ca-certificates). The files are called
+   pki-&lt;company&gt;-&lt;release&gt;-&lt;root&gt;.crt. The opened package stays in the folder pki/.
+   Options: --firefox, --check, --password-file.</pre></div>
+<p>AFTERWARDS (optional): run Prepare-Computer, then New-PkiCsr.ps1 / new-pki-csr.sh to ask for your own certificate (<a href="NewPkiCsr-MANUAL.html">NewPkiCsr-MANUAL.txt</a>).</p>
+<p>The password: -Password / --password on the command line shows in a process list. Type it at the prompt, or use PKI_PACKAGE_PASSWORD, instead.</p>
+<h2 id="8-take-a-pki-away-again">8  TAKE A PKI AWAY AGAIN<a class="anchor" href="#8-take-a-pki-away-again" aria-label="Link to this section">#</a></h2>
+<p>Remove-PkiCa.ps1 and remove-pki-ca.sh stand alone. They need no password and no package. They read the list that the installer wrote.</p>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     .\Remove-PkiCa.ps1 -List                 what the kit installed
+     .\Remove-PkiCa.ps1 -Pki raksaka -Check   only show what would go
+     .\Remove-PkiCa.ps1 -Pki raksaka          remove one company
+     .\Remove-PkiCa.ps1 -Pki agantra,raksaka | -All | -Org &quot;Raksaka&quot;
+     bash remove-pki-ca.sh --list | --pki raksaka | --all | --org raksaka | --check</pre></div>
+<p>-Org / --org works without the list: certificates whose organization contains the text. Windows: only certificates in the list (same SHA-1 thumbprint) are removed.</p>
+<h2 id="9-supported-systems">9  SUPPORTED SYSTEMS<a class="anchor" href="#9-supported-systems" aria-label="Link to this section">#</a></h2>
+<p>The installers check first. Anything else: exit 5, nothing is changed.</p>
+<div class="code"><pre> Windows 11 24H2 or newer, Windows Server 2025   everything is installed
+ Windows Server 2022                             the Classic CAs only
+ Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle Linux 10+, SLES / openSUSE 15+
+ Refused: Windows 10 and earlier, Windows 11 before 24H2, Server before 2022, Chinese /
+ Government / IoT / SE / Embedded editions, Debian, AlmaLinux, Fedora, Mint, older Linux releases,
+ macOS.</pre></div>
+<p>Test variables (for testers only): PKI_FAKE_OS=Client:19045 (Windows), PKI_OS_RELEASE_FILE=&lt;file&gt; (Linux), PKI_ANCHOR_DIR, PKI_UPDATE_CMD, PKI_BUNDLE_FILE, PKI_KIT_STATE_DIR.</p>
+<h2 id="10-what-is-installed-and-where">10  WHAT IS INSTALLED, AND WHERE<a class="anchor" href="#10-what-is-installed-and-where" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The installer writes a list of what it installed:
+   Windows Local Machine   %ProgramData%\PkiTrustKit\installed.tsv
+   Windows Current User    %LOCALAPPDATA%\PkiTrustKit\installed.tsv
+   Linux                   /var/lib/pki-trust-kit/installed.tsv
+ One line per certificate: company, release, store, name. The remove scripts use it.</pre></div>
+<p>Linux only gets the ROOTS in the system store (that is how Linux trust works). Windows gets roots and intermediates.</p>
+<h2 id="11-which-pki-goes-into-a-kit">11  WHICH PKI GOES INTO A KIT<a class="anchor" href="#11-which-pki-goes-into-a-kit" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Default: the latest release of the company agantra.
+   -Pki &lt;a,b&gt;           other companies, or several
+   -Release &lt;n&gt;         a given release
+   -NoCaRevocationInfo  the NoCR family
+   -PkiRoot &lt;folder&gt;    one exact PKI folder
+   -AllReleases         every release (and NoCR release) of the chosen companies
+   -AllProfiles         every company that has a PKI, every release
+ -AllReleases is not combined with -Release, -NoCaRevocationInfo or -PkiRoot.
+ A company in -Pki that has no PKI yet stops the run (exit 4). Build it first:
+ pki_setup.ps1 -Pki &lt;name&gt;.</pre></div>
+<h2 id="12-several-pkis-in-one-kit">12  SEVERAL PKIs IN ONE KIT<a class="anchor" href="#12-several-pkis-in-one-kit" aria-label="Link to this section">#</a></h2>
+<p>One kit has one .certpacked. It can hold many PKIs. The installer installs EVERY PKI in it in one run and writes one line per PKI to the list. Replacement works by organization name: the old and new generation of a PKI share it. A kit with all PKIs replaces older certificates of those organizations, so give people a kit of ALL PKIs when they must trust everything. Each extra PKI makes the kit about 0.8 MB bigger per encryption type.</p>
+<h2 id="13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE<a class="anchor" href="#13-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> All systems, latest release:        .\New-PkiTrustKit.ps1 -All
+ Windows and Ubuntu only:            .\New-PkiTrustKit.ps1 -Target Windows,Ubuntu
+ Two companies in one kit:           .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka
+ Everything that exists:             .\New-PkiTrustKit.ps1 -All -AllProfiles
+ With your own password:             .\New-PkiTrustKit.ps1 -All -PackagePassword &quot;...&quot;
+ A different output folder:          .\New-PkiTrustKit.ps1 -All -OutDirectory D:\kits
+ Receiver, Windows (all users):      (Administrator PowerShell)
+     powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
+ Receiver, test only:                .\Install-PkiCa.ps1 -Check
+ Receiver, Linux:                    bash install-pki-ca.sh
+ Receiver, Linux with Firefox:       bash install-pki-ca.sh --firefox
+ Remove one company (Windows):       .\Remove-PkiCa.ps1 -Pki raksaka
+ Remove one company (Linux):         bash remove-pki-ca.sh --pki raksaka</pre></div>
+<h2 id="14-problems-and-answers">14  PROBLEMS AND ANSWERS<a class="anchor" href="#14-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> &quot;running scripts is disabled&quot; (Windows)
+     Use the command in section 7. It allows this one script.
+ Wrong password (exit 3)
+     Ask the owner. Check for spaces and typing mistakes.
+ &quot;administrator window needed&quot; (exit 2)
+     You asked for -Scope Machine in a normal window. Start PowerShell as administrator, or use
+     the default scope (Current User).
+ The browser still does not trust the site
+     Close the browser and start it again. Firefox has its own store: use -Firefox / --firefox.
+ Exit code 5
+     This computer is refused (section 9). Nothing was changed.
+ Exit code 4 when building
+     A company in -Pki has no PKI. Build it first.
+ Server 2022: &quot;post-quantum CAs skipped&quot;
+     Expected. Server 2022 takes the Classic CAs only.
+ I installed the wrong kit
+     Use Remove-PkiCa.ps1 -List, then -Pki &lt;name&gt; (section 8).</pre></div>
+<h2 id="15-limits-you-must-know">15  LIMITS YOU MUST KNOW<a class="anchor" href="#15-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>The kit makes a computer TRUST the PKI. It does not give the computer a certificate. For that use New-PkiCsr (and the owner&#39;s SignCsr).</li><li>The installer on Windows needs Administrator rights for the Local Machine store.</li><li>Firefox and some Java and Python programs keep their own stores. -Firefox covers Firefox only.</li><li>Downloaded scripts may carry the Internet mark. The command in section 7 avoids the block.</li><li>The kit does not update itself. When you build a new release of the PKI, build and send new kits.</li></ul>
+<h2 id="16-all-options">16  ALL OPTIONS<a class="anchor" href="#16-all-options" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> New-PkiTrustKit.ps1
+   -Target &lt;list&gt;        Windows, Ubuntu, Redhat, SUSE.        -All   all four.
+   -Release &lt;n&gt;          The release. Default: the latest.     -NoCaRevocationInfo   NoCR family.
+   -Pki &lt;a,b,...&gt;        Company or companies. Default agantra.
+   -AllProfiles          All companies, every release.
+   -AllReleases          Every release of the chosen companies (alias -AllPki).
+   -PkiRoot &lt;folder&gt;     One PKI folder.       -PkiName &lt;text&gt;   Name in the file names.
+   -OutDirectory &lt;dir&gt;   Default .\transport.  -PackagePassword &lt;text&gt;   Your own password.
+   -SelfExtract          Also make the extract-only files.     -Force   Overwrite a run folder.
+   -Help
+ Install-PkiCa.ps1                               install-pki-ca.sh
+   -Password -Package -Scope -Firefox -Check -Keep   --password --password-file --package --target
+   -Help                                             --firefox --check --help
+ Remove-PkiCa.ps1                                remove-pki-ca.sh
+   -List -Pki -All -Org -Scope -Check -Yes -Help     --list --pki --all --org --keep-files --check
+                                                     --yes --help
+ Exit codes: New-PkiTrustKit 0 ok, 1 error, 4 PKI not found. Install: 0 ok, 1 error, 2 admin needed
+ (Windows), 3 wrong password. Remove: 0 ok, 1 error, 2 admin needed (Windows). All: 5 system
+ refused.</pre></div>
+<h2 id="17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#17-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Tested on Ubuntu 24.04 with PowerShell 7: the kit build, the Ubuntu install for real (system
+ store, replace, check, remove), the request tools after the install (the returned certificate
+ verifies against the system store), RHEL / SUSE paths with test folders, the Windows script in
+ PowerShell 7 against the .NET store of a Linux user.
+ NOT tested: a real Windows (Local Machine and Current User stores, the security questions,
+ Windows PowerShell 5.1, antivirus reaction), real RHEL / SUSE machines, a real Firefox. Try the
+ Windows kit on one laptop and one QA machine first. <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a> (E44).</pre></div>
+<h2 id="18-other-documents">18  OTHER DOCUMENTS<a class="anchor" href="#18-other-documents" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> <a href="NewPkiCsr-MANUAL.html">NewPkiCsr-MANUAL.txt</a>   <a href="PrepareComputer-MANUAL.html">PrepareComputer-MANUAL.txt</a>   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>   <a href="PkiTransport-MANUAL.html">PkiTransport-MANUAL.txt</a></pre></div>
+<h3 id="pkiprofiles-manual-txt-glossary-txt-glossary-english-txt">PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt<a class="anchor" href="#pkiprofiles-manual-txt-glossary-txt-glossary-english-txt" aria-label="Link to this section">#</a></h3>
 <p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PKI-Server-Design.html"><small>&larr; Previous</small>PKI server design</a><a class="nx" href="DevKit-MANUAL.html"><small>Next &rarr;</small>DevKit</a></nav>
-<p class="crumb">Made from PkiTrustKit-MANUAL.txt by Build-HtmlDocs.ps1 6.4.3.</p>
+<p class="crumb">Made from PkiTrustKit-MANUAL.txt by Build-HtmlDocs.ps1 6.4.7.</p>
 
 </div>
-
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-a-trust-kit-is">1  WHAT A TRUST KIT IS</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-what-is-in-every-zip">3  WHAT IS IN EVERY ZIP</a><a href="#4-quick-start-owner">4  QUICK START (OWNER)</a><a href="#5-build-the-kits">5  BUILD THE KITS</a><a href="#6-send-the-kit">6  SEND THE KIT</a><a href="#7-install-the-kit-receiver">7  INSTALL THE KIT (RECEIVER)</a><a href="#8-take-a-pki-away-again">8  TAKE A PKI AWAY AGAIN</a><a href="#9-supported-systems">9  SUPPORTED SYSTEMS</a><a href="#10-what-is-installed-and-where">10  WHAT IS INSTALLED, AND WHERE</a><a href="#11-which-pki-goes-into-a-kit">11  WHICH PKI GOES INTO A KIT</a><a href="#12-several-pkis-in-one-kit">12  SEVERAL PKIs IN ONE KIT</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a class="l3" href="#pkiprofiles-manual-txt-glossary-txt-glossary-english-txt">PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.7</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

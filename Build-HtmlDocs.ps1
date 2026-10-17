@@ -3,7 +3,7 @@
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 6.4.3
+# Version: 6.4.7
 # ============================================================
 #requires -Version 7.0
 <#
@@ -19,7 +19,7 @@ param(
     [switch]$Help
 )
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '6.4.3'
+$script:ToolVersion = '6.4.7'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 function Out-PagedHelp {
     # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
@@ -54,7 +54,7 @@ if ($Help) {
 @'
 ====================================================================================================
  Build-HtmlDocs.ps1 - make the HTML documentation from the text documents
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

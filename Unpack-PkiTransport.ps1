@@ -43,89 +43,77 @@ $script:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Show-PkiUnpackHelp {
     @'
-============================================================
- Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 6.4.3
+====================================================================================================
+ Unpack-PkiTransport.ps1  -  unpack a .certpacked on any computer
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Manual : docs\PkiTransport-MANUAL.txt   Needs: PowerShell 7+ (Windows, Linux or macOS)
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\PkiTransport-MANUAL.txt (section 8)        Needs: PowerShell 7+
 
 WHAT IT DOES
   Opens a .certpacked (a password-protected zip or 7z made by PkiTransport.ps1), checks the SHA-256
-  of every file against the list inside, and writes what you select to a folder. NOTHING is
-  installed and no certificate store is touched. There is no operating-system restriction: install
-  the trust with PkiTransport.ps1 -Install (Windows 11
-  25H2+) or pki-transport.sh (Linux, macOS).
+  of every file, and writes what you select to a folder.
+  NOTHING is installed and no certificate store is touched. To install the trust use
+  PkiTransport.ps1 -Install (Windows) or pki-transport.sh (Linux).
+  A wrong password, a damaged or a changed file: it says so and writes nothing.
 
-USAGE
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked                          CA certificates `
-        (default)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract roots           only the roots (+ `
-        ca-bundle-roots.crt)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract intermediates   only the DV / OV / `
-        EV CAs
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract ca,leafcerts    CAs and the leaf `
-        certificates
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract all             everything in the `
-        package (fullchain)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract leafcerts -LeafName `
-        www.example.com,api*
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -List                    what is inside, `
-        nothing written
+QUICK START
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked                    CA certificates (default)
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -List
+  What is inside; nothing is written
 
-PARAMETERS
+COMMON COMMANDS
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract roots           Only the roots
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract intermediates
+  Only the DV / OV / EV CAs
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract ca,leafcerts
+  CAs and leaf certificates
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract all
+  Everything in the package
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract leafcerts -LeafName
+    www.example.com,api*
+
+OPTIONS
   -Package <file>          The .certpacked.
-  -PackagePassword <text>  (alias -Password). Not given: environment variable
-                           PKI_TRANSPORT_PASSWORD, else you are asked.
+  -PackagePassword <text>  (alias -Password). Not given: the variable PKI_TRANSPORT_PASSWORD, else a
+                           prompt.
   -Destination <folder>    Default .\certpacked-received\<package name>.
-  -Extract <list>          roots         ca\roots\*.crt (Enterprise, Track and Quadrant roots),
-                           ca-bundle-roots.crt intermediates ca\intermediates\*.crt (DV / OV / EV
-                           CAs)
-                           chains        ca\chains\*-fullchain.crt (each intermediate + its parents)
-                                         and the bundles
-                           ca            roots + intermediates + chains + bundles + CRLs + public-CA
-                                         files (default)
-                           leafcerts     the leafcerts folders (leaf certificates AND their private
-                                         keys), if packed
-                           pki           the whole PKI folder with the CA private keys, if packed
-                                         (paths in its manifest are rewritten to the new place)
-                           all           everything the package holds (same as fullchain)
+  -Extract <list>          What to write:
+                           roots          ca\roots\*.crt and ca-bundle-roots.crt
+                           intermediates  ca\intermediates\*.crt (DV / OV / EV CAs)
+                           chains         ca\chains\*-fullchain.crt and the bundles
+                           ca
+                           roots + intermediates + chains + bundles + CRLs + public-CA
+                                          files (default)
+                           leafcerts      the leafcerts folders (certificates AND private keys), if
+                                          packed
+                           pki
+                           the whole PKI with the CA private keys, if packed. Paths in
+                                          its manifest are rewritten to the new place.
+                           all            everything the package holds (same as fullchain)
                            certpack.json and README.txt are always written.
-  -LeafName <wildcards>    With leafcerts: only these leaf sets (the top-level folder names).
-  -List                    Show scope, CAs, leaves and files; write nothing.
-  -Force                   Overwrite files that exist and differ (identical files are left alone).
+  -LeafName <wildcards>    With leafcerts: only these leaf sets (top-level folder names).
+  -List                    Show scope, CAs, leaves and files. Write nothing.
+  -Force                   Overwrite files that exist and differ. Identical files are left alone.
   -SevenZipPath <exe>      7-Zip, for a 7z package (zip packages need nothing).
-  -InstallMissing          A 7z package and no 7-Zip: install 7-Zip (Install-DevEnvironment.ps1
-                           -Only 7Zip, or WinGet; Linux / macOS: Install-DevEnvironment.sh --only
-                           7zip) instead of stopping. Without it you are asked when a person is
-                           there.
-  -Unblock                 UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and
-                           -Destination, children and recursive, list the programs that hold files
-                           open, and stop. Done at every start too.
-  -Verbose                 Show detail.      -Help   This text.
+  -InstallMissing          A 7z package and no 7-Zip: install 7-Zip instead of stopping.
+  -Unblock                 Unblock and unlock the script folder and -Destination, then stop.
+  -Verbose                 Show detail.        -Help   This text.
 
-WRONG PASSWORD, DAMAGED OR CHANGED FILE
-  The script says so and writes nothing. The AES-256 zip authenticates every file: one changed byte
-  is found.
+LIMITS
+  * A package with leafcerts or pki holds PRIVATE KEYS. Delete the extracted files and the package
+    when you are done.
+  * Tested on Linux with OpenSSL 4.0.3 and real 7-Zip. Not tested on Windows.
 
-EXIT CODES   0 ok   1 error (including a wrong password)
+WHERE IT RUNS
+  Windows 11 24H2 or newer, Windows Server 2025 and 2022, Linux with pwsh.
+  Refused (exit 5): Windows 10, older Windows 11, macOS and special editions.
 
-LIMITATIONS
-  * A package with leafcerts or pki contains PRIVATE KEYS: delete the extracted files and the
-    package when done.
-  * Tested on Linux with OpenSSL 4.0.3 and the real 7-Zip; not tested here on Windows or macOS.
-
-WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
-  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
-  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
-  Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
-  editions. Linux (pwsh): the distributions of the
-  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
+EXIT CODES
+  0 done      1 error (also a wrong password)      5 this system is refused
 '@
 }
 

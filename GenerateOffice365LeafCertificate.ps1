@@ -85,7 +85,7 @@ function Show-PersonHelp {
     @'
 ====================================================================================================
  GenerateOffice365LeafCertificate.ps1  -  Microsoft Office / 365 DOCUMENT SIGNING certificates
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

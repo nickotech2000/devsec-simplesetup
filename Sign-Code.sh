@@ -4,13 +4,13 @@
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 6.4.3
+# Version: 6.4.7
 # ============================================================
 # Sign-Code.sh - sign code with a code-signing certificate (Linux build machines and pipelines).
 # Bash twin of Sign-Code.ps1. Needs bash 4+, OpenSSL and curl. Manual: docs/Sign-Code-MANUAL.txt
 set -u
 if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then echo "[ERROR] bash 4 or newer is needed." >&2; exit 1; fi
-VERSION=6.4.3
+VERSION=6.4.7
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
@@ -20,7 +20,7 @@ show_help() {
 cat <<'HELP_EOF'
 ====================================================================================================
  Sign-Code.sh - sign your code with a code-signing certificate (Linux / macOS build machines)
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

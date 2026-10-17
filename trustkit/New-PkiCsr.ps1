@@ -52,98 +52,148 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '6.4.3'
+$script:ToolVersion = '6.4.7'
 $script:DevSanMarker = 'add-development-san.pki-marker.invalid'
+
+function Out-KitPaged {
+    # Help text one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # Redirected output (a file, a pipe) prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = New-Object System.Collections.Generic.List[string] }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
 
 function Show-Help {
 @'
-============================================================
- New-PkiCsr.ps1 - make a key and a certificate request (CSR) step by step (for the DESTINATION
- computer)
- Version 6.4.3
+====================================================================================================
+ New-PkiCsr.ps1  -  make your private key and your certificate request (CSR)
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
-WHAT IT DOES
-  Asks you, one question after the other, for the data of the certificate, makes a PRIVATE KEY and a
-  CSR on this computer, and writes both into a new folder.
-  You send ONLY the .csr to the owner of the PKI (he signs it with SignCsr.ps1 / SignCsr.sh). The
-  .key never leaves this computer.
-  Standalone: it needs only OpenSSL 3.x or 4.x (Prepare-Computer.ps1 installs it with winget or
-  Chocolatey). Windows PowerShell 5.1 or PowerShell 7.
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\NewPkiCsr-MANUAL.txt     Twin: new-pki-csr.sh (Linux)
+ Needs  : OpenSSL 3.x or 4.x (Prepare-Computer.ps1 installs it) and Windows PowerShell 5.1 or
+          PowerShell 7. No other file of the PKI project.
 
-WHAT THE REQUEST IS FOR  (-CertificateType, asked first)
-  Leaf             a certificate for a server, a person, code signing or e-mail (default). Signed by
-                   SignCsr.ps1 / SignCsr.sh.
-  IntermediateCA   the certificate of a NEW CA of your department. The request asks for CA:TRUE and
-                   key usage keyCertSign + cRLSign, carries NO names (no SAN) and NEVER the
-                   development names. Company, country, department (OU) and the name of the CA (CN)
-                   are required; the key is RSA 4096 / 8192 or ECDSA P-384 / P-521 (not ML-DSA, not
-                   RSA 2048 / 3072, not P-256). The owner of the PKI signs it with
-                   SignExternalCa.ps1 (a Quadrant Root; SignCsr refuses a CA request).
+WHAT IT IS
+  You need a certificate from a PKI that you do not own. First you make two things on YOUR
+  computer: a private key and a certificate request (CSR). This script asks questions, one after
+  the other, and makes both.
+    The .csr file  goes to the owner of the PKI. It is public.
+    The .key file  never leaves this computer. Whoever has it can pretend to be you.
+  The script does not read or change the certificate stores of your computer. It does not matter
+  whether the PKI is already installed here.
 
-THE STEPS (press Enter to skip an optional one)
-   1 Common name (CN)      the host name of the server, or the name of the certificate
-                           REQUIRED
-   2 Company ID            the registration number of the company: becomes the SERIAL NUMBER of the
-                           subject
-   3 Company               the official company name (O)           4 Department (OU; required for a CA)   5 E-mail   6 Contact phone   7 Contact person
-   7 Address (street)      8 City   9 State / province   10 Country (2 letters, e.g. EE, ID, DE)   11 Postal code
-  12 EV information        business category (Private Organization | Government Entity | Business Entity | Non-Commercial Entity) and the
-                           jurisdiction of registration (country, state, locality). Fill it and the
-                           CA signs an EV certificate.
-  13 IANA PEN (optional)   your Private Enterprise Number: your company policy OID
-                           1.3.6.1.4.1.<PEN>.1 is put in the request
-  14 Names (SAN)           DNS names, IP addresses and e-mail addresses, ONE BY ONE (empty line =
-                           finished). The first DNS name is the CN if you gave none. "Add the
-                           development names?" puts a marker in the request: the CA then adds its
-                           development SAN list (like -AddDevelopmentSAN).
-  15 Key                   RSA 4096 + SHA-384 (default), RSA 2048 / 3072 / 8192, ECDSA P-256 / P-384
-                           / P-521, ML-DSA-44 / 65 / 87 (OpenSSL 3.5+ or 4)
+QUICK START
+  1. Run the script:                     .\New-PkiCsr.ps1
+  2. Answer the questions. ENTER skips an optional question.
+  3. Open the new folder  csr-requests\<name>_<yyyyMMdd-HHmmss>\
+  4. Send ONLY the .csr file to the owner of the PKI.
+  5. When he sends the certificate back, put it next to your .key.
 
-WHICH CERTIFICATE YOU GET  (the CA decides by what the request carries; Classic, Quadrant 1 unless
-it says otherwise)
-   EV information complete (business category + jurisdiction country + company ID + state + city)
-   ->  an EV certificate a company (name + country) without EV information
-   ->  an OV certificate
-   only a common name
-                                            ->  a DV certificate
-   The CRL and OCSP addresses in the certificate are those of the CA that signs it.
+WHAT IS IN THE NEW FOLDER
+  <name>.key          your private key. KEEP IT SECRET. Never send it. Never e-mail it.
+  <name>.csr          the request. Send this file.
+  request-info.txt    what the request contains and which level it asks for.
+  README.txt          what to do next.
 
-RULES (the request is REFUSED here when it breaks one - the CA checks the same)
-   RSA below 2048 bit, ECDSA below P-256, ML-DSA other than 44 / 65 / 87, a request hash below
-   SHA-256 (SHA-1, SHA-224, MD5 ...) are rejected.
-   Code signing needs RSA 4096+, ECDSA P-384+, ML-DSA-65+.
+WHAT THE REQUEST IS FOR  (-CertificateType, the first question)
+  Leaf             Default. A certificate for a server, a person, code signing or e-mail.
+                   The owner signs it with SignCsr.ps1 or SignCsr.sh.
+  IntermediateCA   The certificate of a NEW CA of your department. It has no names (no SAN) and
+                   never the development names. Company, country, department (OU) and the CA name
+                   (CN) are required. Key: RSA 4096 or 8192, or ECDSA P-384 or P-521. Not ML-DSA,
+                   not P-256, not RSA 2048 or 3072. The owner signs it with SignExternalCa.ps1.
+                   Keep this key like a root key: offline or in an HSM.
 
-OPTIONS  (give them to skip the questions; with -NonInteractive nothing is asked)
+THE QUESTIONS
+   1  Common name (CN)      The host name of the server, or the name of the certificate. Required.
+   2  Company ID            The registration number of your company (becomes the subject
+                            serialNumber).
+   3  Company (O)           The official company name.
+   4  Department (OU)       Required for a CA request.
+   5  E-mail    6 Contact phone    7 Contact person
+   8  Address (street)  9 City  10 State  11 Country (2 letters, for example EE)  12 Postal code
+  13  EV information        Business category (Private Organization, Government Entity, Business
+                            Entity, Non-Commercial Entity) and the place of registration (country,
+                            state, locality). Fill it all and the CA can issue an EV certificate.
+  14  IANA PEN (optional)   Your Private Enterprise Number. Your company policy OID
+                            1.3.6.1.4.1.<PEN>.1 goes into the request.
+  15  Names (SAN)           DNS names, IP addresses, e-mail addresses, ONE BY ONE. An empty line
+                            means finished. The first DNS name is the CN if you gave none.
+                            "Add the development names?" puts a marker in the request. The owner's
+                            SignCsr then adds his development names. The marker is never in the
+                            certificate.
+  16  Key and hash          RSA 4096 + SHA-384 (default), RSA 2048 / 3072 / 8192, ECDSA P-256 /
+                            P-384 / P-521, ML-DSA-44 / 65 / 87 (OpenSSL 3.5+ or 4).
+
+WHICH CERTIFICATE YOU GET  (the CA decides from the request; Classic, Quadrant 1 unless he says
+otherwise)
+  EV information complete (category + jurisdiction + company ID + company + state + city)  = EV
+  A company (name and country), no EV information                                          = OV
+  Only a common name                                                                       = DV
+  The CRL and OCSP addresses in the certificate are those of the CA that signs.
+
+RULES  (the script stops before it makes a key when you break one; the CA checks the same again)
+  - RSA below 2048, ECDSA other than P-256 / P-384 / P-521, ML-DSA other than 44 / 65 / 87.
+  - A request hash below SHA-256 (SHA-1, SHA-224, MD5).
+  - Code signing: RSA 4096+, ECDSA P-384+, ML-DSA-65+.
+  - EV: no wildcard name.   Country: two capital letters.   Company and country go together.
+  - Special characters in values (# $ " \) are kept as you type them.
+
+OPTIONS  (give an option and its question is not asked; with -NonInteractive nothing is asked)
   -CertificateType Leaf|IntermediateCA   -OrganizationalUnit <department>
-  -CommonName -CompanyId -Company -Email -Phone -ContactPerson -Address -City -State -Country
-  -PostalCode
-  -BusinessCategory <one of the four>  -JurisdictionCountry -JurisdictionState -JurisdictionLocality
-                                       (EV; the three jurisdiction values default to Country / State
-                                       / City)
-  -IanaPen <number>   -San <name,name,...>   -AddDevelopmentSAN
+  -CommonName  -CompanyId  -Company  -Email  -Phone  -ContactPerson
+  -Address  -City  -State  -Country  -PostalCode
+  -BusinessCategory <one of the four>
+  -JurisdictionCountry  -JurisdictionState  -JurisdictionLocality   (EV; they default to
+                         Country / State / City)
+  -IanaPen <number>      -San <name,name,...>      -AddDevelopmentSAN
   -Purpose ServerAuth (default) | ClientAuth | ServerClientAuth | CodeSigning | EmailProtection
-  -KeyType RSA (default) | ECDSA | MLDSA    -KeyBits 2048|3072|4096|8192    -Curve P-256|P-384|P-521    -MlDsa 44|65|87    -Digest SHA256|SHA384|SHA512
-  -Name <text> (folder and file name, default the CN)   -OutDirectory <folder> (default
-  .\csr-requests)   -OpenSslPath <openssl.exe>
-  -NonInteractive   -Help
+  -KeyType RSA (default) | ECDSA | MLDSA      -KeyBits 2048|3072|4096|8192
+  -Curve P-256|P-384|P-521      -MlDsa 44|65|87      -Digest SHA256|SHA384|SHA512
+  -Name <text>           Folder and file name. Default: the CN.
+  -OutDirectory <folder> Default: .\csr-requests
+  -OpenSslPath <file>    The openssl to use.
+  -NonInteractive        Ask nothing. Missing required values are an error.
+  -Help                  This text.
 
-RESULT  (folder  csr-requests\<name>_<yyyyMMdd-HHmmss>\ )
-  <name>.key   your private key - KEEP IT SECRET, never send it     <name>.csr   the request - send THIS one
-  request-info.txt   what the request contains and which level it asks for     README.txt   what to do next
+EXAMPLES
+  .\New-PkiCsr.ps1 -CommonName app.example.com -San app.example.com,10.0.0.5 -NonInteractive
+  .\New-PkiCsr.ps1 -CommonName app.example.com -Company "Example OU" -CompanyId 17344131 `
+        -Country EE -San app.example.com -AddDevelopmentSAN -NonInteractive
+  .\New-PkiCsr.ps1 -CertificateType IntermediateCA -CommonName "Dept Issuing CA G1" `
+        -Company "Dept Ltd" -OrganizationalUnit "IT Department" -Country EE -NonInteractive
+  The owner signs with:   .\SignCsr.ps1 -Csr x.csr      .\SignExternalCa.ps1 -Csr ca.csr
+
+EXIT CODES   0 ok    1 error (nothing is made)    4 OpenSSL not found    5 system refused
 
 WHERE IT RUNS
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
-  Windows Server 2025 and Windows Server 2022 (Essentials,
-  Standard, Datacenter). Refused (exit 5): Windows 10 and earlier, Windows 11 before 24H2, Windows
-  Server before 2022 and the Chinese, Government, IoT,
-  SE and Embedded editions. Linux with PowerShell: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky
-  10+, Oracle Linux 10+, SLES 15+, openSUSE 15+.
-  The shell twin for Linux: new-pki-csr.sh.     EXIT CODES   0 ok   1 error   4 OpenSSL not found   5 system not supported
-============================================================
-'@ | Write-Host
+  Windows 11 24H2 or newer, Windows Server 2025 and 2022. Linux with PowerShell: Ubuntu 24+, CentOS
+  Stream / RHEL / Rocky / Oracle 10+, SLES / openSUSE 15+. Refused (exit 5, nothing done): Windows
+  10, Windows 11 before 24H2, Server before 2022, macOS, and the Chinese, Government, IoT, SE and
+  Embedded editions.
+====================================================================================================
+'@ | Out-KitPaged
 }
 
 function Say { param([string]$Level, [string]$Text)

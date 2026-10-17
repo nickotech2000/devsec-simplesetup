@@ -33,69 +33,106 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+function Out-KitPaged {
+    # Help text one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # Redirected output (a file, a pipe) prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = New-Object System.Collections.Generic.List[string] }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+
 function Show-Help {
 @'
-============================================================
- Install-PkiCa.ps1  -  install the CA certificates of the PKI on this Windows machine
- Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
-                               nicko@nextmantra.com
-============================================================
-Version 6.4.3
+====================================================================================================
+ Install-PkiCa.ps1  -  make this Windows computer trust the PKI
+ Version 6.4.7
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : PkiTrustKit-MANUAL.txt (in the kit: ask the sender)    Twin: install-pki-ca.sh (Linux)
+ Needs  : Windows PowerShell 5.1 or PowerShell 7. No OpenSSL. No other file.
+
+WHAT IT IS
+  The zip you got holds a .certpacked file. It contains the CA certificates of one or more PKIs.
+  This script opens it (it asks for the password) and puts the certificates into Windows. After
+  that, certificates from this PKI are trusted on this computer.
+  The package holds NO private key. Nothing is signed or issued here.
+
+QUICK START
+  1. Unzip the zip. Open PowerShell in that folder.
+  2. Run:    powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
+  3. Type the password. The sender gave it to you by another way than the zip.
+  4. For all users of the computer: start PowerShell with "Run as administrator" first.
 
 WHAT IT DOES
-  Opens the .certpacked file that came in the same zip (it asks for the password) and installs the
-  CA certificates of EVERY PKI inside it (a kit can hold the PKIs of several companies, for example
-  agantra and raksaka, and several releases of each):
-    * every ROOT (top root, track roots, quadrant roots)  -> Trusted Root Certification Authorities
-    * every INTERMEDIATE CA                               -> Intermediate Certification Authorities
-  The package holds NO private key. Nothing is signed or issued here.
-  Run it in an ADMINISTRATOR window and it installs for the whole machine (Local Machine). Run it in
-  a normal window and it installs for
-  YOUR user only (Current User). Windows then asks you to confirm each root certificate: click Yes.
-  The PKI is already installed (an older version)? The old certificates of the same organization are
-  removed, the new ones are added.
-  What was installed is written to a list (Local Machine: %ProgramData%\PkiTrustKit\installed.tsv,
-  Current User: %LOCALAPPDATA%\PkiTrustKit\installed.tsv).
-  To take a PKI away again use Remove-PkiCa.ps1 from the same zip:  -List, -Pki <name>, -All  (see
-  its -Help).
-  At the end the extracted files are deleted. The script and the .certpacked are deleted too, only
-  the zip stays (-Keep keeps them).
-
-HOW TO RUN (copy the zip to the laptop, unzip it, open PowerShell in that folder)
-    powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
-  The password comes from the person who sent you the zip (by another way than the zip).
-  For the whole machine: right click PowerShell -> Run as administrator, then the same command.
+  - Every ROOT goes to "Trusted Root Certification Authorities".
+  - Every INTERMEDIATE CA goes to "Intermediate Certification Authorities".
+  - Administrator window: Local Machine stores (all users).
+    Normal window: Current User stores (only you). Windows then asks you to confirm each root:
+    click Yes.
+  - An older version of the same organization is removed and replaced. Other organizations are
+    never touched.
+  - It writes a list of what it installed:
+      Local Machine   %ProgramData%\PkiTrustKit\installed.tsv
+      Current User    %LOCALAPPDATA%\PkiTrustKit\installed.tsv
+    Remove-PkiCa.ps1 (same zip) uses this list to take the PKI away again.
+  - At the end it deletes the extracted files, the script and the .certpacked. The zip stays and
+    so do the other scripts of the zip. -Keep keeps them all.
+  A kit can hold the PKIs of several companies and several releases. All are installed in one run.
 
 OPTIONS
-  -Password <text>      the password (else the variable PKI_PACKAGE_PASSWORD, else you are asked)
-  -Package <file,...>   the .certpacked file(s) (default: every .certpacked next to this script)
-  -Scope Auto|Machine|User   Auto = Machine in an administrator window, else User. Machine without
-                             administrator = stop.
-  -Firefox              also make Firefox trust the PKI (Firefox uses its own store: this sets "use
-                        the Windows certificates" in your Firefox profiles; close Firefox first,
-                        start it again afterwards)
-  -Check                show what would be done, change nothing
-  -Keep                 do not delete the script and the .certpacked at the end
-  -Help                 this text
+  -Password <text>       The password. Better not: it shows in the process list. Without it the
+                         script uses PKI_PACKAGE_PASSWORD, or it asks you.
+  -Package <file,...>    The .certpacked file(s). Default: every .certpacked next to the script.
+  -Scope Auto|Machine|User
+                         Auto (default): Machine in an administrator window, else User. Machine
+                         without administrator: the script stops.
+  -Firefox               Also make Firefox trust the PKI. Firefox has its own store. This sets "use
+                         the Windows certificates" in your Firefox profiles. Close Firefox first,
+                         start it again afterwards.
+  -Check                 Show what would be done. Change nothing.
+  -Keep                  Do not delete the script and the .certpacked at the end.
+  -Help                  This text.
 
-EXIT CODES   0 done   1 error   2 administrator window needed for -Scope Machine   3 wrong password   5 this Windows is not supported
+EXIT CODES
+  0 done    1 error    2 an administrator window is needed for -Scope Machine
+  3 wrong password    5 this Windows is not supported
 
-NOTES
-  * Works on Windows PowerShell 5.1 and PowerShell 7. No OpenSSL, no other file of the PKI project.
-  * SUPPORTED WINDOWS: Windows 11 24H2 or newer (build 26100 and later, 25H2, 26H2 ...) and Windows
-    Server 2025: everything is installed. Windows Server 2022: only the CLASSIC root and
-    intermediate CAs are installed, the post-quantum (ML-DSA) ones are left out. REFUSED with an
-    error (exit 5, nothing changed): Windows 10 and earlier, Windows 11 before 24H2, Windows Server
-    before 2022.
-  * A certificate that uses a post-quantum signature (ML-DSA) is stored as it is; Windows 11 25H2
-    and newer also USE it, older Windows stores it and uses the classic ones.
-  * "File cannot be loaded because running scripts is disabled": use the command above (it allows
-    this one script).
-============================================================
-'@ | Write-Host
+SUPPORTED WINDOWS  (anything else: exit 5, nothing changed)
+  Windows 11 24H2 or newer (build 26100 and later) and Windows Server 2025: everything is
+  installed. Windows Server 2022: only the Classic CAs; the post-quantum (ML-DSA) ones are left
+  out. Refused: Windows 10 and earlier, Windows 11 before 24H2, Server before 2022.
+  A certificate with a post-quantum signature is stored as it is. Windows 11 25H2 and newer also
+  USE it. Older Windows stores it and uses the Classic ones.
+
+PROBLEMS
+  "running scripts is disabled": use the command in QUICK START. It allows this one script.
+  "wrong password" (exit 3): ask the sender. Check the password for spaces and typing mistakes.
+  A security question for each root: click Yes. That is Windows asking if you trust it.
+====================================================================================================
+'@ | Out-KitPaged
 }
 if ($Help) { Show-Help; return }
-$script:KitVersion = '6.4.3'
+$script:KitVersion = '6.4.7'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }

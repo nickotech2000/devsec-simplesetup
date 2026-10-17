@@ -3,7 +3,7 @@
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
- Version: 6.4.3
+ Version: 6.4.7
 ====================================================================================================
 
  READ THIS FIRST
@@ -62,6 +62,55 @@
 
  Signer
    A person who signs documents with a certificate, for example in Word, Excel or a PDF.
+
+ DevKit
+   One zip file for developers. It holds the PKI (encrypted) and the scripts that install the trust
+   and make test certificates. Built with PkiTransport.ps1 -DevKit.
+
+ .certpacked
+   The encrypted file inside the DevKit. It holds the PKI. It has a password.
+
+ Trust (install the trust)
+   Put the root CA into a computer, so programs accept certificates of your PKI.
+
+ Package (.certpacked)
+   The one encrypted file that the transport makes. Rename it to .zip or .7z and 7-Zip opens it with
+   the password.
+
+ Source, destination
+   The source is the computer that holds the PKI. The destination is a computer that receives it.
+
+ Scope (of a package)
+   What a package holds: only public CA certificates, or also private keys.
+
+ Trust kit
+   A zip for one operating system with the CA certificates of the PKI (no private key) and a small
+   script. The person unzips it, runs the script and types the password. After that the computer
+   trusts the PKI.
+
+ OCSP responder
+   The server that answers OCSP questions. It has its own certificate with the usage "OCSP
+   Signing". It is renewed with PkiRevocation.ps1 -Action NewOcsp.
+
+ Local Machine and Current User store (Windows)
+   Two places for trusted certificates. Local Machine is for all users and needs an
+   Administrator window. Current User is for one user only.
+
+ TSA (Time Stamping Authority)
+   The server that gives time stamps. Its certificate has only the usage "timeStamping". It is a
+   normal leaf certificate.
+
+ Bootstrap
+   A first installer that gets a computer ready: it installs the tools that the other scripts
+   need.
+
+ PPA (personal package archive)
+   An Ubuntu software source run by one person or company. Install-DevEnvironment.sh can add yours
+   to get OpenSSL 4 and nginx.
+
+ Stripped OpenSSL
+   An OpenSSL built without the FIPS module, or a "light" package. It says 4.x but cannot do what
+   the PKI needs, so the scripts refuse it.
 
  Hash (SHA-256, SHA-512)
    A short fingerprint of a file. If one byte changes, the hash changes. The .sha256 and .sha512

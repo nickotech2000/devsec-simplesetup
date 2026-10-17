@@ -47,14 +47,14 @@ param(
     [switch]$Help
 )
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '6.4.3'
+$script:ToolVersion = '6.4.7'
 $script:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Show-WebServerConfigHelp {
     @'
 ====================================================================================================
  Create-WebServerConfig.ps1 - nginx and Apache configuration for a leaf certificate (HTTPS only)
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com

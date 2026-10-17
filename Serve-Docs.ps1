@@ -3,7 +3,7 @@
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 6.4.3
+# Version: 6.4.7
 # ============================================================
 #requires -Version 7.0
 param([int]$Port = 1434, [string]$Folder, [switch]$Open, [switch]$Help)
@@ -42,7 +42,7 @@ if ($Help) {
     $t = @'
 ====================================================================================================
  Serve-Docs.ps1 - show the HTML documentation on a small local web server
- Version 6.4.3   Author: Nicko Satria Utama   Company: Agantra Inovatif OU   Email: nicko@nextmantra.com
+ Version 6.4.7   Author: Nicko Satria Utama   Company: Agantra Inovatif OU   Email: nicko@nextmantra.com
 ====================================================================================================
  WHAT IT DOES
    Serves the folder html\ on http://localhost:<port>/ . Only this computer can connect.

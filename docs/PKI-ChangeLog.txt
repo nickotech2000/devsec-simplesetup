@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 6.4.3                      Updated: 2026-10-17
+ Version : 6.4.7                      Updated: 2026-10-17
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,76 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  6.4.7  2026-10-17  REVISION
+    + PkiBackup, PrepareComputer and Install-DevEnvironment: the three manuals are written again
+      from the start in short, dry English for people who are new to PKI. Each has 18 sections:
+      what the tool does, the words you need, before you start, quick start, the work in steps,
+      recipes, problems and answers, limits, all options, what was tested (10.178).
+    + The -Help and --help are written again with the order of the manuals: Backup-Pki.ps1,
+      Restore-Pki.ps1, Test-PkiBackup.ps1 (sources in scripts\backup\*.src.ps1, built again),
+      Prepare-Computer.ps1, prepare-computer.sh, Install-DevEnvironment.ps1 and
+      Install-DevEnvironment.sh. Each starts with "what it is" and a quick start. 100 columns at
+      most, one page at a time. Prepare-Computer.ps1 now pages its help too.
+    + Wrong text removed: the Install-DevEnvironment.sh help said "Linux and macOS" and "Version
+      4.9.5" twice (the platform check refuses macOS since 5.0.0; the version is now 6.4.7); the
+      two copies of the full help (about 190 lines) inside the Install-DevEnvironment manual; the
+      Windows help of the same script said "Version 4.9"; the manual said that a full OpenSSL
+      build is the Linux default (the default is the system OpenSSL); the chapter "what I changed
+      in your Install-DevEnvironment.ps1" (history, kept in this change log).
+    + HTML documents are built again. Script logic is unchanged.
+
+  6.4.6  2026-10-17  REVISION
+    + SignCsr, NewPkiCsr, PkiRevocation and PkiTrustKit: the four manuals are written again from
+      the start in short, dry English for people who are new to PKI. Each has 18 sections: what
+      the tool does, the words you need, before you start, quick start, the work in steps,
+      recipes, problems and answers, limits, all options, what was tested (10.177).
+    + The -Help and --help are written again with the order of the manuals: SignCsr.ps1 and
+      SignCsr.sh, New-PkiCsr.ps1 and new-pki-csr.sh, PkiRevocation.ps1, New-PkiTrustKit.ps1,
+      Install-PkiCa.ps1 and install-pki-ca.sh, Remove-PkiCa.ps1 and remove-pki-ca.sh. Each starts
+      with "what it is" and a quick start. 100 columns at most, one page at a time.
+    + Install-PkiCa.ps1, Remove-PkiCa.ps1 and New-PkiCsr.ps1 now show -Help one page at a time on
+      a terminal (space bar). Before, the text ran past the screen.
+    + Wrong text removed: the example "New-PkiTrustKit.ps1 -All -GeneratePassword" (there is no such
+      switch: the password is made by default); the copy of the SignCsr.ps1 help (about 140 lines)
+      inside the SignCsr manual; the copy of the PkiRevocation help inside its manual; the
+      "5.0.0" notes at the end of the manuals.
+    + HTML documents are built again. Script logic is unchanged.
+
+  6.4.5  2026-10-17  REVISION
+    + PkiTransport: the manual (docs\PkiTransport-MANUAL.txt) is written again from the start in
+      short, dry English for people who are new to PKI: what the transport does, the words you
+      need, before you start, quick start, make a package, passwords, Windows install, unpack
+      only, Linux, packages for servers, which PKI goes into a package, what is installed for
+      you, recipes, problems and answers, limits, all options, what was tested (10.176).
+    + The -Help of PkiTransport.ps1 and Unpack-PkiTransport.ps1 and the --help of
+      pki-transport.sh are written again with the order of the manual: what it does, quick start,
+      the package, pack, install, other commands, DevKit, server packages, which PKI, limits, exit
+      codes. 100 columns at most, one page at a time.
+    + Wrong text removed: macOS and RHEL 9 as destinations (the platform check refuses them);
+      "Windows 11 25H2 or newer" (the check is 24H2, Server 2025 and 2022); the chapters "what
+      changed in 4.9.0 / 4.9.5 / 5.0.0 / 5.2.2 / 6.3.6" (the change log keeps them); the copies of
+      the three -Help texts (about 350 lines) inside the manual.
+    + The five server and DevKit modes of PkiTransport.ps1 are now in one table (section 10).
+    + HTML documents are built again. Script logic is unchanged.
+
+  6.4.4  2026-10-17  REVISION
+    + DevKit: the manual (docs\DevKit-MANUAL.txt) is written again from the start in short, dry
+      English for people who are new to PKI. It is split by reader: the owner who builds the kit
+      (sections 4 to 7) and the developer who uses it (sections 8 to 11). Then serial numbers and
+      revocation, shell and PowerShell scripts, problems and answers, limits, all scripts and
+      options, what was tested (10.175).
+    + Wrong text removed: the manual said that Install-DevEnvironment.sh builds OpenSSL 4 by
+      default. It uses the OpenSSL of the system by default; the PPA and the source build need
+      --openssl-source. The Windows minimum is now 24H2 as the platform check says, not 25H2.
+    + The manual no longer carries the copied -Help texts of the kit scripts (about 350 lines).
+      Section 17 lists every script, its options and its own manual.
+    + START-HERE.txt of the kit is written again: what the kit does, Windows steps, Linux steps,
+      good to know, the server kit, the release. The placeholders are unchanged.
+    + The help of Install-PkiTrust.ps1 / .sh, Make-ShExecutable.ps1, make-executable.sh and
+      SignCsr.sh is written again with the same order: what it does, quick start, common commands,
+      options, exit codes. 100 columns at most, one page at a time.
+    + HTML documents are built again. Script logic is unchanged.
 
   6.4.3  2026-10-17  REVISION
     + GeneratePersonLeafCertificate and GenerateOffice365LeafCertificate: both manuals are written

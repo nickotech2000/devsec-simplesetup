@@ -26,72 +26,86 @@ param(
 
 function Show-Help {
 @'
-============================================================
- Restore-Pki.ps1 - put a PKI backup back
- Version 6.4.3
+====================================================================================================
+ Restore-Pki.ps1  -  put a PKI backup back
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
-ORDER OF WORK  (a restore stops at the first problem, before anything is written)
-  1. The computer: Windows 11 Home/Pro 24H2+ or Windows Server 2025, Intel/AMD 64 bit, Administrator
-     window. Otherwise: refused.
-  2. ALL required software is checked: PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8, .NET SDK 10
-     (on the PATH). Whatever is missing is listed, and the script says: you need to run
-     Prepare-Computer.ps1 (it installs all of them). Nothing else happens until it has been run.
-  3. The checksums of the files in the backup zip (SHA256SUMS) are checked.
-  4. You type the backup password (no password, no restore). Every file inside the .certpacked is
-     decrypted and checked against its SHA-256.
-  5. ONE BY ONE, each PKI of the backup is compared with this computer:
-       - the pki folder of -Destination: every file of that PKI by SHA-256 (identical / different /
-         missing);
-       - the Local Machine certificate store (Root and Intermediate): every CA certificate of that
-         PKI by thumbprint.
-     A PKI that is in the pki folder already (all files identical), or whose CA certificates are ALL
-     in the Local Machine store, is NOT restored. A PKI whose folder exists but differs is NOT
-     silently skipped: you are asked "Replace it with the version from the backup? [Y/n]" and Enter
-     = Y (yes). With Y the old folder is renamed to <name>.before-restore-<time> (never deleted) and
-     the backup version is written. Answer n to keep the old one. Run unattended (no one to ask) the
-     old one is kept, unless you give -Yes. Only what is missing is restored. If nothing is missing:
-     "Nothing to restore", nothing is changed. (The store holds certificates, not private keys:
-     -Force restores the keys of a PKI that is only in the store.)
-  5b. ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo, ...) that may be in
-  an older backup are never restored; they are listed as "Not restored".
-  6. The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file the
-     same way.
-  7. The files are written, then every restored file is checked against the backup again.
-  The backup itself holds the private key of EVERY certificate: all roots, all intermediates, all
-  profile / leaf certificates (Backup-Pki.ps1 checks this when it makes the backup).
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\PkiBackup-MANUAL.txt     Related: Backup-Pki.ps1, Test-PkiBackup.ps1
+ Needs  : Windows, an Administrator PowerShell 7 window, and the software of Prepare-Computer.ps1.
 
-USE
-  .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps                 (run it from the unzipped backup `
-        folder: the .certpacked is next to it)
-  .\Restore-Pki.ps1 -Package <backup zip | .certpacked | folder> -Destination <folder>
-  .\Restore-Pki.ps1 -Check                                          (everything except writing: `
-        the password, the checksums, the one-by-one comparison, what would be restored)
-  Standalone: this script needs no other .ps1. Prepare-Computer.ps1 (next to it in the backup zip)
-  is only RUN by you, before.
+WHAT IT IS
+  It reads a backup made by Backup-Pki.ps1 and writes the PKI back to a folder. It is careful:
+  it writes only what is missing. It deletes nothing and overwrites nothing without asking.
+
+QUICK START  (on a new computer)
+  1. Unzip the backup zip. Open a Windows PowerShell as administrator in that folder.
+  2. Install the software, once:               .\Prepare-Computer.ps1
+  3. Open a NEW administrator PowerShell 7 (pwsh) in the same folder.
+  4. Check the backup:                          .\Test-PkiBackup.ps1
+  5. Try the restore (nothing is written):
+       .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps -Check
+  6. Restore:
+       .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps
+  7. In the restored folder:                    .\pki_setup.ps1 -InstallTrust
+
+WHAT IT DOES, IN ORDER  (it stops at the first problem, before anything is written)
+  1. The computer: Windows 11 Home or Pro 24H2+, or Windows Server 2025, Intel/AMD 64 bit,
+     Administrator window. Otherwise it is refused.
+  2. The software: PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8 and .NET SDK 10 on the PATH. What
+     is missing is listed. Then you must run Prepare-Computer.ps1 (exit 4).
+  3. The checksums of the files in the zip (SHA256SUMS).
+  4. The password. Every file inside the .certpacked is decrypted and checked.
+  5. ONE BY ONE, each PKI of the backup is compared with this computer:
+       - the folder <Destination>\pki\<name>: every file by SHA-256 (identical, different, missing)
+       - the Local Machine certificate store (Root and Intermediate): every CA certificate by
+         thumbprint
+  6. The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file.
+  7. The missing files are written. Then every written file is checked again.
+  While it runs, the decrypted files are in a temporary folder of the administrator. The folder is
+  deleted at the end, also after an error.
+
+WHAT IT RESTORES, WHAT IT SKIPS
+  - A PKI whose folder is there with all files identical: skipped.
+  - A PKI whose CA certificates are ALL in the Local Machine store: skipped. The store holds
+    certificates, not private keys. -Force restores the keys anyway.
+  - A PKI folder that is there but different: you are asked "Replace it with the version from the
+    backup? [Y/n]". Enter = Y. With Y the old folder is renamed to
+    <name>.before-restore-<time> (never deleted) and the backup version is written. With n the old
+    one stays. With nobody to ask (no keyboard) the old one stays.
+  - Everything else that is missing is written.
+  - If nothing is missing: "Nothing to restore" and nothing is changed (exit 0).
+  - ONLY YOUR PKI: certificates of other CAs in an older backup are listed as "Not restored".
 
 OPTIONS
-  -Package <path>      the backup zip (pki-payload-....zip), the .certpacked, or a folder that holds
-                       one. Default: the .certpacked next to this script.
-  -Destination <dir>   the project folder to restore into. Default: the folder of this script when
-                       it is the project (it has pki_setup.ps1); otherwise you must give it.
-  -Yes                 answer Y to every "replace?" question without asking (old folders/files are
-                       still renamed, never deleted)
-  -Force               restore anyway: a PKI folder (or file) that exists is RENAMED to
-                       <name>.before-restore-<yyyymmdd-HHmmss> (never deleted), and a PKI that is
-                       only in the Local Machine store is restored too
-  -Check               do not write anything
-  -RestrictAccess      pki\, leafcerts\, external-ca\ get access for Administrators and SYSTEM only
-                       (icacls) BEFORE the keys are written
-  -Help
+  -Package <path>      The backup zip, the .certpacked, or a folder that holds one. Default: the
+                       .certpacked next to this script.
+  -Destination <dir>   The project folder to restore into. Default: the folder of this script when
+                       it is the project (it has pki_setup.ps1). A script from the backup zip needs
+                       -Destination.
+  -Check               Do everything except writing: password, checksums, comparison, the list of
+                       what would be restored.
+  -Yes                 Answer Y to every "replace?" question. Old folders and files are still
+                       renamed, never deleted.
+  -Force               Restore anyway. A PKI folder or file that exists is RENAMED to
+                       <name>.before-restore-<yyyymmdd-HHmmss> first. A PKI that is only in the
+                       Local Machine store is restored too.
+  -RestrictAccess      pki\, leafcerts\, external-ca\ and csr-signed\ get access for Administrators
+                       and SYSTEM only (icacls), BEFORE the keys are written.
+  -Help                This text.
 
 AFTER IT
-  The Windows certificate stores are not in the backup: run  pki_setup.ps1 -InstallTrust  in the
+  The Windows certificate stores are not in the backup. Run  pki_setup.ps1 -InstallTrust  in the
   restored folder to trust the PKI again.
-  EXIT CODES   0 ok   1 error   2 not an Administrator window   3 wrong password   4 Prepare-Computer.ps1 not run   5 system not supported   6 checksum does not match
-============================================================
+
+EXIT CODES
+  0 ok    1 error    2 not an Administrator window    3 wrong password
+  4 Prepare-Computer.ps1 not run (software missing)    5 system not supported
+  6 a checksum does not match (the backup is damaged or was changed)
+====================================================================================================
 '@ | Write-Host
 }
 
@@ -149,7 +163,7 @@ $ErrorActionPreference = 'Stop'
 #            PKI_BACKUP_PASSWORD=<password> (unattended runs and tests: the environment of a process can be read by others, so prefer the prompt)
 # ============================================================
 
-$script:BkVersion = '6.4.3'
+$script:BkVersion = '6.4.7'
 $script:BkAssumeYes = $false
 $script:BkFormat = 'agantra-pki-backup'
 $script:BkFormatVersion = 1

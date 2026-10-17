@@ -28,60 +28,91 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$script:KitVersion = '6.4.3'
+$script:KitVersion = '6.4.7'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }
     Write-Host ('[{0}] {1}' -f $Level, $Text) -ForegroundColor $c
 }
 
+function Out-KitPaged {
+    # Help text one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # Redirected output (a file, a pipe) prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = New-Object System.Collections.Generic.List[string] }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+
 if ($Help) {
 @'
-============================================================
- Remove-PkiCa.ps1  -  take PKIs away again that Install-PkiCa.ps1 installed (Windows)
- Version 6.4.3
- Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
-                               nicko@nextmantra.com
-============================================================
-WHAT IT DOES
-  Install-PkiCa.ps1 writes a list of every certificate it installed (Local Machine:
-  %ProgramData%\PkiTrustKit\installed.tsv,
-  Current User: %LOCALAPPDATA%\PkiTrustKit\installed.tsv). This script reads that list and removes
-  the certificates of the PKI(s) you name from the Trusted Root and Intermediate stores. Only
-  certificates that are in the list (same SHA-1 thumbprint) are removed.
-  It needs no package, no password and no other file. It is the "RemoveTrust / RemoveAllTrust" of
-  the destination computer.
+====================================================================================================
+ Remove-PkiCa.ps1  -  take a PKI away again that Install-PkiCa.ps1 installed (Windows)
+ Version 6.4.7
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : PkiTrustKit-MANUAL.txt     Twin: remove-pki-ca.sh (Linux)
+ Needs  : Windows PowerShell 5.1 or PowerShell 7. No package, no password, no other file.
 
-HOW TO RUN
-    .\Remove-PkiCa.ps1 -List                 what the kit installed (company, PKI release, store, `
-          name)
-    .\Remove-PkiCa.ps1 -Pki raksaka          remove ONE company (every release of it); -Pki `
-          agantra,raksaka for several
-    .\Remove-PkiCa.ps1 -Pki raksaka -Check   only show what would be removed
-    .\Remove-PkiCa.ps1 -All                  remove EVERYTHING the kit installed (all companies)
-    .\Remove-PkiCa.ps1 -Org "Raksaka"        no list (or an older kit): remove the certificates `
-          whose organization (O=) contains this text
-  For the whole machine run it in an ADMINISTRATOR window (Scope Machine); in a normal window it
-  works on YOUR certificates (Scope User).
+WHAT IT IS
+  Install-PkiCa.ps1 wrote a list of every certificate it installed:
+      Local Machine   %ProgramData%\PkiTrustKit\installed.tsv
+      Current User    %LOCALAPPDATA%\PkiTrustKit\installed.tsv
+  This script reads that list and removes the certificates of the PKI(s) you name from the Trusted
+  Root and Intermediate stores. Only certificates that are in the list (same SHA-1 thumbprint) are
+  removed.
+
+QUICK START
+  1. Look first:       .\Remove-PkiCa.ps1 -List
+  2. Test the removal: .\Remove-PkiCa.ps1 -Pki raksaka -Check
+  3. Remove:           .\Remove-PkiCa.ps1 -Pki raksaka
+  For the whole machine start PowerShell with "Run as administrator" (Scope Machine). In a normal
+  window it works on YOUR certificates (Scope User).
+
+MORE EXAMPLES
+  .\Remove-PkiCa.ps1 -Pki agantra,raksaka   several companies
+  .\Remove-PkiCa.ps1 -All                   EVERYTHING the kit installed (all companies)
+  .\Remove-PkiCa.ps1 -Org "Raksaka"         no list (or an older kit): remove the certificates
+                                            whose organization (O=) contains this text
 
 OPTIONS
-  -Pki <name,...>   the company short name(s) as shown by -List
-  -All              every PKI in the list
-  -Org <text,...>   by organization text instead of the list (only with -Pki / -All left out)
-  -List             show the list and stop
-  -Scope Auto|Machine|User   Auto = Machine in an administrator window, else User
-  -Check            show what would be removed, change nothing
-  -Yes              do not ask "Remove N certificate(s)?"
-  -Help             this text
-EXIT CODES   0 done   1 error   2 administrator window needed   5 this Windows is not supported
+  -List               Show the list and stop.
+  -Pki <name,...>     The company short name(s) as shown by -List. Every release of it.
+  -All                Every PKI in the list.
+  -Org <text,...>     By organization text instead of the list. Leave -Pki and -All out.
+  -Scope Auto|Machine|User
+                      Auto (default): Machine in an administrator window, else User.
+  -Check              Show what would be removed. Change nothing.
+  -Yes                Do not ask "Remove N certificate(s)?".
+  -Help               This text.
 
-SUPPORTED WINDOWS: Windows 11 24H2+ (Home, Pro, Pro for Workstations, Education, Pro Education,
-Enterprise), Windows Server 2025 and 2022.
-  Refused (exit 5, nothing changed): Windows 10 and earlier, Windows 11 before 24H2, Windows Server
-  before 2022 and the Chinese, Government, IoT,
-  SE and Embedded editions.
-============================================================
-'@ | Write-Host
+EXIT CODES   0 done    1 error    2 an administrator window is needed    5 this Windows is refused
+
+SUPPORTED WINDOWS
+  Windows 11 24H2 or newer and Windows Server 2025 and 2022. Refused (exit 5, nothing changed):
+  Windows 10 and earlier, Windows 11 before 24H2, Server before 2022, and the Chinese,
+  Government, IoT, SE and Embedded editions.
+====================================================================================================
+'@ | Out-KitPaged
     return
 }
 

@@ -4,7 +4,7 @@
 # Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 # ============================================================
 # Takes PKIs away again that install-pki-ca.sh put on this Linux machine: one company, several, or all.  Run:  ./remove-pki-ca.sh --help
-VERSION="6.4.3"
+VERSION="6.4.7"
 set -u
 
 help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
@@ -12,47 +12,54 @@ help_pager() {  # help text: one screen at a time on a terminal (Space = next pa
 }
 usage() {
 cat <<'EOT'
-============================================================
- remove-pki-ca.sh  -  remove PKIs that install-pki-ca.sh installed (Linux)
- Version 6.4.3
- Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
-                               nicko@nextmantra.com
-============================================================
-WHAT IT DOES
-  install-pki-ca.sh writes a list of everything it installed (/var/lib/pki-trust-kit/installed.tsv):
-  the root files in the system store (pki-<company>-....crt), the files it opened into the folder
-  pki/ next to it, and the Firefox imports (--firefox).
-  This script reads that list and removes the files of the PKI(s) you name, then refreshes the
-  system store (update-ca-certificates / update-ca-trust). It needs no package, no password and no
-  other file. It is the "RemoveTrust / RemoveAllTrust" of the destination machine.
+====================================================================================================
+ remove-pki-ca.sh  -  take a PKI away again that install-pki-ca.sh installed (Linux)
+ Version 6.4.7
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : PkiTrustKit-MANUAL.txt     Twin: Remove-PkiCa.ps1 (Windows)
+ Needs  : bash, sudo (unless you are root). No package, no password, no other file.
 
-HOW TO RUN
-    bash remove-pki-ca.sh --list               what the kit installed (company, release, root files)
-    bash remove-pki-ca.sh --pki raksaka        remove ONE company (every release of it); --pki \
-          agantra,raksaka for several
-    bash remove-pki-ca.sh --pki raksaka --check   only show what would be removed
-    bash remove-pki-ca.sh --all                remove EVERYTHING the kit installed (all companies)
-    bash remove-pki-ca.sh --org raksaka        no list (or an older kit): remove \
-          pki-raksaka-*.crt  from the system store
-  sudo is used by itself for the system store (unless you are root).
+WHAT IT IS
+  install-pki-ca.sh wrote a list of everything it installed: /var/lib/pki-trust-kit/installed.tsv.
+  It names the root files in the system store (pki-<company>-....crt), the files opened into the
+  folder pki/ next to the script, and the Firefox imports (--firefox).
+  This script reads the list, removes the files of the PKI(s) you name, then refreshes the system
+  store (update-ca-certificates or update-ca-trust).
+
+QUICK START
+  1. Look first:        bash remove-pki-ca.sh --list
+  2. Test the removal:  bash remove-pki-ca.sh --pki raksaka --check
+  3. Remove:            bash remove-pki-ca.sh --pki raksaka
+  sudo is called by itself for the system store.
+
+MORE EXAMPLES
+  bash remove-pki-ca.sh --pki agantra,raksaka   several companies
+  bash remove-pki-ca.sh --all                   EVERYTHING the kit installed (all companies)
+  bash remove-pki-ca.sh --org raksaka           no list (or an older kit): remove pki-raksaka-*.crt
+                                                from the system store
 
 OPTIONS
-  --pki NAME[,NAME]   the company short name(s) as shown by --list
-  --all               every PKI in the list
-  --org NAME[,NAME]   by name, without the list: the files  <store>/pki-NAME-*.crt  (and the legacy
-                      NAME-pki-*.crt)
-  --list              show the list and stop
-  --keep-files        leave the opened files in the folder pki/ (only the system store is cleaned)
-  --check             show what would be removed, change nothing
-  --yes               do not ask "Remove N file(s)?"
-  --help
+  --list              Show the list and stop.
+  --pki NAME[,NAME]   The company short name(s) as shown by --list. Every release of it.
+  --all               Every PKI in the list.
+  --org NAME[,NAME]   By name, without the list: <store>/pki-NAME-*.crt (and the old
+                      NAME-pki-*.crt).
+  --keep-files        Leave the opened files in the folder pki/. Only the system store is cleaned.
+  --check             Show what would be removed. Change nothing.
+  --yes               Do not ask "Remove N file(s)?".
+  --help, -h          This text.
 
-SUPPORTED  Ubuntu 24.04 / 26.04 or newer, CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle Linux
-10+, SUSE Linux Enterprise 15+ (15, 16 ...),
-           openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Any other distribution or older version is
-           REFUSED with an error (exit 5), nothing is changed.
-EXIT     0 done   1 error   5 this Linux distribution / version is not supported
-============================================================
+EXIT CODES   0 done    1 error    5 this Linux is refused
+
+SUPPORTED
+  Ubuntu 24.04 / 26.04 or newer, CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle Linux 10+,
+  SUSE Linux Enterprise 15+, openSUSE 15+. Any other distribution or older version: exit 5,
+  nothing is changed.
+====================================================================================================
 EOT
 }
 

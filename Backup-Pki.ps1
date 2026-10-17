@@ -23,70 +23,90 @@ param(
 
 function Show-Help {
 @'
-============================================================
- Backup-Pki.ps1 - back up the whole PKI into one password-protected zip
- Version 6.4.3
+====================================================================================================
+ Backup-Pki.ps1  -  back up the whole PKI into one password-protected zip
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
-WHAT IT DOES
-  Takes everything that makes up your PKI - the pki\ folder (all PKIs and releases, root and issuing
-  CA KEYS included), leafcerts\, external-ca\, csr-signed\, every <company>_pki.cnf, pki_tools.cnf,
-  devkit.env - and packs it into ONE password-protected .certpacked (AES-256), then puts the
-  .certpacked together with its checksums and the restore tools into a backup zip in the folder
-  backup-pki\  (created when it does not exist):
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\PkiBackup-MANUAL.txt     Related: Restore-Pki.ps1, Test-PkiBackup.ps1
+ Needs  : Windows, an Administrator PowerShell 7 window. No other .ps1 file.
 
-      backup-pki\pki-payload-<yyyymmdd>-<computer>-<windows-version>-<6 hex>.zip
-          pki-payload-...\  <same name>.certpacked   the encrypted backup
-                            SHA256SUMS, SHA512SUMS   checksums of every file in the zip
-                            Restore-Pki.ps1          puts the backup back
-                            Test-PkiBackup.ps1       checks that the .certpacked is still valid
-                                            (checksums; -Deep also opens it)
-                            Backup-Pki.ps1           makes the next backup
-                            Prepare-Computer.ps1     installs PowerShell 7, OpenSSL 4, Python 3 (run
-                                            it BEFORE a restore)
-                            README.txt
+WHAT IT IS
+  Your PKI is only files. If the disk dies, the PKI is gone. This script packs everything into ONE
+  encrypted file (a .certpacked, AES-256) and puts it in a zip, together with the checksums and the
+  restore tools. Copy that zip to another disk or computer. The backup holds the PRIVATE KEYS of
+  your PKI. Treat the zip like a key.
 
-ONLY YOUR PKI  The backup holds only the certificates and keys of YOUR PKI: the organizations named
-in your <company>_pki.cnf files (Agantra, Raksaka ...). Certificates of other CAs - the
-           DigiCert / GlobalSign / Sectigo chain files, a certificate a public CA issued to you,
-           with their keys - are recognised and LEFT OUT (the list is printed). A root that a public
-           CA signed for YOUR key, and everything your CAs issued, stay in.
-PRIVATE KEYS  A backup is made to RESTORE from, so it must hold every private key: all roots, all
-intermediates, all leaf / profile keys (and the .pfx files). Every certificate under pki\ and
-           leafcerts\ is matched with its key (by the public key, with OpenSSL); a certificate
-           without a key is listed, a CA certificate without a key is a WARNING. The result is
-           stored in the backup (certpack.json) and Restore-Pki.ps1 prints it. Without OpenSSL on
-           the PATH the keys are still copied but the match is not made (WARN).
-INDEPENDENT   This script needs no other .ps1 (the code it shares with Restore-Pki and
-              Test-PkiBackup is built into it). It copies itself, Restore-Pki.ps1,
-              Test-PkiBackup.ps1 and
-           Prepare-Computer.ps1 into the zip, so the zip is enough to restore on a new computer.
+QUICK START
+  1. Start PowerShell 7 with "Run as administrator". Go to the project folder.
+  2. Look first. No password, nothing is written:   .\Backup-Pki.ps1 -Check
+  3. Back up:                                       .\Backup-Pki.ps1
+  4. Type a password twice. Write it down and keep it away from the zip.
+  5. Copy backup-pki\pki-payload-....zip to ANOTHER disk or computer.
+  6. Check the copy:                                .\Test-PkiBackup.ps1 -Backup <the copy>
 
-PASSWORD   You type it (twice) - it is asked FIRST, before the long scan. No password, no backup. At
-           least 12 characters with 1 upper case letter, 1 lower case letter, 1 digit and 1 special
-           character; every rule that is broken is shown. It is stored nowhere: if you lose it, the
-           backup is lost. Write it down.
+WHAT IS BACKED UP
+  pki\ (all PKIs, all releases, all keys), leafcerts\, external-ca\, csr-signed\, every
+  <company>_pki.cnf, pki_tools.cnf, devkit.env.
+  NOT backed up: transport\, backup-pki\, the Windows certificate stores, OpenSSL and Python.
+  ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo ...) are left out and
+  listed. Your organizations are the "Organization =" lines of your <company>_pki.cnf files.
+
+WHAT YOU GET
+  backup-pki\pki-payload-<yyyymmdd>-<computer>-<windows-version>-<6 hex>.zip
+     pki-payload-...\
+        <same name>.certpacked   the encrypted backup
+        SHA256SUMS  SHA512SUMS   checksums of every file in the folder
+        Restore-Pki.ps1          puts the backup back
+        Test-PkiBackup.ps1       checks that the backup is still intact
+        Backup-Pki.ps1           makes the next backup
+        Prepare-Computer.ps1     installs the software for a restore (run it BEFORE a restore)
+        README.txt
+  The folder backup-pki\ is made when it does not exist.
+
+PRIVATE KEYS
+  A backup is made to restore from, so it holds the key of EVERY certificate: all roots, all
+  intermediates, all leaf certificates and the .pfx files. The script matches each certificate with
+  its key (by the public key, with OpenSSL) and prints the result.
+    A CA certificate without a key is a WARNING.
+    A certificate signed from a request has its key with the requester (INFO).
+  Without OpenSSL on the PATH the keys are copied, but the match is not made (WARN).
+
+PASSWORD
+  You type it twice. It is asked FIRST, before the long scan. No password, no backup.
+  At least 12 characters, with 1 upper case letter, 1 lower case letter, 1 digit and 1 special
+  character. Printable ASCII only. Every broken rule is shown. Three tries.
+  It is stored NOWHERE. If you lose it, the backup is only noise.
+  Unattended: PKI_BACKUP_PASSWORD is accepted (the rules still apply). Other programs can read an
+  environment variable, so prefer the prompt.
 
 OPTIONS
-  -PkiRoot <folder>     the project folder that holds pki\ (default: the folder of this script)
-  -BackupRoot <folder>  the backup folder itself (default: backup-pki inside -PkiRoot); the folder
-                        is created when it does not exist
-  -Check                only list what would be backed up (no password, nothing written)
-  -List                 list the backups that are in the backup folder
-  -Help
+  -PkiRoot <folder>     The project folder that holds pki\. Default: the folder of this script.
+  -BackupRoot <folder>  Another backup folder. Default: backup-pki inside -PkiRoot.
+  -Check                Only list what would be backed up. No password. Nothing is written.
+  -List                 List the backups in the backup folder.
+  -Help                 This text.
 
-WHERE IT RUNS
-  Windows 11 Home or Pro, 24H2 or newer; Windows Server 2025 Essentials, Standard, Datacenter. Intel
-  or AMD 64 bit (AMD64 / x86-64) ONLY: ARM and
-  32 bit are refused. Administrator PowerShell 7 (pwsh) ONLY: any other window is refused.
-  Prepare-Computer.ps1 installs PowerShell 7 (and OpenSSL 4, Python 3, .NET 8 and 10).
-  A backup holds PRIVATE KEYS: keep the zip and the password apart, in two safe places.
-  The Windows certificate stores are not part of the backup: after a restore run  pki_setup.ps1
-  -InstallTrust  to trust the PKI again.
-  EXIT CODES   0 ok   1 error   2 not an Administrator window   3 password refused   5 system not supported (Windows version / edition / ARM)
-============================================================
+AFTER IT PACKS
+  The script opens the .certpacked again (every file is checked) and prints the SHA-256 and SHA-512
+  of the zip. Write them down. After a copy, compare them.
+
+AFTER A RESTORE
+  The Windows certificate stores are not in the backup. Run  pki_setup.ps1 -InstallTrust  in the
+  restored folder.
+
+WHERE IT RUNS  (checked first; nothing is done when a check fails)
+  Windows 11 Home or Pro, 24H2 or newer, or Windows Server 2025 (Essentials, Standard, Datacenter).
+  Intel or AMD 64 bit only. ARM and 32 bit are refused, also when emulated.
+  Administrator PowerShell 7 (pwsh) only. Any other window is refused.
+
+EXIT CODES
+  0 ok    1 error    2 not an Administrator window    3 password refused
+  5 system not supported (Windows version, edition, ARM)
+====================================================================================================
 '@ | Write-Host
 }
 
@@ -144,7 +164,7 @@ $ErrorActionPreference = 'Stop'
 #            PKI_BACKUP_PASSWORD=<password> (unattended runs and tests: the environment of a process can be read by others, so prefer the prompt)
 # ============================================================
 
-$script:BkVersion = '6.4.3'
+$script:BkVersion = '6.4.7'
 $script:BkAssumeYes = $false
 $script:BkFormat = 'agantra-pki-backup'
 $script:BkFormatVersion = 1

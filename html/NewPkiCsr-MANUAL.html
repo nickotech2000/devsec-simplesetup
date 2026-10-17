@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.7">
 <meta name="description" content="Make a key and a certificate request.">
 <title>Make a request (New-PkiCsr) - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.7</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -163,92 +163,235 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
 <p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
 </nav>
-<main class="wrap" id="content">
+<main class="wrap has-toc" id="content">
 <div class="page">
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Certificates</p>
 <h1>Make a request (New-PkiCsr)</h1>
 <p class="lead">Make a key and a certificate request.</p>
-<div class="meta"><span class="chip">Version 6.4.3 Author: Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email: nicko@nextmantra.com</span></div>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-this-script-does">1  WHAT THIS SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-the-questions-one-by-one">5  THE QUESTIONS, ONE BY ONE</a></li><li class="l2"><a href="#6-leaf-or-ca-request">6  LEAF OR CA REQUEST</a></li><li class="l2"><a href="#7-names-san-and-development-names">7  NAMES (SAN) AND DEVELOPMENT NAMES</a></li><li class="l2"><a href="#8-key-and-hash">8  KEY AND HASH</a></li><li class="l2"><a href="#9-what-is-in-the-new-folder">9  WHAT IS IN THE NEW FOLDER</a></li><li class="l2"><a href="#10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS</a></li><li class="l2"><a href="#11-after-you-get-the-certificate">11  AFTER YOU GET THE CERTIFICATE</a></li><li class="l2"><a href="#12-rules-the-script-enforces">12  RULES THE SCRIPT ENFORCES</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l3"><a href="#signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo">SignExternalCa-MANUAL.txt   DevKit-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - ask for a certificate     Version 6.4.7   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
+ Scripts: New-PkiCsr.ps1 (Windows, Linux with PowerShell)   new-pki-csr.sh (Linux)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> What it is   : Makes a private key and a certificate request (CSR) to send to the PKI owner.
- Who reads it : Anyone who needs a certificate.
- You need     : PowerShell 7 or bash, OpenSSL 4.
- Start with   : Run the script and answer the questions.
- Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
-<ol><li>WHAT IT IS FOR You need a certificate from a PKI you do not own. These scripts ask you questions, one after the other, make your PRIVATE KEY and a CERTIFICATE REQUEST (.csr) on your computer, and write both into a new folder. You send ONLY the .csr to the owner of the PKI. The .key never leaves your computer. They are standalone: they need only OpenSSL 3.x or 4.x (Prepare-Computer installs it). No other file of the project is needed. It does not matter whether the PKI is already installed on your computer (Windows Local Machine store, Linux ca-certificates) or not: the scripts never read or change the certificate stores. When the trust kit installed the PKI they say so (&quot;PKI already installed on this computer: agantra&quot;).</li></ol>
-<div class="code"><pre>2. THE SHORT WAY
-      Windows     .\Prepare-Computer.ps1            (once: PowerShell 7 + OpenSSL + Python + PATH)        .\New-PkiCsr.ps1
-      Linux       ./prepare-computer.sh               (once)                                 ./new-pki-csr.sh
-   Answer the questions. Press Enter to skip an optional one. The folder
-   csr-requests\&lt;name&gt;_&lt;date-time&gt;\ holds:
-      &lt;name&gt;.key          your private key - KEEP IT SECRET             &lt;name&gt;.csr      the request - send THIS file
-      request-info.txt    what the request contains and the level it asks for            README.txt   what to do next</pre></div>
-<div class="code"><pre>3. WHAT THE REQUEST IS FOR  (-CertificateType / --type, the first question)
-   Leaf (default)    a server, a person, code signing or e-mail certificate. The owner signs it with
-                     SignCsr.ps1 / SignCsr.sh.
-   IntermediateCA    the certificate of a new CA of your department. The request asks for CA:TRUE
-                     and key usage keyCertSign + cRLSign. It has NO names (no SAN) and can NEVER
-                     have the development names. Required: company, country, department (OU), CA
-                     name (CN). Key: RSA 4096 / 8192 or ECDSA P-384 / P-521 (not ML-DSA, not P-256,
-                     not RSA 2048 / 3072). The owner signs it with SignExternalCa.ps1 (a Quadrant
-                     Root, original PKI only). Protect the key like a root key (offline or in an
-                     HSM).
-   The owner&#39;s scripts recognise the kind by themselves (CA:TRUE = CA request) and tell him which
-   script to use if he starts the wrong one (-CsrType Auto|Leaf|IntermediateCA).</pre></div>
-<ol><li>THE QUESTIONS Type of request - Common name (CN) - Company ID (becomes the subject SERIAL NUMBER) - Company (O) - Department (OU) - E-mail - Contact phone - Contact person - Address - City - State - Country (2 letters) - Postal code - EV information (business category, jurisdiction country / state / locality) - IANA PEN (optional) - Names (SAN): DNS names, IP addresses, e-mail addresses, one by one (empty line = finished) - &quot;Add the development names?&quot; - Key and hash. Every answer can be given as an option instead (below); then that question is not asked.</li></ol>
-<div class="code"><pre>5. WHAT CERTIFICATE YOU GET
-   The owner&#39;s SignCsr / SignExternalCa choose the level from the request (he can force it with -DV
-   / -OV / -EV, -Level):
-      EV information complete (business category + jurisdiction country + company ID + company + state + city)     -&gt;  EV
-      a company (name + country), no EV information                                                               -&gt;  OV
-      only a common name                                                                                          -&gt;  DV
-   Classic, Quadrant 1 unless he says -Quantum / -FIPS (an ML-DSA request needs -Quantum). The CRL
-   and OCSP addresses are those of the CA that signs. Development names: &quot;Add the development
-   names?&quot; = yes puts a marker name in the request; the owner&#39;s SignCsr then adds the development
-   SAN list (like -AddDevelopmentSAN). The marker is never in the certificate. Not for a CA request.
-   IANA PEN: your company policy OID 1.3.6.1.4.1.&lt;PEN&gt;.1 is put in the request and added to the
-   certificate. Other policy OIDs in a request are ignored.</pre></div>
-<ol><li>RULES (the request is refused before a key is made; the CA checks the same again) RSA below 2048 bit - ECDSA other than P-256 / P-384 / P-521 - ML-DSA other than 44 / 65 / 87 - a request hash below SHA-256 (SHA-1, SHA-224, MD5) are refused. Code signing: RSA 4096+, ECDSA P-384+, ML-DSA-65+.  EV: no wildcard name.  Country: two capital letters.  Company and country go together. Special characters in values (# $ &quot; \) are kept as typed.</li></ol>
-<div class="code"><pre>7. OPTIONS
-   Windows (New-PkiCsr.ps1)                                   Linux (new-pki-csr.sh)
-   -CertificateType Leaf|IntermediateCA                       --type leaf|intermediate-ca
-   -CommonName -CompanyId -Company -OrganizationalUnit        --cn --company-id --company --ou
-   -Email -Phone -ContactPerson                               --email --phone --contact
-   -Address -City -State -Country -PostalCode                 --address --city --state --country --postal-code
-   -BusinessCategory -JurisdictionCountry/-State/-Locality    --business-category --jurisdiction-country/-state/-locality
-   -IanaPen &lt;number&gt;                                          --pen &lt;number&gt;
-   -San a,b,c   -AddDevelopmentSAN                            --san a (repeat or comma list)   --add-development-san
-   -Purpose ServerAuth|ClientAuth|ServerClientAuth|CodeSigning|EmailProtection        --purpose ...
-   -KeyType RSA|ECDSA|MLDSA  -KeyBits  -Curve  -MlDsa  -Digest   --key rsa|ecdsa|mldsa  --bits  --curve  --mldsa  --digest
-   -Name &lt;text&gt;  -OutDirectory &lt;folder&gt;  -OpenSslPath &lt;file&gt;  -NonInteractive  -Help        --name  --out  --openssl  --non-interactive  --help
-   Exit codes: 0 ok, 1 error (nothing is made), 4 OpenSSL not found, 5 system not supported.</pre></div>
-<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>8. EXAMPLES
-   .\New-PkiCsr.ps1 -CommonName app.example.com -San app.example.com,10.0.0.5 -NonInteractive                                     DV, RSA 4096 + SHA-384
-   .\New-PkiCsr.ps1 -CommonName app.example.com -Company &quot;Example OU&quot; -CompanyId 17344131 -Country EE -San app.example.com -AddDevelopmentSAN -NonInteractive     OV
-   .\New-PkiCsr.ps1 -CommonName ev.example.com -Company &quot;Example OU&quot; -CompanyId 17344131 -Country EE -State Harju -City Tallinn -Address &quot;Street 1&quot; `
-        -BusinessCategory &quot;Private Organization&quot; -JurisdictionCountry EE -San ev.example.com -IanaPen 99999 -KeyType ECDSA -Curve P-384 -NonInteractive     EV
-   .\New-PkiCsr.ps1 -CertificateType IntermediateCA -CommonName &quot;Dept Issuing CA G1&quot; -Company &quot;Dept Ltd&quot; -OrganizationalUnit &quot;IT Department&quot; -Country EE -NonInteractive
-   ./new-pki-csr.sh --cn ev.example.com --company &quot;Example OU&quot; --company-id 17344131 --country EE --state Harju --city Tallinn --address &quot;Street 1&quot; \
-        --business-category &quot;Private Organization&quot; --jurisdiction-country EE --san ev.example.com
-        --pen 99999 --key ecdsa --curve P-384 --non-interactive
-   ./new-pki-csr.sh --type intermediate-ca --cn &quot;Dept Issuing CA G1&quot; --company &quot;Dept Ltd&quot; --ou &quot;IT Department&quot; --country EE --non-interactive
-   Owner&#39;s side:  .\SignCsr.ps1 -Csr x.csr     .\SignCsr.ps1 -Csr x.csr -Quantum     .\SignExternalCa.ps1 -Csr ca.csr     (no level switch: it follows the request)</pre></div>
-<ol><li>WHERE IT RUNS Windows 11 24H2+, Windows Server 2025 / 2022, Windows PowerShell 5.1 or PowerShell 7. Linux: Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle Linux 10+, SLES / openSUSE 15+. Others: exit 5, nothing is done. The scripts are in every trust-kit zip, in the DevKit and in the transport kit.</li></ol>
-<ol><li>NOT TESTED HERE Run on Linux only (Ubuntu 24.04, OpenSSL 4.0.3, PowerShell 7). Not run on a real Windows or Windows PowerShell 5.1 (icacls on the key file, the platform gate were simulated). What to run on your machines: <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a>, E32.</li></ol>
-<h2 id="author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com<a class="anchor" href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma" aria-label="Link to this section">#</a></h2>
-
+<div class="code"><pre> What it is   : A script that asks you questions and makes your private key and a certificate
+                request (CSR). You send the CSR to the owner of the PKI. He sends back a
+                certificate.
+ Who reads it : Anyone who needs a certificate from a PKI that someone else runs: developers, QA,
+                IT, customers. No PKI knowledge is needed. Every new word is explained in
+                <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.
+ Time needed  : 10 minutes to read sections 1 to 5. Making a request takes about two minutes.
+ You need     : OpenSSL 3.x or 4.x. Prepare-Computer installs it for you.
+ Start with   : Section 4 (Quick start).</pre></div>
+<div class="code"><pre> Related manuals:
+   <a href="PrepareComputer-MANUAL.html">PrepareComputer-MANUAL.txt</a>   install OpenSSL, PowerShell 7 and the other tools first
+   <a href="PkiTrustKit-MANUAL.html">PkiTrustKit-MANUAL.txt</a>       the kit that contains these scripts (section 3)
+   <a href="SignCsr-MANUAL.html">SignCsr-MANUAL.txt</a>           what the owner does with your CSR
+   <a href="SignExternalCa-MANUAL.html">SignExternalCa-MANUAL.txt</a>    what the owner does with a CA request
+   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>            developers who sign certificates themselves
+ Help in the terminal:   .\New-PkiCsr.ps1 -Help     ./new-pki-csr.sh --help     (one page at a time)</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What this script does                   10  What the certificate contains
+    2  The words you need                      11  After you get the certificate
+    3  Before you start                        12  Rules the script enforces
+    4  Quick start                             13  Recipes, copy and paste
+    5  The questions, one by one               14  Problems and answers
+    6  Leaf or CA request                      15  Limits you must know
+    7  Names (SAN) and development names       16  All options
+    8  Key and hash                            17  What was tested, what was not
+    9  What is in the new folder               18  Other documents</pre></div>
+<h2 id="1-what-this-script-does">1  WHAT THIS SCRIPT DOES<a class="anchor" href="#1-what-this-script-does" aria-label="Link to this section">#</a></h2>
+<p>You need a certificate. Only the owner of the PKI can make it. But the private key must stay with YOU. So you do it in two steps:</p>
+<div class="code"><pre>     YOUR COMPUTER                                  THE OWNER OF THE PKI
+     1. make a private key (.key)   stays here
+     2. make a request (.csr)       -----------&gt;    3. checks it, signs it (SignCsr)
+     5. install the certificate     &lt;-----------    4. sends the certificate back</pre></div>
+<p>New-PkiCsr.ps1 and new-pki-csr.sh do steps 1 and 2. They ask questions, one after the other. Everything is written into a new folder. You send ONLY the .csr. The .key never leaves your computer.</p>
+<p>The scripts stand alone. They need only OpenSSL. They do not read or change the certificate stores. It does not matter whether the PKI is already installed on your computer. If the trust kit installed it, the script says so: &quot;PKI already installed on this computer: agantra&quot;.</p>
+<h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Private key    A secret file. Whoever has it can pretend to be you. It never leaves your
+                computer. Never e-mail it.
+ CSR            Certificate Signing Request. A file with your public key and your name. Not
+                secret. You send it to the owner.
+ Certificate    The answer. It ties your name to your public key. The owner&#39;s CA signs it.
+ Subject        Your name data in the certificate: CN, company, country ...
+ CN             Common Name. For a server: its host name, for example app.example.com.
+ SAN            Subject Alternative Name. All the names the certificate is valid for: DNS names,
+                IP addresses, e-mail addresses.
+ Level          DV, OV or EV. How much of your identity was checked. DV = domain name only.
+                OV = company too. EV = company, registration number, country.
+ Leaf           A certificate for a server, a person or a program.
+ CA request     A request for the certificate of a NEW CA (section 6).
+ IANA PEN       Private Enterprise Number. A number your company gets from IANA for free.</pre></div>
+<h2 id="3-before-you-start">3  BEFORE YOU START<a class="anchor" href="#3-before-you-start" aria-label="Link to this section">#</a></h2>
+<ul><li>OpenSSL 3.x or 4.x. If you do not have it: .\Prepare-Computer.ps1 (Windows) or ./prepare-computer.sh (Linux). Do it once.</li><li>Know your data: the host name or name for the CN. For OV and EV also the company name, the company registration number, the country. Ask the owner of the PKI which level you need.</li><li>A computer that is allowed: Windows 11 24H2 or newer, Windows Server 2025 and 2022, Windows PowerShell 5.1 or PowerShell 7. Linux: Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle 10+, SLES / openSUSE 15+. Others: exit 5, nothing is done.</li><li>The scripts are in every trust-kit zip, in the DevKit and in the transport kit.</li></ul>
+<h2 id="4-quick-start">4  QUICK START<a class="anchor" href="#4-quick-start" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre>     Windows     .\New-PkiCsr.ps1
+     Linux       ./new-pki-csr.sh</pre></div>
+<p>Answer the questions. ENTER skips an optional question. At the end you have this folder:</p>
+<div class="code"><pre>     csr-requests\&lt;name&gt;_&lt;date&gt;-&lt;time&gt;\</pre></div>
+<p>Send ONLY the .csr file to the owner of the PKI.</p>
+<h2 id="5-the-questions-one-by-one">5  THE QUESTIONS, ONE BY ONE<a class="anchor" href="#5-the-questions-one-by-one" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Question                What to answer
+ ----------------------  ---------------------------------------------------------------------
+ Type of request         Leaf (default) or IntermediateCA. See section 6.
+ Common name (CN)        Required. The host name of the server, or the name of the certificate.
+ Company ID              Your company registration number. It becomes the subject serialNumber.
+ Company (O)             The official company name.
+ Department (OU)         Your department. Required for a CA request.
+ E-mail, phone, person   Contact data.
+ Address, city, state    Where the company is.
+ Country                 Two capital letters, for example EE, ID, DE.
+ Postal code             Optional.
+ EV information          Business category (Private Organization, Government Entity, Business
+                         Entity, Non-Commercial Entity) and where the company is registered
+                         (country, state, locality).
+ IANA PEN                Optional. Your company number. Your company policy OID
+                         1.3.6.1.4.1.&lt;PEN&gt;.1 goes into the request. Other policy OIDs in a
+                         request are ignored by the CA.
+ Names (SAN)             Section 7.
+ Key and hash            Section 8.</pre></div>
+<p>Every answer can be given as an option instead (section 16). Then that question is not asked. Special characters in values (# $ &quot; \) are kept as you type them.</p>
+<h2 id="6-leaf-or-ca-request">6  LEAF OR CA REQUEST<a class="anchor" href="#6-leaf-or-ca-request" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Leaf (default)     A server, a person, code signing or e-mail certificate. The owner signs it
+                    with SignCsr.ps1 / SignCsr.sh. Most people need this.</pre></div>
+<div class="code"><pre> IntermediateCA     The certificate of a NEW CA of your department. The request asks for CA:TRUE
+                    and the key usage keyCertSign + cRLSign. Rules:
+                    - Required: company, country, department (OU), CA name (CN).
+                    - It has NO names (no SAN). It can never have the development names.
+                    - Key: RSA 4096 or 8192, or ECDSA P-384 or P-521. NOT ML-DSA, NOT P-256, NOT
+                      RSA 2048 or 3072.
+                    - The owner signs it with SignExternalCa.ps1 (a Quadrant Root, original PKI
+                      only).
+                    - Keep the key like a root key: offline, or in an HSM.</pre></div>
+<p>The owner&#39;s scripts see the kind by themselves (CA:TRUE = CA request). If he starts the wrong script, it tells him which one to use.</p>
+<h2 id="7-names-san-and-development-names">7  NAMES (SAN) AND DEVELOPMENT NAMES<a class="anchor" href="#7-names-san-and-development-names" aria-label="Link to this section">#</a></h2>
+<p>The SAN lists every name that the certificate must be valid for. The script asks for them one by one: DNS names, IP addresses, e-mail addresses. An empty line means finished. If you gave no CN, the first DNS name becomes the CN.</p>
+<p>Rules: EV: no wildcard name. Code signing: no names. A CA request: no names.</p>
+<p>&quot;Add the development names?&quot; Answer yes and the script puts a marker name in the request. The owner&#39;s SignCsr then adds his list of development names (like -AddDevelopmentSAN). The marker itself is never in the certificate. Not for a CA request.</p>
+<h2 id="8-key-and-hash">8  KEY AND HASH<a class="anchor" href="#8-key-and-hash" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Default: RSA 4096 with SHA-384. The script accepts:
+   RSA 2048, 3072, 4096, 8192          ECDSA P-256, P-384, P-521
+   ML-DSA-44, 65, 87 (quantum; needs OpenSSL 3.5 or newer, or 4)
+ Code signing needs RSA 4096+, ECDSA P-384+ or ML-DSA-65+. The hash is SHA-256, SHA-384 or
+ SHA-512. SHA-1, SHA-224 and MD5 are refused. If you do not know, press ENTER and keep the default.
+ An ML-DSA request needs a Quantum CA: tell the owner (he signs with -Quantum).</pre></div>
+<h2 id="9-what-is-in-the-new-folder">9  WHAT IS IN THE NEW FOLDER<a class="anchor" href="#9-what-is-in-the-new-folder" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> csr-requests\&lt;name&gt;_&lt;yyyyMMdd-HHmmss&gt;\     (Linux: &lt;yyyymmdd-HHMMSS&gt;)</pre></div>
+<div class="code"><pre> File               What it is
+ -----------------  --------------------------------------------------------------------
+ &lt;name&gt;.key         Your private key. KEEP IT SECRET. Never send it.
+ &lt;name&gt;.csr         The request. Send THIS file.
+ request-info.txt   What the request contains and which level it asks for.
+ README.txt         What to do next.</pre></div>
+<h2 id="10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS<a class="anchor" href="#10-what-the-certificate-contains" aria-label="Link to this section">#</a></h2>
+<p>The owner&#39;s CA decides the level from what your request carries. He can force it with -DV, -OV or -EV.</p>
+<div class="code"><pre> EV information complete (category + jurisdiction + company ID + company + state + city)  -&gt; EV
+ A company (name + country), no EV information                                            -&gt; OV
+ Only a common name                                                                       -&gt; DV</pre></div>
+<p>Unless he says otherwise: Classic, Quadrant 1. The CRL and OCSP addresses in the certificate are those of the CA that signs it. The key usage and extended key usage come from the owner&#39;s choice (-Purpose), not from your request.</p>
+<h2 id="11-after-you-get-the-certificate">11  AFTER YOU GET THE CERTIFICATE<a class="anchor" href="#11-after-you-get-the-certificate" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The owner sends a folder. Put the files next to your .key.
+   Web server (nginx)   ssl_certificate web01-fullchain.crt;  ssl_certificate_key web01.key;
+   Windows / IIS        import web01.crt with web01.key as a PFX (ask your IT staff)
+   Trust                Your clients must trust the PKI. Use the trust kit (<a href="PkiTrustKit-MANUAL.html">PkiTrustKit-MANUAL.txt</a>).
+ Check the chain:  openssl verify -CAfile root.crt -untrusted web01-chain.crt web01.crt
+ Back up the .key. If you lose it, you must make a new request and a new certificate.</pre></div>
+<h2 id="12-rules-the-script-enforces">12  RULES THE SCRIPT ENFORCES<a class="anchor" href="#12-rules-the-script-enforces" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The script stops BEFORE it makes a key when you break a rule. The CA checks the same again.
+ - RSA below 2048 bit. ECDSA other than P-256, P-384, P-521. ML-DSA other than 44, 65, 87.
+ - A request hash below SHA-256.
+ - Code signing: RSA 4096+, ECDSA P-384+, ML-DSA-65+.
+ - EV: no wildcard name.
+ - Country: two capital letters.
+ - Company and country go together.
+ - A CA request: only the key types of section 6.</pre></div>
+<h2 id="13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE<a class="anchor" href="#13-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> DV, a server (nothing is asked):
+     .\New-PkiCsr.ps1 -CommonName app.example.com -San app.example.com,10.0.0.5 -NonInteractive
+ OV, with the development names:
+     .\New-PkiCsr.ps1 -CommonName app.example.com -Company &quot;Example OU&quot; -CompanyId 17344131 `
+         -Country EE -San app.example.com -AddDevelopmentSAN -NonInteractive
+ EV, ECDSA P-384:
+     .\New-PkiCsr.ps1 -CommonName ev.example.com -Company &quot;Example OU&quot; -CompanyId 17344131 `
+         -Country EE -State Harju -City Tallinn -Address &quot;Street 1&quot; `
+         -BusinessCategory &quot;Private Organization&quot; -JurisdictionCountry EE `
+         -San ev.example.com -IanaPen 99999 -KeyType ECDSA -Curve P-384 -NonInteractive
+ A CA of your department:
+     .\New-PkiCsr.ps1 -CertificateType IntermediateCA -CommonName &quot;Dept Issuing CA G1&quot; `
+         -Company &quot;Dept Ltd&quot; -OrganizationalUnit &quot;IT Department&quot; -Country EE -NonInteractive
+ Linux, EV:
+     ./new-pki-csr.sh --cn ev.example.com --company &quot;Example OU&quot; --company-id 17344131 \
+         --country EE --state Harju --city Tallinn --address &quot;Street 1&quot; \
+         --business-category &quot;Private Organization&quot; --jurisdiction-country EE \
+         --san ev.example.com --pen 99999 --key ecdsa --curve P-384 --non-interactive
+ Linux, CA:
+     ./new-pki-csr.sh --type intermediate-ca --cn &quot;Dept Issuing CA G1&quot; --company &quot;Dept Ltd&quot; \
+         --ou &quot;IT Department&quot; --country EE --non-interactive
+ What the owner runs:
+     .\SignCsr.ps1 -Csr x.csr          .\SignCsr.ps1 -Csr x.csr -Quantum
+     .\SignExternalCa.ps1 -Csr ca.csr  (a CA request; the level switch is not needed)</pre></div>
+<h2 id="14-problems-and-answers">14  PROBLEMS AND ANSWERS<a class="anchor" href="#14-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> &quot;OpenSSL 3.x or 4.x was not found&quot; (exit 4)
+     Run Prepare-Computer.ps1 / prepare-computer.sh, or give -OpenSslPath / --openssl.
+ &quot;This system is not supported&quot; (exit 5)
+     See section 3. Nothing was done.
+ The script refuses my key
+     Section 12. For example RSA 2048 for code signing is too small. Choose RSA 4096.
+ &quot;The input ended before all questions were answered&quot;
+     You ran it where nobody can type (a pipe, a build job). Give the values as options and add
+     -NonInteractive / --non-interactive.
+ The owner says &quot;the request is refused&quot;
+     Send him request-info.txt. His SignCsr report names the field (<a href="SignCsr-MANUAL.html">SignCsr-MANUAL.txt</a>,
+     section 12).
+ I lost the .key
+     Make a new request. The old certificate is useless without the key. Ask the owner to revoke
+     it.
+ Windows: &quot;running scripts is disabled&quot;
+     powershell -NoProfile -ExecutionPolicy Bypass -File .\New-PkiCsr.ps1</pre></div>
+<h2 id="15-limits-you-must-know">15  LIMITS YOU MUST KNOW<a class="anchor" href="#15-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>The script makes the request only. It does not install the certificate.</li><li>The key file has no password. The script limits it to your user (chmod 600 on Linux, icacls on Windows). Also keep the folder on an encrypted disk.</li><li>The CA decides the level, the usages and the validity. Your request cannot force them.</li><li>The script does not check that your company data is true. The owner of the PKI checks that before he signs an OV or EV request.</li><li>An ML-DSA request only works with a Quantum CA. A CA request cannot use ML-DSA.</li></ul>
+<h2 id="16-all-options">16  ALL OPTIONS<a class="anchor" href="#16-all-options" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> New-PkiCsr.ps1 (Windows)                             new-pki-csr.sh (Linux)
+ ---------------------------------------------------  -----------------------------------------
+ -CertificateType Leaf|IntermediateCA                 --type leaf|intermediate-ca
+ -CommonName -CompanyId -Company                      --cn --company-id --company
+ -OrganizationalUnit                                  --ou
+ -Email -Phone -ContactPerson                         --email --phone --contact
+ -Address -City -State -Country -PostalCode           --address --city --state --country
+                                                      --postal-code
+ -BusinessCategory                                    --business-category
+ -JurisdictionCountry -JurisdictionState              --jurisdiction-country
+ -JurisdictionLocality                                --jurisdiction-state --jurisdiction-locality
+ -IanaPen &lt;number&gt;                                    --pen &lt;number&gt;
+ -San a,b,c                                           --san a (repeat, or a comma list)
+ -AddDevelopmentSAN                                   --add-development-san
+ -Purpose ServerAuth|ClientAuth|ServerClientAuth|     --purpose ...
+          CodeSigning|EmailProtection
+ -KeyType RSA|ECDSA|MLDSA  -KeyBits  -Curve           --key rsa|ecdsa|mldsa  --bits  --curve
+ -MlDsa 44|65|87  -Digest SHA256|SHA384|SHA512        --mldsa  --digest
+ -Name &lt;text&gt;   -OutDirectory &lt;folder&gt;                --name  --out
+ -OpenSslPath &lt;file&gt;                                  --openssl
+ -NonInteractive                                      --non-interactive
+ -Help                                                --help, -h
+ Exit codes: 0 ok, 1 error (nothing is made), 4 OpenSSL not found, 5 system not supported.</pre></div>
+<h2 id="17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#17-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
+<p>Tested on Ubuntu 24.04 with OpenSSL 4.0.3 and PowerShell 7: Leaf and CA requests, DV / OV / EV, RSA, ECDSA and ML-DSA, the development marker, and the signing of the result by SignCsr. NOT tested: a real Windows, Windows PowerShell 5.1 (the icacls call on the key file and the platform gate were simulated), real RHEL / SUSE machines. Run <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a> (E32, E44) on your machines.</p>
+<h2 id="18-other-documents">18  OTHER DOCUMENTS<a class="anchor" href="#18-other-documents" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> <a href="PrepareComputer-MANUAL.html">PrepareComputer-MANUAL.txt</a>   <a href="PkiTrustKit-MANUAL.html">PkiTrustKit-MANUAL.txt</a>   <a href="SignCsr-MANUAL.html">SignCsr-MANUAL.txt</a></pre></div>
+<h3 id="signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo">SignExternalCa-MANUAL.txt   DevKit-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt<a class="anchor" href="#signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo" aria-label="Link to this section">#</a></h3>
+<p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="SignExternalCa-MANUAL.html"><small>&larr; Previous</small>Sign a CA of a department</a><a class="nx" href="Export-PkiCa-MANUAL.html"><small>Next &rarr;</small>Export CA certificates</a></nav>
-<p class="crumb">Made from NewPkiCsr-MANUAL.txt by Build-HtmlDocs.ps1 6.4.3.</p>
+<p class="crumb">Made from NewPkiCsr-MANUAL.txt by Build-HtmlDocs.ps1 6.4.7.</p>
 
 </div>
-
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-this-script-does">1  WHAT THIS SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-the-questions-one-by-one">5  THE QUESTIONS, ONE BY ONE</a><a href="#6-leaf-or-ca-request">6  LEAF OR CA REQUEST</a><a href="#7-names-san-and-development-names">7  NAMES (SAN) AND DEVELOPMENT NAMES</a><a href="#8-key-and-hash">8  KEY AND HASH</a><a href="#9-what-is-in-the-new-folder">9  WHAT IS IN THE NEW FOLDER</a><a href="#10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS</a><a href="#11-after-you-get-the-certificate">11  AFTER YOU GET THE CERTIFICATE</a><a href="#12-rules-the-script-enforces">12  RULES THE SCRIPT ENFORCES</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a class="l3" href="#signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo">SignExternalCa-MANUAL.txt   DevKit-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.7</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

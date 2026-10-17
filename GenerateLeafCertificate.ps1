@@ -135,7 +135,7 @@ function Show-PkiLeafHelp {
     @'
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  make the certificates of the Agantra Inovatif Enterprise PKI
- Version 6.4.3
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com

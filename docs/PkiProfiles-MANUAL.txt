@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI PROFILES, PLATFORMS AND THE TOOLS CONFIGURATION  -  USER MANUAL              Version 6.4.3      2026-10-17
+ PKI PROFILES, PLATFORMS AND THE TOOLS CONFIGURATION  -  USER MANUAL              Version 6.4.7      2026-10-17
 ====================================================================================================
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)

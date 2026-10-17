@@ -28,11 +28,11 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.7"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="6.4.3"
+VERSION="6.4.7"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TAB="$(printf '\t')"
 
@@ -41,44 +41,56 @@ help_pager() {  # help text: one screen at a time on a terminal (Space = next pa
 }
 usage() {
 cat <<'EOF'
-============================================================
- Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu
- Version 6.4.3
+====================================================================================================
+ Install-PkiTrust.sh  -  install the PKI of the DevKit on Linux
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
- Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
- Manual : docs/DevKit-MANUAL.txt     Windows twin: Install-PkiTrust.ps1
-
-USAGE   (run as your normal user: the script asks sudo only for the system store and for missing
-        packages)
-  ./Install-PkiTrust.sh                      or:  bash Install-PkiTrust.sh        (no executable \
-        bit needed)
-  ./Install-PkiTrust.sh --trust-only         only the CA certificates; no issuing keys are unpacked
-  ./Install-PkiTrust.sh --yes                install what is missing (7-Zip, ca-certificates) \
-        without asking
-  ./Install-PkiTrust.sh --reset              unpack pki/ again (your issued certificates in \
-        leafcerts/ are kept)
+====================================================================================================
+ On a terminal: SPACE = next page, Q = quit.
+ Manual : docs/DevKit-MANUAL.txt (section 9)          Windows twin: Install-PkiTrust.ps1
+ Runs on: Linux (VM, bare metal, WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+          Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE. Other systems: error, exit 5.
 
 WHAT IT DOES
-  1. Finds the .certpacked of the kit (or --package FILE); the password: prompt, --password-file
-     FILE, or PKI_TRANSPORT_PASSWORD.
-  2. Scans the machine; installs 7-Zip and the certificate-store tools when missing (needs sudo);
-     OpenSSL 3.0+ is enough for the generators, 4.0.1+ is needed for the chain proof of
-     pki-transport.sh (--install-openssl builds it).
-  3. Unpacks the CA certificates (ca/) and the pki/ folder with the ISSUING CA keys into THIS
-     folder, checks every SHA-256.
-  4. Installs the roots in the system store (/usr/local/share/ca-certificates +
-     update-ca-certificates) and proves the chains.
-  5. Gives every intermediate CA a NEW RANDOM serial counter (copies must not issue the same serial
-     numbers).
+  Unpacks the .certpacked of the kit into the kit folder and makes this computer trust your PKI.
+  1. Finds the .certpacked of the kit (or --package FILE). The password: a prompt,
+     --password-file FILE, or the variable PKI_TRANSPORT_PASSWORD.
+  2. Checks the computer. Installs 7-Zip and the certificate-store tools when they are missing (this
+     needs sudo). OpenSSL 3.0+ is enough for the generators. OpenSSL 4.0.1+ is needed for the chain
+     proof of pki-transport.sh (--install-openssl builds it).
+  3. Checks the SHA-256 of every file. Unpacks the CA certificates (ca/) and the pki/ folder with
+     the keys of the ISSUING CAs.
+  4. Installs the roots in the system store (/usr/local/share/ca-certificates and
+     update-ca-certificates). Proves the chains.
+  5. Gives every issuing CA a NEW RANDOM serial counter (copies must not issue the same serials).
+
+QUICK START   (as your normal user; sudo is asked only for the system store and for packages)
+  ./Install-PkiTrust.sh                    or:  bash Install-PkiTrust.sh
+  (no executable bit needed)
+  Then make certificates:  ./GenerateLeafCertificate.sh --ov --dns www.example.com
+
+COMMON COMMANDS
+  ./Install-PkiTrust.sh --trust-only       Only the CA certificates. No keys are unpacked.
+  ./Install-PkiTrust.sh --yes              Install what is missing (7-Zip, ca-certificates) without
+                                           asking.
+  ./Install-PkiTrust.sh --reset            Unpack pki/ again. Your leafcerts/ stay.
 
 OPTIONS
-  --package FILE  --password-file FILE  --trust-only  --reset  --yes  --install-openssl
-  --skip-openssl-check  --openssl FILE
-  --7z FILE  --trust roots|enterprise|all-ca|none  --version  --help
+  --package FILE          The .certpacked. Default: the one in this folder.
+  --password-file FILE    Read the password from this file.
+  --trust-only            Only CA certificates; the generators cannot issue.
+  --reset                 Unpack pki/ again, with new serial counters.
+  --yes, -y               Answer yes to installs.
+  --install-openssl       Build OpenSSL 4 when it is missing.
+  --skip-openssl-check    Skip the OpenSSL check.      --openssl FILE   Use this openssl.
+  --7z FILE               Use this 7-Zip.
+  --trust roots|enterprise|all-ca|none   Which CAs go in the system store.
+  --help, -h              This text.                   --version   Print the version.
+
+EXIT CODES
+  0 done      1 an error      5 this system is refused      Other: read the message.
 EOF
 }
 

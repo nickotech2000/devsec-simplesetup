@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.7">
 <meta name="description" content="Move the PKI safely in an encrypted .certpacked.">
 <title>Transport package - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.7</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,751 +168,384 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Give the PKI to other people</p>
 <h1>Transport package</h1>
 <p class="lead">Move the PKI safely in an encrypted .certpacked.</p>
-<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l3"><a href="#18-the-devkit-one-zip-for-the-developers-4-9-5">18  The DevKit: one zip for the developers (4.9.5)</a></li><li class="l3"><a href="#package-so-a-destination-needs-nothing-else">package so a destination needs nothing else.</a></li><li class="l3"><a href="#the-job-is-done">the job is done.</a></li><li class="l2"><a href="#4-pack-the-source-machine">4  PACK (THE SOURCE MACHINE)</a></li><li class="l3"><a href="#cross-certificates">cross-certificates.</a></li><li class="l3"><a href="#test-exit-codes-with-pwsh-file-pkitransport-ps1-pwsh-command">Test exit codes with   pwsh -File .\PkiTransport.ps1 ...   (&quot;pwsh -Command&quot; only reports 0 or 1).</a></li><li class="l3"><a href="#transported-pki-tested">transported PKI (tested).</a></li><li class="l3"><a href="#prerequisite">prerequisite.</a></li><li class="l3"><a href="#x">--------------  -----------------------------------------------------------------------------</a></li><li class="l3"><a href="#package-does-not-hold-is-an-error-that-says-what-it-holds">package does not hold is an error that says what it holds.</a></li><li class="l3"><a href="#list-and-in-the-shell-history">list and in the shell history).</a></li><li class="l3"><a href="#run-update-ca-certificates-in-the-image">run update-ca-certificates in the image</a></li><li class="l3"><a href="#message-symptom-cause-and-fix">Message / symptom                                  Cause and fix</a></li><li class="l3"><a href="#as-the-other-scripts">as the other scripts)</a></li><li class="l3"><a href="#anchor-on-linux">anchor on Linux.</a></li><li class="l3"><a href="#7-zip">7-Zip.</a></li><li class="l3"><a href="#tested-on-linux-with-openssl-4-0-3-and-the-real-7-zip-not-te">* Tested on Linux with OpenSSL 4.0.3 and the real 7-Zip; not tested here on Windows or macOS.</a></li><li class="l3"><a href="#on-them-macos-never-ran">on them. macOS never ran.</a></li><li class="l2"><a href="#17-prerequisites-what-is-installed-for-you">17  PREREQUISITES: WHAT IS INSTALLED FOR YOU</a></li><li class="l3"><a href="#core-details-and-the-readiness-checks-install-devenvironment">core. Details and the readiness checks: Install-DevEnvironment-MANUAL.txt.</a></li><li class="l3"><a href="#kit-writes-the-manuals-to-a-docs-folder-the-manuals-moved-to">* -Kit writes the manuals to a docs\ folder (the manuals moved to docs\ in 4.9.5).</a></li><li class="l2"><a href="#19-releases-and-the-nocr-variant-4-9-5">19  RELEASES AND THE NoCR VARIANT  (4.9.5)</a></li><li class="l2"><a href="#20-server-the-server-package-4-9-5">20  -Server: THE SERVER PACKAGE  (4.9.5)</a></li><li class="l2"><a href="#21-crlserver-the-small-crl-server-package-4-9-5">21  -CrlServer: THE SMALL CRL SERVER PACKAGE  (4.9.5)</a></li><li class="l2"><a href="#22-crlocspserver-crl-ocsp-server-package-no-time-stamping-4">22  -CrlOcspServer: CRL + OCSP SERVER PACKAGE, NO TIME STAMPING  (4.9.5)</a></li><li class="l2"><a href="#23-timestampserver-time-stamp-server-package-4-9-5">23  -TimestampServer: TIME STAMP SERVER PACKAGE  (4.9.5)</a></li><li class="l2"><a href="#the-kit-now-also-holds-the-csr-tools-5-2-2">THE KIT NOW ALSO HOLDS THE CSR TOOLS  (5.2.2)</a></li><li class="l2"><a href="#new-in-6-3-6-web-server-configuration-in-the-kit">NEW IN 6.3.6: WEB SERVER CONFIGURATION IN THE KIT</a></li></ol></details>
-<h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> What it is   : Moves the PKI safely between machines in an encrypted .certpacked file.
- Who reads it : The owner of the PKI.
- You need     : A PKI; a strong package password.
- Start with   : Read the first section, then -Pack.
- Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - Phase C: carry the PKI to other machines     Version 6.4.3      2026-10-17
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a></li><li class="l2"><a href="#6-passwords">6  PASSWORDS</a></li><li class="l2"><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a></li><li class="l2"><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a></li><li class="l2"><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a></li><li class="l2"><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a></li><li class="l2"><a href="#11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE</a></li><li class="l2"><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 6.4.7   2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
- Related: <a href="Install-DevEnvironment-MANUAL.html">Install-DevEnvironment-MANUAL.txt</a> (the bootstrap that installs 7-Zip and OpenSSL 4)
-          <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>                (the PKI itself)           <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a> (leaf
-                                              certificates)
-          <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>                   (the DevKit: one zip with the PKI, installers and
-                                              generators for developers)
-          <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>    (design, section 17 = this transport, section 19 = the
-                                              DevKit)
-          <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a>       (what to run on your machines, section C)
-          the three -Help texts: sections 13 - 15 below</pre></div>
+ Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh</pre></div>
+<h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> What it is   : Three scripts that move the PKI from one computer to another in ONE encrypted file
+                (.certpacked), and install the trust there. PkiTransport.ps1 also builds the
+                DevKit and the server packages.
+ Who reads it : The OWNER of the PKI, and the IT staff who install on other computers. No PKI
+                knowledge is needed. Every new word is explained in <a href="GLOSSARY.html">GLOSSARY.txt</a> and
+                <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.
+ Time needed  : 15 minutes to read sections 1 to 5. A pack or install takes about one minute.
+ You need     : Source: the PKI from pki_setup.ps1 and PowerShell 7.
+                Destination: Windows 11, Windows Server or Linux. Section 3 lists the details.
+ Start with   : Section 3 (Before you start), then section 4 (Quick start).</pre></div>
+<div class="code"><pre> Related manuals:
+   <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>               build the PKI first (trust on every device: section 7)
+   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>                  one zip for developers (built with PkiTransport.ps1 -DevKit)
+   <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>              the Ubuntu server for CRL, OCSP and time stamping
+   <a href="Install-DevEnvironment-MANUAL.html">Install-DevEnvironment-MANUAL.txt</a>  install OpenSSL 4 and 7-Zip
+   <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>           revoke certificates, new CRL
+   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>   why it is built this way (senior staff, section 17)
+ Help in the terminal:   .\PkiTransport.ps1 -Help     .\Unpack-PkiTransport.ps1 -Help
+                         ./pki-transport.sh --help                (one page at a time)</pre></div>
 <div class="code"><pre> CONTENTS
-    1  What the transport is                     8  Selections: what --extract / -Extract mean
-    2  The .certpacked file and its security     9  Passwords
-    3  Quick start                              10  Recipes (copy and paste)
-    4  Pack (the source machine)                11  Troubleshooting
-    5  Windows destination: scan and install    12  Limits and what was tested
-    6  Unpack only (any machine, PowerShell 7)  13  PkiTransport.ps1 -Help
-    7  Linux and macOS: pki-transport.sh        14  Unpack-PkiTransport.ps1 -Help
-                                                15  pki-transport.sh --help        16  What changed
-                                                17  Prerequisites: what is installed for you</pre></div>
-<h3 id="18-the-devkit-one-zip-for-the-developers-4-9-5">18  The DevKit: one zip for the developers (4.9.5)<a class="anchor" href="#18-the-devkit-one-zip-for-the-developers-4-9-5" aria-label="Link to this section">#</a></h3>
-<p>1  WHAT THE TRANSPORT IS</p>
-<p>A PKI built by pki_setup.ps1 lives on one machine. The transport carries it to your other machines (development and staging VMs, Mac minis) as ONE password-protected file with the extension .certpacked, and puts it where it is needed: the system certificate store (to TRUST the PKI), a folder (to use the files), or the whole PKI (to ISSUE).</p>
-<div class="code"><pre> Three scripts, each with its own job:
-     PkiTransport.ps1          SOURCE: -Pack makes the .certpacked.   DESTINATION (Windows 11 25H2
-                                                                      or newer only):
-                               -Install scans the machine, unpacks, installs the trust.
-     Unpack-PkiTransport.ps1   DESTINATION, UNPACK ONLY: any machine with PowerShell 7 (Windows,
-                               Linux, macOS).
-     pki-transport.sh          DESTINATION, Linux and macOS: scan, prepare, unpack, install the
-                               trust in the system store.
- They reuse the scripts folder (module set Transport: 00_Common, 02_OpenSSL, 07_TrustStore,
- 09_Administrator, 16_CertPack, 17_Transport). -Pack with -Kit writes a small kit next to the</pre></div>
-<h3 id="package-so-a-destination-needs-nothing-else">package so a destination needs nothing else.<a class="anchor" href="#package-so-a-destination-needs-nothing-else" aria-label="Link to this section">#</a></h3>
-<p>2  THE .CERTPACKED FILE AND ITS SECURITY</p>
-<p>A .certpacked IS an archive under another name. Rename it to .zip or .7z and 7-Zip opens it with the password. The scripts read the first bytes of the file, never the extension.</p>
-<div class="code"><pre>   Kind                      Made and read by                           Needs on the destination
-   ------------------------  -----------------------------------------  ------------------------------------------
-   zip + AES-256 (default)   PkiTransport.ps1 itself (WinZip AE-2:      Windows: nothing. Linux /
-                                                                        macOS: 7-Zip
-                             PBKDF2-HMAC-SHA1, AES-256-CTR, HMAC-SHA1   (7z, 7zz, 7za); pki-transport.sh installs it
-                             over every file)                           where it can
-   zip + ZipCrypto           the same engine (-ZipEncryption            Plain unzip. WEAK (known-plaintext attack):
-                             ZipCrypto)                                 only for packages without private keys
-   7z + AES-256              7-Zip (-ArchiveFormat 7z): LZMA2, file     7-Zip on both sides
-                             names encrypted too, much smaller</pre></div>
-<div class="code"><pre> WHAT IS IN IT (the SCOPE; certpack.json says which)
-   CA certificates only (default)   roots, intermediates, chains, bundles, CRLs: PUBLIC data; enough
-                                    to TRUST the PKI
-   + -IncludeLeafCerts              the leafcerts folders: leaf certificates AND THEIR PRIVATE KEYS
-   + -IncludeCaKeys                 the whole pki folder with the CA PRIVATE KEYS: the destination
-                                    can ISSUE certificates
- Files in the archive: certpack.json (everything, for PowerShell), certpack.tsv (one line per file,
- for shell scripts), SHA256SUMS, README.txt, ca\roots\&lt;slug&gt;.crt (Enterprise, Track and Quadrant
- roots), ca\intermediates\&lt;slug&gt;.crt (DV /
-     OV /
- EV), ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains\&lt;slug&gt;-fullchain.crt (an intermediate
- and its parents, one
-     file
- each), ca\publish\*, [ca\external-chain.pem, ca\cross-sign\*], [leafcerts\*], [pki\*].</pre></div>
+    1  What the transport does                    10  Packages for servers
+    2  The words you need                         11  Which PKI goes into a package
+    3  Before you start                           12  What is installed for you
+    4  Quick start                                13  Recipes, copy and paste
+    5  Make a package (-Pack)                     14  Problems and answers
+    6  Passwords                                  15  Limits you must know
+    7  Windows: scan and install                  16  All options
+    8  Unpack only (any computer)                 17  What was tested, what was not
+    9  Linux: pki-transport.sh                    18  Other documents</pre></div>
+<h2 id="1-what-the-transport-does">1  WHAT THE TRANSPORT DOES<a class="anchor" href="#1-what-the-transport-does" aria-label="Link to this section">#</a></h2>
+<p>The PKI from pki_setup.ps1 lives on one computer. Your other computers must trust it. The transport carries it there:</p>
+<div class="code"><pre>     SOURCE (the computer with the pki folder)          DESTINATION (the other computers)</pre></div>
+<div class="code"><pre>     PkiTransport.ps1 -Pack  ---&gt;  name.certpacked  ---&gt;  Windows : PkiTransport.ps1 -Install
+                                   (one encrypted        any OS   : Unpack-PkiTransport.ps1
+                                    file + password)     Linux    : pki-transport.sh</pre></div>
+<p>There are three scripts:</p>
+<div class="code"><pre> Script                     Where     Job
+ -------------------------  --------  -----------------------------------------------------------
+ PkiTransport.ps1           Source    -Pack makes the package. -DevKit, -Server and others make
+                                      special zips.
+                            Windows   -Install checks the computer, unpacks and installs the trust.
+ Unpack-PkiTransport.ps1    Any       Only unpacks. Installs nothing.
+ pki-transport.sh           Linux     Checks, prepares, unpacks and installs the trust in the
+                                      system store.</pre></div>
+<p>With -Kit, -Pack also writes a small folder (&lt;name&gt;-kit) with the scripts, so that the destination needs nothing else.</p>
+<h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Package        The .certpacked file. It is an archive with a password.
+ Source         The computer that holds the PKI. You pack here.
+ Destination    The computer that receives the package.
+ Trust          Put the root CAs into the computer, so that programs accept your certificates.
+ Root, intermediate   The CAs at the top and the CAs below them. Roots go to the &quot;Trusted Root&quot;
+                store. Intermediates go to the &quot;Intermediate&quot; store.
+ Scope          What the package holds: only public CA certificates, or also private keys.
+ SHA-256        A fingerprint of a file. If one byte changes, it changes.
+ AES-256        A strong way to encrypt. The package uses it.
+ Full list      <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.</pre></div>
+<h2 id="3-before-you-start">3  BEFORE YOU START<a class="anchor" href="#3-before-you-start" aria-label="Link to this section">#</a></h2>
+<p>SOURCE 1. The PKI exists (pki_setup.ps1 was run, folder .\pki). 2. PowerShell 7. 3. A way to send the file, and ANOTHER way to send the password.</p>
+<div class="code"><pre> DESTINATION (the scripts refuse other systems with exit code 5)
+   Windows   : Windows 11 24H2 or newer, Windows Server 2025, Windows Server 2022. Windows Server
+               2022 gets the Classic CAs only (no post-quantum CAs). Administrator rights are
+               needed for -Install.
+   Linux     : Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux
+               Enterprise 15+, openSUSE. root or sudo for the system store.
+   Not supported: Windows 10, older Windows 11, macOS and the special editions.
+   Unpack-PkiTransport.ps1 needs only PowerShell 7 and runs on the same systems.
+   OpenSSL 4.0.1 or newer is needed to prove the chains. 7-Zip is needed only for 7z packages (and
+   for AES-256 zips on Linux). The scripts can install both (section 12).</pre></div>
+<h2 id="4-quick-start">4  QUICK START<a class="anchor" href="#4-quick-start" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> 1. SOURCE. Make the package:
+        .\PkiTransport.ps1 -Pack -GeneratePassword -Kit
+    The password is shown ONCE at the end. Write it down.
+ 2. Copy the .certpacked and the &lt;name&gt;-kit folder to the destination. Send the password another
+   way.
+ 3. DESTINATION, Windows (PowerShell 7 as administrator, in the kit folder):
+        .\PkiTransport.ps1 -Check                                      the scan only
+        .\PkiTransport.ps1 -Install -Package ..\name.certpacked        scan, unpack, install
+    DESTINATION, Linux:
+        sudo ./linux/pki-transport.sh --package name.certpacked --yes
+    DESTINATION, only unpack, any computer:
+        .\Unpack-PkiTransport.ps1 -Package ..\name.certpacked -Extract roots
+ 4. Test: open a page with a certificate from your PKI. The browser must show no warning
+    (Firefox has its own store: import the root there).</pre></div>
+<h2 id="5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)<a class="anchor" href="#5-make-a-package-pack" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\PkiTransport.ps1 -Pack [options]
+ The PKI is read from .\pki (or -PkiRoot). Leaf certificates are read from .\leafcerts.</pre></div>
+<p>WHAT IS IN THE PACKAGE (the scope; certpack.json says which)</p>
+<div class="code"><pre> Scope                       Option             Contains                          Private keys
+ --------------------------  -----------------  --------------------------------  ---------------
+ CA certificates (default)   (none)             Roots, intermediates, chains,     none
+                                                bundles, CRLs
+ + leaf certificates         -IncludeLeafCerts  The leafcerts folders             leaf keys
+ + CA keys                   -IncludeCaKeys     The whole pki folder              ALL CA keys
+ DevKit                      -DevKit            See <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>             issuing CAs only</pre></div>
+<p>Files in the archive: certpack.json and certpack.tsv (the list), SHA256SUMS, README.txt, ca\roots\*.crt, ca\intermediates\*.crt, ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains\*-fullchain.crt, ca\publish\*, and when packed leafcerts\* and pki\*. A PKI whose Enterprise Root was signed by a public CA also gets ca\external-chain.pem and the cross-certificates.</p>
+<p>FORMATS. A .certpacked IS an archive under another name. Rename it to .zip or .7z and 7-Zip opens it with the password. The scripts read the first bytes, never the extension.</p>
+<div class="code"><pre> Kind                     Made by                       Needs at the destination
+ -----------------------  ----------------------------  ----------------------------------------
+ zip + AES-256 (default)  PkiTransport.ps1 itself       Windows: nothing. Linux: 7-Zip (installed
+                                                        for you).
+ zip + ZipCrypto          the same (-ZipEncryption      Plain unzip. WEAK. Only for packages
+                          ZipCrypto)                    WITHOUT private keys.
+ 7z + AES-256             7-Zip (-ArchiveFormat 7z)     7-Zip on both sides. Smaller. File names
+                                                        are encrypted too.</pre></div>
+<div class="code"><pre> OPTIONS
+   -Out &lt;file&gt;           Default .\transport\agantra-pki-&lt;yyyyMMdd-HHmmss&gt;.certpacked. The
+                         extension is always .certpacked.
+   -GeneratePassword     A 20-character password, shown once at the end.
+   -PackagePassword &lt;t&gt;  Your own password (alias -Password). Also: PKI_TRANSPORT_PASSWORD, or a
+                         prompt (asked twice).
+   -ArchiveFormat zip|7z     -ZipEncryption Aes256|ZipCrypto     -SevenZipPath &lt;exe&gt;
+   -IncludeLeafCerts [-LeafName a*,b]   Add the leafcerts folders (all, or those that match).
+   -IncludeCaKeys        Add the whole PKI with the CA private keys. Only for a machine that must
+                         issue certificates.
+   -Kit                  Also write &lt;name&gt;-kit\ : the three scripts, the modules, the bootstrap
+                         scripts, the CSR tools, Create-WebServerConfig and the manuals.
+   -Comment &lt;text&gt;       Stored in the package, shown when it is opened.
+   -NoVerify             Do not read the package back after writing.
+ After writing, the script reads the package back (every entry is decrypted and authenticated).</pre></div>
 <div class="code"><pre> SAFEGUARDS
    * Every file has its SHA-256 in the package. The destination checks ALL of them before it writes
-     anything, and the AES-256 zip authenticates every entry: one changed byte stops the unpack.
+     anything. One changed byte stops the unpack.
    * A wrong password writes nothing. A name inside the archive that tries to leave the destination
      (../..) is refused.
-   * ZipCrypto is refused for a package with private keys. The password must be printable ASCII, 12+
-     characters, three
-       of
-     four character classes (7-Zip cannot create AES zips with other characters).
-   * The SHA-256 of the .certpacked itself is printed by -Pack: compare it after the transfer.
-   * You must still protect the file and the password. Send them by different channels. A package
-     with private keys is as sensitive as the keys: delete the package and the extracted keys when</pre></div>
-<h3 id="the-job-is-done">the job is done.<a class="anchor" href="#the-job-is-done" aria-label="Link to this section">#</a></h3>
-<p>3  QUICK START</p>
-<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> SOURCE (your build machine, PowerShell 7):
-     .\PkiTransport.ps1 -Pack -GeneratePassword -Kit                   CA certificates only; shows the password ONCE
-     .\PkiTransport.ps1 -Pack -IncludeLeafCerts -GeneratePassword -Kit      with the leafcerts folders (private keys)
- Copy the .certpacked and the &lt;name&gt;-kit folder to the destination; send the password another way.</pre></div>
-<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> DESTINATION, Windows 11 25H2 or newer (elevated PowerShell 7), in the kit folder:
-     .\PkiTransport.ps1 -Check                                          the scan only
-     .\PkiTransport.ps1 -Install -Package ..\name.certpacked             scan, unpack, install the trust
- DESTINATION, any OS with PowerShell 7, unpack only:
-     .\Unpack-PkiTransport.ps1 -Package ..\name.certpacked -Extract roots
- DESTINATION, Linux or macOS:
-     sudo ./linux/pki-transport.sh --package name.certpacked --yes            unpack the CAs, install the roots in the system
-         store
-     ./linux/pki-transport.sh --package name.certpacked --no-trust --extract fullchain      unpack everything, install nothing</pre></div>
-<h2 id="4-pack-the-source-machine">4  PACK (THE SOURCE MACHINE)<a class="anchor" href="#4-pack-the-source-machine" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> .\PkiTransport.ps1 -Pack [options]        Every option: section 13.   The PKI is read from .\pki
-                                                                       (-PkiRoot), the leaf
- certificates from &lt;script folder&gt;\leafcerts (the folder of GenerateLeafCertificate.ps1).
-   -Out &lt;file&gt;           default .\transport\agantra-pki-&lt;yyyyMMdd-HHmmss&gt;.certpacked. The extension is always
-                         .certpacked (a
-                         name ending in .zip or .7z is changed, with a warning).
-   -GeneratePassword     a 20-character password, shown once at the end. Otherwise -PackagePassword,
-                         the environment variable PKI_TRANSPORT_PASSWORD, or a prompt (asked twice).
-   -ArchiveFormat zip|7z and -ZipEncryption Aes256|ZipCrypto (section 2).     -SevenZipPath for 7z.
-   -IncludeLeafCerts [-LeafName a*,b]   the leafcerts folders (all, or those whose top-level folder
-                                        matches).
-   -IncludeCaKeys        the whole PKI with the CA private keys. Use it only for a machine that must
-                         issue certificates.
-   -Kit                  writes &lt;name&gt;-kit\: the three transport scripts, the modules, the manual.
-   -Comment &lt;text&gt;       stored in the package and shown on opening.        -NoVerify   skip the read-back.
- After writing, the package is read back (every entry decrypted and authenticated) unless -NoVerify.
- A PKI whose Enterprise Root was signed by a public CA is packed with ca\external-chain.pem and the</pre></div>
-<h3 id="cross-certificates">cross-certificates.<a class="anchor" href="#cross-certificates" aria-label="Link to this section">#</a></h3>
-<p>5  WINDOWS DESTINATION: SCAN AND INSTALL</p>
-<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\PkiTransport.ps1 -Check [-Package &lt;file&gt;]     the scan; with -Package also whether the password
-                                                 opens the file
- .\PkiTransport.ps1 -Install -Package &lt;file&gt;     the scan, then (only if it passes) unpack and
-                                                 install</pre></div>
-<div class="code"><pre> THE SCAN (nothing is unpacked or installed unless all of it passes)
-   Windows      Windows 11 client, version 25H2 (build 26200) or NEWER. Not supported, with the
-                reason printed and exit code 2:
-                  Windows 11 24H2 / 23H2 / 22H2 / 21H2, Windows 10, 8.1, 7, Vista, XP, every Windows
-                  Server and domain
-                      controller,
-                  anything that is not Windows.   (Windows 11 26H2, build 26300, is accepted.)
-   OpenSSL      4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: the script stops with exit
-                code 4 and prints the way to
-                  install it: run Install-DevEnvironment.ps1 (OpenSSL with FIPS and quantum
-                  support). -SkipOpenSslCheck
-                      goes on anyway.
-   Elevation    an administrator PowerShell, checked BEFORE anything is unpacked.
-   Also shown   the PowerShell version and whether 7-Zip exists (only a 7z package needs it).
- Only a Windows 11 25H2+ machine can hold the post-quantum (ML-DSA) CA certificates of the Quantum
- quadrants; this is
-     why older
- Windows is refused instead of installing half of the PKI.</pre></div>
+   * ZipCrypto is refused for a package with private keys.
+   * -Pack prints the SHA-256 of the package. Compare it after the transfer.
+   * Send the package and the password by different ways. A package with private keys is as
+     sensitive as the keys. Delete it and the extracted keys when the job is done.</pre></div>
+<h2 id="6-passwords">6  PASSWORDS<a class="anchor" href="#6-passwords" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> A package password has these rules:
+   * Printable ASCII only. At least 12 characters. At least 3 of 4: lower case, upper case, digits,
+     symbols.
+   * -AllowWeakPassword relaxes the length and the classes. Never the ASCII rule.
+   * -GeneratePassword makes 20 characters without quotes, $, ! or backslash, so it pastes safely
+     into any shell.</pre></div>
+<p>Where to put the password at the destination, safest first: 1. The prompt (not shown on screen). 2. A file: --password-file (Linux scripts only). 3. The variable PKI_TRANSPORT_PASSWORD. 4. -PackagePassword / --password. Visible in the process list and the shell history.</p>
+<h2 id="7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL<a class="anchor" href="#7-windows-scan-and-install" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\PkiTransport.ps1 -Check [-Package &lt;file&gt;]   The scan. With -Package also: does the password open
+                                               the file?
+ .\PkiTransport.ps1 -Install -Package &lt;file&gt;
+ The scan, then (only if it passes) unpack and install.</pre></div>
+<p>THE SCAN. Nothing is unpacked or installed unless all of it passes.</p>
+<div class="code"><pre> Check       Rule
+ ----------  -----------------------------------------------------------------------------------
+ Windows     Windows 11 24H2 (build 26100) or newer, Server 2025 or Server 2022. Others: the reason
+             is printed and the script stops (exit code 2 or 5).
+ OpenSSL     4.0.1 or newer. Missing: it is installed when you agree or give -InstallMissing,
+             otherwise the script stops (exit code 4). -SkipOpenSslCheck goes on anyway.
+ Elevation   An administrator PowerShell. Checked BEFORE anything is unpacked.
+ Also shown  The PowerShell version, and whether 7-Zip exists (only a 7z package needs it).</pre></div>
 <div class="code"><pre> WHAT -Install DOES, IN ORDER
-   1. opens the package, checks the SHA-256 of every file;       2. writes the selection (-Extract, default ca) to
-                                                                 -Destination
-   3. every ROOT -&gt; Trusted Root Certification Authorities, every INTERMEDIATE -&gt; Intermediate
-      Certification Authorities (the rules of pki_setup.ps1 -InstallTrust); the stores are read back
-      and any wrong placement is an error
-   4. -InstallLeafPfx: the leaf PFX files into LocalMachine\My - the LEAF only, never the chain
-      certificates inside the
-       PFX
-   5. OpenSSL 4 proves that every CA and every extracted leaf chains to the roots of the package
-      (ML-DSA signatures too)
- -RemoveTrust -Package &lt;file&gt; removes the package&#39;s CA certificates from the stores (leaf PFX files
- in My stay). Exit codes: 0 ok, 1 error, 2 Windows not supported, 3 not Windows (use
- pki-transport.sh), 4 OpenSSL 4.0.1+ missing.</pre></div>
-<h3 id="test-exit-codes-with-pwsh-file-pkitransport-ps1-pwsh-command">Test exit codes with   pwsh -File .\PkiTransport.ps1 ...   (&quot;pwsh -Command&quot; only reports 0 or 1).<a class="anchor" href="#test-exit-codes-with-pwsh-file-pkitransport-ps1-pwsh-command" aria-label="Link to this section">#</a></h3>
-<p>6  UNPACK ONLY (ANY MACHINE, POWERSHELL 7)</p>
-<div class="code"><pre> .\Unpack-PkiTransport.ps1 -Package &lt;file&gt; [-Extract &lt;list&gt;] [-LeafName &lt;w&gt;] [-Destination &lt;folder&gt;] [-List] [-Force]
- It installs NOTHING and has no operating-system restriction. Default destination
- .\certpacked-received\&lt;package name&gt;. certpack.json and README.txt are always written. Identical
- files already there are left alone; a different file stops
-     the
- run unless -Force. -Extract pki also rewrites the absolute paths of pki\pki-manifest.json to the
- new place, so GenerateLeafCertificate.ps1 -PkiRoot &lt;folder&gt;\pki issues certificates from the</pre></div>
-<h3 id="transported-pki-tested">transported PKI (tested).<a class="anchor" href="#transported-pki-tested" aria-label="Link to this section">#</a></h3>
-<p>7  LINUX AND MACOS: pki-transport.sh</p>
-<div class="code"><pre> ./linux/pki-transport.sh --package &lt;file&gt; [options]   Every option: section 15. Written for bash
-                                                       3.2 (macOS) and newer.
- It does only this: scan, prepare, unpack, install the CA certificates in the system store, prove
- the chains, nothing
-     else.</pre></div>
-<div class="code"><pre> PLATFORMS                                  trust anchors go to                      store command
-   Ubuntu, Debian                           /usr/local/share/ca-certificates         update-ca-certificates
-   RHEL 9, CentOS Stream 10, Rocky 10,      /etc/pki/ca-trust/source/anchors         update-ca-trust extract
-     Oracle Linux 10, Alma Linux
-   SLES 16, openSUSE Leap / Tumbleweed      /etc/pki/trust/anchors                   update-ca-certificates
-   macOS (M2, M4, Intel)                    /Library/Keychains/System.keychain       security add-trusted-cert (roots)
-   other Linux                              --store-dir DIR                          --update-cmd CMD
- The family is read from /etc/os-release (ID and ID_LIKE). Files it adds are named agantra-pki-*, so
- --remove-trust
-     takes
- out exactly those.</pre></div>
-<div class="code"><pre> THE STEPS
-   SCAN      platform, privileges (root or sudo), OpenSSL 4.0.1+, 7-Zip, unzip, the
-             certificate-store tooling.
-   PREPARE   * certificate store missing (a minimal image): installs ca-certificates with the
-             package manager of the family. * 7-Zip missing and the package needs it (AES-256 zip or
-             7z): installs it. Order tried: 7zip, p7zip +
-                 p7zip-plugins,
-               p7zip-full; on the RHEL family EPEL is added when needed; macOS: brew sevenzip. A
-               ZipCrypto zip needs
-                   only unzip.
-             * OpenSSL 4.0.1+ missing: asks to build OpenSSL 4.0.3 from the official source release
-               (or
-                 --install-openssl; or exit
-               code 4 without a terminal). The tarball is checked against the .sha256 of the same
-               release page; built
-                   with the FIPS
-               module into --openssl-prefix (default /opt/openssl-4.0.3); the system openssl is left
-               alone.
-   UNPACK    password from --password-file, PKI_TRANSPORT_PASSWORD or a prompt; every SHA-256
-             checked; the selection is written.
-   INSTALL   --trust roots (default: Enterprise, Track and Quadrant roots), enterprise (only the
-             Enterprise Root), all-ca (roots and intermediates; macOS: intermediates without trust
-             settings), none. Then the store is rebuilt and
-                 OpenSSL 4
-             verifies every CA against the SYSTEM store.
- --no-trust unpacks only. --remove-trust takes the CAs out (with --package: exactly that package&#39;s;
- without: every
-     agantra-pki-*).
- --dry-run prints every system-changing command. --destdir DIR puts the anchors under DIR and does
- not rebuild the store
-     (image builds).
- --check is the scan only. Exit codes: 0 ok, 1 error, 2 platform not supported, 4 OpenSSL missing, 5
- wrong password, 6</pre></div>
-<h3 id="prerequisite">prerequisite.<a class="anchor" href="#prerequisite" aria-label="Link to this section">#</a></h3>
-<p>8  SELECTIONS: WHAT --extract / -Extract MEAN</p>
-<div class="code"><pre>   Name            Files                                                                          Typical use</pre></div>
-<h3 id="x">--------------  -----------------------------------------------------------------------------<a class="anchor" href="#x" aria-label="Link to this section">#</a></h3>
-<div class="code"><pre>   roots           ca\roots\*.crt (7 roots) and ca-bundle-roots.crt                                 trust the PKI
-   intermediates   ca\intermediates\*.crt (12: DV, OV, EV of each quadrant)                         servers that build
-                   chains
-   chains          ca\chains\*-fullchain.crt (an intermediate and its parents) and both bundles     CAfile, nginx, curl
-   ca (default)    roots + intermediates + chains + bundles + ca\publish + public-CA files           everything public
-   leafcerts       leafcerts\* (certificates AND private keys), only if packed; -LeafName filters     a service&#39;s
-                   identity
-   pki             pki\* (the whole PKI with the CA private keys), only if packed                     issue on this
-                   machine
-   all, fullchain  everything the package holds                                                   a complete copy
- Several: -Extract ca,leafcerts  or  --extract ca,leafcerts. certpack.json and README.txt are always
-          written. Asking
-                                  for what the</pre></div>
-<h3 id="package-does-not-hold-is-an-error-that-says-what-it-holds">package does not hold is an error that says what it holds.<a class="anchor" href="#package-does-not-hold-is-an-error-that-says-what-it-holds" aria-label="Link to this section">#</a></h3>
-<p>9  PASSWORDS</p>
-<div class="code"><pre> Printable ASCII only, at least 12 characters, at least 3 of: lower case, upper case, digits,
- symbols.
-     -AllowWeakPassword relaxes
- length and classes, never the ASCII rule. -GeneratePassword makes a 20-character password without
- quotes, $, ! or
-     backslash, so it
- pastes safely into any shell. Where the password goes at the destination, safest first: the prompt,
- a file
-     (--password-file, on
- the shell side only), the environment variable PKI_TRANSPORT_PASSWORD, then -PackagePassword /
- --password (visible in a
-     process</pre></div>
-<h3 id="list-and-in-the-shell-history">list and in the shell history).<a class="anchor" href="#list-and-in-the-shell-history" aria-label="Link to this section">#</a></h3>
-<p>10  RECIPES (COPY AND PASTE)</p>
-<div class="code"><pre> Trust only, to all Linux and Mac dev VMs        .\PkiTransport.ps1 -Pack -GeneratePassword -Kit       then on each:
-                                                 sudo ./linux/pki-transport.sh --package &lt;file&gt; --yes
- A service identity for one VM                   .\PkiTransport.ps1 -Pack -IncludeLeafCerts -LeafName api.example.com
-                                                 -GeneratePassword
-                                                 ./linux/pki-transport.sh --package &lt;file&gt; --extract ca,leafcerts --leaf &#39;api*&#39; --no-trust
- A build VM that issues certificates             .\PkiTransport.ps1 -Pack -IncludeCaKeys -IncludeLeafCerts
-                                                 -GeneratePassword
-                                                 .\Unpack-PkiTransport.ps1 -Package &lt;file&gt; -Extract pki -Destination D:\pki-build
-                                                 .\GenerateLeafCertificate.ps1 -PkiRoot D:\pki-build\pki -DnsName x.example.com
- A smaller package (7z)                          .\PkiTransport.ps1 -Pack -ArchiveFormat 7z -GeneratePassword
- No 7-Zip anywhere, CA certificates only         .\PkiTransport.ps1 -Pack -ZipEncryption ZipCrypto -GeneratePassword
-                                                 (then unzip -P works)
- Take the CAs out again                          .\PkiTransport.ps1 -RemoveTrust -Package &lt;file&gt;        or        sudo
-                                                 ./linux/pki-transport.sh --package &lt;file&gt; --remove-trust
- Look inside without writing                     .\Unpack-PkiTransport.ps1 -Package &lt;file&gt; -List        or
-                                                 ./linux/pki-transport.sh --package &lt;file&gt; --list
- Image build (Dockerfile, VM template)           ./linux/pki-transport.sh --package &lt;file&gt; --destdir /target --yes     then</pre></div>
-<h3 id="run-update-ca-certificates-in-the-image">run update-ca-certificates in the image<a class="anchor" href="#run-update-ca-certificates-in-the-image" aria-label="Link to this section">#</a></h3>
-<p>11  TROUBLESHOOTING</p>
-<h3 id="message-symptom-cause-and-fix">Message / symptom                                  Cause and fix<a class="anchor" href="#message-symptom-cause-and-fix" aria-label="Link to this section">#</a></h3>
-<div class="code"><pre> &quot;Windows 11 before 25H2 ... not supported&quot;         Update to Windows 11 25H2 (build 26200) or
-                                                    newer. Windows 10 and older cannot be used for
-                                                    -Install
- &quot;Windows Server ... not supported&quot;                 Client Windows 11 only. Use
-                                                    Unpack-PkiTransport.ps1 and import the roots by
-                                                    hand if you must
- &quot;OpenSSL ... not found / too old&quot; (exit 4)         Run Install-DevEnvironment.ps1 (output says
-                                                    how), new window; or -OpenSslPath; shell:
-                                                    --install-openssl
- WRONG_PASSWORD (exit 5 on the shell side)          Wrong password or damaged file; nothing was
-                                                    written. Compare the SHA-256 printed by -Pack
- &quot;AUTHENTICATION_FAILED: x is damaged&quot;              A byte changed in transit: copy the file again
- &quot;The package does not match its own list&quot;          Same: damaged or changed
- &quot;password is not accepted&quot;                         12+ printable ASCII characters, 3 classes: use
-                                                    -GeneratePassword
- &quot;ZipCrypto ... refused for a package with keys&quot;    Use Aes256 when the package has private keys
- &quot;7-Zip was not found&quot;                              7z packages and (Linux, macOS) AES zips need
-                                                    7-Zip: the shell script installs it; --7z /
-                                                    -SevenZipPath
- 7-Zip install fails on RHEL / Rocky / Oracle        Enable EPEL (and CRB / CodeReady) or give --7z;
-                                                     or re-pack with -ZipEncryption ZipCrypto (CA
-                                                     certificates only)
- &quot;exists and differs&quot;                               -Force / --force, or another destination
- &quot;Nothing in this package matches ...&quot;              The package lacks it (scope): the message lists
-                                                    what it holds
- macOS refuses ML-DSA certificates                  Expected on a macOS without post-quantum
-                                                    support: the classic CAs install, the script
-                                                    says which were refused
- Exit code is always 0 or 1                         You used pwsh -Command: use pwsh -File to see 2,
-                                                    3, 4
- Blocked / read-only files                          .\PkiTransport.ps1 -Unblock (the same mechanism</pre></div>
-<h3 id="as-the-other-scripts">as the other scripts)<a class="anchor" href="#as-the-other-scripts" aria-label="Link to this section">#</a></h3>
-<p>12  LIMITS AND WHAT WAS TESTED</p>
-<div class="code"><pre> TESTED (Linux, OpenSSL 4.0.3, real 7-Zip 23.01, Ubuntu 24.04 as root):
-   * the archive engine against real 7-Zip in both directions (AES-256 zip, ZipCrypto zip, 7z),
-     wrong password,
-       tampering, path traversal;
-   * -Pack in every scope and format; Unpack-PkiTransport.ps1 with every selection; the transported
-     PKI issuing a new
-       leaf;
-   * the Windows 11 25H2 gate with simulated machines (26300, 26200, 26100, 22631, Windows 10, 8.1,
-     7, Server); exit
-       codes 0 - 4;
-   * pki-transport.sh on Ubuntu with the REAL system store: install (7 roots), proof against the
-     store (OpenSSL 4
-       verified all 19 CAs),
-     removal (the store returned to its exact original size), the three --trust modes, --destdir,
-     every --extract
-         selection, wrong
-     password, the on-demand installation of 7-Zip with apt, ZipCrypto with only unzip, 7z; the
-     OpenSSL source download
-         with checksum.
- TESTED ONLY BY SIMULATION: CentOS Stream 10, Rocky 10, RHEL 9, Oracle Linux 10, SLES 16, openSUSE
- Tumbleweed and macOS
-     (--dry-run with a
-   fake os-release): the directories and commands are the documented ones of each system, but never
-   ran on them.
- NOT TESTED: -Install and -RemoveTrust on Windows (the stores, the administrator check and the scan
-             of a real machine;
-     the list of what
-   would be installed where, with the store call replaced, is tested); the 7-Zip package names on
-   the RHEL family and
-       SUSE; macOS.
- LIMITS: 7-Zip receives the password as an argument (visible in a process list while it runs; the
-         default zip engine has
-     no such
-   process). A package with private keys is only as safe as its password and its handling. Linux and
-   macOS have one kind
-       of trust
-   anchor, so by default every root is installed there. An Enterprise Root signed by a public CA is
-   not installed as an</pre></div>
-<h3 id="anchor-on-linux">anchor on Linux.<a class="anchor" href="#anchor-on-linux" aria-label="Link to this section">#</a></h3>
-<p>13  PkiTransport.ps1 -Help  (THE COMPLETE TEXT)</p>
-<p>PkiTransport.ps1 - carry the PKI to other machines (.certpacked) Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif O&#220; (NextMantra) Email  : nicko@nextmantra.com</p>
-<div class="code"><pre> Manual : docs\PkiTransport-MANUAL.txt   Design : docs\PKI-Design-with-FIPS-and-PQC.txt (section 17)
- Needs  : PowerShell 7+. Source: the PKI made by pki_setup.ps1. Destination: see -Install.</pre></div>
-<div class="code"><pre>WHAT IT DOES
-  -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
-  -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1,
-                          Ubuntu sh), the leaf / person /
-             Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 /
-             make-executable.sh, devkit.env, the manuals. See DEVKIT.
-  -CrlServer SOURCE.      ONE SMALL zip (-Tar: also .tar.gz) for a CRL / CA-certificate server ONLY
-                          on Ubuntu 24.04 / 26.04 (nginx; no OCSP, no time stamping,
-             no OpenSSL 4, no key): pki-server.sh + pki\publish + pki\server. See chapter 21.
-  -CrlOcspServer SOURCE.  ONE zip for a CRL + OCSP server on Ubuntu 24.04 / 26.04 WITHOUT time stamping (pki-server.sh install --no-tsa). No key inside. See chapter 22.
-  -TimestampServer SOURCE. ONE zip for a TIME STAMP server only (RFC 3161) on Ubuntu 24.04 / 26.04
-  (pki-server.sh install --tsa-only). No key inside. See chapter 23.
-  -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp
-                          server: pki-server.sh + the PKI without private keys
-             (the CA keys NEVER go there) + the server\ files of the PKI. No password: the package
-             holds nothing secret. See SERVER.
-  -Install   DESTINATION. Windows 11 25H2 or newer ONLY. Scans the machine; only if the scan passes
-             it unpacks the package and installs the CA certificates in the Windows certificate
-             stores.
-  -Check     DESTINATION. The scan only (nothing is changed): READY or NOT READY.
-  -List      Shows what is inside a package.
-  -RemoveTrust  Removes the CA certificates of a package from the Windows stores (elevated).
-  The three scripts of the transport:
-      PkiTransport.ps1           pack (source) and install (Windows 11 25H2+)          this script
-      Unpack-PkiTransport.ps1    destination, UNPACK ONLY (any machine with PowerShell 7)
-      pki-transport.sh           Linux and macOS: unpack and install the trust in the system store</pre></div>
-<div class="code"><pre>A .certpacked IS an archive: rename it to .zip or .7z and 7-Zip opens it with the password.
-  zip + AES-256 (default)  made and read by this script itself: nothing to install on Windows.
-  zip + ZipCrypto          legacy, weak: only for packages with NO private keys. Plain &quot;unzip -P&quot;
-                           reads it.
-  7z  + AES-256            file names hidden too. Needs 7-Zip to make and to read.</pre></div>
-<div class="code"><pre>PACK  (source)
-  .\PkiTransport.ps1 -Pack -GeneratePassword                      CA certificates only
-  .\PkiTransport.ps1 -Pack -IncludeLeafCerts                      + the leafcerts folders (with the
-                                                                  leaf PRIVATE KEYS)
-  .\PkiTransport.ps1 -Pack -IncludeLeafCerts -LeafName www.example.com,api*       only these leaf sets
-  .\PkiTransport.ps1 -Pack -IncludeCaKeys                         + the WHOLE pki folder with the CA
-                                                                  PRIVATE KEYS (the destination can
-                                                                  then ISSUE leaf certificates)
-  .\PkiTransport.ps1 -Pack -Out D:\share\dev.certpacked -ArchiveFormat 7z -Kit
-  -Out &lt;file&gt;            Where to write. Default .\transport\agantra-pki-&lt;yyyyMMdd-HHmmss&gt;.certpacked. The extension
-                         .certpacked is always used (a name ending in .zip or .7z is changed).
-  -PackagePassword &lt;t&gt;   (alias -Password). Not given: environment variable PKI_TRANSPORT_PASSWORD,
-                         else you are asked. At least 12 printable ASCII characters, 3 of 4
-                         character classes. -AllowWeakPassword relaxes length and classes, never the
-                         ASCII rule.
-  -GeneratePassword      Makes a 20-character password and shows it ONCE at the end. Write it down.
-  -ArchiveFormat zip|7z  Default zip.        -ZipEncryption Aes256|ZipCrypto   Default Aes256 (ZipCrypto is refused
-                         when private keys are included).        -SevenZipPath &lt;exe&gt;   7-Zip, for 7z.
-  -IncludeLeafCerts      Adds leafcerts\ (next to the scripts). Contains private keys.   -LeafName &lt;wildcards&gt;  only those.
-  -IncludeCaKeys         Adds pki\ with the CA private keys. Only for a machine that must issue
-                         certificates.
-  -Kit                   Also writes &lt;name&gt;-kit\ next to the package: the three transport scripts,
-                         the two bootstrap scripts (Install-DevEnvironment.ps1 / .sh), the modules
-                         the destination needs and the manuals. The destination then needs nothing
-                         else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
-  -Comment &lt;text&gt;        Stored in the package.       -NoVerify   Do not read the package back after
-                                                                  writing it.
-  -PkiRoot &lt;path&gt;  -ConfigFile &lt;path&gt;   As in pki_setup.ps1.
-SERVER   (-Server)
-  .\PkiTransport.ps1 -Server                                  .\transport\agantra-pki-server-&lt;date&gt;.zip (latest release of the normal family)
-  .\PkiTransport.ps1 -Server -Release 2 -Tar                  release R2, and also a .tar.gz (mode
-                                                              bits kept on every tool)
-  .\PkiTransport.ps1 -Server -NoCaRevocationInfo -Out D:\share\pki-server-nocr.zip
-  -Out &lt;file.zip&gt;  -Force  -Tar   as for the package.      -PkiRoot / -Release / -NoCaRevocationInfo   which PKI (ONE PKI per package).
-  -IncludeServiceKeys  LAB ONLY: also the OCSP / time stamp private keys. A CA key is never included. Without it the keys are made ON the server
-                       (pki-server.sh csr) and signed here (PkiRevocation.ps1 -Action SignCsr):
-                       nothing secret travels.
-  The package is opened again and scanned: one private key inside = deleted, exit 5. The server
-  reads hosts, CA list and URLs from the server\ folder of the PKI (written by pki_setup.ps1 /
-  PkiRevocation.ps1), not from a file you have to keep in step.
-  On Ubuntu:  unzip, then  sudo ./linux/pki-server/pki-server.sh install --source ./pki
-              (docs\PKI-SERVER-MANUAL.txt)</pre></div>
-<div class="code"><pre>  -Release &lt;n&gt;  -NoCaRevocationInfo   WHICH PKI of .\pki\ is packed (-Pack, -DevKit): release R&lt;n&gt;,
-                                      else the LATEST; the NoCR family with the switch.
-                       ONE PKI per package: the kit of release 2 holds R2 only. A release that no
-                       longer exists = the latest, with a warning.
-  The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV /
-  OV / EV), ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains (one fullchain file per
-  intermediate), ca\publish, certpack.json, certpack.tsv, SHA256SUMS, README.txt. Every file has its
-  SHA-256 listed.</pre></div>
-<div class="code"><pre>DEVKIT  (source: one zip for the developers)
-  .\PkiTransport.ps1 -DevKit -GeneratePassword                    zip + the .certpacked (zip
-                                                                  AES-256) with the ISSUING CA keys
-  .\PkiTransport.ps1 -DevKit -Out D:\share\devkit.zip -KitArchiveFormat 7z -ArchiveFormat 7z
-  .\PkiTransport.ps1 -DevKit -DevKitNoKeys                        trust only: the generators then cannot issue
-  The kit holds, in one folder:
-      &lt;name&gt;.certpacked                           CA certificates + the pki folder with the keys of
-                                                  the intermediate (issuing) CAs. NO root key:
-                                                  Enterprise, Track and Quadrant root keys, OCSP /
-                                                  TSA and old leaf keys are left out.
-      Install-PkiTrust.ps1 / .sh                  unpack it and put the PKI in the Local Machine
-                                                  store (Windows) / the Ubuntu store; give every
-                                                  intermediate a NEW RANDOM serial counter (copies
-                                                  must not issue the same serials)
-      GenerateLeafCertificate.ps1 / .sh           GeneratePersonLeafCertificate.ps1 / .sh        GenerateOffice365LeafCertificate.ps1 / .sh
-      Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (and LF line endings); Windows developers need no Linux
-      devkit.env  examples\  docs\  <a href="START-HERE.html">START-HERE.txt</a>  SHA256SUMS  scripts\ (the PowerShell modules)
-  -KitArchiveFormat zip|7z   the outer archive (default zip, not encrypted: the .certpacked inside
-                             is).
-  -ArchiveFormat zip|7z      the .certpacked inside (AES-256).        -DevKitNoKeys   no private keys at all.
-  -Out &lt;file&gt;   -GeneratePassword / -PackagePassword   as for -Pack.   Manual: docs\DevKit-MANUAL.txt
-  Certificates issued from a DevKit copy are NOT in the CRL / OCSP database of the master PKI (see
-  the manual).</pre></div>
-<div class="code"><pre>INSTALL  (destination: Windows 11 25H2 or newer)
-  .\PkiTransport.ps1 -Install -Package .\dev.certpacked
-  1. SCAN. Windows 11 client, version 25H2 (build 26200) or newer. Windows 11 24H2 and older,
-     Windows 10, 8.1, 7, Windows Server and everything else are NOT supported: the script says why
-     and stops (exit code 2). OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: it
-     is INSTALLED when you agree (or give -InstallMissing) with Install-DevEnvironment.ps1;
-     otherwise the script stops (exit code 4). -SkipOpenSslCheck continues anyway. Elevated
-     PowerShell (administrator).
-  2. Only then: the package is decrypted, every file is checked against its SHA-256, and what
-     -Extract selects is written to -Destination.
-  3. Every ROOT goes to Trusted Root Certification Authorities, every INTERMEDIATE to Intermediate
-     Certification Authorities (the rules of pki_setup.ps1); the stores are read back; OpenSSL
-     proves that every CA chains to the roots.
-  -Package &lt;file&gt;        The .certpacked.       -PackagePassword / prompt as for -Pack.
-  -Destination &lt;folder&gt;  Default .\certpacked-received\&lt;package name&gt;.
-  -Extract &lt;list&gt;        roots | intermediates | chains | ca | leafcerts | pki | all (= fullchain).
-                         Default ca. -IncludeLeafCerts at the destination adds leafcerts.
-  -InstallLeafPfx        Also imports the leaf PFX files into LocalMachine\My (only the leaf). Needs
-                         leafcerts in the package. -PfxPassword &lt;text&gt; is the PFX password (default
-                         Abc12345!).
-  -Force                 Overwrite files that exist and differ.     -SevenZipPath &lt;exe&gt;   7-Zip, for a 7z package.
-  -InstallMissing        Install what is missing instead of only reporting it: 7-Zip (7z packages,
-                         -ArchiveFormat 7z) and OpenSSL 4.0.1+ (FIPS + quantum-safe, proven) with
-                         Install-DevEnvironment.ps1, which must sit next to this script (the kit has
-                         it). Without the switch you are asked when a person is at the console.
-  -OpenSslPath &lt;exe&gt;     Use this openssl.        -SkipOpenSslCheck   Do not stop when OpenSSL
-                                                                      4.0.1+ is missing.
-  -NoVerify              Do not run the OpenSSL chain check at the end.</pre></div>
-<div class="code"><pre>OTHER
-  -Check -Package &lt;f&gt;    The scan (and, with -Package, whether the password opens the file). Nothing
-                         is installed.
-  -List -Package &lt;f&gt;     What is in the package (scope, CAs, leaves, files).
-  -RemoveTrust -Package &lt;f&gt;   Remove the CA certificates of the package from the Windows stores
-                              (elevated).
-  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and
-                         -Destination, children and recursive, list the programs that hold files
-                         open, and stop. Done at every start too.
-  -Verbose               Show detail.         -Help   This text.</pre></div>
-<div class="code"><pre>EXIT CODES   0 ok   1 error   2 Windows not supported   3 not Windows (use pki-transport.sh)   4 OpenSSL 4.0.1+ missing</pre></div>
-<div class="code"><pre>LIMITATIONS
-  * A package with leaf certificates or CA keys contains PRIVATE KEYS. Send it over a channel you
-    trust, send the password by another one, delete the package and the extracted files when you are
-    done.
-  * 7-Zip gets the password as an argument (-p&lt;password&gt;) and it is visible in a process list while
-    it runs. The default zip engine of this script has no external process.
-  * Not tested here on Windows: -Install, -RemoveTrust (the Windows stores, administrator check,
-    Windows scan of a real machine). The rest is tested on Linux with OpenSSL 4.0.3 and the real</pre></div>
-<h3 id="7-zip">7-Zip.<a class="anchor" href="#7-zip" aria-label="Link to this section">#</a></h3>
-<p>14  Unpack-PkiTransport.ps1 -Help  (THE COMPLETE TEXT)</p>
-<p>Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif O&#220; (NextMantra) Email  : nicko@nextmantra.com</p>
-<div class="code"><pre> Manual : docs\PkiTransport-MANUAL.txt   Needs: PowerShell 7+ (Windows, Linux or macOS)</pre></div>
-<div class="code"><pre>WHAT IT DOES
-  Opens a .certpacked (a password-protected zip or 7z made by PkiTransport.ps1), checks the SHA-256
-  of every file against the list inside, and writes what you select to a folder. NOTHING is
-  installed and no certificate store is touched. There is no operating-system restriction: install
-  the trust with PkiTransport.ps1 -Install (Windows 11 25H2+) or pki-transport.sh (Linux, macOS).</pre></div>
-<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>USAGE
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked                          CA certificates (default)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract roots           only the roots (+ ca-bundle-roots.crt)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract intermediates   only the DV / OV / EV CAs
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract ca,leafcerts    CAs and the leaf certificates
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract all             everything in the package (fullchain)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract leafcerts -LeafName www.example.com,api*
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -List                    what is inside, nothing written</pre></div>
-<div class="code"><pre>PARAMETERS
-  -Package &lt;file&gt;          The .certpacked.
-  -PackagePassword &lt;text&gt;  (alias -Password). Not given: environment variable PKI_TRANSPORT_PASSWORD, else you are asked.
-  -Destination &lt;folder&gt;    Default .\certpacked-received\&lt;package name&gt;.
-  -Extract &lt;list&gt;          roots         ca\roots\*.crt (Enterprise, Track and Quadrant roots),
-                                         ca-bundle-roots.crt
-                           intermediates ca\intermediates\*.crt (DV / OV / EV CAs)
-                           chains        ca\chains\*-fullchain.crt (each intermediate + its parents)
-                                         and the bundles
-                           ca            roots + intermediates + chains + bundles + CRLs + public-CA
-                                         files (default)
-                           leafcerts     the leafcerts folders (leaf certificates AND their private
-                                         keys), if packed
-                           pki           the whole PKI folder with the CA private keys, if packed
-                                         (paths in its manifest are rewritten to the new place)
-                           all           everything the package holds (same as fullchain)
-                           certpack.json and README.txt are always written.
-  -LeafName &lt;wildcards&gt;    With leafcerts: only these leaf sets (the top-level folder names).
-  -List                    Show scope, CAs, leaves and files; write nothing.
-  -Force                   Overwrite files that exist and differ (identical files are left alone).
-  -SevenZipPath &lt;exe&gt;      7-Zip, for a 7z package (zip packages need nothing).
-  -InstallMissing          A 7z package and no 7-Zip: install 7-Zip (Install-DevEnvironment.ps1
-                           -Only 7Zip, or WinGet; Linux / macOS: Install-DevEnvironment.sh --only
-                           7zip) instead of stopping. Without it you are asked when a person is
-                           there.
-  -Unblock                 UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and
-                           -Destination, children and recursive, list the programs that hold files
-                           open, and stop. Done at every start too.
-  -Verbose                 Show detail.      -Help   This text.</pre></div>
-<p>WRONG PASSWORD, DAMAGED OR CHANGED FILE The script says so and writes nothing. The AES-256 zip authenticates every file: one changed byte is found.</p>
-<div class="code"><pre>EXIT CODES   0 ok   1 error (including a wrong password)</pre></div>
-<div class="code"><pre>LIMITATIONS
-  * A package with leafcerts or pki contains PRIVATE KEYS: delete the extracted files and the
-    package when done.</pre></div>
-<h3 id="tested-on-linux-with-openssl-4-0-3-and-the-real-7-zip-not-te">* Tested on Linux with OpenSSL 4.0.3 and the real 7-Zip; not tested here on Windows or macOS.<a class="anchor" href="#tested-on-linux-with-openssl-4-0-3-and-the-real-7-zip-not-te" aria-label="Link to this section">#</a></h3>
-<p>15  pki-transport.sh --help  (THE COMPLETE TEXT)</p>
-<p>pki-transport.sh - DESTINATION script for Linux and macOS Version 6.4.2 Author : Nicko Satria Utama Company: Agantra Inovatif OU (NextMantra) Email  : nicko@nextmantra.com</p>
-<div class="code"><pre> Manual : docs/PkiTransport-MANUAL.txt     Help: ./pki-transport.sh --help</pre></div>
-<div class="code"><pre>WHAT IT DOES  (and nothing else)
-  1. SCAN         the platform, privileges, OpenSSL 4.0.1+, the certificate-store tools, an archive tool.
-  2. PREPARE      installs what is missing: the certificate-store tooling of your Linux, 7-Zip (for AES-256 zip and
-                  7z packages), and - with your consent - OpenSSL 4 built from the official source
-                  release.
-  3. UNPACK       the .certpacked (a password-protected zip or 7z; the extension says nothing, the first bytes do),
-                  checks the SHA-256 of every file, writes what you select to a folder.
-  4. INSTALL      the CA certificates in the SYSTEM certificate store of this machine (Linux: the ca-certificates
-                  store of your distribution; macOS: the System keychain), then proves with OpenSSL
-                  4 that the chains verify against it.</pre></div>
-<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>USAGE
-  ./pki-transport.sh --package dev.certpacked                         unpack the CA certificates, install the roots
-  ./pki-transport.sh --package dev.certpacked --no-trust              unpack only
-  ./pki-transport.sh --package dev.certpacked --extract roots         only the roots
-  ./pki-transport.sh --package dev.certpacked --extract intermediates only the DV / OV / EV CAs
-  ./pki-transport.sh --package dev.certpacked --extract ca,leafcerts  CAs and the leaf certificates
-  ./pki-transport.sh --package dev.certpacked --extract fullchain     everything the package holds
-  ./pki-transport.sh --package dev.certpacked --extract leafcerts --leaf &#39;www*&#39; --no-trust
-  ./pki-transport.sh --package dev.certpacked --list                  what is inside; nothing written
-  ./pki-transport.sh --check                                          the scan only
-  ./pki-transport.sh --package dev.certpacked --remove-trust          take the package&#39;s CAs out of
-                                                                      the store</pre></div>
-<div class="code"><pre>OPTIONS
-  --package FILE        The .certpacked.                                          (also: the first plain argument)
-  --password TEXT       Package password. Visible in a process list: prefer --password-file, the
-                        environment variable
-  --password-file FILE  PKI_TRANSPORT_PASSWORD, or the prompt (not echoed).
-  --dest DIR            Where to write the files. Default ./certpacked-received/&lt;package name&gt;.
-  --extract LIST        Comma-separated:
-                          roots          ca/roots/*.crt (Enterprise, Track and Quadrant roots) +
-                                         ca-bundle-roots.crt
-                          intermediates  ca/intermediates/*.crt (DV, OV and EV CAs)
-                          chains         ca/chains/*-fullchain.crt (each intermediate + its parents)
-                                         and the bundles
-                          ca             roots + intermediates + chains + bundles + CRLs   (default)
-                          leafcerts      the leafcerts folders (leaf certificates AND their private
-                                         keys), if packed
-                          pki            the PKI folder with the CA private keys (a DevKit: only the
-                                         issuing CAs&#39; keys), if packed
-                          all            everything in the package;  fullchain is the same
-  --leaf WILDCARD       With leafcerts: only these leaf sets (top-level folder names), e.g. &#39;www*&#39;.
-                        Several: comma.
-  --trust MODE          Which CAs go into the system store:
-                          roots (default)  every root: Enterprise, Track and Quadrant roots (a Linux store has one
-                                           kind of anchor; this follows the Windows layout where all
-                                           roots are trusted)
-                          enterprise       only the Enterprise Root (servers must send the whole
-                                           chain)
-                          all-ca           roots AND intermediates (macOS: intermediates without
-                                           trust settings)
-                          none             install nothing (same as --no-trust)
-  --no-trust            Unpack only.            --remove-trust   Remove this package&#39;s CAs (or every
-                                                                 ${PREFIX_NAME}* file).
-  --list                Show scope, CAs, leaves, files; write nothing.      --check   The scan only.
-  --force               Overwrite files in --dest that exist and differ.    --no-verify  Skip the OpenSSL chain proof.</pre></div>
-<div class="code"><pre>PREPARATION
-  --yes, -y             Do not ask: install what is missing (packages, 7-Zip). Needed when there is
-                        no terminal.
-  --dry-run             Print every system-changing command instead of running it. Unpacking into
-                        --dest still happens.
-  --install-openssl     Install OpenSSL 4 as a FULL build (FIPS provider, ML-DSA / ML-KEM, shared
-                        libraries, headers, docs) from the official source release into
-                        --openssl-prefix (default /opt/openssl-4.0.3), through
-                        Install-DevEnvironment.sh when it sits next to this script. Without the
-                        option the script asks (exit code 4 when there is no terminal). An OpenSSL 4
-                        that lacks the FIPS module or ML-DSA is NOT accepted (a stripped build). The
-                        build takes minutes on several cores and over an hour on ONE core.
-  --openssl-prefix DIR  Where --install-openssl installs. Default /opt/openssl-4.0.3.
-  --openssl FILE        Use this openssl binary (4.0.1 or newer).
-  --skip-openssl-check  Continue without OpenSSL 4 (the chain proof is skipped). Not recommended.
-  --7z FILE             Use this 7-Zip program (7zz, 7z, 7za).
-  --store-dir DIR       Linux, unknown distribution: the directory of trust anchors.
-  --update-cmd CMD      Linux, unknown distribution: the command that rebuilds the store (run as
-                        root).
-  --destdir DIR         Prefix for the store directory (image builds, tests): nothing is run to
-                        update the store.
-  --unblock             UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, locked, immutable
-                        flags) this script&#39;s folder and --dest, children and recursive, then stop.
-                        The same is done silently at every start.
-  --version             Show the version.          --help, -h   This text.</pre></div>
-<div class="code"><pre>PLATFORMS  (family -&gt; store directory -&gt; command)
-  Ubuntu, Debian                     /usr/local/share/ca-certificates   update-ca-certificates
-  RHEL, CentOS Stream, Rocky, Oracle, Alma   /etc/pki/ca-trust/source/anchors   update-ca-trust extract
-  SLES, openSUSE (Leap, Tumbleweed)  /etc/pki/trust/anchors             update-ca-certificates
-  macOS (M2, M4, Intel)              /Library/Keychains/System.keychain security add-trusted-cert
-  If the certificate-store tooling is not installed, the package ca-certificates is installed first.</pre></div>
-<div class="code"><pre>EXIT CODES   0 ok   1 error   2 platform not supported   4 OpenSSL 4.0.1+ missing   5 wrong password
-             6 a prerequisite could not be installed</pre></div>
-<div class="code"><pre>LIMITATIONS
-  * Needs root (or sudo) to install into the system store and to install packages. Not needed for
-    --list or --no-trust.
-  * 7-Zip packages for your distribution are tried in this order (best effort; EPEL is needed on the
-    RHEL family): 7zip, p7zip + p7zip-plugins, p7zip-full. A ZipCrypto zip needs only unzip. Use
-    --7z when you have 7-Zip elsewhere.
-  * --install-openssl compiles OpenSSL: it needs a compiler, make and perl (installed when you
-    agree). 5 minutes on 8 cores, over an hour on one core. The checksum of the tarball is taken
-    from the same official release page. The result is proven (FIPS provider, ML-DSA, ML-KEM) before
-    the script goes on.
-  * macOS: ML-DSA (post-quantum) certificates may be refused by the macOS keychain; classic CAs
-    install.
-  * Tested on Ubuntu 24.04 (real store, real packages). The other platforms are tested only by
-    simulation (--dry-run): the commands are the documented ones of each distribution, but never ran</pre></div>
-<h3 id="on-them-macos-never-ran">on them. macOS never ran.<a class="anchor" href="#on-them-macos-never-ran" aria-label="Link to this section">#</a></h3>
-<p>16  WHAT CHANGED  (4.9.0)</p>
-<div class="code"><pre> -InstallMissing (PkiTransport.ps1, Unpack-PkiTransport.ps1): 7-Zip and OpenSSL 4 are INSTALLED, not
- only reported (section 17). pki-transport.sh accepts only a READY OpenSSL 4 (FIPS + ML-DSA +
- ML-KEM, never a stripped build), builds a FULL one on request, has --unblock. The kit carries
- Install-DevEnvironment.ps1 / .sh. 4.8.0: new PkiTransport.ps1, Unpack-PkiTransport.ps1,
- pki-transport.sh, the archive layer, this manual.</pre></div>
-<h2 id="17-prerequisites-what-is-installed-for-you">17  PREREQUISITES: WHAT IS INSTALLED FOR YOU<a class="anchor" href="#17-prerequisites-what-is-installed-for-you" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> The transport needs three programs. When one is missing, the scripts install it instead of leaving
- you with an error:
-   Program                 Needed for                                   Windows (PkiTransport.ps1 / Unpack-PkiTransport.ps1)       Linux / macOS (pki-transport.sh)
-   ----------------------  -------------------------------------------  ---------------------------------------------------------  -------------------------------
-   OpenSSL 4.0.1+, READY   the scan; proving every chain (ML-DSA)       -InstallMissing, or answer
-                                                                        yes:
-                                                                        Install-DevEnvironment.ps1
-                                                                        asks, or --install-openssl:
-                                                                        a FULL
-                           (FIPS provider + ML-DSA + ML-KEM, not        -Only OpenSSL (FireDaemon OpenSSL, then proven)            build (Install-DevEnvironment.sh,
-                           stripped)                                                                                                else its own copy of the build)
-   7-Zip                   a 7z package; (Linux, macOS) an AES-256 zip  -InstallMissing: Install-DevEnvironment.ps1 -Only 7Zip,    asks, or --yes: apt / dnf / zypper /
-                                                                        else WinGet 7zip.7zip                                       brew; EPEL on the RHEL family
-   certificate store tools Linux system store                           (not applicable)                                           asks, or --yes: ca-certificates
- Where the bootstrap scripts are looked for: next to the running script and in its parent folder.
- The -Kit copies them, so a destination that received only the kit can install what it lacks.
- Without -InstallMissing the PowerShell scripts ask when a person is at the console and otherwise
- stop with the exact command to run. A STRIPPED OpenSSL 4 (no FIPS module, no ML-DSA / ML-KEM) is
- not accepted by pki-transport.sh; on Windows run Install-DevEnvironment.ps1 -Check to see the
- readiness table. OpenSSL BUILD TIME (Linux, macOS): about 5 minutes on 8 cores, over an hour on one</pre></div>
-<h3 id="core-details-and-the-readiness-checks-install-devenvironment">core. Details and the readiness checks: Install-DevEnvironment-MANUAL.txt.<a class="anchor" href="#core-details-and-the-readiness-checks-install-devenvironment" aria-label="Link to this section">#</a></h3>
-<p>18  THE DEVKIT: ONE ZIP FOR THE DEVELOPERS  (4.9.5)</p>
-<p>PkiTransport.ps1 -DevKit makes ONE zip (or 7z) for your developers: the .certpacked, Install-PkiTrust.ps1 / .sh (unpack and put the whole PKI in the Local Machine store / the Ubuntu store), the leaf / person / Office 365 generators and SignCsr as .ps1 and .sh, Make-ShExecutable.ps1 / make-executable.sh (the .sh executable, no Linux knowledge), devkit.env, examples, the manuals. The full manual is <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>; this section lists what changed in the transport itself.</p>
-<ul><li>New mode -DevKit with -KitArchiveFormat zip|7z, -DevKitNoKeys, -Out, -ArchiveFormat (the .certpacked inside), the password options of -Pack.</li><li>The .certpacked of a DevKit has the scope  caPrivateKeys = true, issuingKeysOnly = true : the pki folder with the keys of the ISSUING (intermediate) CAs only. No root key, no OCSP / TSA key, no old leaf key, no .pfx / .p12. (-Pack -IncludeCaKeys is unchanged: the whole PKI folder.)</li><li>Unpacking the pki folder (-Extract pki, all three destinations) now rewrites the absolute path in pki-manifest.json AND, new, in the CA configuration files (dir = ...), revocation-info.json and the notes. Before, an unpacked PKI still pointed at the pki folder of the machine it came from. (Windows / Unpack-PkiTransport.ps1: Export-PkiPackageSelection; Linux: Install-PkiTrust.sh of the DevKit does it; pki-transport.sh itself only unpacks.)</li><li>The scope line shows &quot;keys of the ISSUING (intermediate) CAs only (no root key)&quot; for such a package (PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh).</li></ul>
-<h3 id="kit-writes-the-manuals-to-a-docs-folder-the-manuals-moved-to">* -Kit writes the manuals to a docs\ folder (the manuals moved to docs\ in 4.9.5).<a class="anchor" href="#kit-writes-the-manuals-to-a-docs-folder-the-manuals-moved-to" aria-label="Link to this section">#</a></h3>
-
-<h2 id="19-releases-and-the-nocr-variant-4-9-5">19  RELEASES AND THE NoCR VARIANT  (4.9.5)<a class="anchor" href="#19-releases-and-the-nocr-variant-4-9-5" aria-label="Link to this section">#</a></h2>
-<p>-Pack, -DevKit, -List and -RemoveTrust work on ONE PKI: the latest release by default; -Release N picks one (a missing release falls back to the latest with a warning), -NoCaRevocationInfo the NoCR family, -PkiRoot a folder. Inside the package the PKI is always the folder pki/ (no R2 in the path), so the destination scripts need no change. devkit.env holds PKI_RELEASE and PKI_VARIANT; the shell scripts derive the name suffix (-r2, -nocr) from the manifest. A kit holds one PKI: build one kit per release. See <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a> section 9.</p>
-<h2 id="20-server-the-server-package-4-9-5">20  -Server: THE SERVER PACKAGE  (4.9.5)<a class="anchor" href="#20-server-the-server-package-4-9-5" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>PkiTransport.ps1 -Server  -  the server package from the transport script  (4.9.5)
-  .\PkiTransport.ps1 -Server                 .\transport\agantra-pki-server-&lt;date&gt;.zip   (latest release, normal family)
-  .\PkiTransport.ps1 -Server -Release 2 -Tar  also a .tar.gz       -NoCaRevocationInfo  the NoCR family       -PkiRoot &lt;folder&gt;  one folder
-  -Out &lt;file.zip&gt;  -Force      -IncludeServiceKeys  LAB ONLY (the OCSP / time stamp keys; a CA key
-                               is never packed)
-  It runs New-PkiServerPackage.ps1 (same checks: no private key, LF text, execute bits; the package
-  is opened again and scanned, one key = deleted) and prints the SHA-256. No password: the package
-  holds nothing secret. Inside: linux\ (pki-server kit, pki-transport.sh,
-  Install-DevEnvironment.sh), pki\ (the PKI WITHOUT keys, with server\), agantra_pki.cnf, the
-  documents. On Ubuntu:  unzip; sudo ./linux/pki-server/pki-server.sh install --source ./pki</pre></div>
-<h2 id="21-crlserver-the-small-crl-server-package-4-9-5">21  -CrlServer: THE SMALL CRL SERVER PACKAGE  (4.9.5)<a class="anchor" href="#21-crlserver-the-small-crl-server-package-4-9-5" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>PkiTransport.ps1 -CrlServer  -  CRLs and CA certificates on Ubuntu 24.04 / 26.04, nothing else
-  .\PkiTransport.ps1 -CrlServer                 .\transport\agantra-pki-crl-server-&lt;date&gt;.zip   (latest release, normal family)
-  .\PkiTransport.ps1 -CrlServer -Release 2 -Tar  also a .tar.gz     -NoCaRevocationInfo  the NoCR family     -PkiRoot &lt;folder&gt;  one folder     -Out &lt;file.zip&gt;  -Force
-  (-IncludeServiceKeys is refused: this package carries no key of any kind.) It runs
-  New-PkiServerPackage.ps1 -CrlOnly (same checks, the package is opened again and scanned) and
-  prints the SHA-256. Inside: linux\pki-server\pki-server.sh, pki\publish, pki\server,
-  docs\PKI-SERVER-MANUAL.txt, README-CRL-SERVER.txt. On Ubuntu:  unzip; sudo
-  ./linux/pki-server/pki-server.sh install --crl-only --source ./pki ;
-  ./linux/pki-server/pki-server.sh dns Renewing CRLs: PkiRevocation.ps1 -Action NewCrl, build again,
-  copy, unzip, pki-server.sh update --crl-only --source ./pki. Manual: <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a> chapter
-  6a.</pre></div>
-<h2 id="22-crlocspserver-crl-ocsp-server-package-no-time-stamping-4">22  -CrlOcspServer: CRL + OCSP SERVER PACKAGE, NO TIME STAMPING  (4.9.5)<a class="anchor" href="#22-crlocspserver-crl-ocsp-server-package-no-time-stamping-4" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>  .\PkiTransport.ps1 -CrlOcspServer           .\transport\agantra-pki-crl-ocsp-server-&lt;date&gt;.zip    (-Release n, -Tar, -NoCaRevocationInfo, -PkiRoot, -Out, -Force)
-  Same checks as -Server (no private key, LF text, execute bits, SHA-256 printed); without
-  pki-tsa.py and pki\tsa. It cannot be combined with -Server or -CrlServer. Ubuntu: csr --no-tsa -&gt;
-  sign with PkiRevocation.ps1 -Action SignCsr -For Ocsp -&gt; import-cert -&gt; sudo
-  ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki Manual: <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>
-  chapter 6b. The three packages: -CrlServer (CRL only), -CrlOcspServer (CRL + OCSP), -Server (CRL +
-  OCSP + time stamping).</pre></div>
-<h2 id="23-timestampserver-time-stamp-server-package-4-9-5">23  -TimestampServer: TIME STAMP SERVER PACKAGE  (4.9.5)<a class="anchor" href="#23-timestampserver-time-stamp-server-package-4-9-5" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre>  .\PkiTransport.ps1 -TimestampServer         .\transport\agantra-pki-timestamp-server-&lt;date&gt;.zip    (-Release n, -Tar, -NoCaRevocationInfo, -PkiRoot, -Out, -Force)
-  Same checks as -Server (no private key, LF text, execute bits, SHA-256 printed); without
-  pki-ocsp-dispatch.py and pki\ocsp. Not combinable with the other server modes; -IncludeServiceKeys
-  is refused. Ubuntu: csr --tsa-only -&gt; sign with PkiRevocation.ps1 -Action SignCsr -For Tsa -&gt;
-  import-cert -&gt; sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki Manual:
-  <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a> chapter 6c. The four packages: -CrlServer, -CrlOcspServer, -TimestampServer,
-  -Server (all three services).</pre></div>
-<div class="code"><pre>5.0.0: -Pki &lt;name&gt; on -Pack, -DevKit, -Server, -CrlServer ... File names follow the PKI
-(agantra-pki-&lt;date&gt;.certpacked, raksaka-pki-&lt;date&gt;.certpacked). TransportFolder, ArchiveFormat and
-ZipEncryption can be set in pki_tools.cnf. -Install runs on Windows 11 24H2+, Windows Server 2025
-and 2022 (2022: post-quantum certificates are not installed); it was Windows 11 25H2 client only.
-Windows 10 and earlier, Windows 11 before 24H2, specialised editions and macOS are refused.
-pki-transport.sh: Linux only (list in <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a> section 6).</pre></div>
-<h2 id="the-kit-now-also-holds-the-csr-tools-5-2-2">THE KIT NOW ALSO HOLDS THE CSR TOOLS  (5.2.2)<a class="anchor" href="#the-kit-now-also-holds-the-csr-tools-5-2-2" aria-label="Link to this section">#</a></h2>
-<p>PkiTransport.ps1 -Pack -Kit copies New-PkiCsr.ps1, new-pki-csr.sh, Prepare-Computer.ps1 and prepare-computer.sh (and docs\NewPkiCsr-MANUAL.txt) into the kit folder, next to the transport scripts: the destination can install OpenSSL and make a certificate request there. The DevKit and every trust-kit zip hold them too. Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
-<h2 id="new-in-6-3-6-web-server-configuration-in-the-kit">NEW IN 6.3.6: WEB SERVER CONFIGURATION IN THE KIT<a class="anchor" href="#new-in-6-3-6-web-server-configuration-in-the-kit" aria-label="Link to this section">#</a></h2>
-<p>The transport kit contains Create-WebServerConfig.ps1 and Create-WebServerConfig.sh and their manual. On the target machine they make nginx or Apache configuration for the certificate you carried over.</p>
+   1. Opens the package and checks the SHA-256 of every file.
+   2. Writes the selection (-Extract, default ca) to -Destination
+      (default .\certpacked-received\&lt;package name&gt;).
+   3. Puts every ROOT in Trusted Root Certification Authorities and every INTERMEDIATE in
+      Intermediate Certification Authorities. The stores are read back. A wrong placement is an
+      error.
+   4. -InstallLeafPfx: imports the leaf PFX files into LocalMachine\My (the leaf only). -PfxPassword
+      is their password (default Abc12345!).
+   5. OpenSSL 4 proves that every CA and every extracted leaf chains to the roots (ML-DSA too).</pre></div>
+<div class="code"><pre> Remove the trust again:   .\PkiTransport.ps1 -RemoveTrust -Package &lt;file&gt;
+ (The leaf PFX files in My stay.)
+ Exit codes: 0 done, 1 error, 2 Windows not supported, 3 not Windows (use pki-transport.sh),
+ 4 OpenSSL 4.0.1+ missing, 5 this system is refused.
+ To see the exit code use  pwsh -File .\PkiTransport.ps1 ...  (&quot;pwsh -Command&quot; shows only 0 or 1).</pre></div>
+<h2 id="8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)<a class="anchor" href="#8-unpack-only-any-computer" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\Unpack-PkiTransport.ps1 -Package &lt;file&gt; [-Extract &lt;list&gt;] [-LeafName &lt;w&gt;] [-Destination &lt;folder&gt;]
+                           [-List] [-Force]</pre></div>
+<p>It installs NOTHING and touches no certificate store. Use it to get the files, for example for a server that reads a CA file. * Default destination: .\certpacked-received\&lt;package name&gt;. certpack.json and README.txt are always written. * Identical files that already exist are left alone. A different file stops the run unless -Force. * -List shows what is inside and writes nothing. * -Extract pki also rewrites the absolute paths in the manifest and the CA settings to the new place. Then  GenerateLeafCertificate.ps1 -PkiRoot &lt;folder&gt;\pki  can issue from the moved PKI. * A wrong password, a damaged or a changed file: it says so and writes nothing.</p>
+<h2 id="9-linux-pki-transport-sh">9  LINUX: pki-transport.sh<a class="anchor" href="#9-linux-pki-transport-sh" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> ./linux/pki-transport.sh --package &lt;file&gt; [options]</pre></div>
+<div class="code"><pre> It does these four things, and nothing else:
+   1. SCAN     platform, privileges (root or sudo), OpenSSL 4.0.1+, 7-Zip, unzip, store tools.
+   2. PREPARE  installs what is missing (ca-certificates, 7-Zip; OpenSSL 4 with your consent).
+   3. UNPACK   asks for the password, checks every SHA-256, writes the selection.
+   4. INSTALL  puts the CA certificates in the system store and proves the chains with OpenSSL 4.</pre></div>
+<p>SYSTEM STORES</p>
+<div class="code"><pre> Family                                   Anchors go to                       Store command
+ ---------------------------------------  ----------------------------------  ---------------------
+ Ubuntu                                   /usr/local/share/ca-certificates    update-ca-certificates
+ CentOS Stream, RHEL, Rocky, Oracle       /etc/pki/ca-trust/source/anchors
+ update-ca-trust extract
+ SUSE Linux Enterprise, openSUSE          /etc/pki/trust/anchors              update-ca-certificates
+ Another Linux                            --store-dir DIR                     --update-cmd CMD</pre></div>
+<p>The family is read from /etc/os-release. The files it adds are named agantra-pki-*, so --remove-trust takes out exactly those.</p>
+<div class="code"><pre> WHICH CAs GO IN (--trust)
+   roots (default)   every root: Enterprise, Track and Quadrant roots. A Linux store has one kind of
+                     anchor, so every root goes in.
+   enterprise        only the Enterprise Root. Servers must then send the whole chain.
+   all-ca            roots and intermediates.
+   none              install nothing (same as --no-trust).
+ An Enterprise Root signed by a public CA is not installed as an anchor on Linux.</pre></div>
+<div class="code"><pre> USEFUL SWITCHES
+   --yes             Do not ask. Install what is missing. Needed when there is no terminal.
+   --dry-run         Print every system-changing command instead of running it.
+   --destdir DIR     Put the anchors under DIR and do not rebuild the store (image builds).
+   --check           The scan only.
+   --list            What is inside. Nothing is written.
+   --remove-trust    Take the CAs out (with --package: exactly that package&#39;s).
+ Exit codes: 0 done, 1 error, 2 platform not supported, 4 OpenSSL missing, 5 wrong password (or this
+ system is refused), 6 a prerequisite could not be installed.
+ OpenSSL 4 missing: --install-openssl builds a FULL OpenSSL 4.0.3 from the official release into
+ /opt/openssl-4.0.3 (the system openssl is not replaced). It takes about 5 minutes on 8 cores and
+ over an hour on one core.</pre></div>
+<h2 id="10-packages-for-servers">10  PACKAGES FOR SERVERS<a class="anchor" href="#10-packages-for-servers" aria-label="Link to this section">#</a></h2>
+<p>PkiTransport.ps1 makes more than the .certpacked. Each mode writes a zip to .\transport\.</p>
+<div class="code"><pre> Mode                  Package                              For
+ --------------------  -----------------------------------  ------------------------------------
+ -DevKit               agantra-pki-devkit-&lt;date&gt;.zip        Developers. See <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>.
+ -CrlServer            agantra-pki-crl-server-&lt;date&gt;.zip    CRL and CA certificates only.
+ -CrlOcspServer        agantra-pki-crl-ocsp-server-...zip   CRL and OCSP, no time stamping.
+ -TimestampServer      agantra-pki-timestamp-server-...zip  Time stamp server (RFC 3161) only.
+ -Server               agantra-pki-server-&lt;date&gt;.zip        CRL, OCSP and time stamping.</pre></div>
+<div class="code"><pre> The server modes run New-PkiServerPackage.ps1. Rules:
+   * No password. The package holds nothing secret and NO private key. The script opens the package
+     again and scans it. One private key inside = the package is deleted (exit 5).
+   * The modes cannot be combined with each other. -IncludeServiceKeys (the OCSP and time stamp
+     keys) is a LAB option. -CrlServer and -TimestampServer refuse it. A CA key is never packed.
+   * Options: -Out &lt;file.zip&gt;  -Force  -Tar (also a .tar.gz)  -Release  -NoCaRevocationInfo
+     -PkiRoot.
+ On the Ubuntu 24.04 / 26.04 server:</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     unzip agantra-pki-crl-server-*.zip
+     sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+     ./linux/pki-server/pki-server.sh dns          the hosts-file lines or router DNS records</pre></div>
+<div class="code"><pre> For OCSP and time stamping the keys are made ON the server and signed on the CA machine:
+     sudo ./linux/pki-server/pki-server.sh csr --no-tsa --source ./pki --out ./csr
+     (sign) PkiRevocation.ps1 -Action SignCsr -For Ocsp          (time stamping: -For Tsa -Ca &lt;ca&gt;)
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-&lt;ca&gt;.crt
+     sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+ Use --tsa-only for the time stamp server, and no flag for all three. A new CRL: run
+ PkiRevocation.ps1 -Action NewCrl, build the package again, copy it, unzip it, and run
+  pki-server.sh update --crl-only --source ./pki .
+ The CRL and certificate addresses are the ones in the certificates, for example
+ http://crl.nextmantra.internal/&lt;ca&gt;.crl. Full steps: <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>.</pre></div>
+<h2 id="11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE<a class="anchor" href="#11-which-pki-goes-into-a-package" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> One package holds ONE PKI.
+   * By default: the latest release of the normal family.
+   * -Release N: release N. A release that no longer exists = the latest, with a warning.
+   * -NoCaRevocationInfo: the NoCR family (CAs without CRL and OCSP addresses).
+   * -PkiRoot &lt;folder&gt;: exactly this folder.
+   * -Pki &lt;name&gt;: the company. The file &lt;name&gt;_pki.cnf is used. File names follow it
+     (agantra-pki-&lt;date&gt;.certpacked, raksaka-pki-&lt;date&gt;.certpacked).
+ Inside the package the PKI is always the folder pki/, so the destination scripts need no change.
+ devkit.env holds PKI_RELEASE and PKI_VARIANT. Make one kit for each release.
+ Settings for all runs: pki_tools.cnf has TransportFolder, ArchiveFormat and ZipEncryption.
+ See <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>, section 9.</pre></div>
+<h2 id="12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU<a class="anchor" href="#12-what-is-installed-for-you" aria-label="Link to this section">#</a></h2>
+<p>The transport needs three programs. When one is missing, the scripts install it.</p>
+<div class="code"><pre> Program                 Needed for                  Windows                        Linux
+ ----------------------  --------------------------  -----------------------------  ---------------
+ OpenSSL 4.0.1+ (ready)  The scan, the chain proof   -InstallMissing, or answer
+ --install-openssl
+                         (ML-DSA too)                yes. Uses                      (a full build)
+                                                     Install-DevEnvironment.ps1
+                                                     -Only OpenSSL.
+ 7-Zip                   A 7z package; on Linux an   -InstallMissing (winget        asks, or --yes
+                         AES-256 zip                 7zip.7zip)
+                         (apt, dnf, zypper)
+ Store tools             The system store            not needed                     asks, or --yes</pre></div>
+<p>&quot;Ready&quot; OpenSSL means: the FIPS module, ML-DSA and ML-KEM are present. A stripped build is NOT accepted by pki-transport.sh. On Windows, Install-DevEnvironment.ps1 -Check shows the table. The bootstrap scripts are looked for next to the running script and in its parent folder. The kit copies them. Without -InstallMissing the PowerShell scripts ask when a person is at the console, and otherwise stop with the exact command to run. More: <a href="Install-DevEnvironment-MANUAL.html">Install-DevEnvironment-MANUAL.txt</a>.</p>
+<h2 id="13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE<a class="anchor" href="#13-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Trust only, for many Linux or Windows machines
+     .\PkiTransport.ps1 -Pack -GeneratePassword -Kit
+     then on each:  sudo ./linux/pki-transport.sh --package &lt;file&gt; --yes</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> A service identity for one VM
+     .\PkiTransport.ps1 -Pack -IncludeLeafCerts -LeafName api.example.com -GeneratePassword
+     ./linux/pki-transport.sh --package &lt;file&gt; --extract ca,leafcerts --leaf &#39;api*&#39; --no-trust</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> A build computer that issues certificates
+     .\PkiTransport.ps1 -Pack -IncludeCaKeys -IncludeLeafCerts -GeneratePassword
+     .\Unpack-PkiTransport.ps1 -Package &lt;file&gt; -Extract pki -Destination D:\pki-build
+     .\GenerateLeafCertificate.ps1 -PkiRoot D:\pki-build\pki -DnsName x.example.com</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> A smaller package
+     .\PkiTransport.ps1 -Pack -ArchiveFormat 7z -GeneratePassword</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> No 7-Zip anywhere, CA certificates only
+     .\PkiTransport.ps1 -Pack -ZipEncryption ZipCrypto -GeneratePassword      (then unzip -P works)</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Take the CAs out again
+     .\PkiTransport.ps1 -RemoveTrust -Package &lt;file&gt;
+     sudo ./linux/pki-transport.sh --package &lt;file&gt; --remove-trust</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Look inside, write nothing
+     .\Unpack-PkiTransport.ps1 -Package &lt;file&gt; -List
+     ./linux/pki-transport.sh --package &lt;file&gt; --list</pre></div>
+<div class="code"><pre> Image build (Dockerfile, VM template)
+     ./linux/pki-transport.sh --package &lt;file&gt; --destdir /target --yes
+     then run update-ca-certificates in the image</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Developers get one zip
+     .\PkiTransport.ps1 -DevKit -GeneratePassword</pre></div>
+<h2 id="14-problems-and-answers">14  PROBLEMS AND ANSWERS<a class="anchor" href="#14-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Message or problem                              Cause and fix
+ ----------------------------------------------  ----------------------------------------------
+ &quot;Windows ... not supported&quot; (exit 2 or 5)       The computer is older than Windows 11 24H2, or a
+                                                 special edition. Use Unpack-PkiTransport.ps1 and
+                                                 import the roots by hand (certlm.msc).
+ &quot;OpenSSL ... not found / too old&quot; (exit 4)      Run with -InstallMissing, or
+                                                 Install-DevEnvironment.ps1, then open a NEW
+                                                 window. Or -OpenSslPath. Linux: --install-openssl.
+ WRONG_PASSWORD (exit 5 on Linux)                Wrong password or damaged file. Nothing was
+                                                 written. Compare the SHA-256 printed by -Pack.
+ &quot;AUTHENTICATION_FAILED: x is damaged&quot;           A byte changed on the way. Copy the file again.
+ &quot;The package does not match its own list&quot;       Same: damaged or changed.
+ &quot;password is not accepted&quot;                      12+ printable ASCII characters, 3 classes. Use
+                                                 -GeneratePassword.
+ &quot;ZipCrypto ... refused for a package with keys&quot; Use Aes256 when the package has private keys.
+ &quot;7-Zip was not found&quot;                           Needed for 7z packages (and AES zips on Linux).
+                                                 Use -InstallMissing / --yes, or -SevenZipPath /
+                                                 --7z.
+ 7-Zip install fails on the RHEL family          Enable EPEL (and CRB), or give --7z, or pack with
+                                                 -ZipEncryption ZipCrypto (CA certificates only).
+ &quot;exists and differs&quot;                            Use -Force / --force, or another destination.
+ &quot;Nothing in this package matches ...&quot;           The package lacks it (scope). The message lists
+                                                 what it holds.
+ Exit code is always 0 or 1                      You used pwsh -Command. Use pwsh -File.
+ Files are blocked or read-only                  .\PkiTransport.ps1 -Unblock (Linux: --unblock).
+ A browser still warns                           Firefox has its own store. Import the root there.
+ -Server: &quot;private key inside, deleted&quot; (exit 5)  A key got into the package. Do not use it. Check
+                                                 the pki\server folder.</pre></div>
+<h2 id="15-limits-you-must-know">15  LIMITS YOU MUST KNOW<a class="anchor" href="#15-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>7-Zip receives the password as an argument. It is visible in the process list while it runs. The default zip engine of the script has no such process.</li><li>A package with private keys is only as safe as its password and its handling.</li><li>The ZipCrypto zip is weak. Use it only without private keys.</li><li>An Enterprise Root signed by a public CA is not installed as an anchor on Linux.</li><li>Windows Server 2022 gets no post-quantum CAs. Older Windows is refused instead of installing half of the PKI.</li><li>macOS is refused since version 5.0.0. The macOS code paths in pki-transport.sh are not reachable.</li><li>The trust is installed per computer. Firefox, Java and some containers have their own stores.</li></ul>
+<h2 id="16-all-options">16  ALL OPTIONS<a class="anchor" href="#16-all-options" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> The full list of each script is in the terminal, one page at a time:
+     .\PkiTransport.ps1 -Help     .\Unpack-PkiTransport.ps1 -Help     ./pki-transport.sh --help</pre></div>
+<div class="code"><pre> PkiTransport.ps1
+   Modes          -Pack  -DevKit  -Server  -CrlServer  -CrlOcspServer  -TimestampServer
+                  -Install  -Check  -List  -RemoveTrust  -Unblock
+   Package        -Out  -Package  -PackagePassword  -GeneratePassword  -AllowWeakPassword
+                  -ArchiveFormat  -ZipEncryption  -SevenZipPath  -Comment  -NoVerify  -Kit
+   Contents       -IncludeLeafCerts  -LeafName  -IncludeCaKeys  -Extract  -Destination
+   DevKit         -KitArchiveFormat  -DevKitNoKeys  -DevKitNoServer
+   Servers        -Tar  -Force  -IncludeServiceKeys
+   Install        -InstallLeafPfx  -PfxPassword  -InstallMissing  -OpenSslPath  -SkipOpenSslCheck
+   Which PKI      -Pki  -PkiRoot  -Release  -NoCaRevocationInfo  -ConfigFile
+   Other          -Verbose  -Help</pre></div>
+<p>Unpack-PkiTransport.ps1 -Package  -PackagePassword  -Destination  -Extract  -LeafName  -List  -Force  -SevenZipPath -InstallMissing  -Unblock  -Verbose  -Help</p>
+<p>pki-transport.sh --package  --password  --password-file  --dest  --extract  --leaf  --trust  --no-trust --remove-trust  --list  --check  --force  --no-verify  --yes  --dry-run  --install-openssl --openssl-prefix  --openssl  --skip-openssl-check  --7z  --store-dir  --update-cmd  --destdir --unblock  --version  --help</p>
+<p>Exit codes of pki-transport.sh: 0 done, 1 error, 2 platform not supported, 4 OpenSSL missing, 5 wrong password, 6 a prerequisite could not be installed.</p>
+<h2 id="17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#17-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Tested (Linux, OpenSSL 4.0.3, real 7-Zip, Ubuntu 24.04 as root):
+   * The archive engine against real 7-Zip in both directions (AES-256 zip, ZipCrypto zip, 7z),
+     a wrong password, tampering and path traversal.
+   * -Pack in every scope and format. Unpack-PkiTransport.ps1 with every selection. A moved PKI
+     issuing a new leaf.
+   * -DevKit: build, unzip, Install-PkiTrust.sh, GenerateLeafCertificate.sh (6.4.4 run).
+   * The Windows gate with simulated machines (builds 26100 and others, Windows 10, Server);
+     exit codes 0 to 4.
+   * pki-transport.sh on Ubuntu with the real system store: install, the proof against the store,
+     removal (the store returned to its exact size), the three --trust modes, --destdir, every
+     --extract selection, a wrong password, on-demand 7-Zip with apt, ZipCrypto with unzip only,
+     7z.
+ Tested only by simulation (--dry-run with a fake os-release): CentOS Stream 10, Rocky 10, RHEL 10,
+ Oracle Linux 10, SLES 15 and 16, openSUSE. The directories and commands are the documented ones,
+ but never ran there.
+ NOT tested:
+   * -Install and -RemoveTrust on a real Windows (the stores, the administrator check, the scan of
+     a real computer).
+   * The 7-Zip package names on the RHEL family and SUSE.
+   * The server packages on a real Ubuntu server (see <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>).</pre></div>
+<h2 id="18-other-documents">18  OTHER DOCUMENTS<a class="anchor" href="#18-other-documents" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre>   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>                  the developer kit
+   <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>              the CRL, OCSP and time stamp server
+   <a href="Install-DevEnvironment-MANUAL.html">Install-DevEnvironment-MANUAL.txt</a>  OpenSSL 4 and 7-Zip
+   <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a>             many companies (-Pki), the platform list (section 6)
+   <a href="PKI-ChangeLog.html">PKI-ChangeLog.txt</a>                  what changed in each version</pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="DevKit-MANUAL.html"><small>&larr; Previous</small>DevKit</a><a class="nx" href="PkiBackup-MANUAL.html"><small>Next &rarr;</small>Backup and restore</a></nav>
-<p class="crumb">Made from PkiTransport-MANUAL.txt by Build-HtmlDocs.ps1 6.4.3.</p>
+<p class="crumb">Made from PkiTransport-MANUAL.txt by Build-HtmlDocs.ps1 6.4.7.</p>
 
 </div>
-<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a class="l3" href="#18-the-devkit-one-zip-for-the-developers-4-9-5">18  The DevKit: one zip for the developers (4.9.5)</a><a class="l3" href="#package-so-a-destination-needs-nothing-else">package so a destination needs nothing else.</a><a class="l3" href="#the-job-is-done">the job is done.</a><a href="#4-pack-the-source-machine">4  PACK (THE SOURCE MACHINE)</a><a class="l3" href="#cross-certificates">cross-certificates.</a><a class="l3" href="#test-exit-codes-with-pwsh-file-pkitransport-ps1-pwsh-command">Test exit codes with   pwsh -File .\PkiTransport.ps1 ...   (&quot;pwsh -Command&quot; only reports 0 or 1).</a><a class="l3" href="#transported-pki-tested">transported PKI (tested).</a><a class="l3" href="#prerequisite">prerequisite.</a><a class="l3" href="#x">--------------  -----------------------------------------------------------------------------</a><a class="l3" href="#package-does-not-hold-is-an-error-that-says-what-it-holds">package does not hold is an error that says what it holds.</a><a class="l3" href="#list-and-in-the-shell-history">list and in the shell history).</a><a class="l3" href="#run-update-ca-certificates-in-the-image">run update-ca-certificates in the image</a><a class="l3" href="#message-symptom-cause-and-fix">Message / symptom                                  Cause and fix</a><a class="l3" href="#as-the-other-scripts">as the other scripts)</a><a class="l3" href="#anchor-on-linux">anchor on Linux.</a><a class="l3" href="#7-zip">7-Zip.</a><a class="l3" href="#tested-on-linux-with-openssl-4-0-3-and-the-real-7-zip-not-te">* Tested on Linux with OpenSSL 4.0.3 and the real 7-Zip; not tested here on Windows or macOS.</a><a class="l3" href="#on-them-macos-never-ran">on them. macOS never ran.</a><a href="#17-prerequisites-what-is-installed-for-you">17  PREREQUISITES: WHAT IS INSTALLED FOR YOU</a><a class="l3" href="#core-details-and-the-readiness-checks-install-devenvironment">core. Details and the readiness checks: Install-DevEnvironment-MANUAL.txt.</a><a class="l3" href="#kit-writes-the-manuals-to-a-docs-folder-the-manuals-moved-to">* -Kit writes the manuals to a docs\ folder (the manuals moved to docs\ in 4.9.5).</a><a href="#19-releases-and-the-nocr-variant-4-9-5">19  RELEASES AND THE NoCR VARIANT  (4.9.5)</a><a href="#20-server-the-server-package-4-9-5">20  -Server: THE SERVER PACKAGE  (4.9.5)</a><a href="#21-crlserver-the-small-crl-server-package-4-9-5">21  -CrlServer: THE SMALL CRL SERVER PACKAGE  (4.9.5)</a><a href="#22-crlocspserver-crl-ocsp-server-package-no-time-stamping-4">22  -CrlOcspServer: CRL + OCSP SERVER PACKAGE, NO TIME STAMPING  (4.9.5)</a><a href="#23-timestampserver-time-stamp-server-package-4-9-5">23  -TimestampServer: TIME STAMP SERVER PACKAGE  (4.9.5)</a><a href="#the-kit-now-also-holds-the-csr-tools-5-2-2">THE KIT NOW ALSO HOLDS THE CSR TOOLS  (5.2.2)</a><a href="#new-in-6-3-6-web-server-configuration-in-the-kit">NEW IN 6.3.6: WEB SERVER CONFIGURATION IN THE KIT</a></aside>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a><a href="#6-passwords">6  PASSWORDS</a><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a><a href="#11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE</a><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.7</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

@@ -23,34 +23,40 @@ param([string]$Path = $PSScriptRoot, [switch]$LineEndingsOnly, [switch]$Help)
 $ErrorActionPreference = 'Stop'
 if ($Help) {
 @'
-============================================================
- Make-ShExecutable.ps1 - make the .sh files executable (Windows developers)
- Version 6.4.3
+====================================================================================================
+ Make-ShExecutable.ps1  -  make the .sh files ready for Linux (Windows)
+ Version 6.4.7
  Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
+ Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Manual : docs\DevKit-MANUAL.txt     Linux twin: make-executable.sh
+====================================================================================================
+ Manual : docs\DevKit-MANUAL.txt (section 15)          Linux twin: make-executable.sh
 
- .\Make-ShExecutable.ps1                    all *.sh and lib\*.sh of this folder
- .\Make-ShExecutable.ps1 -Path <folder>     another folder (recursive)
- .\Make-ShExecutable.ps1 -LineEndingsOnly   only CRLF -> LF
+WHAT IT DOES
+  1. Changes Windows line endings (CRLF) to Linux line endings (LF) in every .sh, .py and .env file.
+     A script with CRLF fails on Linux with  $'\r': command not found.
+  2. Sets the executable bit (chmod +x) on every .sh file:
+       * with WSL: through  wsl chmod +x  (also for \\wsl$ paths);
+       * pwsh on Linux or macOS: with chmod;
+       * Windows without WSL: it cannot be set on an NTFS folder. That is fine. Start the scripts
+         with  bash ./GenerateLeafCertificate.sh ...  or run  bash make-executable.sh  on Linux.
 
- 1. CRLF -> LF in every .sh / .py / .env  (the usual reason why a script copied from Windows fails
-    on Ubuntu).
- 2. chmod +x: through WSL (wsl chmod) or, when pwsh runs on Linux / macOS, chmod. Without WSL on
-    Windows the bit cannot be set; use  bash ./GenerateLeafCertificate.sh ...  (works without the
-    bit) or run  bash make-executable.sh  on the Ubuntu machine.
+QUICK START
+  .\Make-ShExecutable.ps1                    This folder, with all sub-folders.
+  .\Make-ShExecutable.ps1 -Path D:\share\kit Another folder.
+  .\Make-ShExecutable.ps1 -LineEndingsOnly   Only CRLF to LF.
 
-WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
-  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
-  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
-  Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
-  editions. Linux (pwsh): the distributions of the
-  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
+OPTIONS
+  -Path <folder>        The folder. Default: the folder of this script.
+  -LineEndingsOnly      Do not set the executable bit.
+  -Help                 This text.
+
+WHERE IT RUNS
+  Windows 11 24H2 or newer, Windows Server 2025 and 2022, Linux with pwsh.
+  Refused (exit 5): Windows 10, older Windows 11, special editions.
+
+EXIT CODES
+  0 done      5 this system is refused
 '@ | Write-Host
     exit 0
 }

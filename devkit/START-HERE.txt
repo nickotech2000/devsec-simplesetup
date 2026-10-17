@@ -1,93 +1,129 @@
-================================================================================
- AGANTRA INOVATIF ENTERPRISE PKI - DEVELOPER KIT (DevKit)
+====================================================================================================
+ AGANTRA INOVATIF ENTERPRISE PKI  -  DEVELOPER KIT (DevKit)         START HERE
+====================================================================================================
  Version {{VERSION}}   built {{DATE}}
- Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   nicko@nextmantra.com
-================================================================================
+ Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   nicko@nextmantra.com
 
-WHAT IS IN THIS FOLDER
-  {{PACKAGE}}     the PKI, password protected (AES-256). Contains {{KEYS}}.
-  Install-PkiTrust.ps1  /  Install-PkiTrust.sh
-                      unpack the package here and put every root and intermediate CA in the machine certificate store
-                      (Windows: Local Machine; Ubuntu: the system store).
-  GenerateLeafCertificate.ps1  /  .sh                TLS, client, code signing, S/MIME, time stamping, OCSP certificates
-  GeneratePersonLeafCertificate.ps1  /  .sh          certificates of people, from a JSON file
-  GenerateOffice365LeafCertificate.ps1  /  .sh       Microsoft Office / 365 document signing, from a JSON file
-  SignCsr.ps1  /  .sh                                sign the certificate request (CSR) of a colleague with the intermediate CAs in this kit
-  New-PkiCsr.ps1  /  new-pki-csr.sh                  (5.2.2) make a key and a CSR step by step, for you or a colleague; docs\NewPkiCsr-MANUAL.txt
-  Prepare-Computer.ps1  /  prepare-computer.sh         (5.2.2) install OpenSSL (winget / Chocolatey; apt / dnf / zypper)
-  Make-ShExecutable.ps1  /  make-executable.sh       make the .sh files executable (you do not need to know Linux)
-  server\                                            the SERVER KIT (no private key): server\linux\pki-server\pki-server.sh + server\pki. See SERVER KIT below.
-  devkit.env, lib\, scripts\, examples\, docs\       what the scripts use; docs\ has the manuals. SHA256SUMS lists every file.
+ WHAT THIS KIT DOES
+   1. It makes your computer trust the private PKI of the company.
+   2. It lets you make your own test certificates.
+ The full manual is docs\DevKit-MANUAL.txt. Words are explained in docs\GLOSSARY.txt.
 
-THE PASSWORD of the package comes from the person who sent you this kit, by another channel (not with the kit).
+ THE PASSWORD of the package comes from the person who sent you this kit, by another way.
+ It is not in the kit.
 
---------------------------------------------------------------------------------
- WINDOWS  (Windows 11 25H2 or newer, PowerShell 7)
---------------------------------------------------------------------------------
-  1. Unzip the kit (right click > Extract All) to a folder, for example C:\pki-devkit.
-  2. Start PowerShell 7 AS ADMINISTRATOR, then:
-         cd C:\pki-devkit
-         .\Install-PkiTrust.ps1
-     (If Windows blocks the script: Unblock-File .\*.ps1   or   .\PkiTransport.ps1 -Unblock)
-     It asks for the password, checks the machine, unpacks, installs the CAs. OpenSSL 4.0.1+ must be installed:
-     .\Install-PkiTrust.ps1 -InstallMissing  installs it for you.
-     No OpenSSL 4 yet? First (once, as Administrator):  .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
-     (installs OpenSSL 4.x, writes the FIPS config and adds it to the Path; open a NEW PowerShell afterwards).
-     Ubuntu:  ./Install-DevEnvironment.sh --yes --only openssl
-              (default: the OpenSSL of Ubuntu itself - 3.5.x on 26.04, 3.0.x on 24.04 - enough for the .sh generators; nothing is built.
-               OpenSSL 4 from YOUR PPA: add  --openssl-source ppa ;  built from source: --openssl-source build.   nginx from the PPA: --only nginx).
-  3. Make certificates (a normal PowerShell is enough from now on):
-         .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com
-         .\GenerateLeafCertificate.ps1 -EV -DnsName api.example.com -Purpose ServerAuth -NoRevocationInfo
-         .\GeneratePersonLeafCertificate.ps1 -ExampleFile persons.json      (edit persons.json, then)
-         .\GeneratePersonLeafCertificate.ps1 -File persons.json
-         .\GenerateOffice365LeafCertificate.ps1 -ExampleFile office365.json
-         .\GenerateOffice365LeafCertificate.ps1 -File office365.json -NoRevocationInfo
-     The certificates are written to the folder leafcerts\ (every folder has the .crt, .key, .pfx, chain files).
-     A colleague sends a CSR:   .\SignCsr.ps1 -Csr his.csr -Check     (report only: what is wrong, in colour)
-                                .\SignCsr.ps1 -Csr his.csr            (DV, default)    -OV / -EV / -Quantum / -FIPS / -Purpose / -Days
-     The result is in csr-signed\ - send him the *-fullchain.crt. Only the intermediate CAs of the kit sign; roots are signed by the owner.
-     Help of every script:  .\<script>.ps1 -Help
+ WHAT IS IN THIS FOLDER
+   {{PACKAGE}}
+       The PKI, protected by the password. Contains {{KEYS}}.
+   Install-PkiTrust.ps1 / .sh         Unpack the package and install the trust.
+   GenerateLeafCertificate            Seven certificates: TLS, code signing, e-mail, ...
+   GeneratePersonLeafCertificate      Certificates of people, from a JSON file.
+   GenerateOffice365LeafCertificate   Word, Excel and PDF signing, from a JSON file.
+   SignCsr                            Sign the request (CSR) of a colleague.
+   New-PkiCsr / new-pki-csr.sh        Make a key and a request, step by step.
+   Prepare-Computer                   Install OpenSSL (winget, Chocolatey, apt, dnf, zypper).
+   Install-DevEnvironment             Install OpenSSL 4 and put it on the PATH.
+   Make-ShExecutable.ps1 / make-executable.sh   Make the .sh files ready for Linux.
+   server\                            The server kit (CRL, OCSP, time stamping; no private key).
+   devkit.env, lib\, scripts\, examples\, docs\   Used by the scripts. SHA256SUMS lists every file.
+ Every PowerShell script (.ps1) has a bash twin (.sh). Help of every script:
+     .\<script>.ps1 -Help          ./<script>.sh --help
 
---------------------------------------------------------------------------------
- UBUNTU / LINUX  (you do not need to be a Linux person: copy and paste)
---------------------------------------------------------------------------------
-  1. Copy the zip to the Ubuntu machine and unpack it:      unzip agantra-pki-devkit-*.zip && cd agantra-pki-devkit-*
-  2. Make the scripts executable (once):                     bash make-executable.sh
-     (A kit unpacked on Windows and copied over loses the executable bit; this puts it back and fixes Windows line endings.
-      You can also start any script with   bash ./name.sh   and never need the executable bit.)
-  3. Install the PKI:                                        ./Install-PkiTrust.sh
-     It asks for the package password, uses sudo only for the system store and for missing packages (7-Zip).
-  4. Make certificates:
-         ./GenerateLeafCertificate.sh --ov --dns www.example.com
-         ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth --no-revocation-info
-         ./GeneratePersonLeafCertificate.sh --example-file persons.json ; ./GeneratePersonLeafCertificate.sh --file persons.json
-         ./GenerateOffice365LeafCertificate.sh --example-file office365.json ; ./GenerateOffice365LeafCertificate.sh --file office365.json
-     A colleague sends a CSR:   ./SignCsr.sh --csr his.csr --check ;  ./SignCsr.sh --csr his.csr --ov --purpose ServerAuth
-     Help of every script:  ./<script>.sh --help
-     The .sh generators need bash, openssl 3.0+ and python3 (Ubuntu has them; python3 only reads the JSON files).
+----------------------------------------------------------------------------------------------------
+ WINDOWS   (Windows 11 24H2 or newer, PowerShell 7)
+----------------------------------------------------------------------------------------------------
+ Step 1   Unzip the kit (right-click, Extract All) to a short folder, for example C:\pki-devkit.
+ Step 2   If Windows blocks the scripts:   Unblock-File .\*.ps1
+ Step 3   No OpenSSL 4 yet? Once, as administrator:
+              .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+          Then open a NEW PowerShell.
+ Step 4   Start PowerShell 7 AS ADMINISTRATOR:
+              cd C:\pki-devkit
+              .\Install-PkiTrust.ps1
+          It asks for the password, unpacks the kit and installs the CAs.
+          -InstallMissing installs OpenSSL and 7-Zip for you.
+ Step 5   Make certificates. A normal PowerShell is enough from now on:
+              .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com
+              .\GenerateLeafCertificate.ps1 -EV -DnsName api.example.com -Purpose ServerAuth
+              .\GeneratePersonLeafCertificate.ps1 -ExampleFile persons.json
+                  (edit persons.json, then)  .\GeneratePersonLeafCertificate.ps1 -File persons.json
+              .\GenerateOffice365LeafCertificate.ps1 -ExampleFile office365.json
+                  (edit office365.json, then)
+                  .\GenerateOffice365LeafCertificate.ps1 -File office365.json
+ Step 6   Find the files in the folder
+ leafcerts\ . Every folder has the .crt, .key, .pfx, the chain
+          files and the hash files.
+ A colleague sends a request (CSR)?
+              .\SignCsr.ps1 -Csr his.csr -Check       Report only: what is wrong, in colour.
+              .\SignCsr.ps1 -Csr his.csr              Sign it (DV by default).
+          The result is in csr-signed\ . Send him the *-fullchain.crt.
 
---------------------------------------------------------------------------------
+----------------------------------------------------------------------------------------------------
+ LINUX / UBUNTU   (copy and paste; you do not need to be a Linux person)
+----------------------------------------------------------------------------------------------------
+ Step 1   Copy the zip to the machine and unpack it:
+              unzip agantra-pki-devkit-*.zip && cd agantra-pki-devkit-*
+ Step 2   Make the scripts executable (once):
+              bash make-executable.sh
+          A kit unpacked on Windows loses the executable bit. This puts it back and fixes Windows
+          line endings. You can also start any script with  bash ./name.sh  without the bit.
+ Step 3   Install the PKI:
+              ./Install-PkiTrust.sh
+          It asks for the password. It uses sudo only for the system store and for missing packages.
+ Step 4   Make certificates:
+              ./GenerateLeafCertificate.sh --ov --dns www.example.com
+              ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth
+              ./GeneratePersonLeafCertificate.sh --example-file persons.json
+              ./GeneratePersonLeafCertificate.sh --file persons.json
+              ./GenerateOffice365LeafCertificate.sh --example-file office365.json
+              ./GenerateOffice365LeafCertificate.sh --file office365.json
+ A colleague sends a request (CSR)?
+              ./SignCsr.sh --csr his.csr --check ;
+              ./SignCsr.sh --csr his.csr --ov --purpose ServerAuth
+ You need bash, openssl 3.0+ and python3. Ubuntu has them. python3 only reads the JSON files and
+ checks requests.
+ Need OpenSSL 4?   ./Install-DevEnvironment.sh --yes --only openssl
+     By default it uses the OpenSSL of Ubuntu itself, which is enough for the .sh scripts.
+     OpenSSL 4 from the PPA of the owner: add  --openssl-source ppa
+     Built from source: --openssl-source build.     nginx from the PPA: --only nginx
+
+----------------------------------------------------------------------------------------------------
  GOOD TO KNOW
---------------------------------------------------------------------------------
-  * Certificates made here are DEVELOPMENT certificates. They are not in the revocation database (CRL / OCSP) of the master PKI:
-    nobody can revoke them centrally. Do not use them for production. The serial numbers are random and different on every copy.
-  * Do not copy the pki\ folder to other machines or into Git: it holds the keys of the issuing CAs. leafcerts\ is private too.
-  * -NoCrl / -NoOcsp / -NoRevocationInfo (--no-crl / --no-ocsp / --no-revocation-info) leave the revocation URLs out: use them when
-    Word / Excel / a tool says "cannot connect to the revocation server".
-  * Trouble? docs\DevKit-MANUAL.txt has the list of messages and what to do.
+----------------------------------------------------------------------------------------------------
+ * Certificates made here are DEVELOPMENT certificates. They are not in the CRL / OCSP database of
+   the master PKI. Nobody can revoke them centrally. Do not use them in production. The serial
+   numbers are random and differ on every copy.
+ * Do not copy the pki\ folder to other machines or into Git. It holds the keys of the issuing CAs.
+   leafcerts\ is private too.
+ * Word or Excel say "cannot connect to the revocation server"? Add -NoRevocationInfo
+   (--no-revocation-info). The manual explains the limits of this switch.
+ * Trouble? docs\DevKit-MANUAL.txt, section 15, lists the messages and the fixes.
 
-SERVER KIT (CRL, OCSP, time stamping on an Ubuntu 24.04 / 26.04 machine)
-  The folder server\ holds everything for the PKI servers; copy THAT folder (not the rest of this kit) to the Ubuntu machine, then:
+----------------------------------------------------------------------------------------------------
+ SERVER KIT   (CRL, OCSP and time stamping on an Ubuntu 24.04 / 26.04 machine)
+----------------------------------------------------------------------------------------------------
+ The folder server\ holds everything for the PKI servers. Copy THAT folder (not the rest of this
+ kit) to the Ubuntu machine, then:
      cd server && bash linux/fix-permissions.sh
-     sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki        CRL + CA certificates only
-     sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki          CRL + OCSP (first: csr --no-tsa, sign, import-cert)
-     sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki        time stamp server only (first: csr --tsa-only, sign, import-cert)
-     sudo ./linux/pki-server/pki-server.sh install --source ./pki                   all three (first: csr, sign, import-cert)
-     ./linux/pki-server/pki-server.sh dns                                           hosts-file lines / router DNS records
-  server\README-SERVER-PACKAGE.txt and server\docs\PKI-SERVER-MANUAL.txt have every step. The server\pki folder has NO private key; the OCSP / time stamp
-  keys are made on the server and signed on the CA machine (PkiRevocation.ps1 -Action SignCsr). A new CRL: build the kit (or a server package) again.
+     sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+         CRL and CA certificates only
+     sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+         CRL and OCSP (first: csr --no-tsa, sign, import-cert)
+     sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
+         time stamp server only (first: csr --tsa-only, sign, import-cert)
+     sudo ./linux/pki-server/pki-server.sh install --source ./pki
+         all three (first: csr, sign, import-cert)
+     ./linux/pki-server/pki-server.sh dns
+         hosts-file lines and router DNS records
+ server\README-SERVER-PACKAGE.txt and server\docs\PKI-SERVER-MANUAL.txt have every step. The
+ server\pki folder has NO private key. The OCSP and time stamp keys are made on the server and
+   signed
+ on the CA machine (PkiRevocation.ps1 -Action SignCsr). For a new CRL, build the kit again.
 
-RELEASE OF THIS KIT
-  The kit holds ONE PKI (see PKI_RELEASE / PKI_VARIANT in devkit.env). The generators use it automatically; --release / -Release and
-  --no-ca-revocation-info / -NoCaRevocationInfo are only needed when the PKI folder holds several. A PKI made with NoCR has CA certificates without CRL / OCSP URLs.
+----------------------------------------------------------------------------------------------------
+ RELEASE OF THIS KIT
+----------------------------------------------------------------------------------------------------
+ The kit holds ONE PKI (see PKI_RELEASE and PKI_VARIANT in devkit.env). The generators use it
+ automatically. -Release / --release and -NoCaRevocationInfo / --no-ca-revocation-info are needed
+ only when the pki folder holds several. A PKI made with NoCR has CA certificates without CRL and
+ OCSP addresses.

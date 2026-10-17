@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.7">
 <meta name="description" content="Use DigiCert, GlobalSign or Sectigo as the parent of your root.">
 <title>Enterprise Root signed by a public CA - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.7</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Enterprise Root signed by a public CA</h1>
 <p class="lead">Use DigiCert, GlobalSign or Sectigo as the parent of your root.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#1-summary">1  SUMMARY</a></li><li class="l2"><a href="#2-what-changes-for-your-clients">2  WHAT CHANGES FOR YOUR CLIENTS</a></li><li class="l2"><a href="#3-read-this-first-cautions">3  READ THIS FIRST  (cautions)</a></li><li class="l2"><a href="#4-the-two-models">4  THE TWO MODELS</a></li><li class="l2"><a href="#5-which-level-to-sign">5  WHICH LEVEL TO SIGN</a></li><li class="l2"><a href="#6-step-by-step-model-a-subordinate-ca">6  STEP BY STEP, MODEL A  (subordinate CA)</a></li><li class="l2"><a href="#7-step-by-step-model-b-cross-sign">7  STEP BY STEP, MODEL B  (cross-sign)</a></li><li class="l2"><a href="#8-what-the-script-checks-and-refuses-importenterpriseroot-im">8  WHAT THE SCRIPT CHECKS AND REFUSES  (-ImportEnterpriseRoot / -ImportCrossCert)</a></li><li class="l2"><a href="#9-effect-on-validity-trust-stores-files">9  EFFECT ON VALIDITY, TRUST STORES, FILES</a></li><li class="l2"><a href="#10-test-it-without-a-public-ca-rehearsal">10  TEST IT WITHOUT A PUBLIC CA  (rehearsal)</a></li><li class="l2"><a href="#11-renewal-limits-what-is-not-automated">11  RENEWAL, LIMITS, WHAT IS NOT AUTOMATED</a></li><li class="l2"><a href="#12-troubleshooting">12  TROUBLESHOOTING</a></li><li class="l3"><a href="#to-the-ca-store-the-public-root-must-be-trusted">to the CA store); the public root must be trusted</a></li></ol></details>
-<div class="code"><pre>  Version 6.4.3       2026-10-17      pki_setup.ps1 + scripts\13_ExternalRoot.ps1
+<div class="code"><pre>  Version 6.4.7       2026-10-17      pki_setup.ps1 + scripts\13_ExternalRoot.ps1
  Owner  : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Related: <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>, <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>, .\pki_setup.ps1 -Help</pre></div>
 <div class="code"><pre> CONTENTS
@@ -359,7 +359,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h3 id="to-the-ca-store-the-public-root-must-be-trusted">to the CA store); the public root must be trusted<a class="anchor" href="#to-the-ca-store-the-public-root-must-be-trusted" aria-label="Link to this section">#</a></h3>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="scripts-README.html"><small>&larr; Previous</small>Modules (scripts folder)</a><a class="nx" href="PKI-Design-with-FIPS-and-PQC.html"><small>Next &rarr;</small>Design and decisions</a></nav>
-<p class="crumb">Made from PUBLIC-CA-ENTERPRISE-ROOT.txt by Build-HtmlDocs.ps1 6.4.3.</p>
+<p class="crumb">Made from PUBLIC-CA-ENTERPRISE-ROOT.txt by Build-HtmlDocs.ps1 6.4.7.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#1-summary">1  SUMMARY</a><a href="#2-what-changes-for-your-clients">2  WHAT CHANGES FOR YOUR CLIENTS</a><a href="#3-read-this-first-cautions">3  READ THIS FIRST  (cautions)</a><a href="#4-the-two-models">4  THE TWO MODELS</a><a href="#5-which-level-to-sign">5  WHICH LEVEL TO SIGN</a><a href="#6-step-by-step-model-a-subordinate-ca">6  STEP BY STEP, MODEL A  (subordinate CA)</a><a href="#7-step-by-step-model-b-cross-sign">7  STEP BY STEP, MODEL B  (cross-sign)</a><a href="#8-what-the-script-checks-and-refuses-importenterpriseroot-im">8  WHAT THE SCRIPT CHECKS AND REFUSES  (-ImportEnterpriseRoot / -ImportCrossCert)</a><a href="#9-effect-on-validity-trust-stores-files">9  EFFECT ON VALIDITY, TRUST STORES, FILES</a><a href="#10-test-it-without-a-public-ca-rehearsal">10  TEST IT WITHOUT A PUBLIC CA  (rehearsal)</a><a href="#11-renewal-limits-what-is-not-automated">11  RENEWAL, LIMITS, WHAT IS NOT AUTOMATED</a><a href="#12-troubleshooting">12  TROUBLESHOOTING</a><a class="l3" href="#to-the-ca-store-the-public-root-must-be-trusted">to the CA store); the public root must be trusted</a></aside>
@@ -369,7 +369,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.7</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

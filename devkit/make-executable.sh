@@ -29,18 +29,39 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="6.4.3"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.7"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
 case "${1:-}" in -h|--help)
 cat <<'EOT'
-make-executable.sh [folder]     folder = this script's folder by default
-  Version 6.4.3
-  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
-  1. CRLF -> LF in every *.sh, *.py, *.env (sed; a CRLF script fails with  $'\r': command not found)
-  2. chmod +x on every *.sh
+====================================================================================================
+ make-executable.sh  -  make the .sh files ready to run (Linux)
+ Version 6.4.7
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+====================================================================================================
+ Manual : docs/DevKit-MANUAL.txt (section 9)          Windows twin: Make-ShExecutable.ps1
+ Runs on: Linux (VM, bare metal, WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+          Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE. Other systems: error, exit 5.
+
+WHAT IT DOES
+  1. Changes Windows line endings (CRLF) to Linux line endings (LF) in every *.sh, *.py and *.env
+     file. A script with CRLF fails with  $'\r': command not found.
+  2. Sets the executable bit (chmod +x) on every *.sh file.
+
+QUICK START
+  bash make-executable.sh                 This folder. Run it with bash: it needs no executable bit.
+  bash make-executable.sh /path/to/kit    Another folder.
+  Without this script you can still start any script with  bash ./name.sh .
+
+OPTIONS
+  [folder]       The folder. Default: the folder of this script.
+  --help, -h     This text.
+
+EXIT CODES
+  0 done      1 the folder does not exist      5 this system is refused
 EOT
 exit 0;; esac
 DIR="${1:-$(cd "$(dirname "$0")" && pwd)}"

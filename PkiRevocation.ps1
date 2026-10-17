@@ -58,114 +58,117 @@ $script:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Show-PkiRevocationHelp {
     @'
-============================================================
- PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI
- Version 6.4.3
+====================================================================================================
+ PkiRevocation.ps1  -  revoke certificates, make CRLs, OCSP and time stamp certificates
+ Version 6.4.7
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
-============================================================
- Manual : docs\PkiRevocation-MANUAL.txt     Server: docs\PKI-SERVER-MANUAL.txt     Design:
- docs\PKI-Server-Design.txt
- Needs  : PowerShell 7+, OpenSSL 4.x (see Install-DevEnvironment.ps1) and a PKI made by
- pki_setup.ps1.
+====================================================================================================
+ On a terminal: SPACE = next page, ENTER = next line, Q = quit.
+ Manual : docs\PkiRevocation-MANUAL.txt    Server: docs\PKI-SERVER-MANUAL.txt
+ Needs  : PowerShell 7+, OpenSSL 4.x, and a PKI made by pki_setup.ps1.
 
-WHAT IT DOES
-  pki_setup.ps1 already makes, with the PKI:   one OCSP responder certificate per Classic
-  intermediate CA  (pki\ocsp\<ca>\), one time stamping certificate (pki\pki-<name>-<NN>\tsa\<ca>\),
-  the CRLs (pki\pki-<name>-<NN>\publish\) and pki\pki-<name>-<NN>\revocation-info.json /
-  REVOCATION-INFO.txt.
-  This script SHOWS them and lets you EDIT them. A certificate cannot be edited: "edit" = change a
-  value and issue it again (-Replace archives the old one to old-<date>\), and for a CRL = make a
-  new CRL (new number, new validity).
+WHAT IT IS
+  A certificate can become bad before its end date: a key is stolen, a person leaves. Clients must
+  learn this. Your PKI tells them in two ways:
+    CRL   a signed list of the revoked certificates of one CA. Clients download it.
+    OCSP  a small server that answers "is this certificate still good?". It has its own
+          certificate, the OCSP responder certificate.
+  This script shows these things, makes them again, and revokes a certificate.
+  pki_setup.ps1 already makes them when it builds the PKI, so you only come here later.
+
+QUICK START
+  See the state of everything:          .\PkiRevocation.ps1
+  Revoke a certificate:                 .\PkiRevocation.ps1 -Action Revoke -Certificate x.crt
+  Make a new CRL before the old ends:   .\PkiRevocation.ps1 -Action NewCrl
+  After any change copy the PKI to the server again (see AFTER A CHANGE).
 
 ACTIONS   (-Action <name>)
-  Status      Table: per CA the CRL number, next update, days left, revoked/issued, and the OCSP
-              responder. (default)
-  Info        Status + writes pki\pki-<name>-<NN>\revocation-info.json and REVOCATION-INFO.txt
-              (URLs, dates, how to renew) and the server\ folder (server-info.json, ca-list.tsv,
-              server.env, expected-urls.tsv, DNS-RECORDS.txt) that pki-server.sh reads. Every action
-              refreshes them.
-  NewCrl      New CRL of the CA(s) (-Ca q1-ev,q1-ov ; default every CA) and publish it. -CrlDays N =
-              its validity (default 365, agantra_pki.cnf [ revocation ] CrlDays).    Do it BEFORE
-              the old CRL ends (Status shows the days left).
-  Revoke      Revoke an issued certificate:  -Certificate <file.crt>   or  -Serial <hex> -Ca
-              <issuing CA>.
-              -Reason
-              unspecified|keyCompromise|CACompromise|affiliationChanged|superseded|cessationOfOperation|certificateHold
-              The new CRL of that CA is made at once (-NoCrl: not). The OCSP server follows the
-              index.txt of the CA.
-  NewOcsp     OCSP responder certificate for the CA(s) (-Ca; default every Classic intermediate).
-              Exists already: skipped.
-              EDIT: -Replace (+ -OcspDays N, -OcspKeyBits 2048|3072|4096, -KeyType RSA|ECDSA,
-                    -CommonName "...") issues a new one;
-              -RevokeOld also revokes the old one (superseded). Files: pki\ocsp\<ca>\<ca>-ocsp.crt
-              .key .pub -fullchain.crt ocsp-info.json
-  NewTsa      The time stamping certificate (RFC 3161), in pki\tsa\<ca>\. -Level EV|OV|DV (default
-              EV). EDIT: -Replace with -TimestampDays, -TimestampPolicyOid, -TimestampQuadrant,
-              -CommonName, -KeyType, -OcspKeyBits(key size).
-  SignCsr     Sign the CSR of an OCSP responder / time stamp server made ON THE SERVER (the key
-              never leaves it): -Csr <file.csr> -For Ocsp|Tsa -Ca <issuing CA> [-Days N] [-OutFolder
-              <folder>]    -> <name>.crt + -fullchain.crt
+  Status    Default. A table: per CA the CRL number, the next update, the days left, revoked /
+            issued, and the OCSP responder. Look at "days left" often.
+  Info      Status, and it rewrites pki\pki-<name>-<NN>\revocation-info.json and
+            REVOCATION-INFO.txt (URLs, dates, how to renew) and the server\ folder that
+            pki-server.sh reads. Every other action does this too.
+  NewCrl    Make a new CRL for the CA(s) and publish it. -Ca q1-ev,q1-ov (default: every CA).
+            -CrlDays N is its validity (default 365). Do it BEFORE the old CRL ends.
+  Revoke    Revoke one issued certificate. Name it with -Certificate <file.crt>, or with
+            -Serial <hex> -Ca <issuing CA>. Add -Reason (below). A new CRL of that CA is made at
+            once (-NoCrl: not now). The OCSP server follows the index.txt of the CA.
+  NewOcsp   Make the OCSP responder certificate for the CA(s) (-Ca; default every Classic
+            intermediate). One that exists is skipped. To change one, add -Replace.
+  NewTsa    Make the time stamp certificate (RFC 3161) in pki\tsa\<ca>\. -Level EV|OV|DV
+            (default EV). To change it, add -Replace.
+  SignCsr   Sign the CSR of an OCSP responder or time stamp server whose key was made ON THE
+            SERVER. The key never leaves the server:
+            -Csr <file.csr> -For Ocsp|Tsa -Ca <issuing CA> [-Days N] [-OutFolder <folder>]
 
-TIME STAMPING CERTIFICATE (no special certificate is needed)
-  It is the normal leaf with the purpose TimeStamping: extended key usage timeStamping, CRITICAL and
-  alone (RFC 3161). Defaults:
-  Classic non-FIPS (Quadrant 1), RSA 2048, valid 1825 days (a time stamp must stay verifiable for
-  years), policy OID
-  1.3.6.1.4.1.<PEN>.<arc>.4 (your IANA PEN) unless -TimestampPolicyOid / [ timestamp ] PolicyOid say
-  otherwise.
-  -TimestampQuadrant 2|3|4 prepares FIPS / quantum time stamping; the PKI server kit signs with RSA
-  / ECDSA only.
+REVOKE REASONS   (-Reason)
+  unspecified (default)   keyCompromise   CACompromise   affiliationChanged   superseded
+  cessationOfOperation    certificateHold
+  If the private key is stolen, use keyCompromise. A revoked certificate stays revoked.
+
+CHANGE A CERTIFICATE  (a certificate cannot be edited; you issue it again)
+  -Replace      Issue a new one. The old files move to old-<date>\.
+  -RevokeOld    Also revoke the old certificate (reason superseded) and make a new CRL.
+  OCSP:  -Action NewOcsp -Ca q1-ev -Replace -OcspDays 180 -OcspKeyBits 3072 -KeyType RSA|ECDSA
+         -CommonName "..." [-RevokeOld]
+  TSA:   -Action NewTsa -Replace -TimestampDays 3650 -TimestampPolicyOid 1.3.6.1.4.1.<PEN>.1.4
+         -TimestampQuadrant 1
+  CRL:   -Action NewCrl -CrlDays N   (new CRL number, new validity; the old CRL is replaced)
+
+THE TIME STAMP CERTIFICATE  (no special certificate is needed)
+  It is a normal leaf certificate. Its ONLY extended key usage is timeStamping, marked critical
+  (RFC 3161). Defaults: Classic non-FIPS (Quadrant 1), RSA 2048, valid 1825 days (a time stamp must
+  stay checkable for years), policy OID 1.3.6.1.4.1.<PEN>.<arc>.4. -TimestampQuadrant 2|3|4 only
+  prepares FIPS or quantum time stamping. The PKI server kit signs with RSA / ECDSA only.
 
 OPTIONS
-  -Ca <ids>             CA id(s): q1-ev, q1-ov, q1-dv, q2-ev ... (intermediates) or any CA for
-                        -Action NewCrl.
-  -OcspDays N           Validity of an OCSP responder certificate (default 365, [ revocation ]
-                        OcspDays).
-  -Unblock              UNBLOCK and UNLOCK the script folder and the pki folder, children and
-                        recursive, then stop.
-  -ConfigFile <path>    agantra_pki.cnf (default next to the script).    -PkiRoot <path>   The PKI folder (default: the latest release in .\pki\).
-  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
-                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
-                       release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL /
-                       OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot <folder> names one PKI folder and
-                                            overrides both.
-  -OpenSslPath <path>   openssl 4.x.   -FipsModuleConfig <path>   fipsmodule.cnf.   -Verbose   Every OpenSSL command.   -Help   This text.
+  -Action <name>          Status (default), Info, NewCrl, Revoke, NewOcsp, NewTsa, SignCsr.
+  -Ca <ids>               CA ids: q1-ev, q1-ov, q1-dv, q2-ev ... NewCrl accepts any CA.
+  -CrlDays N              CRL validity in days (default 365).
+  -Certificate <file>     Revoke: the certificate file.
+  -Serial <hex>           Revoke: the serial number (needs -Ca).
+  -Reason <r>             Revoke: the reason.                -NoCrl   Revoke: no new CRL now.
+  -OcspDays N             OCSP responder validity (default 365).
+  -OcspKeyBits 2048|3072|4096     -KeyType RSA|ECDSA     -CommonName "..."
+  -Replace  -RevokeOld    Issue again; revoke the old one.
+  -Level EV|OV|DV         Time stamp level (default EV).
+  -TimestampDays N  -TimestampPolicyOid <oid>  -TimestampQuadrant 1|2|3|4
+  -Csr <file>  -For Ocsp|Tsa  -Days N  -OutFolder <folder>     SignCsr only.
+  -Pki <name>             Which company PKI (default agantra). List: .\pki_setup.ps1 -ListPki
+  -Release <n>            Which release (R1, R2 ...). Default: the latest.
+  -NoCaRevocationInfo     Use the NoCR family (CA certificates without CRL / OCSP addresses).
+  -PkiRoot <folder>       One PKI folder. Overrides -Pki, -Release and -NoCaRevocationInfo.
+  -ConfigFile <path>  -OpenSslPath <path>  -FipsModuleConfig <path>  -Verbose
+  -Unblock                Unblock and unlock the script and pki folders, then stop.
+  -Help                   This text.
 
 AFTER A CHANGE
-  The server only knows what you copied to it: run  .\New-PkiServerPackage.ps1  and  sudo
-  ./pki-server.sh update  (new CRL, new index.txt, new responder certificates). Certificates carry
-  the CRL / OCSP URLs of agantra_pki.cnf at the time they were issued.
+  The server knows only what you copied to it. After NewCrl, Revoke, NewOcsp or NewTsa:
+     .\New-PkiServerPackage.ps1                     (make the server package)
+     sudo ./linux/pki-server/pki-server.sh update --source ./pki      (on the server)
+  New certificates carry the CRL / OCSP addresses of agantra_pki.cnf as they were on the day of
+  issue.
 
 EXAMPLES
   .\PkiRevocation.ps1                                        status of every CRL and responder
   .\PkiRevocation.ps1 -Action NewCrl -CrlDays 90             new 90-day CRL for every CA
-  .\PkiRevocation.ps1 -Action Revoke -Certificate `
-        leafcerts\site\serverauth\site-server-ev-q1-rsa2048.crt -Reason keyCompromise
+  .\PkiRevocation.ps1 -Action Revoke `
+        -Certificate leafcerts\site\serverauth\site-server-ev-q1-rsa2048.crt `
+        -Reason keyCompromise
   .\PkiRevocation.ps1 -Action NewOcsp -Ca q1-ev -Replace -OcspKeyBits 3072 -OcspDays 180 -RevokeOld
-  .\PkiRevocation.ps1 -Action NewTsa -Replace -TimestampDays 3650 -TimestampPolicyOid `
-        1.3.6.1.4.1.67096.1.4
+  .\PkiRevocation.ps1 -Action NewTsa -Replace -TimestampDays 3650
   .\PkiRevocation.ps1 -Action SignCsr -Csr .\ocsp-q1-ev.csr -For Ocsp -Ca q1-ev
 
-WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
-                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
-                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
-                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
-                pki-<name>-nocr-NN).
+EXIT CODES   0 ok    1 error (the message says why)    5 this system is refused
 
-WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
-  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
-  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
-  Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
-  editions. Linux (pwsh): the distributions of the
-  .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
+WHERE IT RUNS
+  Windows 11 24H2 or newer, Windows Server 2025 and 2022 (Server 2022: Classic only). Linux with
+  PowerShell: Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle 10+, SLES / openSUSE 15+.
+  Refused (exit 5, nothing done): Windows 10, Windows 11 before 24H2, Server before 2022, macOS,
+  and the Chinese, Government, IoT, SE and Embedded editions.
+====================================================================================================
 '@
 }
 

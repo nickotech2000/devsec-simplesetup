@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 6.4.3           2026-10-17
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 6.4.7           2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
