@@ -34,7 +34,7 @@ if ($Help) {
 @'
 ============================================================
  Install-PkiTrust.ps1 - DevKit installer for Windows
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -43,29 +43,39 @@ if ($Help) {
 
 WHAT IT DOES
   1. Finds the .certpacked next to this script (or -Package) and asks for its password.
-  2. Scans this machine (Windows 11 24H2+ / Server 2025 / 2022, OpenSSL 4.0.1+, administrator) - PkiTransport.ps1 -Install does it.
-  3. Unpacks the CA certificates (folder ca\) AND the pki\ folder with the ISSUING CA keys into THIS folder, checks every SHA-256.
-  4. Puts every root in Local Machine \ Trusted Root Certification Authorities and every intermediate in
-     Local Machine \ Intermediate Certification Authorities, and proves the chains with OpenSSL.
-  5. Gives every intermediate CA a NEW RANDOM serial counter, so certificates you issue never repeat a serial number of the
-     master PKI or of another developer.
+  2. Scans this machine (Windows 11 24H2+ / Server 2025 / 2022, OpenSSL 4.0.1+, administrator) -
+     PkiTransport.ps1 -Install does it.
+  3. Unpacks the CA certificates (folder ca\) AND the pki\ folder with the ISSUING CA keys into THIS
+     folder, checks every SHA-256.
+  4. Puts every root in Local Machine \ Trusted Root Certification Authorities and every
+     intermediate in Local Machine \ Intermediate Certification Authorities, and proves the chains
+     with OpenSSL.
+  5. Gives every intermediate CA a NEW RANDOM serial counter, so certificates you issue never repeat
+     a serial number of the master PKI or of another developer.
 
 USAGE   (PowerShell 7, started as Administrator, in the folder of the kit)
   .\Install-PkiTrust.ps1
-  .\Install-PkiTrust.ps1 -TrustOnly              only the CA certificates; no issuing keys are unpacked
-  .\Install-PkiTrust.ps1 -InstallMissing         install OpenSSL 4 / 7-Zip when they are missing (asks otherwise)
-  .\Install-PkiTrust.ps1 -Reset                  unpack pki\ again (your issued certificates in leafcerts\ are kept)
+  .\Install-PkiTrust.ps1 -TrustOnly              only the CA certificates; no issuing keys are `
+        unpacked
+  .\Install-PkiTrust.ps1 -InstallMissing         install OpenSSL 4 / 7-Zip when they are missing `
+        (asks otherwise)
+  .\Install-PkiTrust.ps1 -Reset                  unpack pki\ again (your issued certificates in `
+        leafcerts\ are kept)
 
 OPTIONS
   -Package <file>   -PackagePassword <text>   (or PKI_TRANSPORT_PASSWORD)   -TrustOnly   -Reset   -InstallMissing
   -SkipOpenSslCheck (not recommended)   -OpenSslPath <exe>   -SevenZipPath <exe>   -Help
-EXIT  0 ok   other: see the message (not Windows 11 24H2+ / Server 2025 / 2022, not elevated, wrong password, OpenSSL missing)
+EXIT  0 ok   other: see the message (not Windows 11 24H2+ / Server 2025 / 2022, not elevated, wrong
+password, OpenSSL missing)
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@ | Write-Host
     exit 0

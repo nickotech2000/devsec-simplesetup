@@ -60,81 +60,145 @@ function Show-PkiRevocationHelp {
     @'
 ============================================================
  PkiRevocation.ps1 - CRL, OCSP and time stamping certificates of the Agantra Inovatif Enterprise PKI
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : docs\PkiRevocation-MANUAL.txt     Server: docs\PKI-SERVER-MANUAL.txt     Design: docs\PKI-Server-Design.txt
- Needs  : PowerShell 7+, OpenSSL 4.x (see Install-DevEnvironment.ps1) and a PKI made by pki_setup.ps1.
+ Manual : docs\PkiRevocation-MANUAL.txt     Server: docs\PKI-SERVER-MANUAL.txt     Design:
+ docs\PKI-Server-Design.txt
+ Needs  : PowerShell 7+, OpenSSL 4.x (see Install-DevEnvironment.ps1) and a PKI made by
+ pki_setup.ps1.
 
 WHAT IT DOES
-  pki_setup.ps1 already makes, with the PKI:   one OCSP responder certificate per Classic intermediate CA  (pki\ocsp\<ca>\),
-  one time stamping certificate (pki\pki-<name>-<NN>\tsa\<ca>\), the CRLs (pki\pki-<name>-<NN>\publish\) and pki\pki-<name>-<NN>\revocation-info.json / REVOCATION-INFO.txt.
-  This script SHOWS them and lets you EDIT them. A certificate cannot be edited: "edit" = change a value and issue it again
-  (-Replace archives the old one to old-<date>\), and for a CRL = make a new CRL (new number, new validity).
+  pki_setup.ps1 already makes, with the PKI:   one OCSP responder certificate per Classic
+  intermediate CA  (pki\ocsp\<ca>\), one time stamping certificate (pki\pki-<name>-<NN>\tsa\<ca>\),
+  the CRLs (pki\pki-<name>-<NN>\publish\) and pki\pki-<name>-<NN>\revocation-info.json /
+  REVOCATION-INFO.txt.
+  This script SHOWS them and lets you EDIT them. A certificate cannot be edited: "edit" = change a
+  value and issue it again (-Replace archives the old one to old-<date>\), and for a CRL = make a
+  new CRL (new number, new validity).
 
 ACTIONS   (-Action <name>)
-  Status      Table: per CA the CRL number, next update, days left, revoked/issued, and the OCSP responder. (default)
-  Info        Status + writes pki\pki-<name>-<NN>\revocation-info.json and REVOCATION-INFO.txt (URLs, dates, how to renew) and the server\ folder
-              (server-info.json, ca-list.tsv, server.env, expected-urls.tsv, DNS-RECORDS.txt) that pki-server.sh reads. Every action refreshes them.
-  NewCrl      New CRL of the CA(s) (-Ca q1-ev,q1-ov ; default every CA) and publish it. -CrlDays N = its validity (default 365,
-              agantra_pki.cnf [ revocation ] CrlDays).    Do it BEFORE the old CRL ends (Status shows the days left).
-  Revoke      Revoke an issued certificate:  -Certificate <file.crt>   or  -Serial <hex> -Ca <issuing CA>.
-              -Reason unspecified|keyCompromise|CACompromise|affiliationChanged|superseded|cessationOfOperation|certificateHold
-              The new CRL of that CA is made at once (-NoCrl: not). The OCSP server follows the index.txt of the CA.
-  NewOcsp     OCSP responder certificate for the CA(s) (-Ca; default every Classic intermediate). Exists already: skipped.
-              EDIT: -Replace (+ -OcspDays N, -OcspKeyBits 2048|3072|4096, -KeyType RSA|ECDSA, -CommonName "...") issues a new one;
-              -RevokeOld also revokes the old one (superseded). Files: pki\ocsp\<ca>\<ca>-ocsp.crt .key .pub -fullchain.crt ocsp-info.json
-  NewTsa      The time stamping certificate (RFC 3161), in pki\tsa\<ca>\. -Level EV|OV|DV (default EV). EDIT: -Replace with
-              -TimestampDays, -TimestampPolicyOid, -TimestampQuadrant, -CommonName, -KeyType, -OcspKeyBits(key size).
-  SignCsr     Sign the CSR of an OCSP responder / time stamp server made ON THE SERVER (the key never leaves it):
-              -Csr <file.csr> -For Ocsp|Tsa -Ca <issuing CA> [-Days N] [-OutFolder <folder>]    -> <name>.crt + -fullchain.crt
+  Status      Table: per CA the CRL number, next update, days left, revoked/issued, and the OCSP
+              responder. (default)
+  Info        Status + writes pki\pki-<name>-<NN>\revocation-info.json and REVOCATION-INFO.txt
+              (URLs, dates, how to renew) and the server\ folder (server-info.json, ca-list.tsv,
+              server.env, expected-urls.tsv, DNS-RECORDS.txt) that pki-server.sh reads. Every action
+              refreshes them.
+  NewCrl      New CRL of the CA(s) (-Ca q1-ev,q1-ov ; default every CA) and publish it. -CrlDays N =
+              its validity (default 365, agantra_pki.cnf [ revocation ] CrlDays).    Do it BEFORE
+              the old CRL ends (Status shows the days left).
+  Revoke      Revoke an issued certificate:  -Certificate <file.crt>   or  -Serial <hex> -Ca
+              <issuing CA>.
+              -Reason
+              unspecified|keyCompromise|CACompromise|affiliationChanged|superseded|cessationOfOperation|certificateHold
+              The new CRL of that CA is made at once (-NoCrl: not). The OCSP server follows the
+              index.txt of the CA.
+  NewOcsp     OCSP responder certificate for the CA(s) (-Ca; default every Classic intermediate).
+              Exists already: skipped.
+              EDIT: -Replace (+ -OcspDays N, -OcspKeyBits 2048|3072|4096, -KeyType RSA|ECDSA,
+                    -CommonName "...") issues a new one;
+              -RevokeOld also revokes the old one (superseded). Files: pki\ocsp\<ca>\<ca>-ocsp.crt
+              .key .pub -fullchain.crt ocsp-info.json
+  NewTsa      The time stamping certificate (RFC 3161), in pki\tsa\<ca>\. -Level EV|OV|DV (default
+              EV). EDIT: -Replace with -TimestampDays, -TimestampPolicyOid, -TimestampQuadrant,
+              -CommonName, -KeyType, -OcspKeyBits(key size).
+  SignCsr     Sign the CSR of an OCSP responder / time stamp server made ON THE SERVER (the key
+              never leaves it): -Csr <file.csr> -For Ocsp|Tsa -Ca <issuing CA> [-Days N] [-OutFolder
+              <folder>]    -> <name>.crt + -fullchain.crt
 
 TIME STAMPING CERTIFICATE (no special certificate is needed)
-  It is the normal leaf with the purpose TimeStamping: extended key usage timeStamping, CRITICAL and alone (RFC 3161). Defaults:
-  Classic non-FIPS (Quadrant 1), RSA 2048, valid 1825 days (a time stamp must stay verifiable for years), policy OID
-  1.3.6.1.4.1.<PEN>.<arc>.4 (your IANA PEN) unless -TimestampPolicyOid / [ timestamp ] PolicyOid say otherwise.
-  -TimestampQuadrant 2|3|4 prepares FIPS / quantum time stamping; the PKI server kit signs with RSA / ECDSA only.
+  It is the normal leaf with the purpose TimeStamping: extended key usage timeStamping, CRITICAL and
+  alone (RFC 3161). Defaults:
+  Classic non-FIPS (Quadrant 1), RSA 2048, valid 1825 days (a time stamp must stay verifiable for
+  years), policy OID
+  1.3.6.1.4.1.<PEN>.<arc>.4 (your IANA PEN) unless -TimestampPolicyOid / [ timestamp ] PolicyOid say
+  otherwise.
+  -TimestampQuadrant 2|3|4 prepares FIPS / quantum time stamping; the PKI server kit signs with RSA
+  / ECDSA only.
 
 OPTIONS
-  -Ca <ids>             CA id(s): q1-ev, q1-ov, q1-dv, q2-ev ... (intermediates) or any CA for -Action NewCrl.
-  -OcspDays N           Validity of an OCSP responder certificate (default 365, [ revocation ] OcspDays).
-  -Unblock              UNBLOCK and UNLOCK the script folder and the pki folder, children and recursive, then stop.
+  -Ca <ids>             CA id(s): q1-ev, q1-ov, q1-dv, q2-ev ... (intermediates) or any CA for
+                        -Action NewCrl.
+  -OcspDays N           Validity of an OCSP responder certificate (default 365, [ revocation ]
+                        OcspDays).
+  -Unblock              UNBLOCK and UNLOCK the script folder and the pki folder, children and
+                        recursive, then stop.
   -ConfigFile <path>    agantra_pki.cnf (default next to the script).    -PkiRoot <path>   The PKI folder (default: the latest release in .\pki\).
-  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
-                       (deleted) is not an error: the latest release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
+  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
+                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
+                       release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL /
+                       OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot <folder> names one PKI folder and
+                                            overrides both.
   -OpenSslPath <path>   openssl 4.x.   -FipsModuleConfig <path>   fipsmodule.cnf.   -Verbose   Every OpenSSL command.   -Help   This text.
 
 AFTER A CHANGE
-  The server only knows what you copied to it: run  .\New-PkiServerPackage.ps1  and  sudo ./pki-server.sh update  (new CRL, new
-  index.txt, new responder certificates). Certificates carry the CRL / OCSP URLs of agantra_pki.cnf at the time they were issued.
+  The server only knows what you copied to it: run  .\New-PkiServerPackage.ps1  and  sudo
+  ./pki-server.sh update  (new CRL, new index.txt, new responder certificates). Certificates carry
+  the CRL / OCSP URLs of agantra_pki.cnf at the time they were issued.
 
 EXAMPLES
   .\PkiRevocation.ps1                                        status of every CRL and responder
   .\PkiRevocation.ps1 -Action NewCrl -CrlDays 90             new 90-day CRL for every CA
-  .\PkiRevocation.ps1 -Action Revoke -Certificate leafcerts\site\serverauth\site-server-ev-q1-rsa2048.crt -Reason keyCompromise
+  .\PkiRevocation.ps1 -Action Revoke -Certificate `
+        leafcerts\site\serverauth\site-server-ev-q1-rsa2048.crt -Reason keyCompromise
   .\PkiRevocation.ps1 -Action NewOcsp -Ca q1-ev -Replace -OcspKeyBits 3072 -OcspDays 180 -RevokeOld
-  .\PkiRevocation.ps1 -Action NewTsa -Replace -TimestampDays 3650 -TimestampPolicyOid 1.3.6.1.4.1.67096.1.4
+  .\PkiRevocation.ps1 -Action NewTsa -Replace -TimestampDays 3650 -TimestampPolicyOid `
+        1.3.6.1.4.1.67096.1.4
   .\PkiRevocation.ps1 -Action SignCsr -Csr .\ocsp-q1-ev.csr -For Ocsp -Ca q1-ev
 
 WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
-                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
-                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
+                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
+                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
+                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
+                pki-<name>-nocr-NN).
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 
-if ($Help) { Show-PkiRevocationHelp; exit 0 }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-PkiRevocationHelp }; exit 0 }
 
 # Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
 $__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'

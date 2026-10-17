@@ -1,13 +1,24 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 5.3.6     2026-10-14
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 6.4.1      2026-10-17
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
-  Design : PKI-Design-with-FIPS-and-PQC.txt        Manuals: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
+  Design : PKI-Design-with-FIPS-and-PQC.txt  Manuals: pki_setup-MANUAL.txt,
+           GenerateLeafCertificate-MANUAL.txt, DevKit-MANUAL.txt,
                                                   PkiTransport-MANUAL.txt
- Run the checks of a phase on the machines named; report the output of the steps that matter and anything that fails.
+ Run the checks of a phase on the machines named; report the output of the steps that matter and
+ anything that fails.
 
  A  PHASE A  (pki_setup.ps1)          B  PHASE B  (GenerateLeafCertificate.ps1)          C  PHASE C  (the transport)
 ====================================================================================================
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : What to run and check to accept a version.
+ Who reads it : Testers and the owner.
+ You need     : A fresh PKI.
+ Start with   : Work through the checklist of your area.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
  A  PHASE A ACCEPTANCE CHECKLIST  (run on your machines; Phase B starts after these pass)
 ====================================================================================================
  Windows 11 26H2 Pro VM, PowerShell 7.6.6 (elevated), in the project folder:
@@ -19,56 +30,76 @@
                                                              "ML-DSA (Quantum quadrants)" PASS with
                                                              OpenSSL 4.0.3. Add -FipsModuleConfig to
                                                              include quadrants 2 / 4.
-  A3    .\pki_setup.ps1 -Clean -InstallTrust                 "ML-DSA works in this OpenSSL" for quadrants 3 and 4,
-                                                             then the table of 19 CAs and 4 leaves: Quantum
-                                                             rows ML-DSA-87 / ML-DSA-65, no "*";
-                                                             "Trust store: 19 of 19 CA certificate(s)
-                                                             in place"; 4 leaf PFX in My (or a warning
-                                                             for ML-DSA PFX files, see L11)
+  A3    .\pki_setup.ps1 -Clean -InstallTrust                 "ML-DSA works in this OpenSSL" for
+                                                             quadrants 3 and 4,
+                                                             then the table of 19 CAs and 4 leaves:
+                                                             Quantum rows ML-DSA-87 / ML-DSA-65, no
+                                                             "*"; "Trust store: 19 of 19 CA
+                                                             certificate(s) in place"; 4 leaf PFX in
+                                                             My (or a warning for ML-DSA PFX files,
+                                                             see L11)
   A4    .\pki_setup.ps1 -Verify                              "PKI is valid"; Windows stores PASS;
-                                                             "Windows chain: ..." PASS for the Classic
-                                                             leaves AND the ML-DSA leaves
+                                                             "Windows chain: ..." PASS for the
+                                                             Classic leaves AND the ML-DSA leaves
   A5    certlm.msc                                           Trusted Root Certification Authorities: 7
-                                                             (Enterprise, 2 Track, 4 Quadrant roots);
-                                                             Intermediate Certification Authorities: 12
-                                                             (DV / OV / EV, also the ML-DSA ones).
-                                                             Nothing of ours in the wrong store.
-  A5b   .\pki_setup.ps1 -ReinstallTrust  (if A5 shows Track /   "moved to the right store", then "7 of 7 roots in
+                                                             (Enterprise, 2 Track, 4 Quadrant
+                                                             roots); Intermediate Certification
+                                                             Authorities: 12 (DV / OV / EV, also the
+                                                             ML-DSA ones). Nothing of ours in the
+                                                             wrong store.
+  A5b   .\pki_setup.ps1 -ReinstallTrust  (if A5 shows Track /   "moved to the right store", then "7
+                                                                of 7 roots in
                                                              place / 12 of 12 intermediates", then
-        Quadrant roots under Intermediate, e.g. after 4.4)   A5 is right; -Verify "Windows chain" lines PASS
-  A6    Kestrel (Visual Studio 2026, .NET 10) with the       page loads over https in Edge, no warning
+        Quadrant roots under Intermediate, e.g. after 4.4)   A5 is right; -Verify "Windows chain"
+                                                             lines PASS
+  A6    Kestrel (Visual Studio 2026, .NET 10) with the       page loads over https in Edge, no
+                                                             warning
         CLASSIC .pfx (q1-rsa2048)
   A7    Node, Go, Python, PHP, Java client with the root     each connects to a Classic-leaf server
   A8    .\pki_setup.ps1 -IanaPen 99999 -Clean ... then       leaf shows 1.3.6.1.4.1.99999.1 and .1.1
         certutil -dump on a leaf
-  A9    .\pki_setup.ps1 -RemoveAllTrust                      Agantra certificates gone, pki folder gone
+  A9    .\pki_setup.ps1 -RemoveAllTrust                      Agantra certificates gone, pki folder
+                                                             gone
 
  Ubuntu 26.04 server (copy pki\root\root.crt and the leaf sets with scp):
 
   U1    sudo cp root.crt /usr/local/share/ca-certificates/agantra-root.crt ; sudo update-ca-certificates
                                                              "1 added"
-  U2    nginx with the CLASSIC fullchain + key (manual 8.3); sudo nginx -t && sudo systemctl reload nginx
+  U2    nginx with the CLASSIC fullchain + key (manual 8.3); sudo nginx -t && sudo systemctl reload
+        nginx
   U3    curl --cacert root.crt https://<host>                page loads, no certificate error
   U4    openssl s_client -connect <host>:443 -groups X25519MLKEM768 </dev/null     (system OpenSSL 3.5+)
-                                                             "Negotiated TLS1.3 group: X25519MLKEM768"
-                                                             and "Verification: OK"
-  U5    nginx with the QUANTUM (q1-mldsa65: Quantum Q1) fullchain + key  curl --cacert root.crt https://<host> works;
+                                                             "Negotiated TLS1.3 group:
+                                                             X25519MLKEM768" and "Verification: OK"
+  U5    nginx with the QUANTUM (q1-mldsa65: Quantum Q1) fullchain + key  curl --cacert root.crt
+        https://<host> works;
         on a test host name                                  s_client shows "Peer signature type: ML-DSA-65"
-                                                             (a browser is expected to refuse it: L1)
+                                                             (a browser is expected to refuse it:
+                                                             L1)
 
-  A10   .\pki_setup.ps1 -ShowNames, then change Prefix in      names change; -ShowNames shows them; a too long
+  A10   .\pki_setup.ps1 -ShowNames, then change Prefix in      names change; -ShowNames shows them;
+                                                               a too long
         [ ca_names ] and run it again                         or duplicate name is refused
   A11   .\pki_setup.ps1 -Clean -ClassicPKI -InstallTrust      6 CAs + 1 leaf; Root / CA stores as before
   A12   rehearsal of the public-CA flow with a stand-in CA     document PUBLIC-CA-ENTERPRISE-ROOT.txt,
         (document, section 10)                                section 10: refusals and acceptance as listed
 
-  A13   openssl x509 -in <Enterprise Root>.crt -noout -ext certificatePolicies,extendedKeyUsage, and the same for both Track Roots
-                                                              "Any Policy" and 2.23.140.1.1 ONLY (no 2.23.140.1.2.x, no 67096);
-                                                              no extended key usage. Windows (certlm.msc, Details): "All issuance policies"
-  A14   the same on a Quadrant Root and on an EV intermediate   Quadrant Root: EV, OV, DV + 1.3.6.1.4.1.67096.1 and .1.1 .1.2 .1.3;
-                                                              EV intermediate: 2.23.140.1.1 + 67096.1 + 67096.1.1. A leaf: its level + PEN
-  A15   .\pki_setup.ps1 -ShowNames, then look in certlm.msc    Quadrant Roots: Classic Q1, Classic Q2, "PQC Q1", "PQC
-                                                              Q2"; stems agantra-q1-root-g1, -q2-root-g1, -q1-root-g2, -q2-root-g2;
+  A13   openssl x509 -in <Enterprise Root>.crt -noout -ext certificatePolicies,extendedKeyUsage, and
+        the same for both Track Roots
+                                                              "Any Policy" and 2.23.140.1.1 ONLY (no
+                                                              2.23.140.1.2.x, no 67096); no extended
+                                                              key usage. Windows (certlm.msc,
+                                                              Details): "All issuance policies"
+  A14   the same on a Quadrant Root and on an EV intermediate   Quadrant Root: EV, OV, DV +
+                                                                1.3.6.1.4.1.67096.1 and .1.1 .1.2
+                                                                .1.3;
+                                                              EV intermediate: 2.23.140.1.1 +
+                                                              67096.1 + 67096.1.1. A leaf: its level
+                                                              + PEN
+  A15   .\pki_setup.ps1 -ShowNames, then look in certlm.msc    Quadrant Roots: Classic Q1, Classic
+                                                               Q2, "PQC Q1", "PQC
+                                                              Q2"; stems agantra-q1-root-g1,
+                                                              -q2-root-g1, -q1-root-g2, -q2-root-g2;
                                                               no Q3 / Q4 in any name
 
  Report back: the output of A2, the summary table of A3, A4, A13 to A15, and anything that fails.
@@ -81,49 +112,76 @@
   ---   ----------------------------------------------------------  -------------------------------------------
   B1    .\GenerateLeafCertificate.ps1 -Check                        every line PASS, "READY"
   B2    .\GenerateLeafCertificate.ps1 -DnsName www.example.com      leafcerts\www.example.com\ (next to the
-                                                                    scripts) with SEVEN purpose folders (serverauth,
-                                                                    clientauth, serverauth-clientauth, ...), each
-                                                                    "validated", all formats, EV, 397 days
+                                                                    scripts) with SEVEN purpose
+                                                                    folders (serverauth, clientauth,
+                                                                    serverauth-clientauth, ...),
+                                                                    each "validated", all formats,
+                                                                    EV, 397 days
   B3    the same command again                                      a NEW folder www.example.com_<date>-<time>
-  B3b   .\GenerateLeafCertificate.ps1 -Unblock                       counts of unblocked / unlocked items; no
-                                                                    program listed (or close the one listed)
-  B4    .\GenerateLeafCertificate.ps1 -DV -Classic -FIPS -Format ALL -DnsName a.example.com,b.example.com
-                                                                    ECDSA-P256, DV subject = CN only, all formats
+  B3b   .\GenerateLeafCertificate.ps1 -Unblock                       counts of unblocked / unlocked
+                                                                     items; no
+                                                                    program listed (or close the one
+                                                                    listed)
+  B4    .\GenerateLeafCertificate.ps1 -DV -Classic -FIPS -Format ALL -DnsName
+        a.example.com,b.example.com
+                                                                    ECDSA-P256, DV subject = CN
+                                                                    only, all formats
   B5    .\GenerateLeafCertificate.ps1 -OV -Quantum -DnsName m.example.com     ML-DSA-65, issuer q3-ov (quadrant 3)
   B6    .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName p.example.com   issuer q4-ev (quadrant 4)
   B7    .\GenerateLeafCertificate.ps1 -DnsName x.example.com -KeyBits 1024        refused (RSA below 2048)
   B8    .\GenerateLeafCertificate.ps1 -List                         the leaves above
   B9    in the folder of B4:  .\convert-formats.ps1                 runs without an OpenSSL error
   B10   Windows, elevated:  .\GenerateLeafCertificate.ps1 -DnsName w.example.com -InstallPfx
-                                                                    leaf in LocalMachine\My; NO new certificate
-                                                                    in Intermediate or Trusted Root (certlm.msc)
+                                                                    leaf in LocalMachine\My; NO new
+                                                                    certificate in Intermediate or
+                                                                    Trusted Root (certlm.msc)
   B11   Kestrel with the .pfx of B2 (Edge)                           page loads, no warning
-  B12   Ubuntu: nginx with B2 fullchain + key, and with B5          curl --http2 / --http3 and s_client as in
+  B12   Ubuntu: nginx with B2 fullchain + key, and with B5          curl --http2 / --http3 and
+                                                                    s_client as in
         (copy the folders; trust root.crt as in section 7A)         tls-guidance.txt
-  B13   rename Install-DevEnvironment.ps1's OpenSSL out of PATH (or  the output says OpenSSL 4.x is missing and
+  B13   rename Install-DevEnvironment.ps1's OpenSSL out of PATH (or  the output says OpenSSL 4.x is
+        missing and
         use -OpenSslPath with a 3.x)                                 suggests Install-DevEnvironment.ps1
 
   B14   .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerAuth,ClientAuth
-                                                                    THREE certificates; openssl x509 -ext extendedKeyUsage:
+                                                                    THREE certificates; openssl x509
+                                                                    -ext extendedKeyUsage:
                                                                     serverAuth / clientAuth / both
   B15   .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerClientAuth
-                                                                    ONE certificate with both EKUs, in leafcerts\api.example.com\
-  B16   .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         warning that the EV SAN rules are not applied; 7 certificates;
+                                                                    ONE certificate with both EKUs,
+                                                                    in leafcerts\api.example.com\
+  B16   .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         warning that the EV SAN rules
+                                                                     are not applied; 7
+                                                                     certificates;
         then: openssl x509 -in <serverauth leaf>.crt -noout -ext subjectAltName
-                                                                    the TLS leaves: 21 DNS, 603 IP (4.9.6: + 192.168.1.1-100, 192.168.2.1-100), 4 e-mail; S/MIME: 4 e-mail; code
-                                                                    signing, time stamping, OCSP: no SAN
-  B17   Windows: Kestrel / IIS with the serverauth .pfx of B16 and  no certificate warning for https://localhost, https://127.0.0.1,
-        the hosts file entry  127.0.0.1 app.nextmantra.com          https://app.nextmantra.com, https://[::1] (if the client reads IP SANs)
+                                                                    the TLS leaves: 21 DNS, 603 IP
+                                                                    (4.9.6: + 192.168.1.1-100,
+                                                                    192.168.2.1-100), 4 e-mail;
+                                                                    S/MIME: 4 e-mail; code signing,
+                                                                    time stamping, OCSP: no SAN
+  B17   Windows: Kestrel / IIS with the serverauth .pfx of B16 and  no certificate warning for
+        https://localhost, https://127.0.0.1,
+        the hosts file entry  127.0.0.1 app.nextmantra.com          https://app.nextmantra.com,
+                                                                    https://[::1] (if the client
+                                                                    reads IP SANs)
   B18   a machine with an address in 192.168.0.1-200 or 172.16.0.1-200 running the same site, opened by its IP address     no warning
-  B19   mutual TLS (nginx ssl_verify_client on / Kestrel RequireCertificate) with the clientauth leaf as the client certificate and the
-        serverauth leaf as the server certificate                    handshake succeeds; with the serverauth leaf as client it is refused
+  B19   mutual TLS (nginx ssl_verify_client on / Kestrel RequireCertificate) with the clientauth
+        leaf as the client certificate and the
+        serverauth leaf as the server certificate                    handshake succeeds; with the
+                                                                     serverauth leaf as client it is
+                                                                     refused
   B20   remove one name from [ development_san ] in agantra_pki.cnf and run B16 again     the name is missing from the new certificate;
-        a broken entry (IPRange.1 = 10.0.0.9-10.0.0.1) stops the run with the entry named, no folder left
+        a broken entry (IPRange.1 = 10.0.0.9-10.0.0.1) stops the run with the entry named, no folder
+        left
 
-  B21   .\GenerateLeafCertificate.ps1 -EV -Purpose CodeSigning   openssl x509 -noout -subject: CN = O = Agantra Inovatif OU,
-                                                              C = EE, ST = Tallinn, L = Tallinn; nothing else
+  B21   .\GenerateLeafCertificate.ps1 -EV -Purpose CodeSigning   openssl x509 -noout -subject: CN =
+                                                                 O = Agantra Inovatif OU,
+                                                              C = EE, ST = Tallinn, L = Tallinn;
+                                                              nothing else
   B22   .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany "Example Ltd"
-                                                              CN = O = Example Ltd; folder Example_Ltd; signtool sign with the .pfx works
+                                                              CN = O = Example Ltd; folder
+                                                              Example_Ltd; signtool sign with the
+                                                              .pfx works
   B23   .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName q.example.com      the file names contain q2 (not q4): ...-ev-q2-mldsa65.crt
   B24   a company name of 70 characters                          refused, no folder left
 
@@ -136,34 +194,45 @@
   #     Where / command                                              Expected
   ---   -----------------------------------------------------------
         ---------------------------------------------------------
-  C1    source: .\PkiTransport.ps1 -Pack -GeneratePassword -Kit      a .certpacked, the password shown once, the
+  C1    source: .\PkiTransport.ps1 -Pack -GeneratePassword -Kit      a .certpacked, the password
+                                                                     shown once, the
         SHA-256, a kit folder
-  C2    source: .\PkiTransport.ps1 -Pack -IncludeLeafCerts           the package holds leafcerts; the warning about
+  C2    source: .\PkiTransport.ps1 -Pack -IncludeLeafCerts           the package holds leafcerts;
+                                                                     the warning about
         private keys
-  C3    rename a copy to .zip / .7z, open it in 7-Zip with the pw    it opens (a .certpacked is a real archive)
+  C3    rename a copy to .zip / .7z, open it in 7-Zip with the pw    it opens (a .certpacked is a
+                                                                     real archive)
   C4    Windows 11 25H2+ (elevated, kit): .\PkiTransport.ps1 -Check  every line PASS, "READY"
-  C5    Windows 10, or Windows 11 24H2 (if you have one): -Check     FAIL with the reason, "NOT READY", exit code 2;
+  C5    Windows 10, or Windows 11 24H2 (if you have one): -Check     FAIL with the reason, "NOT
+                                                                     READY", exit code 2;
         -Install unpacks nothing
-  C6    Windows 11 25H2+: .\PkiTransport.ps1 -Install -Package ...   7 roots in Trusted Root, 12 intermediates in
+  C6    Windows 11 25H2+: .\PkiTransport.ps1 -Install -Package ...   7 roots in Trusted Root, 12
+                                                                     intermediates in
         Intermediate (certlm.msc),
-                                                                     "all N certificate(s) chain to the roots of the
+                                                                     "all N certificate(s) chain to
+                                                                     the roots of the
                                                                          package"
-  C7    Windows 11 25H2+: -Install -IncludeLeafCerts -InstallLeafPfx the leaf in LocalMachine\My; NOTHING new in
-        Intermediate / Root
+  C7    Windows 11 25H2+: -Install -IncludeLeafCerts -InstallLeafPfx the leaf in LocalMachine\My;
+        NOTHING new in Intermediate / Root
   C8    any pwsh 7: .\Unpack-PkiTransport.ps1 -Package ... -Extract roots     files only; no certificate store changed
-  C9    Windows: .\PkiTransport.ps1 -RemoveTrust -Package ...        the CAs are gone from the stores
+  C9    Windows: .\PkiTransport.ps1 -RemoveTrust -Package ...        the CAs are gone from the
+                                                                     stores
   C10   Ubuntu 26: sudo ./linux/pki-transport.sh --package ... --yes       7 files agantra-pki-* in
         /usr/local/share/ca-certificates, "verify against
                                                                      the system store"
-  C11   CentOS Stream 10, Rocky 10, RHEL 9, Oracle Linux 10: the same 7-Zip is installed (EPEL) or give --7z; anchors in
-                                                                     /etc/pki/ca-trust/source/anchors, update-ca-trust
+  C11   CentOS Stream 10, Rocky 10, RHEL 9, Oracle Linux 10: the same 7-Zip is installed (EPEL) or
+        give --7z; anchors in
+                                                                     /etc/pki/ca-trust/source/anchors,
+                                                                     update-ca-trust
                                                                          run
   C12   SLES 16, openSUSE Tumbleweed: the same                       anchors in /etc/pki/trust/anchors
-  C13   macOS M2 and M4: sudo ./linux/pki-transport.sh --package ... --yes the roots are in the System keychain; report which
-        certificates macOS refused
-  C14   one Linux and one Mac without OpenSSL 4: --install-openssl   OpenSSL 4.0.3 built (several minutes), checksum
+  C13   macOS M2 and M4: sudo ./linux/pki-transport.sh --package ... --yes the roots are in the
+        System keychain; report which certificates macOS refused
+  C14   one Linux and one Mac without OpenSSL 4: --install-openssl   OpenSSL 4.0.3 built (several
+                                                                     minutes), checksum
         matched, the scan passes
-  C15   a wrong password (any script)                               refused, nothing written (shell exit code 5)
+  C15   a wrong password (any script)                               refused, nothing written (shell
+                                                                    exit code 5)
   C16   ./linux/pki-transport.sh --package ... --remove-trust              the files agantra-pki-* are gone; the store is
         rebuilt
 
@@ -175,21 +244,31 @@
 
   #     Where / command                                              Expected
   ---   -----------------------------------------------------------  ---------------------------------------------------------
-  D1    Windows 11: .\Install-DevEnvironment.ps1 -Check              the component list; OpenSSL readiness table (no installation)
+  D1    Windows 11: .\Install-DevEnvironment.ps1 -Check              the component list; OpenSSL
+                                                                     readiness table (no
+                                                                     installation)
   D2    Windows 11, elevated: .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip      FireDaemon OpenSSL >= 4.0.1, 7-Zip; table: version, FIPS,
-                                                                     ML-DSA, ML-KEM all PASS; "master openssl.cnf" without oqsprovider
-  D3    Windows 11: run it again                                     nothing is reinstalled; exit code 0
-  D4    Windows 11: .\Install-DevEnvironment.ps1 -Unblock            counts of unblocked / unlocked items
+                                                                     ML-DSA, ML-KEM all PASS;
+                                                                     "master openssl.cnf" without
+                                                                     oqsprovider
+  D3    Windows 11: run it again                                     nothing is reinstalled; exit
+                                                                     code 0
+  D4    Windows 11: .\Install-DevEnvironment.ps1 -Unblock            counts of unblocked / unlocked
+                                                                     items
   D5    Windows 11 kit: .\PkiTransport.ps1 -Install ... -InstallMissing on a machine WITHOUT OpenSSL 4     it installs OpenSSL, scans again, goes on
   D6    Ubuntu 26: sudo ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip      7-Zip installed; OpenSSL 4 built (minutes to over an hour),
-                                                                     five checks PASS, link /usr/local/bin/openssl4; the system openssl unchanged
-  D7    CentOS Stream 10 / Rocky 10 / RHEL 9 / Oracle 10: the same     7-Zip from EPEL (or report), OpenSSL built
+                                                                     five checks PASS, link
+                                                                     /usr/local/bin/openssl4; the
+                                                                     system openssl unchanged
+  D7    CentOS Stream 10 / Rocky 10 / RHEL 9 / Oracle 10: the same     7-Zip from EPEL (or report),
+                                                                       OpenSSL built
   D8    SLES 16 / openSUSE Tumbleweed: the same                      7zip / p7zip, OpenSSL built
   D9    macOS M2 and M4: ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip   Xcode tools present; sevenzip by brew; OpenSSL built; five checks
   D10   any: ./linux/Install-DevEnvironment.sh --check --only openssl      READY (exit 0) after D6 to D9; NOT READY (exit 4) before
   D11   any Linux / macOS: ./linux/Install-DevEnvironment.sh --unblock     files writable and executable; macOS: no quarantine mark
 
- Report back: D2 (the readiness table), D5, D6 to D9 (how long the build took), and anything that fails.
+ Report back: D2 (the readiness table), D5, D6 to D9 (how long the build took), and anything that
+              fails.
 ====================================================================================================
 
 ====================================================================================================
@@ -199,18 +278,23 @@
        .\GenerateLeafCertificate.ps1 -DV -Purpose EmailProtection -EmailAddress you@example.com
        openssl x509 -in <crt> -noout -ext extendedKeyUsage      expect: E-mail Protection, TLS Web Client Authentication
  D2  CRL / OCSP information
-       .\pki_setup.ps1 -ClassicPKI ...      pki\ocsp\<ca>\, pki\tsa\<ca>\, pki\revocation-info.json, pki\REVOCATION-INFO.txt exist; .\PkiRevocation.ps1 shows days left
+       .\pki_setup.ps1 -ClassicPKI ...      pki\ocsp\<ca>\, pki\tsa\<ca>\, pki\revocation-info.json,
+                                            pki\REVOCATION-INFO.txt exist; .\PkiRevocation.ps1 shows
+                                            days left
  D3  Edit
        .\PkiRevocation.ps1 -Action NewOcsp -Ca q1-ev -Replace -OcspDays 180      the old files are in old-<date>\; Revoke + NewCrl change index.txt and the CRL number
  D4  Time stamping certificate
        openssl x509 -in pki\tsa\q1-ev\q1-ev-tsa.crt -noout -ext extendedKeyUsage,certificatePolicies
-       expect: Time Stamping marked critical and alone; policy 1.3.6.1.4.1.67096.1.4 beside the EV policy; RSA, Classic, non-FIPS; valid ~1825 days
+       expect: Time Stamping marked critical and alone; policy 1.3.6.1.4.1.67096.1.4 beside the EV
+               policy; RSA, Classic, non-FIPS; valid ~1825 days
  D5  Package for Ubuntu
-       .\New-PkiServerPackage.ps1 -Tar       "Checked: no private key, no CR ..."; in WSL: unzip -Z <zip> shows -rwxr-xr-x for the .sh files
+       .\New-PkiServerPackage.ps1 -Tar       "Checked: no private key, no CR ..."; in WSL: unzip -Z
+                                             <zip> shows -rwxr-xr-x for the .sh files
        find agantra-pki-server -name '*.key'   (empty);  grep -rl $'\r' agantra-pki-server   (empty);  sha256sum -c SHA256SUMS
  D6  Server (WSL Ubuntu 24.04 / 26.04, Windows hosts file edited)
        csr -> PkiRevocation.ps1 -Action SignCsr -> import-cert -> install -> ./linux/pki-server/pki-server.sh test    every line [OK]
-       Windows: curl.exe http://crl.nextmantra.internal/agantra-q1-ev-g1.crl -o t.crl      certutil -URL <leaf.crt>      openssl ts / signtool /tr http://tsa.nextmantra.internal
+       Windows: curl.exe http://crl.nextmantra.internal/agantra-q1-ev-g1.crl -o t.crl  certutil -URL
+                <leaf.crt>  openssl ts / signtool /tr http://tsa.nextmantra.internal
  D7  Repository
        .\Setup-GitRepo.ps1 -Check (exit 0); git clone on Linux; ./linux/pki-server/pki-server.sh --help runs without chmod; bash linux/setup-git.sh; git config core.hooksPath = .githooks
 
@@ -221,30 +305,44 @@
        openssl x509 -in pki\classical\q1\root\q1-root.crt -noout -text | findstr /C:"Public-Key" /C:"Signature Algorithm"     expect Q1: 4096 bit; Q2: secp384r1 / ecdsa-with-SHA384 on the intermediates
        Intermediates and leaves unchanged (Q1 RSA 4096 SHA-256, Q2 P-384 SHA-384)
  E2  Sign an external CA (default signer q1-root)
-       .\SignExternalCa.ps1 -Csr partner.csr -Name partner       folder external-ca\partner_<date>\ with .csr .crt -fullchain.crt -chain.crt root.crt README.txt ca-info.json
+       .\SignExternalCa.ps1 -Csr partner.csr -Name partner       folder external-ca\partner_<date>\
+                                                                 with .csr .crt -fullchain.crt
+                                                                 -chain.crt root.crt README.txt
+                                                                 ca-info.json
        openssl verify -x509_strict -CAfile pki\publish\root.crt -untrusted external-ca\partner_*\partner-chain.crt <leaf of his CA>
-       RSA 3072 or ECDSA P-256 CSR is refused; SHA-1 CSR is refused; -SignWith Intermediate stops (pathlen 0) unless IntermediatePathLen = 1
-       .\PkiRevocation.ps1 -Action Revoke ...   works for the external CA certificate (serial in ca-info.json)
+       RSA 3072 or ECDSA P-256 CSR is refused; SHA-1 CSR is refused; -SignWith Intermediate stops
+       (pathlen 0) unless IntermediatePathLen = 1
+       .\PkiRevocation.ps1 -Action Revoke ...   works for the external CA certificate (serial in
+                                                ca-info.json)
  E3  Person certificates
        .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.json       5 people; edit; isGenerate true / false
        .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -ValidateOnly    table, nothing issued;  then without -ValidateOnly: only the isGenerate true people are issued
        openssl x509 -in <crt> -noout -subject -ext subjectAltName,keyUsage,extendedKeyUsage
-         expect: serialNumber = the ID, GN, SN, CN="SURNAME,GIVEN,ID", C; SAN DNS:<domain>, DNS:*.<domain>, email:<address>; Digital Signature + Key Agreement; Email Protection + Client Authentication
+         expect: serialNumber = the ID, GN, SN, CN="SURNAME,GIVEN,ID", C; SAN DNS:<domain>,
+                 DNS:*.<domain>, email:<address>; Digital Signature + Key Agreement; Email
+                 Protection + Client Authentication
        openssl verify -x509_strict -purpose smimesign -CAfile pki\publish\root.crt -untrusted <chain.crt> <crt>      OK
-       refused: a .csv file, "level": "DV", a missing e-mail; -Fips gives issuer q2-ov; -Level EV gives 397 days; -QcStatements: QcType eSign, NO QcCompliance
+       refused: a .csv file, "level": "DV", a missing e-mail; -Fips gives issuer q2-ov; -Level EV
+                gives 397 days; -QcStatements: QcType eSign, NO QcCompliance
  E4  Policies (fresh pki_setup needed for the CA part)
        openssl x509 -in <ov leaf or OV intermediate> -noout -text | findstr /C:"Policy:" /C:"CPS:"
-         OV expect: 2.23.140.1.2.2, 1.3.6.1.4.1.67096.1, .1.2, .1.5 (High Assurance), each with CPS: https://nextmantra.com/security/certs
-         EV expect: 2.23.140.1.1, 1.3.6.1.4.1.67096.1, .1.1 each with CPS: https://nextmantra.com/security/certs/ev-cps.pdf     (no .1.5)
-         DV expect: 2.23.140.1.2.1, 67096.1, .1.3 with the https://nextmantra.com/security/certs pointer (no .1.5)
+         OV expect: 2.23.140.1.2.2, 1.3.6.1.4.1.67096.1, .1.2, .1.5 (High Assurance), each with CPS:
+                    https://nextmantra.com/security/certs
+         EV expect: 2.23.140.1.1, 1.3.6.1.4.1.67096.1, .1.1 each with CPS:
+                    https://nextmantra.com/security/certs/ev-cps.pdf  (no .1.5)
+         DV expect: 2.23.140.1.2.1, 67096.1, .1.3 with the https://nextmantra.com/security/certs
+                    pointer (no .1.5)
  E5  Person certificate algorithm
        openssl x509 -in <person crt> -noout -text | findstr /C:"Signature Algorithm" /C:"Public-Key"   Q2: ecdsa-with-SHA512, 384 bit;  Q1: sha512WithRSAEncryption, 384 bit key
  E6  Office 365 document signing
        .\GenerateOffice365LeafCertificate.ps1 -ExampleFile .\office365.json ; edit ; .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json
        openssl x509 -in <crt> -noout -ext keyUsage,extendedKeyUsage,subjectAltName
-         expect: Digital Signature, Non Repudiation, Key Encipherment (RSA 4096 default) | Key Agreement (ECDSA, with a warning); E-mail Protection, 1.3.6.1.4.1.311.80.1, 1.3.6.1.4.1.311.10.3.12; email:<address>
+         expect: Digital Signature, Non Repudiation, Key Encipherment (RSA 4096 default) | Key
+                 Agreement (ECDSA, with a warning); E-mail Protection, 1.3.6.1.4.1.311.80.1,
+                 1.3.6.1.4.1.311.10.3.12; email:<address>
          SHA-2 signature only; -KeyBits 1024 and -Hash sha1 are refused
-       folder leafcerts\office365\<name>\ with OFFICE-NOTES.txt; import the PFX, trust the Root, Word: File > Info > Protect Document > Add a Digital Signature
+       folder leafcerts\office365\<name>\ with OFFICE-NOTES.txt; import the PFX, trust the Root,
+       Word: File > Info > Protect Document > Add a Digital Signature
  E7  Development e-mail certificate
        .\GenerateLeafCertificate.ps1 -OV -Purpose EmailProtection -AddDevelopmentSAN -EmailAddress you@example.org      key 384 bit (ECDSA P-384), sha512 signature, same policies as E4
  E8  Without revocation information
@@ -257,23 +355,39 @@
        openssl x509 -in <crt> -noout -text | findstr /C:"CRL Distribution" /C:"OCSP - URI" /C:"CA Issuers"     expect: only CA Issuers (3 lines)
        .\GenerateLeafCertificate.ps1 -EV -DnsName b.example.com -Purpose ServerAuth -NoCrl -AddDevelopmentSAN     OCSP lines stay, no CRL point
  E10 Make the DevKit (the PKI machine)
-       .\PkiTransport.ps1 -DevKit -GeneratePassword        zip in .\transport\, the password shown once, SHA-256 of the zip
-       .\PkiTransport.ps1 -List -Package <the .certpacked inside>     scope "keys of the ISSUING (intermediate) CAs only (no root key)"
-       In the unpacked pki\: keys only at pki\classical\q1|q2\dv|ov|ev\*.key (6 files); NO root.key, classic-root.key, q?-root.key, ocsp, tsa, leaf keys, .pfx
-       The zip has no pki\, leafcerts\ or external-ca\ folder and no password
+       .\PkiTransport.ps1 -DevKit -GeneratePassword        zip in .\transport\, the password shown
+                                                           once, SHA-256 of the zip
+       .\PkiTransport.ps1 -List -Package <the .certpacked inside>     scope "keys of the ISSUING
+                                                                      (intermediate) CAs only (no
+                                                                      root key)"
+       In the unpacked pki\: keys only at pki\classical\q1|q2\dv|ov|ev\*.key (6 files); NO root.key,
+       classic-root.key, q?-root.key, ocsp, tsa, leaf keys, .pfx The zip has no pki\, leafcerts\ or
+       external-ca\ folder and no password
  E11 DevKit on Windows 11 25H2+ (a developer's machine; PowerShell 7 as Administrator)
-       .\Install-PkiTrust.ps1        scan PASS, "every SHA-256 matches", roots in LocalMachine\Root, intermediates in LocalMachine\CA (certlm.msc), 6 serial counters randomised
-       .\Install-PkiTrust.ps1        again: pki\ is left alone ("already unpacked"); -Reset unpacks pki\ anew
-       findstr /C:"dir " pki\classical\q1\ov\q1-ov.cnf        the path of THIS folder, not the master's
+       .\Install-PkiTrust.ps1        scan PASS, "every SHA-256 matches", roots in LocalMachine\Root,
+                                     intermediates in LocalMachine\CA (certlm.msc), 6 serial
+                                     counters randomised
+       .\Install-PkiTrust.ps1        again: pki\ is left alone ("already unpacked"); -Reset unpacks
+                                     pki\ anew
+       findstr /C:"dir " pki\classical\q1\ov\q1-ov.cnf        the path of THIS folder, not the
+                                                              master's
        .\GenerateLeafCertificate.ps1 -OV -DnsName kit.example.com ; person and Office examples     the master's index.txt does not change
-       NOT TESTED by the author: this item and E12 on Windows. Report what fails with the scan output.
+       NOT TESTED by the author: this item and E12 on Windows. Report what fails with the scan
+       output.
  E12 Make-ShExecutable.ps1 (Windows, with WSL)
-       .\Make-ShExecutable.ps1       "converted from CRLF to LF" and "wsl chmod +x done";  wsl ls -l ./*.sh shows -rwxr-xr-x
+       .\Make-ShExecutable.ps1       "converted from CRLF to LF" and "wsl chmod +x done";  wsl ls -l
+                                     ./*.sh shows -rwxr-xr-x
        without WSL: it says so and points to  bash make-executable.sh  /  bash ./script.sh
  E13 DevKit on Ubuntu (24.04 tested by the author)
-       unzip agantra-pki-devkit-*.zip ; cd agantra-pki-devkit-* ; bash make-executable.sh ; ./Install-PkiTrust.sh
-       ls /usr/local/share/ca-certificates | grep agantra   (roots);  openssl verify -CAfile ca/ca-bundle-roots.crt -untrusted pki/classical/q1/ov/q1-ov-chain.crt <leaf>
-       ./GenerateLeafCertificate.sh --ov --dns www.example.com        7 folders; every certificate verifies; serial is random (not the master's counter)
+       unzip agantra-pki-devkit-*.zip ; cd agantra-pki-devkit-* ; bash make-executable.sh ;
+       ./Install-PkiTrust.sh
+       ls /usr/local/share/ca-certificates | grep agantra   (roots);  openssl verify -CAfile
+                                                            ca/ca-bundle-roots.crt -untrusted
+                                                            pki/classical/q1/ov/q1-ov-chain.crt
+                                                            <leaf>
+       ./GenerateLeafCertificate.sh --ov --dns www.example.com        7 folders; every certificate
+                                                                      verifies; serial is random
+                                                                      (not the master's counter)
        ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth --add-development-san --no-revocation-info     EV: 397 days, ev-cps.pdf, no CRL / OCSP
        ./GeneratePersonLeafCertificate.sh --example-file p.json ; ./GeneratePersonLeafCertificate.sh --file p.json     isGenerate false people skipped
        ./GenerateOffice365LeafCertificate.sh --example-file o.json ; ./GenerateOffice365LeafCertificate.sh --file o.json --no-revocation-info
@@ -281,252 +395,512 @@
  E15 CSR signing (SignCsr, SignExternalCa)
        openssl req -new -newkey rsa:3072 -nodes -keyout t.key -out t.csr -subj "/C=ID/O=Dept/CN=app.example.com" -addext subjectAltName=DNS:app.example.com
        .\SignCsr.ps1 -Csr t.csr -Check        coloured report; exit 0 (DV).   -OV: [OK]; -EV without serialNumber / businessCategory: [ERROR], exit 2
-       .\SignCsr.ps1 -Csr t.csr -OV           csr-signed\<name>_<time>\ has .crt -fullchain.crt .p7b sign-info.json; openssl verify -CAfile ...-chain.crt passes
+       .\SignCsr.ps1 -Csr t.csr -OV           csr-signed\<name>_<time>\ has .crt -fullchain.crt .p7b
+                                              sign-info.json; openssl verify -CAfile ...-chain.crt
+                                              passes
        -EV -Days 500 is rejected (VAL-EV); a signed EV certificate lasts at most 397 days.  ./SignCsr.sh gives the same codes (kit and repo mode)
        .\SignExternalCa.ps1 -Csr dept-ca.csr  OV default: needs C, O, OU, CN, RSA 4096+/P-384+; signer q1-root (-Fips: q2-root); pathlen 0; -Quadrant 3 refused
-       PkiRevocation.ps1 -Action Revoke on a CSR-signed serial: index.txt shows R, the new CRL lists it (original PKI only; kit-signed certificates are not in the master CRL)
+       PkiRevocation.ps1 -Action Revoke on a CSR-signed serial: index.txt shows R, the new CRL lists
+       it (original PKI only; kit-signed certificates are not in the master CRL)
  E14 Documentation folder and README
-       dir docs\*.txt   all manuals, PKI-Design..., PKI-Acceptance-Checklists, PKI-Server-Design, PUBLIC-CA-ENTERPRISE-ROOT, scripts-README, linux-README, PKI-SERVER-MANUAL, DevKit-MANUAL
+       dir docs\*.txt   all manuals, PKI-Design..., PKI-Acceptance-Checklists, PKI-Server-Design,
+                        PUBLIC-CA-ENTERPRISE-ROOT, scripts-README, linux-README, PKI-SERVER-MANUAL,
+                        DevKit-MANUAL
        .\<script>.ps1 -Help | findstr docs\     the Manual / Design lines name docs\...        README.md renders on GitHub
 
 ====================================================================================================
  E16  Releases, NoCR and removal (4.9.5)  - run on your machines; Windows parts were NOT tested by the author
 ====================================================================================================
- [ ] .\pki_setup.ps1 -ShowNames -NewRelease -NoCaRevocationInfo   prints names ending " (NoCR) R<n>", none longer than 64 characters.
- [ ] .\pki_setup.ps1 -NewRelease -ClassicPKI    creates pki\R2 beside pki\R1; R1 is untouched; the Enterprise Root CN ends with " R2".
- [ ] .\pki_setup.ps1 -NoCaRevocationInfo -ClassicPKI -InstallTrust   (admin): pki\NoCR-R1; openssl x509 -text on an intermediate shows NO CRL Distribution Points
+ [ ] .\pki_setup.ps1 -ShowNames -NewRelease -NoCaRevocationInfo   prints names ending " (NoCR)
+                                                                  R<n>", none longer than 64
+                                                                  characters.
+ [ ] .\pki_setup.ps1 -NewRelease -ClassicPKI    creates pki\R2 beside pki\R1; R1 is untouched; the
+                                                Enterprise Root CN ends with " R2".
+ [ ] .\pki_setup.ps1 -NoCaRevocationInfo -ClassicPKI -InstallTrust   (admin): pki\NoCR-R1; openssl
+                                                                     x509 -text on an intermediate
+                                                                     shows NO CRL Distribution
+                                                                     Points
      and NO Authority Information Access; the same check on a normal-family intermediate shows them.
- [ ] Windows: certlm.msc shows the NoCR roots in Trusted Root and the intermediates in Intermediate Certification Authorities.
- [ ] .\GenerateLeafCertificate.ps1 (no parameter) uses the latest release (issuer CN with R<n>); -Release 1 uses R1; -Release 9 warns and uses the latest;
-     -NoCaRevocationInfo uses the NoCR family. The same with the shell twin (--release, --no-ca-revocation-info).
- [ ] Office 365 signer with the NoCR PKI and -NoRevocationInfo: check what Word 365 shows (expected: still Recoverable, see E19). (2026-10-11: still "Recoverable" with a NoCR chain; see design 21.1.)
- [ ] .\pki_remove.ps1 -List shows every PKI and whether it is trusted in Windows.
- [ ] .\pki_remove.ps1 -Release 2 removes the trust of R2 only (R1 still validates); -DeleteFiles also deletes pki\R2.
- [ ] .\pki_setup.ps1 -RemoveTrust with two releases and no -Release stops with a message; with -Release 2 it removes R2.
- [ ] .\pki_remove.ps1 -All (or pki_setup.ps1 -RemoveAllTrust) removes every Agantra / NextMantra certificate from Windows and deletes the pki folder.
- [ ] A DevKit made from a release: devkit.env has PKI_RELEASE; ./GenerateLeafCertificate.sh issues from the CA of that release.
+ [ ] Windows: certlm.msc shows the NoCR roots in Trusted Root and the intermediates in Intermediate
+ Certification Authorities. [ ] .\GenerateLeafCertificate.ps1 (no parameter) uses the latest release
+ (issuer CN with R<n>); -Release 1 uses R1; -Release 9 warns and uses the latest;
+     -NoCaRevocationInfo uses the NoCR family. The same with the shell twin (--release,
+     --no-ca-revocation-info).
+ [ ] Office 365 signer with the NoCR PKI and -NoRevocationInfo: check what Word 365 shows (expected:
+ still Recoverable, see E19). (2026-10-11: still "Recoverable" with a NoCR chain; see design 21.1.)
+ [ ] .\pki_remove.ps1 -List shows every PKI and whether it is trusted in Windows. [ ]
+ .\pki_remove.ps1 -Release 2 removes the trust of R2 only (R1 still validates); -DeleteFiles also
+ deletes pki\R2. [ ] .\pki_setup.ps1 -RemoveTrust with two releases and no -Release stops with a
+ message; with -Release 2 it removes R2. [ ] .\pki_remove.ps1 -All (or pki_setup.ps1
+ -RemoveAllTrust) removes every Agantra / NextMantra certificate from Windows and deletes the pki
+ folder. [ ] A DevKit made from a release: devkit.env has PKI_RELEASE; ./GenerateLeafCertificate.sh
+ issues from the CA of that release.
 
 ====================================================================================================
  E17  CRL / OCSP names, server folder, PkiTransport -Server, Install-DevEnvironment.sh (4.9.5)
 ====================================================================================================
- [ ] After pki_setup.ps1: pki\R<n>\publish has agantra-root-g1.crl / .crt, agantra-classic-root-g1.*, agantra-pqc-root-g2.* (no "enterprise" in any file name).
- [ ] The OCSP certificate subject reads "<CA name> OCSP Responder", the time stamp one "Agantra Time Stamping Authority" (+ " (NoCR) R2" when it applies).
- [ ] pki\R<n>\server\ holds server-info.json, ca-list.tsv, server.env, expected-urls.tsv, DNS-RECORDS.txt; the hosts in DNS-RECORDS.txt are the hosts of a leaf certificate's CRL / OCSP URLs.
- [ ] .\PkiTransport.ps1 -Server writes a zip: unzip -l shows no *.key / *.pfx; pki\server\ is inside. -Release 2 / -NoCaRevocationInfo pick the PKI.
- [ ] Ubuntu: sudo ./linux/pki-server/pki-server.sh csr --source ./pki --out ./csr -> the CSR subjects carry the new names; sign them with PkiRevocation.ps1 -Action SignCsr;
-     import-cert; install --source ./pki; ./pki-server.sh test says "all N CRL / CA-issuer URL(s) of the installed PKI(s) answer", OCSP good, time stamp verified.
- [ ] A second release (or the NoCR family) installed on the same server: both sets of CRL files are served; ./pki-server.sh status lists both under PKI R1 / NoCR-R1.
- [ ] ./Install-DevEnvironment.sh --check --only openssl,nginx on Ubuntu 26.04 shows OpenSSL 3.5.x READY (ML-DSA PASS); on 24.04 OpenSSL 3.0.x READY with NOTE lines.
- [ ] ./Install-DevEnvironment.sh --yes --only nginx adds ppa:nickotech2000/nicko-su-prod and installs nicko-su-nginx (NOT TESTED by the author: check nginx -v says 1.31.6).
- [ ] ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa installs nicko-su-openssl4 and the readiness check passes (NOT TESTED by the author).
+ [ ] After pki_setup.ps1: pki\R<n>\publish has agantra-root-g1.crl / .crt,
+ agantra-classic-root-g1.*, agantra-pqc-root-g2.* (no "enterprise" in any file name). [ ] The OCSP
+ certificate subject reads "<CA name> OCSP Responder", the time stamp one "Agantra Time Stamping
+ Authority" (+ " (NoCR) R2" when it applies). [ ] pki\R<n>\server\ holds server-info.json,
+ ca-list.tsv, server.env, expected-urls.tsv, DNS-RECORDS.txt; the hosts in DNS-RECORDS.txt are the
+ hosts of a leaf certificate's CRL / OCSP URLs. [ ] .\PkiTransport.ps1 -Server writes a zip: unzip
+ -l shows no *.key / *.pfx; pki\server\ is inside. -Release 2 / -NoCaRevocationInfo pick the PKI. [
+ ] Ubuntu: sudo ./linux/pki-server/pki-server.sh csr --source ./pki --out ./csr -> the CSR subjects
+ carry the new names; sign them with PkiRevocation.ps1 -Action SignCsr;
+     import-cert; install --source ./pki; ./pki-server.sh test says "all N CRL / CA-issuer URL(s) of
+     the installed PKI(s) answer", OCSP good, time stamp verified.
+ [ ] A second release (or the NoCR family) installed on the same server: both sets of CRL files are
+ served; ./pki-server.sh status lists both under PKI R1 / NoCR-R1. [ ] ./Install-DevEnvironment.sh
+ --check --only openssl,nginx on Ubuntu 26.04 shows OpenSSL 3.5.x READY (ML-DSA PASS); on 24.04
+ OpenSSL 3.0.x READY with NOTE lines. [ ] ./Install-DevEnvironment.sh --yes --only nginx adds
+ ppa:nickotech2000/nicko-su-prod and installs nicko-su-nginx (NOT TESTED by the author: check nginx
+ -v says 1.31.6). [ ] ./Install-DevEnvironment.sh --yes --only openssl --openssl-source ppa installs
+ nicko-su-openssl4 and the readiness check passes (NOT TESTED by the author).
 
 ====================================================================================================
  E18  Release guard, trust messages, PFX friendly name (4.9.5)
 ====================================================================================================
- [ ] .\pki_setup.ps1 -InstallTrust twice: the second run builds R2 (INFO "building the next release, R2"), not an error.
- [ ] .\pki_setup.ps1 -Release 2 when pki\R2 exists: "R2 already exists: the folder ...", nothing created. Delete the folder pki\R2 but keep the Windows
-     certificates: the same message names "the Windows certificate store". -Clean -Release 2 replaces it.
- [ ] .\pki_remove.ps1 -All prints CA names (not the long subject) and thumbprints; afterwards pki_setup -InstallTrust gives R1 and NO warning.
- [ ] Trust report: other releases are the INFO "OTHER releases"; leftovers of the old names are an INFO list with CA names, never a WARN.
- [ ] openssl pkcs12 -in leaf\*.pfx -info -nokeys shows friendlyName "Server Authentication for <CN> Sign by : <Intermediate CA CN>"; certlm.msc\Personal shows it.
- [ ] GenerateOffice365LeafCertificate.ps1 -File persons.json -NoRevocationInfo (and the other leaf scripts, SignCsr): INFO "signing with the NoCR PKI, release R<n>"; openssl x509 -issuer shows "... CA (NoCR) R<n>". Without a NoCR PKI: error naming pki_setup -NoCaRevocationInfo.
- [ ] No "-KeyBits is for RSA" and no "EV: validity limited to 397 days" lines in a default run.
+ [ ] .\pki_setup.ps1 -InstallTrust twice: the second run builds R2 (INFO "building the next release,
+ R2"), not an error. [ ] .\pki_setup.ps1 -Release 2 when pki\R2 exists: "R2 already exists: the
+ folder ...", nothing created. Delete the folder pki\R2 but keep the Windows
+     certificates: the same message names "the Windows certificate store". -Clean -Release 2
+                   replaces it.
+ [ ] .\pki_remove.ps1 -All prints CA names (not the long subject) and thumbprints; afterwards
+ pki_setup -InstallTrust gives R1 and NO warning. [ ] Trust report: other releases are the INFO
+ "OTHER releases"; leftovers of the old names are an INFO list with CA names, never a WARN. [ ]
+ openssl pkcs12 -in leaf\*.pfx -info -nokeys shows friendlyName "Server Authentication for <CN> Sign
+ by : <Intermediate CA CN>"; certlm.msc\Personal shows it. [ ] GenerateOffice365LeafCertificate.ps1
+ -File persons.json -NoRevocationInfo (and the other leaf scripts, SignCsr): INFO "signing with the
+ NoCR PKI, release R<n>"; openssl x509 -issuer shows "... CA (NoCR) R<n>". Without a NoCR PKI: error
+ naming pki_setup -NoCaRevocationInfo. [ ] No "-KeyBits is for RSA" and no "EV: validity limited to
+ 397 days" lines in a default run.
 
 ====================================================================================================
  E19  Word 365 signature with a reachable CRL (4.9.5)
 ====================================================================================================
- [ ] Normal PKI, leaf WITHOUT -NoRevocationInfo (GenerateOffice365LeafCertificate.ps1 -File persons.json).
- [ ] Elevated: .\Start-PkiCrlServer.ps1   (lists the PKIs and host names, prints the hosts-file lines, "Serving ... on port 80"); add the lines to the hosts file yourself.
- [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified", no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404).
- [ ] Word 365: sign a document: the Signature Details no longer say "Recoverable"; the server window shows the 200 lines.
- [ ] Ctrl+C stops the server; delete the lines from the hosts file. The script itself never writes to the hosts file.
+ [ ] Normal PKI, leaf WITHOUT -NoRevocationInfo (GenerateOffice365LeafCertificate.ps1 -File
+ persons.json).
+ [ ] Elevated: .\Start-PkiCrlServer.ps1   (lists the PKIs and host names, prints the hosts-file
+                                          lines, "Serving ... on port 80"); add the lines to the
+                                          hosts file yourself.
+ [ ] certutil -urlcache * delete ; certutil -verify -urlfetch <leaf>-fullchain.crt : CDP "Verified",
+ no REVOCATION_STATUS_UNKNOWN; the OCSP line may fail (404). [ ] Word 365: sign a document: the
+ Signature Details no longer say "Recoverable"; the server window shows the 200 lines. [ ] Ctrl+C
+ stops the server; delete the lines from the hosts file. The script itself never writes to the hosts
+ file.
+
+====================================================================================================
+ E39  Version 6.4.1: pki_setup manual and -Help
+====================================================================================================
+ [ ] .\pki_setup.ps1 -Help: on a terminal it stops after a page (space bar = next page). Piped to a
+ file it prints everything. No line is longer than 100 columns. The order is the order of the
+ manual (what it does, quick start, common commands ...).
+ [ ] Follow docs\pki_setup-MANUAL.txt section 4 on a clean Windows 11 machine, step by step, with
+ a person who is new to PKI. Every step works as written. Write down each place where the
+ person asks a question: that sentence must be made clearer.
+ [ ] -Check ends with READY. -InstallTrust builds the PKI. -Verify says "PKI is valid".
+ [ ] The root key sizes in section 5 of the manual are the ones that pki-manifest.json shows
+ (quadrant 1 root RSA 4096, quadrant 2 root ECDSA P-384).
+ [ ] Run the platform check on Windows 10 or macOS (or set PKI_FAKE_OS). The script exits with code
+ 5, as section 3.1 of the manual says.
+ [ ] Every word in READ THIS FIRST and in section 2 of the manual is in GLOSSARY.txt.
+ [ ] html\pki_setup-MANUAL.html shows the same text. The Nu HTML Checker reports no error.
+
+====================================================================================================
+ E38  Version 6.3.19: HTML pages, accessibility, glossaries, paged help
+====================================================================================================
+ [ ] .\Build-HtmlDocs.ps1 writes html\index.html and one page per document. Open index.html with a
+ double click and again through .\Serve-Docs.ps1 (http://localhost:1434/index.html): fonts and icons
+ show. [ ] The Nu HTML Checker (java -jar vnu.jar html\*.html) reports no error and no warning. [ ]
+ Top-right menu works on a 390 px wide window (drawer), a 1366x768 and a 1920x1080 window. [ ] Dark
+ / light button works; the accessibility panel changes colours, contrast and text size, and the
+ choice is still there after a reload.
+ [ ] .\Build-HtmlDocs.ps1 -Watch: save any docs\*.txt, the page is made again within 2 seconds.
+ [ ] GLOSSARY.txt and GLOSSARY-ENGLISH.txt exist; every manual starts with READ THIS FIRST.
+ [ ] .\Sign-Code.ps1 -Help on a terminal stops after a page; space bar shows the next page; piped to
+ a file it prints everything.
+
+====================================================================================================
+ E37  Version 6.3.6: CA export, web server configuration, code signing, hash files, HTML docs
+====================================================================================================
+ [ ] .\Export-PkiCa.ps1 -List shows the CA ids. .\Export-PkiCa.ps1 (no option) writes
+ transport\ca-export_..._roots_nokey_cloudflare_...\ with one sub-folder per root; each has .pem
+ .crt .cer .der
+     .p7b .txt, .sha256 .sha384 .sha512 and .cloudflare.pem / .cloudflare.crt; no .key file
+     anywhere. sha256sum -c <name>.sha256 says OK. Open the .cloudflare.pem: one certificate only.
+ [ ] -Ca q1-ov -WithPath makes 4 sub-folders (Enterprise Root, Classic Root, Q1 Root, Q1 OV).
+ -Target All adds azure, cloudfront, alibaba, google, akamai files. -Hash Auto gives one hash file
+ per CA.
+     -Ca Quantum -Target Cloudflare prints the ML-DSA warning. -IncludeKey: .key.pem (encrypted) and
+     .pfx, the password is shown once; the Enterprise Root needs -Force.
+ [ ] -Leaf <leaf>-fullchain.crt exports the intermediates and the root; -Leaf x.pfx -LeafPassword
+ ... works; a leaf without its issuer reports which issuer is missing. [ ]
+ .\Create-WebServerConfig.ps1 -Certificate <leaf>-fullchain.crt writes transport\webconfig_... with
+ nginx\ and apache\ and README.txt; ./Create-WebServerConfig.sh gives the same files.
+     TLS 1.3 only in the files; no listen 80; server_name = the certificate names; -Tls12 adds
+     TLSv1.2; -Distro RHEL changes user, paths and the README commands (nginx user nginx,
+     /etc/pki/tls, httpd, firewall-cmd, setsebool); -Output Screen prints "===== FILE:" blocks; an
+     ML-DSA leaf gives the mldsa87:mldsa65 line; -NginxVersion 1.24 is refused.
+ [ ] On Ubuntu with nginx 1.30+: copy the files as the README says, nginx -t passes; curl --http2
+ and curl --http3 work; with -TcpStream / -UdpStream / -Ech the stream and ECH lines are accepted by
+     your nginx build. On RHEL 10 / Rocky 10: the same with httpd -t. (Not testable on the author's
+     machine: please report.)
+ [ ] The DevKit, a PkiTransport package kit and every New-PkiServerPackage.ps1 zip contain
+ Create-WebServerConfig.ps1, Create-WebServerConfig.sh and docs\Create-WebServerConfig-MANUAL.txt. [
+ ] .\Sign-Code.ps1 -Pfx codesign.pfx -CheckOnly: "Certificate complies" and "Timestamp server
+ answers". With a web-server certificate: exit code 2 and nothing signed. Unplug the network: exit
+ 3. [ ] .\Sign-Code.ps1 -Pfx codesign.pfx -File app.exe -File app.dll -File setup.msi -File run.ps1
+ on Windows 11 and Windows Server 2025: each file shows a valid signature (Properties, Digital
+     Signatures) with a timestamp; app.exe-signed.sha256 and .sha512 exist; the certificate is
+     printed; a missing signtool is installed by winget (and by -Installer Chocolatey).
+ [ ] -Folder e:\a -Folder e:\b signs both folders; -Exclude works. A .jar (jarsigner -verify), an
+ .apk (apksigner verify), a .nupkg (dotnet nuget verify) and an Office file with a VBA project are
+ signed. [ ] ./Sign-Code.sh on Ubuntu 24.04 / 25, CentOS Stream 10, Rocky 10 and Oracle Linux 10:
+ missing tools are installed (apt / dnf, EPEL), a PowerShell script, an exe and a jar are signed. [
+ ] Build environment: run -Template all; try the GitHub Actions and Azure DevOps files with a test
+ PFX secret; the step fails when the secret is wrong (exit 1) and passes when right; the PFX temp
+     file is gone after the step; the log does not show the password. Try one cloud provider (Azure
+     Key Vault, AWS KMS or Google Cloud KMS) with its CLI login.
+ [ ] GenerateLeafCertificate / GeneratePersonLeafCertificate / GenerateOffice365LeafCertificate
+ (.ps1 and .sh): next to each certificate there are <name>.sha256 and <name>.sha512;
+     sha256sum -c <name>.sha256 is OK; -HashFile sha384 gives <name>.sha384; -HashFile None gives
+     none.
+ [ ] The html\ folder: open html\index.html in Chrome, Edge, Firefox, Safari, Brave and Opera: the
+ menu, the search, previous / next and the dark theme work; no request goes to the internet; the
+     text does not need sideways scrolling at 1366x768 and at 1920x1080.
+ [ ] Every .ps1 and .sh shows Version 6.3.6 and has Author / Company / Email; -Help / --help fit
+ 100 columns; docs\PKI-ChangeLog.txt (6.3.6) and decisions 10.150 - 10.166 are there.
+
+====================================================================================================
+ E36  Revision 5.3.7: document signing purposes and a custom EKU OID
+====================================================================================================
+ [ ] .\GenerateLeafCertificate.ps1 -OV -Purpose DocumentSigning -Format PFX : validation passes;
+ `openssl x509 -noout -ext extendedKeyUsage,keyUsage` shows 1.3.6.1.4.1.311.10.3.12 and
+     Digital Signature, Non Repudiation. Import the PFX on Windows and sign a Word / Excel document
+     (Office 365): the signature uses the certificate. -Purpose DocumentSigningAdobe: EKU
+     1.2.840.113583.1.1.5; sign a PDF in Acrobat / Reader with it.
+ [ ] -Purpose DocumentSigning,DocumentSigningAdobe : ONE certificate with both OIDs. The default run
+ (no -Purpose) still makes SEVEN certificates (no document certificate in the set). [ ] -Purpose
+ 1.3.6.1.4.1.99999.1.2 and -Purpose ServerAuth,1.3.6.1.4.1.99999.1.2 : the OID is in the
+ certificate; -Purpose notanoid and -Purpose 1.2 are refused with the list of names. [ ]
+ ./GenerateLeafCertificate.sh --purpose DocumentSigning,1.3.6.1.4.1.99999.1 (DevKit) gives the same;
+ -Help / --help list the new purposes. [ ] docs\GenerateLeafCertificate-MANUAL.txt,
+ PKI-ChangeLog.txt (5.3.7), decisions 10.148 - 10.149; every file shows Version 5.3.7.
 
 ====================================================================================================
  E35  Revision 5.3.6: password asked first, only your PKI, replace question (Y)
 ====================================================================================================
- [ ] .\Backup-Pki.ps1 on Windows: the line "Backup password:" is the FIRST thing after the computer checks; press Enter a few times while it is working before typing - no "password is empty" error.
- [ ] Put a DigiCert / GlobalSign test certificate + key + .pfx in leafcerts\ and external-ca\: Backup-Pki.ps1 -Check prints "Left out: N file(s) that belong to other CAs" and lists them; they are not in the
-     .certpacked (open it with 7-Zip). Your roots, intermediates, leaf certificates and the externally signed department CA ARE in it.
- [ ] Restore-Pki.ps1 from an older (5.3.5) backup that holds such files: "Not restored: N file(s) of other CAs"; they are not written.
- [ ] Change one byte of a file in pki\<name>\ and run Restore-Pki.ps1: "Replace it with the version in the backup? [Y/n]" - press Enter: Y, the old folder is renamed .before-restore-<time>, the
-     backup version is written. Answer n: the old one stays. -Yes: no question, replaced. Input redirected (no keyboard): the old one stays with the hint.
- [ ] docs\PkiBackup-MANUAL.txt, PKI-ChangeLog.txt (5.3.6), design decisions 10.144 - 10.147, README.md, START-HERE.txt; every file shows Version 5.3.6.
+ [ ] .\Backup-Pki.ps1 on Windows: the line "Backup password:" is the FIRST thing after the computer
+ checks; press Enter a few times while it is working before typing - no "password is empty" error. [
+ ] Put a DigiCert / GlobalSign test certificate + key + .pfx in leafcerts\ and external-ca\:
+ Backup-Pki.ps1 -Check prints "Left out: N file(s) that belong to other CAs" and lists them; they
+ are not in the
+     .certpacked (open it with 7-Zip). Your roots, intermediates, leaf certificates and the
+     externally signed department CA ARE in it.
+ [ ] Restore-Pki.ps1 from an older (5.3.5) backup that holds such files: "Not restored: N file(s) of
+ other CAs"; they are not written. [ ] Change one byte of a file in pki\<name>\ and run
+ Restore-Pki.ps1: "Replace it with the version in the backup? [Y/n]" - press Enter: Y, the old
+ folder is renamed .before-restore-<time>, the
+     backup version is written. Answer n: the old one stays. -Yes: no question, replaced. Input
+     redirected (no keyboard): the old one stays with the hint.
+ [ ] docs\PkiBackup-MANUAL.txt, PKI-ChangeLog.txt (5.3.6), design decisions 10.144 - 10.147,
+ README.md, START-HERE.txt; every file shows Version 5.3.6.
 
 ====================================================================================================
  E34  Revision 5.3.5: standalone backup scripts, .NET 8 + 10, "latest already installed", one-by-one restore
 ====================================================================================================
- [ ] Copy ONLY Backup-Pki.ps1 (or Restore-Pki.ps1, Test-PkiBackup.ps1, Prepare-Computer.ps1) to an empty folder on a Windows 11 24H2+ PC: .\<script> -Help works and the script starts (no "lib\" or
-     "PkiBackupCommon.ps1 is missing" message). A backup zip holds the four scripts, README.txt, SHA256SUMS, SHA512SUMS and the .certpacked - no lib\ folder.
- [ ] .\Prepare-Computer.ps1 -Check on a PC with everything current: every program says "is the latest version: nothing to install"; no winget install line. With an older .NET SDK 10 (or OpenSSL / Python):
-     "the latest version is x: it will be updated" and the winget command. On a PC without .NET: both SDKs are installed (`dotnet --list-sdks` shows 8.x and 10.x in a NEW window).
- [ ] .\Restore-Pki.ps1 -Check on a PC missing one of PowerShell 7 / OpenSSL 4 / Python 3 / .NET SDK 8 / .NET SDK 10: EVERY missing item is listed, then "you need to run Prepare-Computer.ps1" (exit 4).
- [ ] Restore on the PKI machine itself (the PKI is in pki\ and the CAs are in certlm.msc): each PKI is listed with "pki folder: there, all N files identical" and "in Local Machine store" lines;
-     "-> not restored"; "Nothing to restore", nothing changes. Restore into an empty folder on a PC where the CAs are NOT in certlm.msc: "will be restored"; files are written, every file matches.
-     On a PC where the CAs ARE in certlm.msc (Install-PkiCa / pki_setup -InstallTrust) but pki\ is empty: "all N CA certificates are in the Local Machine certificate store" -> not restored (only the
-     leafcerts / settings are written); with -Force the PKI folder (the keys) is restored. Change one byte of one file in pki\: "N identical, 1 different" -> left alone; -Force renames the folder.
- [ ] Backup-Pki.ps1 prints "Certificates: n different (m CA: ... roots, ... intermediates); private key in the backup for k of them"; a CA made by SignExternalCa shows the WARN "no private key"; openssl x509 /
+ [ ] Copy ONLY Backup-Pki.ps1 (or Restore-Pki.ps1, Test-PkiBackup.ps1, Prepare-Computer.ps1) to an
+ empty folder on a Windows 11 24H2+ PC: .\<script> -Help works and the script starts (no "lib\" or
+     "PkiBackupCommon.ps1 is missing" message). A backup zip holds the four scripts, README.txt,
+     SHA256SUMS, SHA512SUMS and the .certpacked - no lib\ folder.
+ [ ] .\Prepare-Computer.ps1 -Check on a PC with everything current: every program says "is the
+ latest version: nothing to install"; no winget install line. With an older .NET SDK 10 (or OpenSSL
+ / Python):
+     "the latest version is x: it will be updated" and the winget command. On a PC without .NET:
+     both SDKs are installed (`dotnet --list-sdks` shows 8.x and 10.x in a NEW window).
+ [ ] .\Restore-Pki.ps1 -Check on a PC missing one of PowerShell 7 / OpenSSL 4 / Python 3 / .NET SDK
+ 8 / .NET SDK 10: EVERY missing item is listed, then "you need to run Prepare-Computer.ps1" (exit
+ 4). [ ] Restore on the PKI machine itself (the PKI is in pki\ and the CAs are in certlm.msc): each
+ PKI is listed with "pki folder: there, all N files identical" and "in Local Machine store" lines;
+     "-> not restored"; "Nothing to restore", nothing changes. Restore into an empty folder on a PC
+     where the CAs are NOT in certlm.msc: "will be restored"; files are written, every file matches.
+     On a PC where the CAs ARE in certlm.msc (Install-PkiCa / pki_setup -InstallTrust) but pki\ is
+     empty: "all N CA certificates are in the Local Machine certificate store" -> not restored (only
+     the leafcerts / settings are written); with -Force the PKI folder (the keys) is restored.
+     Change one byte of one file in pki\: "N identical, 1 different" -> left alone; -Force renames
+     the folder.
+ [ ] Backup-Pki.ps1 prints "Certificates: n different (m CA: ... roots, ... intermediates); private
+ key in the backup for k of them"; a CA made by SignExternalCa shows the WARN "no private key";
+ openssl x509 /
      openssl pkey confirm that every root and intermediate key listed is in the zip's .certpacked (open it with 7-Zip). Restore-Pki.ps1 prints the same totals ("Private keys in this backup").
- [ ] docs\PkiBackup-MANUAL.txt, PrepareComputer-MANUAL.txt, PKI-ChangeLog.txt (5.3.5), design decisions 10.139 - 10.143, README.md, START-HERE.txt; every file shows Version 5.3.5.
+ [ ] docs\PkiBackup-MANUAL.txt, PrepareComputer-MANUAL.txt, PKI-ChangeLog.txt (5.3.5), design
+ decisions 10.139 - 10.143, README.md, START-HERE.txt; every file shows Version 5.3.5.
 
 ====================================================================================================
  E33  Minor 5.3.0: Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1, Prepare-Computer (PowerShell)
 ====================================================================================================
- [ ] Windows 11 Pro 24H2+ (and Home, Windows Server 2025 Standard), PowerShell 7 started as Administrator, in the project folder: .\Backup-Pki.ps1 -Check lists files, MB, key files and
-     PKI folders, writes nothing, asks nothing. .\Backup-Pki.ps1 -Help, .\Restore-Pki.ps1 -Help and .\Test-PkiBackup.ps1 -Help show three different texts, each with Version, Author, Company, Email.
- [ ] .\Backup-Pki.ps1: press Enter (empty), then "abc", then "abcdefghijkl", "ABCDEFGHIJKL1", "Abcdefghijkl1" (no special) ... each shows EVERY missing rule and asks again; after three bad tries it ends
-     (exit 3), nothing written. "Abcdefghij1!" (12) is accepted, asked twice; two different entries = error. Then backup-pki\ exists (it was created) and holds
-     pki-payload-<yyyymmdd>-<computer>-windows-11-<24h2|25h2|26h2>-<6 hex>.zip (Server 2025: ...-windows-server-2025-...). The folder is not listed by `git status` (.gitignore).
- [ ] Unzip it: <name>.certpacked, SHA256SUMS, SHA512SUMS, Restore-Pki.ps1, Test-PkiBackup.ps1, Backup-Pki.ps1, Prepare-Computer.ps1, lib\, README.txt. 7-Zip opens the .certpacked renamed to .zip with the password.
- [ ] Gates (each: red ERROR, nothing done, exit code): a normal (non-elevated) pwsh = exit 2; Windows PowerShell 5.1 = "needs PowerShell 7" (exit 4); an ARM64 Windows 11 PC (or x64 pwsh on ARM) = exit 5;
-     Windows 11 Enterprise / Pro for Workstations / Education, Windows 11 23H2, Windows 10, Windows Server 2022 = exit 5; any of these also for Restore-Pki.ps1 and Test-PkiBackup.ps1.
- [ ] .\Test-PkiBackup.ps1 in the unzipped folder: every line OK, exit 0. Add one character to Restore-Pki.ps1 (or flip a byte of the .certpacked): FAIL line for that file, exit 6.
-     -Backup .\backup-pki checks every zip; -Deep asks the password and says the password opens the .certpacked and all N files match; a wrong password = exit 3.
- [ ] On a computer WITHOUT OpenSSL 4 / Python / PowerShell 7 on the PATH: .\Restore-Pki.ps1 -Destination C:\PKI-Test says what is missing and "Run .\Prepare-Computer.ps1 first" (exit 4).
+ [ ] Windows 11 Pro 24H2+ (and Home, Windows Server 2025 Standard), PowerShell 7 started as
+ Administrator, in the project folder: .\Backup-Pki.ps1 -Check lists files, MB, key files and
+     PKI folders, writes nothing, asks nothing. .\Backup-Pki.ps1 -Help, .\Restore-Pki.ps1 -Help and
+     .\Test-PkiBackup.ps1 -Help show three different texts, each with Version, Author, Company,
+     Email.
+ [ ] .\Backup-Pki.ps1: press Enter (empty), then "abc", then "abcdefghijkl", "ABCDEFGHIJKL1",
+ "Abcdefghijkl1" (no special) ... each shows EVERY missing rule and asks again; after three bad
+ tries it ends
+     (exit 3), nothing written. "Abcdefghij1!" (12) is accepted, asked twice; two different entries
+     = error. Then backup-pki\ exists (it was created) and holds
+     pki-payload-<yyyymmdd>-<computer>-windows-11-<24h2|25h2|26h2>-<6 hex>.zip (Server 2025:
+     ...-windows-server-2025-...). The folder is not listed by `git status` (.gitignore).
+ [ ] Unzip it: <name>.certpacked, SHA256SUMS, SHA512SUMS, Restore-Pki.ps1, Test-PkiBackup.ps1,
+ Backup-Pki.ps1, Prepare-Computer.ps1, lib\, README.txt. 7-Zip opens the .certpacked renamed to .zip
+ with the password. [ ] Gates (each: red ERROR, nothing done, exit code): a normal (non-elevated)
+ pwsh = exit 2; Windows PowerShell 5.1 = "needs PowerShell 7" (exit 4); an ARM64 Windows 11 PC (or
+ x64 pwsh on ARM) = exit 5;
+     Windows 11 Enterprise / Pro for Workstations / Education, Windows 11 23H2, Windows 10, Windows
+     Server 2022 = exit 5; any of these also for Restore-Pki.ps1 and Test-PkiBackup.ps1.
+ [ ] .\Test-PkiBackup.ps1 in the unzipped folder: every line OK, exit 0. Add one character to
+ Restore-Pki.ps1 (or flip a byte of the .certpacked): FAIL line for that file, exit 6.
+     -Backup .\backup-pki checks every zip; -Deep asks the password and says the password opens the
+     .certpacked and all N files match; a wrong password = exit 3.
+ [ ] On a computer WITHOUT OpenSSL 4 / Python / PowerShell 7 on the PATH: .\Restore-Pki.ps1
+ -Destination C:\PKI-Test says what is missing and "Run .\Prepare-Computer.ps1 first" (exit 4).
      .\Prepare-Computer.ps1 -Check lists PowerShell, OpenSSL, Python; without -Check it installs the latest PowerShell 7 (winget Microsoft.PowerShell), OpenSSL, Python; a NEW pwsh answers `pwsh --version`.
      -Only PowerShell installs only PowerShell. Windows PowerShell 5.1 can run it.
- [ ] After Prepare-Computer (new Administrator pwsh): .\Restore-Pki.ps1 -Destination C:\PKI-Test -Check = password right, "every file is valid", nothing written. Without -Check: files written,
-     "every file matches the backup"; compare with the original (fc /b, or Get-FileHash on pki\*). Empty folders (issued\) exist again. A second run without -Force = "These already exist" and nothing
-     changes; with -Force the old pki\ is renamed pki.before-restore-<time>. -RestrictAccess: `icacls C:\PKI-Test\pki` shows only Administrators and SYSTEM.
- [ ] In the restored folder: .\pki_setup.ps1 -ListPki lists the PKIs; .\pki_setup.ps1 -InstallTrust trusts them again; GenerateLeafCertificate.ps1 -DnsName test.example.com still issues from the restored CAs.
- [ ] docs\PkiBackup-MANUAL.txt, docs\PKI-ChangeLog.txt (5.3.0 on top), design decisions 10.134 - 10.138, README.md and START-HERE.txt describe the above; every file shows Version 5.3.0.
+ [ ] After Prepare-Computer (new Administrator pwsh): .\Restore-Pki.ps1 -Destination C:\PKI-Test
+ -Check = password right, "every file is valid", nothing written. Without -Check: files written,
+     "every file matches the backup"; compare with the original (fc /b, or Get-FileHash on pki\*).
+     Empty folders (issued\) exist again. A second run without -Force = "These already exist" and
+     nothing changes; with -Force the old pki\ is renamed pki.before-restore-<time>.
+     -RestrictAccess: `icacls C:\PKI-Test\pki` shows only Administrators and SYSTEM.
+ [ ] In the restored folder: .\pki_setup.ps1 -ListPki lists the PKIs; .\pki_setup.ps1 -InstallTrust
+ trusts them again; GenerateLeafCertificate.ps1 -DnsName test.example.com still issues from the
+ restored CAs. [ ] docs\PkiBackup-MANUAL.txt, docs\PKI-ChangeLog.txt (5.3.0 on top), design
+ decisions 10.134 - 10.138, README.md and START-HERE.txt describe the above; every file shows
+ Version 5.3.0.
 
 ====================================================================================================
  E32  Revision 5.2.6: Prepare-Computer, PATH, request kind, PKI already installed
 ====================================================================================================
- [ ] Windows 11 24H2+, Administrator PowerShell: .\Prepare-Computer.ps1 -Check lists OpenSSL, Python, the commands it would run and the PATH changes. Without -Check it installs
-     OpenSSL (winget FireDaemon.OpenSSL) and the highest Python.Python.3.x, then a NEW PowerShell window answers `openssl version` (4.x) and `python --version`.
-     Remove openssl from the PATH (or install it elsewhere) and run again: the folder is added to the Machine PATH (User PATH in a normal window), an older openssl on the PATH is overtaken.
-     Without winget (or -Manager Chocolatey) the Chocolatey packages openssl and python are used; note the OpenSSL version (below 4 = warning, exit 4). Windows 10 = exit 5.
- [ ] Linux (Ubuntu 24 / 26, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15/16, openSUSE 15/16): ./prepare-computer.sh --check, then without --check: openssl and python3
-     (3.10+, pip) are there; with a newer openssl in a folder off the PATH the folder is in /etc/profile.d/pki-openssl.sh (or ~/.profile). Debian = exit 5.
- [ ] The PKI is already installed (Install-PkiCa.ps1 -Scope Machine: certlm.msc shows the roots; Linux: install-pki-ca.sh): New-PkiCsr.ps1 / new-pki-csr.sh run unchanged, print
-     "PKI already installed on this computer: ...", and the certificate that comes back verifies (Windows: certutil -verify; Linux: openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt).
-     The other scripts of the zip are still there after Install-PkiCa.ps1 ends (only the installer and the package are deleted).
- [ ] New-PkiCsr -CertificateType IntermediateCA (new-pki-csr.sh --type intermediate-ca): asks the type first; no names question, no development question; -AddDevelopmentSAN, -San, ML-DSA,
-     RSA 2048/3072, P-256, no OU, no company = ERROR. openssl req -text shows CA:TRUE and Certificate Sign, CRL Sign.
- [ ] SignExternalCa.ps1 -Csr <ca.csr> -Check: "Request kind: IntermediateCA", result OK. SignCsr.ps1 -Csr <ca.csr> = ERROR "request kind ... Use: SignExternalCa.ps1", exit 2.
-     SignExternalCa.ps1 -Csr <leaf.csr> = ERROR "Use: SignCsr.ps1". -CsrType Leaf on SignExternalCa / -CsrType IntermediateCA on SignCsr = ERROR. SignCsr.sh --csr-type works the same.
- [ ] An EV CA request (EV information) is signed by SignExternalCa as EV without -Level. docs/PKI-ChangeLog.txt exists and the design file has no change log; START-HERE.txt lists the files.
+ [ ] Windows 11 24H2+, Administrator PowerShell: .\Prepare-Computer.ps1 -Check lists OpenSSL,
+ Python, the commands it would run and the PATH changes. Without -Check it installs
+     OpenSSL (winget FireDaemon.OpenSSL) and the highest Python.Python.3.x, then a NEW PowerShell
+     window answers `openssl version` (4.x) and `python --version`. Remove openssl from the PATH (or
+     install it elsewhere) and run again: the folder is added to the Machine PATH (User PATH in a
+     normal window), an older openssl on the PATH is overtaken. Without winget (or -Manager
+     Chocolatey) the Chocolatey packages openssl and python are used; note the OpenSSL version
+     (below 4 = warning, exit 4). Windows 10 = exit 5.
+ [ ] Linux (Ubuntu 24 / 26, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15/16,
+ openSUSE 15/16): ./prepare-computer.sh --check, then without --check: openssl and python3
+     (3.10+, pip) are there; with a newer openssl in a folder off the PATH the folder is in
+     /etc/profile.d/pki-openssl.sh (or ~/.profile). Debian = exit 5.
+ [ ] The PKI is already installed (Install-PkiCa.ps1 -Scope Machine: certlm.msc shows the roots;
+ Linux: install-pki-ca.sh): New-PkiCsr.ps1 / new-pki-csr.sh run unchanged, print
+     "PKI already installed on this computer: ...", and the certificate that comes back verifies
+     (Windows: certutil -verify; Linux: openssl verify -CAfile /etc/ssl/certs/ca-certificates.crt).
+     The other scripts of the zip are still there after Install-PkiCa.ps1 ends (only the installer
+     and the package are deleted).
+ [ ] New-PkiCsr -CertificateType IntermediateCA (new-pki-csr.sh --type intermediate-ca): asks the
+ type first; no names question, no development question; -AddDevelopmentSAN, -San, ML-DSA,
+     RSA 2048/3072, P-256, no OU, no company = ERROR. openssl req -text shows CA:TRUE and
+     Certificate Sign, CRL Sign.
+ [ ] SignExternalCa.ps1 -Csr <ca.csr> -Check: "Request kind: IntermediateCA", result OK. SignCsr.ps1
+ -Csr <ca.csr> = ERROR "request kind ... Use: SignExternalCa.ps1", exit 2.
+     SignExternalCa.ps1 -Csr <leaf.csr> = ERROR "Use: SignCsr.ps1". -CsrType Leaf on SignExternalCa
+     / -CsrType IntermediateCA on SignCsr = ERROR. SignCsr.sh --csr-type works the same.
+ [ ] An EV CA request (EV information) is signed by SignExternalCa as EV without -Level.
+ docs/PKI-ChangeLog.txt exists and the design file has no change log; START-HERE.txt lists the
+ files.
 
 ====================================================================================================
  E31  Minor 5.2 + revision 2 (5.2.2): CSR maker and OpenSSL installer for the destination
 ====================================================================================================
- [ ] Windows 11 24H2+, elevated PowerShell: .\Prepare-Computer.ps1 -Check shows the winget (or Chocolatey) command; .\Prepare-Computer.ps1 -Yes installs FireDaemon.OpenSSL, prints
-     "OpenSSL 4.x"; with winget missing and Chocolatey present -Manager Chocolatey installs the package "openssl" (note the version it reports: below 4 = warning, exit 4). Windows 10 = exit 5.
- [ ] Windows PowerShell 5.1 (not 7): .\New-PkiCsr.ps1 asks the 15 steps one after the other; Country must be 2 capital letters; the e-mail and phone are checked.
-     EV question = n, company + country filled -> "level asked: OV"; EV question = y (all EV data) -> "EV"; only the CN -> "DV". -KeyBits 1024, -Digest SHA1, -Curve P-224, -MlDsa 33 -> ERROR, no file.
-     Company name with # $ " \ is kept as typed (openssl req -in x.csr -noout -subject). The .key is readable only by your account (icacls).
- [ ] "Add the development names?" = y: request-info.txt says so; the CA side (SignCsr.ps1 -Csr x.csr -Check) says "development names added (the request carries the marker)".
- [ ] CA machine: .\SignCsr.ps1 -Csr <ev>.csr (no level switch) -> "Level EV, chosen from the request", signed by q1-ev (Classic, Quadrant 1); the certificate has the EV policy, the CRL / OCSP of q1-ev,
-     and your PEN policy 1.3.6.1.4.1.<PEN>.1; an OV request -> q1-ov with serialNumber; a name-only request -> q1-dv. -Quantum with an ML-DSA request -> q3-*. -OV on an EV request forces OV.
- [ ] The marker name is NOT in the certificate; the development names (DNS, 192.168.x ranges, e-mail) are.
- [ ] Linux (Ubuntu 24 / 26, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15/16, openSUSE 15/16): sudo ./prepare-computer.sh --check, then --yes: the package is installed and the
-     version printed (3.x or 4.x). ./new-pki-csr.sh does the same questions as the ps1; devkit/SignCsr.sh signs its CSR the same way as SignCsr.ps1 (level, marker, PEN). Debian / old versions = exit 5.
- [ ] The scripts are in the trust-kit zips (Windows: New-PkiCsr.ps1 + Prepare-Computer.ps1; Ubuntu / Red Hat / SUSE: new-pki-csr.sh + prepare-computer.sh), in the self-extracting files, in the DevKit
-     root and in the transport kit folder; docs\NewPkiCsr-MANUAL.txt is in the DevKit and the transport kit. Every file starts with Author / Company / Email; -Help / --help show Version 5.2.2.
+ [ ] Windows 11 24H2+, elevated PowerShell: .\Prepare-Computer.ps1 -Check shows the winget (or
+ Chocolatey) command; .\Prepare-Computer.ps1 -Yes installs FireDaemon.OpenSSL, prints
+     "OpenSSL 4.x"; with winget missing and Chocolatey present -Manager Chocolatey installs the
+     package "openssl" (note the version it reports: below 4 = warning, exit 4). Windows 10 = exit
+     5.
+ [ ] Windows PowerShell 5.1 (not 7): .\New-PkiCsr.ps1 asks the 15 steps one after the other; Country
+ must be 2 capital letters; the e-mail and phone are checked.
+     EV question = n, company + country filled -> "level asked: OV"; EV question = y (all EV data)
+     -> "EV"; only the CN -> "DV". -KeyBits 1024, -Digest SHA1, -Curve P-224, -MlDsa 33 -> ERROR, no
+     file. Company name with # $ " \ is kept as typed (openssl req -in x.csr -noout -subject). The
+     .key is readable only by your account (icacls).
+ [ ] "Add the development names?" = y: request-info.txt says so; the CA side (SignCsr.ps1 -Csr x.csr
+ -Check) says "development names added (the request carries the marker)". [ ] CA machine:
+ .\SignCsr.ps1 -Csr <ev>.csr (no level switch) -> "Level EV, chosen from the request", signed by
+ q1-ev (Classic, Quadrant 1); the certificate has the EV policy, the CRL / OCSP of q1-ev,
+     and your PEN policy 1.3.6.1.4.1.<PEN>.1; an OV request -> q1-ov with serialNumber; a name-only
+     request -> q1-dv. -Quantum with an ML-DSA request -> q3-*. -OV on an EV request forces OV.
+ [ ] The marker name is NOT in the certificate; the development names (DNS, 192.168.x ranges,
+ e-mail) are. [ ] Linux (Ubuntu 24 / 26, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES
+ 15/16, openSUSE 15/16): sudo ./prepare-computer.sh --check, then --yes: the package is installed
+ and the
+     version printed (3.x or 4.x). ./new-pki-csr.sh does the same questions as the ps1;
+     devkit/SignCsr.sh signs its CSR the same way as SignCsr.ps1 (level, marker, PEN). Debian / old
+     versions = exit 5.
+ [ ] The scripts are in the trust-kit zips (Windows: New-PkiCsr.ps1 + Prepare-Computer.ps1; Ubuntu /
+ Red Hat / SUSE: new-pki-csr.sh + prepare-computer.sh), in the self-extracting files, in the DevKit
+     root and in the transport kit folder; docs\NewPkiCsr-MANUAL.txt is in the DevKit and the
+     transport kit. Every file starts with Author / Company / Email; -Help / --help show Version
+     5.2.2.
 
 ====================================================================================================
  E30  Minor 5.1.0: trust kit with several companies, remove scripts
 ====================================================================================================
- [ ] .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka : ONE .certpacked per zip; the log lists "agantra R1, raksaka R1"; -Pki agantra,nobody = error listing the known PKIs;
-     a company without a built PKI = exit 4. -AllProfiles and -AllReleases pack every release. -SelfExtract makes the same content as .cmd / .sh.
- [ ] Windows, elevated: Install-PkiCa.ps1 shows "PKI agantra ..." and "PKI raksaka ..." lines; certlm.msc holds the roots of BOTH in Trusted Root, the intermediates in Intermediate.
-     %ProgramData%\PkiTrustKit\installed.tsv exists. Remove-PkiCa.ps1 -List shows both; -Pki raksaka -Check lists only Raksaka; -Pki raksaka removes only Raksaka (Agantra stays);
-     -All removes the rest and deletes the list; -Org "Raksaka" works with the list deleted; a normal window works on the Current User store.
- [ ] Linux (Ubuntu 24 / RHEL 10 / SLES 15): install-pki-ca.sh installs the roots of both (pki-agantra-... and pki-raksaka-... in the system store); remove-pki-ca.sh --list,
-     --pki raksaka, --all, --org raksaka as above; the system store is refreshed; pki/ is gone after --all. An unsupported distribution = exit 5 for both scripts.
- [ ] An older single-PKI kit still installs, and Remove-PkiCa.ps1 -Org / remove-pki-ca.sh --org removes it.
+ [ ] .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka : ONE .certpacked per zip; the log lists
+ "agantra R1, raksaka R1"; -Pki agantra,nobody = error listing the known PKIs;
+     a company without a built PKI = exit 4. -AllProfiles and -AllReleases pack every release.
+     -SelfExtract makes the same content as .cmd / .sh.
+ [ ] Windows, elevated: Install-PkiCa.ps1 shows "PKI agantra ..." and "PKI raksaka ..." lines;
+ certlm.msc holds the roots of BOTH in Trusted Root, the intermediates in Intermediate.
+     %ProgramData%\PkiTrustKit\installed.tsv exists. Remove-PkiCa.ps1 -List shows both; -Pki raksaka
+     -Check lists only Raksaka; -Pki raksaka removes only Raksaka (Agantra stays); -All removes the
+     rest and deletes the list; -Org "Raksaka" works with the list deleted; a normal window works on
+     the Current User store.
+ [ ] Linux (Ubuntu 24 / RHEL 10 / SLES 15): install-pki-ca.sh installs the roots of both
+ (pki-agantra-... and pki-raksaka-... in the system store); remove-pki-ca.sh --list,
+     --pki raksaka, --all, --org raksaka as above; the system store is refreshed; pki/ is gone after
+     --all. An unsupported distribution = exit 5 for both scripts.
+ [ ] An older single-PKI kit still installs, and Remove-PkiCa.ps1 -Org / remove-pki-ca.sh --org
+ removes it.
 
 ====================================================================================================
  E29  Revisions 5.0.1 / 5.0.2: version display, Raksaka trust-store fix, .gitignore
 ====================================================================================================
- [ ] Every .ps1 and .sh prints "[INFO] <name> version 5.0.2" when it starts (-Help / --help show "Version 5.0.2" in their header instead).
- [ ] git status shows agantra_pki.cnf but NOT raksaka_pki.cnf (git check-ignore -v raksaka_pki.cnf names the .gitignore line).
- [ ] The zip is named PKI-DevSecOps-<yyyymmdd>-5.0.2.zip.
- [ ] Windows, elevated: .\pki_setup.ps1 -InstallTrust -Pki raksaka : 7 of 7 roots, 12 of 12 intermediates, no ERROR (see E28).
+ [ ] Every .ps1 and .sh prints "[INFO] <name> version 5.0.2" when it starts (-Help / --help show
+ "Version 5.0.2" in their header instead). [ ] git status shows agantra_pki.cnf but NOT
+ raksaka_pki.cnf (git check-ignore -v raksaka_pki.cnf names the .gitignore line). [ ] The zip is
+ named PKI-DevSecOps-<yyyymmdd>-5.0.2.zip.
+ [ ] Windows, elevated: .\pki_setup.ps1 -InstallTrust -Pki raksaka : 7 of 7 roots, 12 of 12
+ intermediates, no ERROR (see E28).
 
 ====================================================================================================
  E28  PKI profiles, platform rules, tools configuration (5.0.0 MAJOR)
 ====================================================================================================
- [ ] .\New-PkiConfig.ps1 -CompanyName 'PT Raksaka Teknologi Indonesia' ... : raksaka_pki.cnf is written (short name raksaka, CA prefix Raksaka). 'PT Bumi Daya Sakti' -> bumi_pki.cnf.
-     ArgÜwilis -> arguwilis_pki.cnf. A second 'Tecooli ...' company -> tecooli002_pki.cnf (CA prefix Tecooli002). The website https://www.x.co.id is stored as www.x.co.id.
- [ ] .\pki_setup.ps1 -ListPki lists agantra (default) and raksaka. .\pki_setup.ps1 -InstallTrust builds pki\pki-default-01, again -> pki-default-02. -Pki raksaka -InstallTrust -> pki-raksaka-01.
-     Windows: the store holds 'Agantra ...' and 'Raksaka ...' roots side by side; -NoCaRevocationInfo gives pki-raksaka-nocr-01.
- [ ] Windows, elevated: -Pki raksaka -InstallTrust after the Agantra one: "Trusted Root ... 7 of 7", "Intermediate ... 12 of 12", no ERROR, no Agantra certificate listed as leftover; the
+ [ ] .\New-PkiConfig.ps1 -CompanyName 'PT Raksaka Teknologi Indonesia' ... : raksaka_pki.cnf is
+ written (short name raksaka, CA prefix Raksaka). 'PT Bumi Daya Sakti' -> bumi_pki.cnf.
+     ArgÜwilis -> arguwilis_pki.cnf. A second 'Tecooli ...' company -> tecooli002_pki.cnf (CA prefix
+     Tecooli002). The website https://www.x.co.id is stored as www.x.co.id.
+ [ ] .\pki_setup.ps1 -ListPki lists agantra (default) and raksaka. .\pki_setup.ps1 -InstallTrust
+ builds pki\pki-default-01, again -> pki-default-02. -Pki raksaka -InstallTrust -> pki-raksaka-01.
+     Windows: the store holds 'Agantra ...' and 'Raksaka ...' roots side by side;
+              -NoCaRevocationInfo gives pki-raksaka-nocr-01.
+ [ ] Windows, elevated: -Pki raksaka -InstallTrust after the Agantra one: "Trusted Root ... 7 of 7",
+ "Intermediate ... 12 of 12", no ERROR, no Agantra certificate listed as leftover; the
      same for agantra afterwards (no Raksaka certificate listed).
- [ ] -Pki Tab-completes the names. GenerateLeafCertificate / SignCsr / SignExternalCa / PkiTransport -Pack / -Server / -DevKit / PkiRevocation / New-PkiTrustKit with -Pki raksaka use the Raksaka
-     CAs and file names raksaka-pki-...; without -Pki the Agantra PKI. -Pki unknown = error listing the known names.
- [ ] .\pki_remove.ps1 -List; -Pki raksaka -Release 1 -DeleteFiles; -Pki raksaka -All (Agantra stays); -AllPki and pki_setup -RemoveAllTrust remove every company from the files AND from
-     Local Machine Root / Intermediate / Personal (certmgr.msc / Get-ChildItem Cert:\LocalMachine\Root | ? Subject -match 'Agantra|Raksaka' = empty).
- [ ] Windows 10, Windows 11 23H2, Server 2019, Windows 11 Chinese / Government / IoT / SE / Embedded: every .ps1 (not -Help) prints [ERROR] ... Nothing was done, exit 5.
- [ ] Windows 11 24H2+ Home / Pro / Pro for Workstations / Education / Pro Education / Enterprise, Windows Server 2025 and 2022 Essentials / Standard / Datacenter: scripts run.
- [ ] Windows Server 2022: pki_setup builds quadrants 1, 2 only (warning shown); -Quadrant 3 and GenerateLeafCertificate -Quantum are errors; FIPS and non-FIPS, DV / OV / EV leaves work;
+ [ ] -Pki Tab-completes the names. GenerateLeafCertificate / SignCsr / SignExternalCa / PkiTransport
+ -Pack / -Server / -DevKit / PkiRevocation / New-PkiTrustKit with -Pki raksaka use the Raksaka
+     CAs and file names raksaka-pki-...; without -Pki the Agantra PKI. -Pki unknown = error listing
+     the known names.
+ [ ] .\pki_remove.ps1 -List; -Pki raksaka -Release 1 -DeleteFiles; -Pki raksaka -All (Agantra
+ stays); -AllPki and pki_setup -RemoveAllTrust remove every company from the files AND from
+     Local Machine Root / Intermediate / Personal (certmgr.msc / Get-ChildItem
+     Cert:\LocalMachine\Root | ? Subject -match 'Agantra|Raksaka' = empty).
+ [ ] Windows 10, Windows 11 23H2, Server 2019, Windows 11 Chinese / Government / IoT / SE /
+ Embedded: every .ps1 (not -Help) prints [ERROR] ... Nothing was done, exit 5. [ ] Windows 11 24H2+
+ Home / Pro / Pro for Workstations / Education / Pro Education / Enterprise, Windows Server 2025 and
+ 2022 Essentials / Standard / Datacenter: scripts run. [ ] Windows Server 2022: pki_setup builds
+ quadrants 1, 2 only (warning shown); -Quadrant 3 and GenerateLeafCertificate -Quantum are errors;
+ FIPS and non-FIPS, DV / OV / EV leaves work;
      -InstallTrust / Install-PkiCa.ps1 skip post-quantum certificates.
- [ ] Linux: Ubuntu 24.04, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15 / 16, openSUSE Leap 15 / 16 run every .sh; Ubuntu 22.04, CentOS Stream 9, RHEL 9, Debian, macOS: error, exit 5.
+ [ ] Linux: Ubuntu 24.04, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15 / 16,
+ openSUSE Leap 15 / 16 run every .sh; Ubuntu 22.04, CentOS Stream 9, RHEL 9, Debian, macOS: error,
+ exit 5.
      WSL (Ubuntu 24.04) works.
- [ ] pki_tools.cnf: delete it -> everything works with the old defaults; DefaultPki = raksaka makes -Pki unnecessary; TransportFolder / ArchiveFormat / SelfExtract are honoured.
- [ ] The DevKit of raksaka (PkiTransport -DevKit -Pki raksaka): contains raksaka_pki.cnf and pki_tools.cnf (DefaultPki = raksaka); the Windows and Ubuntu installers and generators use it.
+ [ ] pki_tools.cnf: delete it -> everything works with the old defaults; DefaultPki = raksaka makes
+ -Pki unnecessary; TransportFolder / ArchiveFormat / SelfExtract are honoured. [ ] The DevKit of
+ raksaka (PkiTransport -DevKit -Pki raksaka): contains raksaka_pki.cnf and pki_tools.cnf (DefaultPki
+ = raksaka); the Windows and Ubuntu installers and generators use it.
 
 ====================================================================================================
  E27  OS gates, self-extracting files, development SAN ranges (4.9.6)
 ====================================================================================================
- [ ] Install-PkiCa.ps1 on Windows 10, Windows 11 23H2 and Windows Server 2019: error, exit 5, nothing installed. On Windows 11 24H2+ and Windows Server 2025: everything installed.
- [ ] Windows Server 2022: only the classic roots / intermediates are installed; the warning names how many post-quantum certificates were skipped.
- [ ] install-pki-ca.sh on Ubuntu 22.04, Debian, AlmaLinux, Fedora, SLES 12: error, exit 5. Accepted: Ubuntu 24.04 / 26.04, CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10, SLES 15 / 16, openSUSE Leap 15 / 16.
- [ ] .\New-PkiTrustKit.ps1 -All -SelfExtract: a -selfextract.cmd and three -selfextract.sh; the .cmd unpacks next to itself, the .sh into the current folder (or --dir); then the real installer runs.
- [ ] GenerateLeafCertificate.ps1 -AddDevelopmentSAN: 21 DNS, 603 IP (192.168.0.1-200, 172.16.0.1-200, 192.168.1.1-100, 192.168.2.1-100), 4 e-mail; 192.168.1.101 is NOT in it.
- [ ] No file, -Help or --help shows a "-phaseA/B/C" version any more (4.9.6).
+ [ ] Install-PkiCa.ps1 on Windows 10, Windows 11 23H2 and Windows Server 2019: error, exit 5,
+ nothing installed. On Windows 11 24H2+ and Windows Server 2025: everything installed. [ ] Windows
+ Server 2022: only the classic roots / intermediates are installed; the warning names how many
+ post-quantum certificates were skipped. [ ] install-pki-ca.sh on Ubuntu 22.04, Debian, AlmaLinux,
+ Fedora, SLES 12: error, exit 5. Accepted: Ubuntu 24.04 / 26.04, CentOS Stream 10, RHEL 10, Rocky
+ 10, Oracle Linux 10, SLES 15 / 16, openSUSE Leap 15 / 16. [ ] .\New-PkiTrustKit.ps1 -All
+ -SelfExtract: a -selfextract.cmd and three -selfextract.sh; the .cmd unpacks next to itself, the
+ .sh into the current folder (or --dir); then the real installer runs. [ ]
+ GenerateLeafCertificate.ps1 -AddDevelopmentSAN: 21 DNS, 603 IP (192.168.0.1-200, 172.16.0.1-200,
+ 192.168.1.1-100, 192.168.2.1-100), 4 e-mail; 192.168.1.101 is NOT in it. [ ] No file, -Help or
+ --help shows a "-phaseA/B/C" version any more (4.9.6).
 
 ====================================================================================================
  E26  All PKIs in one trust kit, Author / Company / Email everywhere (4.9.5)
 ====================================================================================================
- [ ] .\New-PkiTrustKit.ps1 -All -AllReleases (with R1, R2 and NoCR-R1 built): one run folder, zips named ...-pki-agantra-all-..., one .certpacked per PKI inside every zip; the
-     console lists every PKI. -AllReleases together with -Release / -PkiRoot / -NoCaRevocationInfo = error.
- [ ] Windows: one run of Install-PkiCa.ps1 installs the roots and intermediates of ALL PKIs; the read-back says all N certificates are in the store; only the zip stays.
- [ ] Ubuntu / RHEL / SUSE: install-pki-ca.sh opens every .certpacked (pki/<package>/), one file per root in the anchors folder (pki-agantra-r1-..., -r2-..., -nocr-r1-...), read-back OK.
- [ ] Every text file generated by the scripts starts with Author / Company / Email: README.txt, PASSWORD.txt, SHA256SUMS (# lines), server\server.env / ca-list.tsv / DNS-RECORDS.txt,
-     server-info.json (keys author / company / email), REVOCATION-INFO.txt, devkit.env, START-HERE.txt, convert-formats.ps1, tls-guidance.txt, the OpenSSL .cnf files,
-     the files that pki-server.sh writes (nginx conf, systemd units, hosts.txt, dnsmasq.conf). Exceptions: PEM / .crt, index.txt, certpack.tsv, JSON arrays, csv.
+ [ ] .\New-PkiTrustKit.ps1 -All -AllReleases (with R1, R2 and NoCR-R1 built): one run folder, zips
+ named ...-pki-agantra-all-..., one .certpacked per PKI inside every zip; the
+     console lists every PKI. -AllReleases together with -Release / -PkiRoot / -NoCaRevocationInfo =
+     error.
+ [ ] Windows: one run of Install-PkiCa.ps1 installs the roots and intermediates of ALL PKIs; the
+ read-back says all N certificates are in the store; only the zip stays. [ ] Ubuntu / RHEL / SUSE:
+ install-pki-ca.sh opens every .certpacked (pki/<package>/), one file per root in the anchors folder
+ (pki-agantra-r1-..., -r2-..., -nocr-r1-...), read-back OK. [ ] Every text file generated by the
+ scripts starts with Author / Company / Email: README.txt, PASSWORD.txt, SHA256SUMS (# lines),
+ server\server.env / ca-list.tsv / DNS-RECORDS.txt,
+     server-info.json (keys author / company / email), REVOCATION-INFO.txt, devkit.env,
+     START-HERE.txt, convert-formats.ps1, tls-guidance.txt, the OpenSSL .cnf files, the files that
+     pki-server.sh writes (nginx conf, systemd units, hosts.txt, dnsmasq.conf). Exceptions: PEM /
+     .crt, index.txt, certpack.tsv, JSON arrays, csv.
  [ ] -Help of every ps1 and --help of every sh shows Author, Company and Email.
 
 ====================================================================================================
  E25  Trust kits (4.9.5)
 ====================================================================================================
- [ ] .\New-PkiTrustKit.ps1 -All: a new folder transport\pki-trust-<name>-<unique>-<date>-<time>\ with windows- / ubuntu- / redhat- / suse-pki-... .zip, PASSWORD.txt, README.txt; no key in any zip.
- [ ] Windows (administrator window): roots in Trusted Root Certification Authorities, intermediates in Intermediate Certification Authorities (certlm.msc); normal window: the same in certmgr.msc; running it again with a newer PKI replaces the old; afterwards only the zip is left.
- [ ] Windows PowerShell 5.1 and PowerShell 7 both run it; -Check changes nothing; a wrong password stops with exit 3.
- [ ] Ubuntu / RHEL / SUSE: the roots are in the system store (curl --cacert not needed); the zip and pki/ stay; -Firefox sets the profile (close Firefox first).
+ [ ] .\New-PkiTrustKit.ps1 -All: a new folder transport\pki-trust-<name>-<unique>-<date>-<time>\
+ with windows- / ubuntu- / redhat- / suse-pki-... .zip, PASSWORD.txt, README.txt; no key in any zip.
+ [ ] Windows (administrator window): roots in Trusted Root Certification Authorities, intermediates
+ in Intermediate Certification Authorities (certlm.msc); normal window: the same in certmgr.msc;
+ running it again with a newer PKI replaces the old; afterwards only the zip is left. [ ] Windows
+ PowerShell 5.1 and PowerShell 7 both run it; -Check changes nothing; a wrong password stops with
+ exit 3. [ ] Ubuntu / RHEL / SUSE: the roots are in the system store (curl --cacert not needed); the
+ zip and pki/ stay; -Firefox sets the profile (close Firefox first).
 
 ====================================================================================================
  E24  Server kit inside the DevKit (4.9.5)
 ====================================================================================================
- [ ] .\PkiTransport.ps1 -DevKit: the kit has server\linux\pki-server\pki-server.sh and server\pki (no .key file, no PRIVATE KEY text); -DevKitNoServer leaves server\ out.
- [ ] Ubuntu: from server\ the four installs work (--crl-only, --no-tsa, --tsa-only, none); START-HERE.txt describes them.
+ [ ] .\PkiTransport.ps1 -DevKit: the kit has server\linux\pki-server\pki-server.sh and server\pki
+ (no .key file, no PRIVATE KEY text); -DevKitNoServer leaves server\ out. [ ] Ubuntu: from server\
+ the four installs work (--crl-only, --no-tsa, --tsa-only, none); START-HERE.txt describes them.
 
 ====================================================================================================
  E23  Time stamp server package (4.9.5)
 ====================================================================================================
- [ ] .\PkiTransport.ps1 -TimestampServer writes agantra-pki-timestamp-server-<date>.zip: no pki-ocsp-dispatch.py, no pki\ocsp, no key; combined with another server mode or -IncludeServiceKeys it is refused.
- [ ] Ubuntu: csr --tsa-only makes ONE tsa CSR; import-cert; install --tsa-only: DNS block lists tsa. and timestamp. only; test: a time stamp is created and verified.
+ [ ] .\PkiTransport.ps1 -TimestampServer writes agantra-pki-timestamp-server-<date>.zip: no
+ pki-ocsp-dispatch.py, no pki\ocsp, no key; combined with another server mode or -IncludeServiceKeys
+ it is refused. [ ] Ubuntu: csr --tsa-only makes ONE tsa CSR; import-cert; install --tsa-only: DNS
+ block lists tsa. and timestamp. only; test: a time stamp is created and verified.
 
 ====================================================================================================
  E22  CRL + OCSP server package (4.9.5)
 ====================================================================================================
- [ ] .\PkiTransport.ps1 -CrlOcspServer writes agantra-pki-crl-ocsp-server-<date>.zip: no pki-tsa.py, no pki\tsa, no key; -CrlOcspServer with -Server or -CrlServer is refused.
- [ ] Ubuntu: csr --no-tsa makes OCSP CSRs only; install --no-tsa ends with the DNS block crl / crt / ocsp (no tsa); test: CRL, CA-issuer and one OCSP query per responder pass.
+ [ ] .\PkiTransport.ps1 -CrlOcspServer writes agantra-pki-crl-ocsp-server-<date>.zip: no pki-tsa.py,
+ no pki\tsa, no key; -CrlOcspServer with -Server or -CrlServer is refused. [ ] Ubuntu: csr --no-tsa
+ makes OCSP CSRs only; install --no-tsa ends with the DNS block crl / crt / ocsp (no tsa); test:
+ CRL, CA-issuer and one OCSP query per responder pass.
 
 ====================================================================================================
  E21  CRL-only server package (4.9.5)
 ====================================================================================================
- [ ] .\PkiTransport.ps1 -CrlServer writes agantra-pki-crl-server-<date>.zip: pki-server.sh, pki\publish, pki\server, README-CRL-SERVER.txt; no key, no CR, execute bit.
- [ ] -CrlServer -IncludeServiceKeys is refused.
- [ ] Ubuntu 24.04 / 26.04: sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki installs nginx, publishes, ends with the DNS block (crl / crt only), self-test passed.
- [ ] pki-server.sh update --crl-only with a new CRL; crl-check shows the days left; test asks every CRL and CA-issuer URL of the PKI: all answer.
+ [ ] .\PkiTransport.ps1 -CrlServer writes agantra-pki-crl-server-<date>.zip: pki-server.sh,
+ pki\publish, pki\server, README-CRL-SERVER.txt; no key, no CR, execute bit. [ ] -CrlServer
+ -IncludeServiceKeys is refused.
+ [ ] Ubuntu 24.04 / 26.04: sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
+ installs nginx, publishes, ends with the DNS block (crl / crt only), self-test passed. [ ]
+ pki-server.sh update --crl-only with a new CRL; crl-check shows the days left; test asks every CRL
+ and CA-issuer URL of the PKI: all answer.
 
 ====================================================================================================
  E20  Internal-only names, DNS lists (4.9.5)
 ====================================================================================================
- [ ] A new PKI: every leaf / CA certificate has CRL http://crl.nextmantra.internal/<slug>.crl, OCSP http://ocsp.nextmantra.internal, CA issuer http://crt.nextmantra.internal/<slug>.crt - and no nextmantra.com URL.
- [ ] pki\R<n>\server\DNS-RECORDS.txt lists crl / crt / ocsp .internal with hosts-file lines and router instructions (<SERVER-IP>).
- [ ] sudo ./pki-server.sh install --source ./pki ... ends with the DNS block: hosts-file lines + router A records with the VM's IP; /etc/agantra-pki-server/dns/ holds hosts.txt, dns-records.csv, dnsmasq.conf.
- [ ] The hosts-file lines pasted into Windows: curl.exe http://crl.nextmantra.internal/<slug>.crl works; the same with the router records (ipconfig /flushdns first).
+ [ ] A new PKI: every leaf / CA certificate has CRL http://crl.nextmantra.internal/<slug>.crl, OCSP
+ http://ocsp.nextmantra.internal, CA issuer http://crt.nextmantra.internal/<slug>.crt - and no
+ nextmantra.com URL. [ ] pki\R<n>\server\DNS-RECORDS.txt lists crl / crt / ocsp .internal with
+ hosts-file lines and router instructions (<SERVER-IP>). [ ] sudo ./pki-server.sh install --source
+ ./pki ... ends with the DNS block: hosts-file lines + router A records with the VM's IP;
+ /etc/agantra-pki-server/dns/ holds hosts.txt, dns-records.csv, dnsmasq.conf. [ ] The hosts-file
+ lines pasted into Windows: curl.exe http://crl.nextmantra.internal/<slug>.crl works; the same with
+ the router records (ipconfig /flushdns first).

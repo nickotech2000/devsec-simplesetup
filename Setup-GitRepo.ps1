@@ -24,52 +24,96 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
 if ($Help) {
 @'
 ============================================================
  Setup-GitRepo.ps1 - make the private GitHub repository clone-and-run on Ubuntu / WSL
- Version 5.3.6     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.4.1     Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ============================================================
 WHY
-  Windows git does not know the Unix execute bit: a new .sh is stored with mode 100644 and a Linux clone gets files that cannot be
-  started ("Permission denied"). Git hooks are not copied by a clone either. This script fixes both in the repository itself.
+  Windows git does not know the Unix execute bit: a new .sh is stored with mode 100644 and a Linux
+  clone gets files that cannot be started ("Permission denied"). Git hooks are not copied by a clone
+  either. This script fixes both in the repository itself.
 
 WHAT IT DOES (run it in the working copy on Windows, once, and after you add a new .sh / .py)
-  1  git config core.hooksPath .githooks   (pre-commit gives every staged .sh / .py the execute bit and refuses CRLF, a BOM and private keys;
-                                             post-checkout / post-merge / post-rewrite chmod the scripts on Linux)
-  2  git config core.autocrlf false, core.eol lf, core.fileMode true (when the file system allows it)
-  3  git update-index --chmod=+x for every tracked or untracked-but-addable .sh and .py   -> mode 100755 in the index
+  1  git config core.hooksPath .githooks   (pre-commit gives every staged .sh / .py the execute bit
+  and refuses CRLF, a BOM and private keys;
+                                             post-checkout / post-merge / post-rewrite chmod the
+                                             scripts on Linux)
+  2  git config core.autocrlf false, core.eol lf, core.fileMode true (when the file system allows
+  it)
+  3  git update-index --chmod=+x for every tracked or untracked-but-addable .sh and .py   -> mode
+  100755 in the index
   4  converts CRLF / BOM in the scripts and text files to LF (.gitattributes keeps them LF)
-  5  -FixCase: renames a tracked 'Scripts' folder to 'scripts' (the code loads scripts/PkiModules.ps1; Linux is case sensitive)
+  5  -FixCase: renames a tracked 'Scripts' folder to 'scripts' (the code loads
+  scripts/PkiModules.ps1; Linux is case sensitive)
   6  -Commit: git add of the changes above and one commit. Without it nothing is committed.
   -Check   only report what would change (exit 1 when something would)
 
 REPOSITORY LAYOUT (what the scripts expect)
   *.ps1, agantra_pki.cnf, README.md                                 repository root
-  docs/                         every manual (*-MANUAL.txt), the design, the checklists, the other documentation text files
+  docs/                         every manual (*-MANUAL.txt), the design, the checklists, the other
+                                documentation text files
   scripts/                      the PowerShell modules (00..21, PkiModules.ps1)
-  linux/                        Install-DevEnvironment.sh, pki-transport.sh, fix-permissions.sh, setup-git.sh, pki-server/ (the server kit)
-  devkit/                       the source of the DevKit (PkiTransport.ps1 -DevKit): Install-PkiTrust, shell generators, lib/, START-HERE
+  linux/                        Install-DevEnvironment.sh, pki-transport.sh, fix-permissions.sh,
+                                setup-git.sh, pki-server/ (the server kit)
+  devkit/                       the source of the DevKit (PkiTransport.ps1 -DevKit):
+                                Install-PkiTrust, shell generators, lib/, START-HERE
   .githooks/, .gitattributes, .gitignore
 
 AFTER "git clone" ON LINUX / WSL
   git clone git@github.com:nickotech2000/devsec-simplesetup.git && cd devsec-simplesetup
   ./linux/pki-server/pki-server.sh --help          (works at once: the index holds 100755)
-  bash linux/setup-git.sh                           (turns the hooks on in this clone and repairs the bits if a tool lost them)
-  If a .sh still says "Permission denied" or "bad interpreter: /usr/bin/env bash^M":  bash linux/fix-permissions.sh
-  Cloned onto /mnt/c (Windows disk) in WSL? Mounted without 'metadata' the execute bit cannot be stored: clone into ~ (the Linux
-  file system) or run  bash linux/fix-permissions.sh.
+  bash linux/setup-git.sh                           (turns the hooks on in this clone and repairs `
+        the bits if a tool lost them)
+  If a .sh still says "Permission denied" or "bad interpreter: /usr/bin/env bash^M":  bash
+  linux/fix-permissions.sh
+  Cloned onto /mnt/c (Windows disk) in WSL? Mounted without 'metadata' the execute bit cannot be
+  stored: clone into ~ (the Linux file system) or run  bash linux/fix-permissions.sh.
 
-The PKI itself (pki\, leafcerts\, *.key) is in .gitignore: it never goes to GitHub. Use New-PkiServerPackage.ps1 to move the PKI.
+The PKI itself (pki\, leafcerts\, *.key) is in .gitignore: it never goes to GitHub. Use
+New-PkiServerPackage.ps1 to move the PKI.
 ============================================================
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
-'@ | Write-Host
+'@ | Out-PagedHelp
     exit 0
 }
 

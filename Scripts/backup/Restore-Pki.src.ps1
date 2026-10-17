@@ -28,52 +28,103 @@ function Show-Help {
 @'
 ============================================================
  Restore-Pki.ps1 - put a PKI backup back
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
 ORDER OF WORK  (a restore stops at the first problem, before anything is written)
-  1. The computer: Windows 11 Home/Pro 24H2+ or Windows Server 2025, Intel/AMD 64 bit, Administrator window. Otherwise: refused.
-  2. ALL required software is checked: PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8, .NET SDK 10 (on the PATH). Whatever is missing is listed, and the script says:
-     you need to run Prepare-Computer.ps1 (it installs all of them). Nothing else happens until it has been run.
+  1. The computer: Windows 11 Home/Pro 24H2+ or Windows Server 2025, Intel/AMD 64 bit, Administrator
+     window. Otherwise: refused.
+  2. ALL required software is checked: PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8, .NET SDK 10
+     (on the PATH). Whatever is missing is listed, and the script says: you need to run
+     Prepare-Computer.ps1 (it installs all of them). Nothing else happens until it has been run.
   3. The checksums of the files in the backup zip (SHA256SUMS) are checked.
-  4. You type the backup password (no password, no restore). Every file inside the .certpacked is decrypted and checked against its SHA-256.
+  4. You type the backup password (no password, no restore). Every file inside the .certpacked is
+     decrypted and checked against its SHA-256.
   5. ONE BY ONE, each PKI of the backup is compared with this computer:
-       - the pki folder of -Destination: every file of that PKI by SHA-256 (identical / different / missing);
-       - the Local Machine certificate store (Root and Intermediate): every CA certificate of that PKI by thumbprint.
-     A PKI that is in the pki folder already (all files identical), or whose CA certificates are ALL in the Local Machine store, is NOT restored. A PKI whose folder exists but differs
-     is NOT silently skipped: you are asked "Replace it with the version from the backup? [Y/n]" and Enter = Y (yes). With Y the old folder is renamed to <name>.before-restore-<time>
-     (never deleted) and the backup version is written. Answer n to keep the old one. Run unattended (no one to ask) the old one is kept, unless you give -Yes. Only what is missing is restored. If nothing is missing: "Nothing to restore", nothing is changed.
-     (The store holds certificates, not private keys: -Force restores the keys of a PKI that is only in the store.)
-  5b. ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo, ...) that may be in an older backup are never restored; they are listed as "Not restored".
-  6. The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file the same way.
+       - the pki folder of -Destination: every file of that PKI by SHA-256 (identical / different /
+         missing);
+       - the Local Machine certificate store (Root and Intermediate): every CA certificate of that
+         PKI by thumbprint.
+     A PKI that is in the pki folder already (all files identical), or whose CA certificates are ALL
+     in the Local Machine store, is NOT restored. A PKI whose folder exists but differs is NOT
+     silently skipped: you are asked "Replace it with the version from the backup? [Y/n]" and Enter
+     = Y (yes). With Y the old folder is renamed to <name>.before-restore-<time> (never deleted) and
+     the backup version is written. Answer n to keep the old one. Run unattended (no one to ask) the
+     old one is kept, unless you give -Yes. Only what is missing is restored. If nothing is missing:
+     "Nothing to restore", nothing is changed. (The store holds certificates, not private keys:
+     -Force restores the keys of a PKI that is only in the store.)
+  5b. ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo, ...) that may be in
+  an older backup are never restored; they are listed as "Not restored".
+  6. The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file the
+     same way.
   7. The files are written, then every restored file is checked against the backup again.
-  The backup itself holds the private key of EVERY certificate: all roots, all intermediates, all profile / leaf certificates (Backup-Pki.ps1 checks this when it makes the backup).
+  The backup itself holds the private key of EVERY certificate: all roots, all intermediates, all
+  profile / leaf certificates (Backup-Pki.ps1 checks this when it makes the backup).
 
 USE
-  .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps                 (run it from the unzipped backup folder: the .certpacked is next to it)
+  .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps                 (run it from the unzipped backup `
+        folder: the .certpacked is next to it)
   .\Restore-Pki.ps1 -Package <backup zip | .certpacked | folder> -Destination <folder>
-  .\Restore-Pki.ps1 -Check                                          (everything except writing: the password, the checksums, the one-by-one comparison, what would be restored)
-  Standalone: this script needs no other .ps1. Prepare-Computer.ps1 (next to it in the backup zip) is only RUN by you, before.
+  .\Restore-Pki.ps1 -Check                                          (everything except writing: `
+        the password, the checksums, the one-by-one comparison, what would be restored)
+  Standalone: this script needs no other .ps1. Prepare-Computer.ps1 (next to it in the backup zip)
+  is only RUN by you, before.
 
 OPTIONS
-  -Package <path>      the backup zip (pki-payload-....zip), the .certpacked, or a folder that holds one. Default: the .certpacked next to this script.
-  -Destination <dir>   the project folder to restore into. Default: the folder of this script when it is the project (it has pki_setup.ps1); otherwise you must give it.
-  -Yes                 answer Y to every "replace?" question without asking (old folders/files are still renamed, never deleted)
-  -Force               restore anyway: a PKI folder (or file) that exists is RENAMED to <name>.before-restore-<yyyymmdd-HHmmss> (never deleted), and a PKI that is only in the Local Machine store is restored too
+  -Package <path>      the backup zip (pki-payload-....zip), the .certpacked, or a folder that holds
+                       one. Default: the .certpacked next to this script.
+  -Destination <dir>   the project folder to restore into. Default: the folder of this script when
+                       it is the project (it has pki_setup.ps1); otherwise you must give it.
+  -Yes                 answer Y to every "replace?" question without asking (old folders/files are
+                       still renamed, never deleted)
+  -Force               restore anyway: a PKI folder (or file) that exists is RENAMED to
+                       <name>.before-restore-<yyyymmdd-HHmmss> (never deleted), and a PKI that is
+                       only in the Local Machine store is restored too
   -Check               do not write anything
-  -RestrictAccess      pki\, leafcerts\, external-ca\ get access for Administrators and SYSTEM only (icacls) BEFORE the keys are written
+  -RestrictAccess      pki\, leafcerts\, external-ca\ get access for Administrators and SYSTEM only
+                       (icacls) BEFORE the keys are written
   -Help
 
 AFTER IT
-  The Windows certificate stores are not in the backup: run  pki_setup.ps1 -InstallTrust  in the restored folder to trust the PKI again.
+  The Windows certificate stores are not in the backup: run  pki_setup.ps1 -InstallTrust  in the
+  restored folder to trust the PKI again.
   EXIT CODES   0 ok   1 error   2 not an Administrator window   3 wrong password   4 Prepare-Computer.ps1 not run   5 system not supported   6 checksum does not match
 ============================================================
 '@ | Write-Host
 }
 
-if ($Help) { Show-Help; return }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-Help }; return }
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Host '[ERROR] Restore-Pki.ps1 needs PowerShell 7 or newer (this window is PowerShell' $PSVersionTable.PSVersion.ToString() '). Run Prepare-Computer.ps1 in an Administrator window to install it, then start this script with  pwsh . Nothing was done.' -ForegroundColor Red
     exit 4

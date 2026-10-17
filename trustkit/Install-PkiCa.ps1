@@ -37,22 +37,29 @@ function Show-Help {
 @'
 ============================================================
  Install-PkiCa.ps1  -  install the CA certificates of the PKI on this Windows machine
- Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
+                               nicko@nextmantra.com
 ============================================================
-Version 5.3.6
+Version 6.4.1
 
 WHAT IT DOES
-  Opens the .certpacked file that came in the same zip (it asks for the password) and installs the CA certificates of EVERY PKI inside it
-  (a kit can hold the PKIs of several companies, for example agantra and raksaka, and several releases of each):
+  Opens the .certpacked file that came in the same zip (it asks for the password) and installs the
+  CA certificates of EVERY PKI inside it (a kit can hold the PKIs of several companies, for example
+  agantra and raksaka, and several releases of each):
     * every ROOT (top root, track roots, quadrant roots)  -> Trusted Root Certification Authorities
     * every INTERMEDIATE CA                               -> Intermediate Certification Authorities
   The package holds NO private key. Nothing is signed or issued here.
-  Run it in an ADMINISTRATOR window and it installs for the whole machine (Local Machine). Run it in a normal window and it installs for
+  Run it in an ADMINISTRATOR window and it installs for the whole machine (Local Machine). Run it in
+  a normal window and it installs for
   YOUR user only (Current User). Windows then asks you to confirm each root certificate: click Yes.
-  The PKI is already installed (an older version)? The old certificates of the same organization are removed, the new ones are added.
-  What was installed is written to a list (Local Machine: %ProgramData%\PkiTrustKit\installed.tsv, Current User: %LOCALAPPDATA%\PkiTrustKit\installed.tsv).
-  To take a PKI away again use Remove-PkiCa.ps1 from the same zip:  -List, -Pki <name>, -All  (see its -Help).
-  At the end the extracted files are deleted. The script and the .certpacked are deleted too, only the zip stays (-Keep keeps them).
+  The PKI is already installed (an older version)? The old certificates of the same organization are
+  removed, the new ones are added.
+  What was installed is written to a list (Local Machine: %ProgramData%\PkiTrustKit\installed.tsv,
+  Current User: %LOCALAPPDATA%\PkiTrustKit\installed.tsv).
+  To take a PKI away again use Remove-PkiCa.ps1 from the same zip:  -List, -Pki <name>, -All  (see
+  its -Help).
+  At the end the extracted files are deleted. The script and the .certpacked are deleted too, only
+  the zip stays (-Keep keeps them).
 
 HOW TO RUN (copy the zip to the laptop, unzip it, open PowerShell in that folder)
     powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
@@ -62,9 +69,11 @@ HOW TO RUN (copy the zip to the laptop, unzip it, open PowerShell in that folder
 OPTIONS
   -Password <text>      the password (else the variable PKI_PACKAGE_PASSWORD, else you are asked)
   -Package <file,...>   the .certpacked file(s) (default: every .certpacked next to this script)
-  -Scope Auto|Machine|User   Auto = Machine in an administrator window, else User. Machine without administrator = stop.
-  -Firefox              also make Firefox trust the PKI (Firefox uses its own store: this sets "use the Windows certificates" in your Firefox
-                        profiles; close Firefox first, start it again afterwards)
+  -Scope Auto|Machine|User   Auto = Machine in an administrator window, else User. Machine without
+                             administrator = stop.
+  -Firefox              also make Firefox trust the PKI (Firefox uses its own store: this sets "use
+                        the Windows certificates" in your Firefox profiles; close Firefox first,
+                        start it again afterwards)
   -Check                show what would be done, change nothing
   -Keep                 do not delete the script and the .certpacked at the end
   -Help                 this text
@@ -73,17 +82,20 @@ EXIT CODES   0 done   1 error   2 administrator window needed for -Scope Machine
 
 NOTES
   * Works on Windows PowerShell 5.1 and PowerShell 7. No OpenSSL, no other file of the PKI project.
-  * SUPPORTED WINDOWS: Windows 11 24H2 or newer (build 26100 and later, 25H2, 26H2 ...) and Windows Server 2025: everything is installed.
-    Windows Server 2022: only the CLASSIC root and intermediate CAs are installed, the post-quantum (ML-DSA) ones are left out.
-    REFUSED with an error (exit 5, nothing changed): Windows 10 and earlier, Windows 11 before 24H2, Windows Server before 2022.
-  * A certificate that uses a post-quantum signature (ML-DSA) is stored as it is; Windows 11 25H2 and newer also USE it, older Windows
-    stores it and uses the classic ones.
-  * "File cannot be loaded because running scripts is disabled": use the command above (it allows this one script).
+  * SUPPORTED WINDOWS: Windows 11 24H2 or newer (build 26100 and later, 25H2, 26H2 ...) and Windows
+    Server 2025: everything is installed. Windows Server 2022: only the CLASSIC root and
+    intermediate CAs are installed, the post-quantum (ML-DSA) ones are left out. REFUSED with an
+    error (exit 5, nothing changed): Windows 10 and earlier, Windows 11 before 24H2, Windows Server
+    before 2022.
+  * A certificate that uses a post-quantum signature (ML-DSA) is stored as it is; Windows 11 25H2
+    and newer also USE it, older Windows stores it and uses the classic ones.
+  * "File cannot be loaded because running scripts is disabled": use the command above (it allows
+    this one script).
 ============================================================
 '@ | Write-Host
 }
 if ($Help) { Show-Help; return }
-$script:KitVersion = '5.3.6'
+$script:KitVersion = '6.4.1'
 
 function Say { param([string]$Level, [string]$Text)
     $c = 'Cyan'; if ($Level -eq 'OK') { $c = 'Green' } elseif ($Level -eq 'WARN') { $c = 'Yellow' } elseif ($Level -eq 'ERROR') { $c = 'Red' }

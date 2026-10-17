@@ -26,47 +26,66 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$script:ToolVersion = '5.3.6'
+$script:ToolVersion = '6.4.1'
 
 function Show-Help {
 @'
 ============================================================
- Prepare-Computer.ps1 - get this Windows computer ready: PowerShell 7 + .NET SDK 8 and 10 + OpenSSL 4 + the latest Python, all on the PATH
- Version 5.3.6
+ Prepare-Computer.ps1 - get this Windows computer ready: PowerShell 7 + .NET SDK 8 and 10 + OpenSSL
+ 4 + the latest Python, all on the PATH
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
 WHAT IT DOES   (run it once, from an Administrator PowerShell)
-  0. PowerShell  looks for pwsh.exe (PowerShell 7); installs the latest PowerShell 7 when it is missing or older than 7. (Run THIS script in Windows PowerShell 5.1
-               or PowerShell 7: both work.) The backup and restore scripts (Backup-Pki, Restore-Pki, Test-PkiBackup) need PowerShell 7: run them with  pwsh.
-  0b. .NET SDK  looks for the .NET SDK 8 and the .NET SDK 10 (dotnet --list-sdks); installs the latest SDK of each (winget Microsoft.DotNet.SDK.8 / .10, Chocolatey dotnet-8.0-sdk / dotnet-10.0-sdk).
+  0. PowerShell  looks for pwsh.exe (PowerShell 7); installs the latest PowerShell 7 when it is
+     missing or older than 7. (Run THIS script in Windows PowerShell 5.1
+               or PowerShell 7: both work.) The backup and restore scripts (Backup-Pki, Restore-Pki,
+               Test-PkiBackup) need PowerShell 7: run them with  pwsh.
+  0b. .NET SDK  looks for the .NET SDK 8 and the .NET SDK 10 (dotnet --list-sdks); installs the
+  latest SDK of each (winget Microsoft.DotNet.SDK.8 / .10, Chocolatey dotnet-8.0-sdk /
+  dotnet-10.0-sdk).
   1. OpenSSL   looks for openssl.exe; installs OpenSSL 4 when it is missing or older than 4.
-  2. Python    looks for a working Python 3 (3.10 or newer); installs the latest Python 3 when it is missing or older.
-  3. PATH      makes sure `openssl` and `python` work in a new PowerShell window: when the program is installed but not found on the PATH, its folder is
-               added (Administrator = all users; normal window = this user). An older OpenSSL that comes first on the PATH is overtaken: the folder of the new one is put in front.
-  ALREADY THE LATEST?  For every program the script asks the package manager for the latest version (winget show / choco search) and compares it with the one installed. The latest (or newer)
-               is installed already = NOTHING is installed, the line says so. Older = it is updated. Not installed = it is installed. If the latest version cannot be read, an installed version that
-               meets the minimum (PowerShell 7, SDK 8 / 10, OpenSSL 4, Python 3.10) is kept. -Force installs anyway.
-  Package managers: winget first (Microsoft.PowerShell, Microsoft.DotNet.SDK.8 and .10, FireDaemon.OpenSSL, Python.Python.3.x - the highest 3.x winget lists), Chocolatey second (powershell-core, dotnet-8.0-sdk, dotnet-10.0-sdk, openssl, python).
+  2. Python    looks for a working Python 3 (3.10 or newer); installs the latest Python 3 when it is
+     missing or older.
+  3. PATH      makes sure `openssl` and `python` work in a new PowerShell window: when the program
+     is installed but not found on the PATH, its folder is
+               added (Administrator = all users; normal window = this user). An older OpenSSL that
+               comes first on the PATH is overtaken: the folder of the new one is put in front.
+  ALREADY THE LATEST?  For every program the script asks the package manager for the latest version
+  (winget show / choco search) and compares it with the one installed. The latest (or newer)
+               is installed already = NOTHING is installed, the line says so. Older = it is updated.
+               Not installed = it is installed. If the latest version cannot be read, an installed
+               version that meets the minimum (PowerShell 7, SDK 8 / 10, OpenSSL 4, Python 3.10) is
+               kept. -Force installs anyway.
+  Package managers: winget first (Microsoft.PowerShell, Microsoft.DotNet.SDK.8 and .10,
+  FireDaemon.OpenSSL, Python.Python.3.x - the highest 3.x winget lists), Chocolatey second
+  (powershell-core, dotnet-8.0-sdk, dotnet-10.0-sdk, openssl, python).
 
 OPTIONS
   -Only All | PowerShell | DotNet | OpenSsl | Python    what to prepare (default All)
   -Manager Auto | Winget | Chocolatey    Auto = winget first, then Chocolatey
-  -Check      only look: say what is there, what would be installed, what would be added to the PATH. Nothing is changed.
+  -Check      only look: say what is there, what would be installed, what would be added to the
+              PATH. Nothing is changed.
   -Yes        do not ask before installing
-  -Force      install / upgrade through the package manager even when the latest version is already there
+  -Force      install / upgrade through the package manager even when the latest version is already
+              there
   -NoPath     do not touch the PATH
   -Help
 
 AFTER IT
   Open a NEW PowerShell window (the PATH is read when a window starts).  Then:   pwsh --version     dotnet --list-sdks     openssl version     python --version     .\New-PkiCsr.ps1
-  If the PKI is already installed on this computer (Local Machine certificate store, from Install-PkiCa.ps1), nothing changes: this script does not touch certificates.
+  If the PKI is already installed on this computer (Local Machine certificate store, from
+  Install-PkiCa.ps1), nothing changes: this script does not touch certificates.
 
 WHERE IT RUNS
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022 (Essentials,
-  Standard, Datacenter). Refused (exit 5): Windows 10 and earlier, Windows 11 before 24H2, Windows Server before 2022 and the Chinese, Government, IoT,
-  SE and Embedded editions. Windows PowerShell 5.1 or PowerShell 7. Needs Internet access to the package source. On Linux use prepare-computer.sh.
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials,
+  Standard, Datacenter). Refused (exit 5): Windows 10 and earlier, Windows 11 before 24H2, Windows
+  Server before 2022 and the Chinese, Government, IoT,
+  SE and Embedded editions. Windows PowerShell 5.1 or PowerShell 7. Needs Internet access to the
+  package source. On Linux use prepare-computer.sh.
   EXIT CODES   0 ok   1 error   4 something is still missing (OpenSSL below 4, Python not found, no package manager)   5 system not supported
 ============================================================
 '@ | Write-Host

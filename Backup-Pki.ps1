@@ -25,55 +25,101 @@ function Show-Help {
 @'
 ============================================================
  Backup-Pki.ps1 - back up the whole PKI into one password-protected zip
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
-  Takes everything that makes up your PKI - the pki\ folder (all PKIs and releases, root and issuing CA KEYS included), leafcerts\, external-ca\,
-  csr-signed\, every <company>_pki.cnf, pki_tools.cnf, devkit.env - and packs it into ONE password-protected .certpacked (AES-256), then puts the
-  .certpacked together with its checksums and the restore tools into a backup zip in the folder  backup-pki\  (created when it does not exist):
+  Takes everything that makes up your PKI - the pki\ folder (all PKIs and releases, root and issuing
+  CA KEYS included), leafcerts\, external-ca\, csr-signed\, every <company>_pki.cnf, pki_tools.cnf,
+  devkit.env - and packs it into ONE password-protected .certpacked (AES-256), then puts the
+  .certpacked together with its checksums and the restore tools into a backup zip in the folder
+  backup-pki\  (created when it does not exist):
 
       backup-pki\pki-payload-<yyyymmdd>-<computer>-<windows-version>-<6 hex>.zip
           pki-payload-...\  <same name>.certpacked   the encrypted backup
                             SHA256SUMS, SHA512SUMS   checksums of every file in the zip
                             Restore-Pki.ps1          puts the backup back
-                            Test-PkiBackup.ps1       checks that the .certpacked is still valid (checksums; -Deep also opens it)
+                            Test-PkiBackup.ps1       checks that the .certpacked is still valid
+                                            (checksums; -Deep also opens it)
                             Backup-Pki.ps1           makes the next backup
-                            Prepare-Computer.ps1     installs PowerShell 7, OpenSSL 4, Python 3 (run it BEFORE a restore)
+                            Prepare-Computer.ps1     installs PowerShell 7, OpenSSL 4, Python 3 (run
+                                            it BEFORE a restore)
                             README.txt
 
-ONLY YOUR PKI  The backup holds only the certificates and keys of YOUR PKI: the organizations named in your <company>_pki.cnf files (Agantra, Raksaka ...). Certificates of other CAs - the
-           DigiCert / GlobalSign / Sectigo chain files, a certificate a public CA issued to you, with their keys - are recognised and LEFT OUT (the list is printed). A root that a public CA
-           signed for YOUR key, and everything your CAs issued, stay in.
-PRIVATE KEYS  A backup is made to RESTORE from, so it must hold every private key: all roots, all intermediates, all leaf / profile keys (and the .pfx files). Every certificate under pki\ and
-           leafcerts\ is matched with its key (by the public key, with OpenSSL); a certificate without a key is listed, a CA certificate without a key is a WARNING. The result is stored in the backup
-           (certpack.json) and Restore-Pki.ps1 prints it. Without OpenSSL on the PATH the keys are still copied but the match is not made (WARN).
-INDEPENDENT   This script needs no other .ps1 (the code it shares with Restore-Pki and Test-PkiBackup is built into it). It copies itself, Restore-Pki.ps1, Test-PkiBackup.ps1 and
+ONLY YOUR PKI  The backup holds only the certificates and keys of YOUR PKI: the organizations named
+in your <company>_pki.cnf files (Agantra, Raksaka ...). Certificates of other CAs - the
+           DigiCert / GlobalSign / Sectigo chain files, a certificate a public CA issued to you,
+           with their keys - are recognised and LEFT OUT (the list is printed). A root that a public
+           CA signed for YOUR key, and everything your CAs issued, stay in.
+PRIVATE KEYS  A backup is made to RESTORE from, so it must hold every private key: all roots, all
+intermediates, all leaf / profile keys (and the .pfx files). Every certificate under pki\ and
+           leafcerts\ is matched with its key (by the public key, with OpenSSL); a certificate
+           without a key is listed, a CA certificate without a key is a WARNING. The result is
+           stored in the backup (certpack.json) and Restore-Pki.ps1 prints it. Without OpenSSL on
+           the PATH the keys are still copied but the match is not made (WARN).
+INDEPENDENT   This script needs no other .ps1 (the code it shares with Restore-Pki and
+              Test-PkiBackup is built into it). It copies itself, Restore-Pki.ps1,
+              Test-PkiBackup.ps1 and
            Prepare-Computer.ps1 into the zip, so the zip is enough to restore on a new computer.
 
-PASSWORD   You type it (twice) - it is asked FIRST, before the long scan. No password, no backup. At least 12 characters with 1 upper case letter, 1 lower case letter, 1 digit and
-           1 special character; every rule that is broken is shown. It is stored nowhere: if you lose it, the backup is lost. Write it down.
+PASSWORD   You type it (twice) - it is asked FIRST, before the long scan. No password, no backup. At
+           least 12 characters with 1 upper case letter, 1 lower case letter, 1 digit and 1 special
+           character; every rule that is broken is shown. It is stored nowhere: if you lose it, the
+           backup is lost. Write it down.
 
 OPTIONS
   -PkiRoot <folder>     the project folder that holds pki\ (default: the folder of this script)
-  -BackupRoot <folder>  the backup folder itself (default: backup-pki inside -PkiRoot); the folder is created when it does not exist
+  -BackupRoot <folder>  the backup folder itself (default: backup-pki inside -PkiRoot); the folder
+                        is created when it does not exist
   -Check                only list what would be backed up (no password, nothing written)
   -List                 list the backups that are in the backup folder
   -Help
 
 WHERE IT RUNS
-  Windows 11 Home or Pro, 24H2 or newer; Windows Server 2025 Essentials, Standard, Datacenter. Intel or AMD 64 bit (AMD64 / x86-64) ONLY: ARM and
-  32 bit are refused. Administrator PowerShell 7 (pwsh) ONLY: any other window is refused. Prepare-Computer.ps1 installs PowerShell 7 (and OpenSSL 4, Python 3, .NET 8 and 10).
+  Windows 11 Home or Pro, 24H2 or newer; Windows Server 2025 Essentials, Standard, Datacenter. Intel
+  or AMD 64 bit (AMD64 / x86-64) ONLY: ARM and
+  32 bit are refused. Administrator PowerShell 7 (pwsh) ONLY: any other window is refused.
+  Prepare-Computer.ps1 installs PowerShell 7 (and OpenSSL 4, Python 3, .NET 8 and 10).
   A backup holds PRIVATE KEYS: keep the zip and the password apart, in two safe places.
-  The Windows certificate stores are not part of the backup: after a restore run  pki_setup.ps1 -InstallTrust  to trust the PKI again.
+  The Windows certificate stores are not part of the backup: after a restore run  pki_setup.ps1
+  -InstallTrust  to trust the PKI again.
   EXIT CODES   0 ok   1 error   2 not an Administrator window   3 password refused   5 system not supported (Windows version / edition / ARM)
 ============================================================
 '@ | Write-Host
 }
 
-if ($Help) { Show-Help; return }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-Help }; return }
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Host '[ERROR] Backup-Pki.ps1 needs PowerShell 7 or newer (this window is PowerShell' $PSVersionTable.PSVersion.ToString() '). Run Prepare-Computer.ps1 in an Administrator window to install it, then start this script with  pwsh . Nothing was done.' -ForegroundColor Red
     exit 4
@@ -98,7 +144,7 @@ $ErrorActionPreference = 'Stop'
 #            PKI_BACKUP_PASSWORD=<password> (unattended runs and tests: the environment of a process can be read by others, so prefer the prompt)
 # ============================================================
 
-$script:BkVersion = '5.3.6'
+$script:BkVersion = '6.4.1'
 $script:BkAssumeYes = $false
 $script:BkFormat = 'agantra-pki-backup'
 $script:BkFormatVersion = 1

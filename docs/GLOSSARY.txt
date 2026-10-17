@@ -1,0 +1,179 @@
+====================================================================================================
+ GLOSSARY - what the words in these documents mean
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+ Version: 6.4.1
+====================================================================================================
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ These are short, plain answers. If a word in a manual is new to you, look here.
+
+ THE BASICS
+----------------------------------------------------------------------------------------------------
+ PKI
+   Public Key Infrastructure. All the parts that make certificates work: CAs, certificates, keys,
+   and the lists that say which certificates are no longer good.
+
+ Certificate
+   A digital ID card for a server, a person or a program. It says who it is and carries a public
+   key.
+
+ Key (private key)
+   The secret that goes with a certificate. Never share it. Whoever has it can act as you.
+
+ CA (Certificate Authority)
+   The one who signs certificates. Your computer trusts a certificate when a CA it trusts signed it.
+
+ Root CA
+   The top CA. It is kept offline and used rarely. Everything else depends on it.
+
+ Intermediate CA
+   A CA signed by the root. It signs the day-to-day certificates, so the root can stay offline.
+
+ Leaf certificate
+   The last certificate in a chain, the one a server, person or program uses.
+
+ Chain
+   Leaf, then intermediate, then root. A client checks the whole chain.
+
+ CSR
+   Certificate Signing Request. A file you send to a CA to ask for a certificate. It has no secret.
+
+ PEM, CRT, CER, DER, PFX
+   File formats. PEM is text (-----BEGIN ...). DER is binary. CRT and CER are certificates, in
+   either form. PFX (PKCS#12) holds a certificate and its key together, with a password.
+
+ Hash (SHA-256, SHA-512)
+   A short fingerprint of a file. If one byte changes, the hash changes. The .sha256 and .sha512
+   files next to your certificates let you check that a file was not damaged or changed.
+
+ THE PKI IN THIS PROJECT
+----------------------------------------------------------------------------------------------------
+ Enterprise Root
+   The top CA of this PKI. It signs the two Track Roots. It lives for 1000 years.
+
+ Track
+   A group of CAs with the same kind of key. This PKI has two: Classic (RSA, ECDSA) and Quantum
+   (ML-DSA).
+
+ Quadrant
+   One of four CA families, numbered 1 to 4: 1 = Classic without FIPS, 2 = Classic with FIPS,
+   3 = Quantum without FIPS, 4 = Quantum with FIPS.
+
+ Quadrant Root
+   The root of one quadrant. It signs the DV, OV and EV intermediates of that quadrant.
+
+ DV, OV, EV
+   Three levels of certificate. DV = domain checked. OV = organization checked. EV = extended
+   checks. In this PKI the level sets the policy and the validity of the certificate.
+
+ Policy (certificate policy, OID)
+   A number inside a certificate that says which rules were used to issue it. For example
+   2.23.140.1.1 means EV.
+
+ PEN (IANA Private Enterprise Number)
+   A number that IANA gives to a company. It lets you make your own policy numbers.
+
+ Release
+   One build of a PKI. Release 1 is the first. The next run builds release 2, with new keys.
+   Old releases keep working.
+
+ NoCR
+   "No CA revocation information". A PKI whose CA certificates have no CRL or OCSP address.
+
+ Profile
+   The settings file <short>_pki.cnf of one company. One profile gives one PKI.
+
+ SAN (Subject Alternative Name)
+   The list of host names that a certificate is valid for, for example www.example.com.
+
+ pathlen (path length)
+   How many CA levels may be below a CA. pathlen 0 means: it signs end certificates only.
+
+ EKU (Extended Key Usage)
+   What a certificate may be used for: web server, web client, code signing, e-mail, time stamp.
+
+ ML-DSA
+   A signature type that quantum computers cannot break. ML-DSA-87 is the strongest size.
+
+ ML-KEM, hybrid key exchange
+   A way to agree on a secret key that quantum computers cannot break. The hybrid form
+   X25519MLKEM768 uses it together with the normal X25519. It is part of TLS, not of the
+   certificate.
+
+ Preflight (-Check)
+   A test before the real work. It changes nothing and says READY or NOT READY.
+
+ Certificate store
+   The place in Windows where certificates are kept. Trusted Root holds roots. Intermediate holds
+   intermediate CAs. Personal holds certificates with a key.
+
+ Schannel
+   The TLS part of Windows. IIS and Kestrel on Windows use it.
+
+ Manifest
+   A file (pki-manifest.json) that lists everything that was built: each certificate, key, digest
+   and expiry date.
+
+ THE SERVICES
+----------------------------------------------------------------------------------------------------
+ CRL
+   Certificate Revocation List. A signed list of certificates that must no longer be trusted.
+
+ OCSP
+   A small service that answers "is this certificate still good?" for one certificate.
+
+ Timestamp (RFC 3161)
+   A signed proof of the time. A code signature with a timestamp stays valid after the certificate
+   expires.
+
+ Revoke
+   Say that a certificate is no longer good (for example, the key was stolen).
+
+ CODE SIGNING AND BUILDS
+----------------------------------------------------------------------------------------------------
+ Code signing
+   Putting a signature on a program so people can see who made it and that nobody changed it.
+
+ OV / EV certificate
+   Organization Validated / Extended Validation. Public certificates where a public CA checked your
+   company. EV is the strictest check.
+
+ Pipeline, CI/CD
+   An automatic build that runs when code changes (GitHub Actions, Azure DevOps, AWS CodeBuild,
+   Google Cloud Build, Alibaba Yunxiao).
+
+ Secret (pipeline secret)
+   A password or token stored safely in the pipeline. The scripts read it from an environment
+   variable, never from the command line.
+
+ KMS, HSM, Key Vault
+   A safe place where the key lives and signs for you. The key never leaves it.
+
+ WEB SERVERS
+----------------------------------------------------------------------------------------------------
+ TLS 1.3
+   The current secure protocol of HTTPS. The web-server tool uses only TLS 1.3 by default.
+
+ QUIC / HTTP/3
+   A faster way to carry HTTPS over UDP.
+
+ ECH
+   Encrypted Client Hello. Hides the website name in the first message of a connection.
+
+ PQC
+   Post-quantum cryptography. Algorithms (such as ML-DSA and ML-KEM) that quantum computers cannot
+   break.
+
+ Kestrel
+   The built-in web server of ASP.NET. nginx or Apache sits in front and sends traffic to it.
+
+ CDN
+   A network that serves your site near the user (Cloudflare, CloudFront, Azure, Akamai, ...).
+
+ FIPS
+   A US standard for approved cryptography. "Level" and "track" in these documents refer to the
+   choices made at setup.
+====================================================================================================

@@ -23,19 +23,23 @@ function Show-Help {
 @'
 ============================================================
  Test-PkiBackup.ps1 - is the backup (the .certpacked) still valid?
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
-  Reads SHA256SUMS and SHA512SUMS of the backup and compares them with the real files: the .certpacked, the scripts, the README. A single changed
-  byte (a damaged disk, a bad copy, a changed script) is found. No password is needed and nothing is changed or restored.
-  -Deep   also asks for the backup password, decrypts the .certpacked and checks the SHA-256 of every file inside (proves the password still works).
+  Reads SHA256SUMS and SHA512SUMS of the backup and compares them with the real files: the
+  .certpacked, the scripts, the README. A single changed byte (a damaged disk, a bad copy, a changed
+  script) is found. No password is needed and nothing is changed or restored.
+  -Deep   also asks for the backup password, decrypts the .certpacked and checks the SHA-256 of
+          every file inside (proves the password still works).
 
 USE
-  .\Test-PkiBackup.ps1                          (run from the unzipped backup folder: it checks the folder it is in)
-  .\Test-PkiBackup.ps1 -Backup <path>           <path> = one backup zip | an unzipped backup folder | the backup-pki folder (every zip in it is checked)
+  .\Test-PkiBackup.ps1                          (run from the unzipped backup folder: it checks `
+        the folder it is in)
+  .\Test-PkiBackup.ps1 -Backup <path>           <path> = one backup zip | an unzipped backup folder
+                                                | the backup-pki folder (every zip in it is checked)
   .\Test-PkiBackup.ps1 -Backup .\backup-pki -Deep
 
 OPTIONS
@@ -45,13 +49,44 @@ OPTIONS
 
 STANDALONE   This script needs no other .ps1 (the shared code is built into it).
 OUTPUT   one line per file: OK or FAIL, then a total. EXIT CODES   0 everything is valid   1 error   2 not an Administrator window   3 wrong password
-         5 system not supported (Windows version / edition / ARM)   6 a checksum does not match (the backup is damaged or was changed)
-WHERE IT RUNS   Windows 11 Home or Pro 24H2+, Windows Server 2025 Essentials / Standard / Datacenter; Intel or AMD 64 bit only; Administrator PowerShell 7.
+         5 system not supported (Windows version / edition / ARM)   6 a checksum does not match (the
+         backup is damaged or was changed)
+WHERE IT RUNS   Windows 11 Home or Pro 24H2+, Windows Server 2025 Essentials / Standard /
+                Datacenter; Intel or AMD 64 bit only; Administrator PowerShell 7.
 ============================================================
 '@ | Write-Host
 }
 
-if ($Help) { Show-Help; return }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-Help }; return }
 if ($PSVersionTable.PSVersion.Major -lt 7) {
     Write-Host '[ERROR] Test-PkiBackup.ps1 needs PowerShell 7 or newer (this window is PowerShell' $PSVersionTable.PSVersion.ToString() '). Run Prepare-Computer.ps1 in an Administrator window to install it, then start this script with  pwsh . Nothing was done.' -ForegroundColor Red
     exit 4
@@ -76,7 +111,7 @@ $ErrorActionPreference = 'Stop'
 #            PKI_BACKUP_PASSWORD=<password> (unattended runs and tests: the environment of a process can be read by others, so prefer the prompt)
 # ============================================================
 
-$script:BkVersion = '5.3.6'
+$script:BkVersion = '6.4.1'
 $script:BkAssumeYes = $false
 $script:BkFormat = 'agantra-pki-backup'
 $script:BkFormatVersion = 1

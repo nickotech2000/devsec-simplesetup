@@ -625,9 +625,9 @@ function Write-PkiTransportKit {
     Ensure-PkiDirectory -Path $KitDirectory
     $scripts = Join-Path $KitDirectory 'scripts'
     Ensure-PkiDirectory -Path $scripts
-    $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh'
+    $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh', 'Create-WebServerConfig.ps1', 'Create-WebServerConfig.sh'
     $kitDocs = Join-Path $KitDirectory 'docs'
-    foreach ($d in 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt') {
+    foreach ($d in 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt') {
         $dsrc = Join-Path (Join-Path $Root 'docs') $d
         if (Test-Path -LiteralPath $dsrc -PathType Leaf) { Ensure-PkiDirectory -Path $kitDocs; Copy-Item -LiteralPath $dsrc -Destination $kitDocs -Force }
     }
@@ -645,7 +645,7 @@ function Write-PkiTransportKit {
         $src = Join-Path (Join-Path $Root 'scripts') $f
         if (Test-Path -LiteralPath $src) { Copy-Item -LiteralPath $src -Destination $scripts -Force } else { throw "Kit: $src is missing." }
     }
-    foreach ($shn in 'pki-transport.sh', 'new-pki-csr.sh', 'prepare-computer.sh') { $sh = Join-Path $KitDirectory $shn; if (Test-Path -LiteralPath $sh) { try { if (-not $IsWindows) { & chmod +x $sh } } catch { } } }
+    foreach ($shn in 'pki-transport.sh', 'new-pki-csr.sh', 'prepare-computer.sh', 'Create-WebServerConfig.sh') { $sh = Join-Path $KitDirectory $shn; if (Test-Path -LiteralPath $sh) { try { if (-not $IsWindows) { & chmod +x $sh } } catch { } } }
     return @(Get-ChildItem -LiteralPath $KitDirectory -Recurse -File | ForEach-Object { $_.FullName.Substring($KitDirectory.TrimEnd('\', '/').Length).TrimStart('\', '/') })
 }
 

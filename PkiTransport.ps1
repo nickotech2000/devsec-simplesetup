@@ -110,7 +110,7 @@ function Show-PkiTransportHelp {
     @'
 ============================================================
  PkiTransport.ps1 - carry the PKI to other machines (.certpacked)
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -120,163 +120,257 @@ function Show-PkiTransportHelp {
 
 WHAT IT DOES
   -Pack      SOURCE.      Makes a password-protected  .certpacked  file from the PKI.
-  -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1, Ubuntu sh), the leaf / person /
-             Office 365 generators and SignCsr (ps1 and sh), Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
-  -CrlServer SOURCE.      ONE SMALL zip (-Tar: also .tar.gz) for a CRL / CA-certificate server ONLY on Ubuntu 24.04 / 26.04: nginx, no OCSP, no time stamping, no
+  -DevKit    SOURCE.      ONE zip for your developers: the .certpacked, the installers (Windows ps1,
+             Ubuntu sh), the leaf / person / Office 365 generators and SignCsr (ps1 and sh),
+             Make-ShExecutable.ps1 / make-executable.sh, devkit.env, the manuals. See DEVKIT.
+  -CrlServer SOURCE.      ONE SMALL zip (-Tar: also .tar.gz) for a CRL / CA-certificate server ONLY
+                          on Ubuntu 24.04 / 26.04: nginx, no OCSP, no time stamping, no
              OpenSSL 4, no key. Holds pki-server.sh + pki\publish + pki\server. See CRL SERVER.
-  -CrlOcspServer SOURCE.  ONE zip for a CRL + OCSP server on Ubuntu 24.04 / 26.04 WITHOUT time stamping (install --no-tsa). No key inside.
-  -TimestampServer SOURCE. ONE zip for a TIME STAMP server only (RFC 3161) on Ubuntu 24.04 / 26.04 (install --tsa-only). No key inside.
-  -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp server: pki-server.sh + the PKI without private keys
-             (the CA keys NEVER go there) + the server\ files of the PKI. No password: the package holds nothing secret. See SERVER.
-  -Install   DESTINATION. Windows 11 24H2 or newer, Windows Server 2025 / 2022. Scans the machine; only if the scan passes it unpacks the
-             package and installs the CA certificates in the Windows certificate stores.
+  -CrlOcspServer SOURCE.  ONE zip for a CRL + OCSP server on Ubuntu 24.04 / 26.04 WITHOUT time
+  stamping (install --no-tsa). No key inside.
+  -TimestampServer SOURCE. ONE zip for a TIME STAMP server only (RFC 3161) on Ubuntu 24.04 / 26.04
+  (install --tsa-only). No key inside.
+  -Server    SOURCE.      ONE zip (-Tar: also .tar.gz) for the Ubuntu CRL / OCSP / time stamp
+             server: pki-server.sh + the PKI without private keys (the CA keys NEVER go there) + the
+             server\ files of the PKI. No password: the package holds nothing secret. See SERVER.
+  -Install   DESTINATION. Windows 11 24H2 or newer, Windows Server 2025 / 2022. Scans the machine;
+             only if the scan passes it unpacks the package and installs the CA certificates in the
+             Windows certificate stores.
   -Check     DESTINATION. The scan only (nothing is changed): READY or NOT READY.
   -List      Shows what is inside a package.
   -RemoveTrust  Removes the CA certificates of a package from the Windows stores (elevated).
   The three scripts of the transport:
-      PkiTransport.ps1           pack (source) and install (Windows 11 24H2+ / Server 2025 / 2022)          this script
+      PkiTransport.ps1           pack (source) and install (Windows 11 24H2+ / Server 2025 / 2022)
+                                 this script
       Unpack-PkiTransport.ps1    destination, UNPACK ONLY (any machine with PowerShell 7)
       pki-transport.sh           Linux and macOS: unpack and install the trust in the system store
 
 A .certpacked IS an archive: rename it to .zip or .7z and 7-Zip opens it with the password.
   zip + AES-256 (default)  made and read by this script itself: nothing to install on Windows.
-  zip + ZipCrypto          legacy, weak: only for packages with NO private keys. Plain "unzip -P" reads it.
+  zip + ZipCrypto          legacy, weak: only for packages with NO private keys. Plain "unzip -P"
+                           reads it.
   7z  + AES-256            file names hidden too. Needs 7-Zip to make and to read.
 
 PACK  (source)
   .\PkiTransport.ps1 -Pack -GeneratePassword                      CA certificates only
-  .\PkiTransport.ps1 -Pack -IncludeLeafCerts                      + the leafcerts folders (with the leaf PRIVATE KEYS)
-  .\PkiTransport.ps1 -Pack -IncludeLeafCerts -LeafName www.example.com,api*       only these leaf sets
-  .\PkiTransport.ps1 -Pack -IncludeCaKeys                         + the WHOLE pki folder with the CA PRIVATE KEYS
-                                                                  (the destination can then ISSUE leaf certificates)
+  .\PkiTransport.ps1 -Pack -IncludeLeafCerts                      + the leafcerts folders (with `
+        the leaf PRIVATE KEYS)
+  .\PkiTransport.ps1 -Pack -IncludeLeafCerts -LeafName www.example.com,api*       only these leaf `
+        sets
+  .\PkiTransport.ps1 -Pack -IncludeCaKeys                         + the WHOLE pki folder with the `
+        CA PRIVATE KEYS
+                                                                  (the destination can then ISSUE
+        leaf certificates)
   .\PkiTransport.ps1 -Pack -Out D:\share\dev.certpacked -ArchiveFormat 7z -Kit
-  -Out <file>            Where to write. Default .\transport\agantra-pki-<yyyyMMdd-HHmmss>.certpacked. The extension
+  -Out <file>            Where to write. Default
+                         .\transport\agantra-pki-<yyyyMMdd-HHmmss>.certpacked. The extension
                          .certpacked is always used (a name ending in .zip or .7z is changed).
-  -PackagePassword <t>   (alias -Password). Not given: environment variable PKI_TRANSPORT_PASSWORD, else you are asked.
-                         At least 12 printable ASCII characters, 3 of 4 character classes. -AllowWeakPassword relaxes
-                         length and classes, never the ASCII rule.
+  -PackagePassword <t>   (alias -Password). Not given: environment variable PKI_TRANSPORT_PASSWORD,
+                         else you are asked. At least 12 printable ASCII characters, 3 of 4
+                         character classes. -AllowWeakPassword relaxes length and classes, never the
+                         ASCII rule.
   -GeneratePassword      Makes a 20-character password and shows it ONCE at the end. Write it down.
   -ArchiveFormat zip|7z  Default zip.        -ZipEncryption Aes256|ZipCrypto   Default Aes256 (ZipCrypto is refused
-                         when private keys are included).        -SevenZipPath <exe>   7-Zip, for 7z.
-  -IncludeLeafCerts      Adds leafcerts\ (next to the scripts). Contains private keys.   -LeafName <wildcards>  only those.
-  -IncludeCaKeys         Adds pki\ with the CA private keys. Only for a machine that must issue certificates.
-  -Kit                   Also writes <name>-kit\ next to the package: the three transport scripts, the two bootstrap scripts
-                         (Install-DevEnvironment.ps1 / .sh), the modules the destination needs and the manuals. The destination then
-                         needs nothing else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
-  -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after writing it.
+                         when private keys are included).        -SevenZipPath <exe>   7-Zip, for
+                                            7z.
+  -IncludeLeafCerts      Adds leafcerts\ (next to the scripts). Contains private keys.   -LeafName
+                         <wildcards>  only those.
+  -IncludeCaKeys         Adds pki\ with the CA private keys. Only for a machine that must issue
+                         certificates.
+  -Kit                   Also writes <name>-kit\ next to the package: the three transport scripts,
+                         the two bootstrap scripts (Install-DevEnvironment.ps1 / .sh), the modules
+                         the destination needs and the manuals. The destination then needs nothing
+                         else, and -InstallMissing can install 7-Zip and OpenSSL 4 from it.
+  -Comment <text>        Stored in the package.       -NoVerify   Do not read the package back after
+                                                                  writing it.
   -PkiRoot <path>  -ConfigFile <path>   As in pki_setup.ps1.
 CRL SERVER   (-CrlServer)
-  .\PkiTransport.ps1 -CrlServer                               .\transport\agantra-pki-crl-server-<date>.zip (latest release of the normal family)
+  .\PkiTransport.ps1 -CrlServer `
+        .\transport\agantra-pki-crl-server-<date>.zip (latest release of the normal family)
   .\PkiTransport.ps1 -CrlServer -Release 2 -Tar              release R2, and also a .tar.gz
   On Ubuntu 24.04 / 26.04 (no Linux knowledge needed, 3 commands):
      unzip agantra-pki-crl-server-*.zip && cd agantra-pki-crl-server
      sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
-     ./linux/pki-server/pki-server.sh dns            -> the hosts-file lines / router DNS records for crl.* and crt.nextmantra.internal
-  New CRL later: .\PkiRevocation.ps1 -Action NewCrl, build the package again, copy, unzip,  sudo ./linux/pki-server/pki-server.sh update --crl-only --source ./pki
-  Same host names as the certificates carry: http://crl.nextmantra.internal/<ca>.crl and http://crt.nextmantra.internal/<ca>.crt
+     ./linux/pki-server/pki-server.sh dns            -> the hosts-file lines / router DNS records `
+           for crl.* and crt.nextmantra.internal
+  New CRL later: .\PkiRevocation.ps1 -Action NewCrl, build the package again, copy, unzip,  sudo
+  ./linux/pki-server/pki-server.sh update --crl-only --source ./pki
+  Same host names as the certificates carry: http://crl.nextmantra.internal/<ca>.crl and
+  http://crt.nextmantra.internal/<ca>.crt
 
 CRL + OCSP SERVER   (-CrlOcspServer)
-  .\PkiTransport.ps1 -CrlOcspServer                           .\transport\agantra-pki-crl-ocsp-server-<date>.zip   (-Release, -Tar, -NoCaRevocationInfo, -Out, -Force)
-  On Ubuntu 24.04 / 26.04:  sudo ./linux/pki-server/pki-server.sh csr --no-tsa --source ./pki --out ./csr   (sign the CSRs on the CA machine: PkiRevocation.ps1 -Action SignCsr -For Ocsp)
-     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-<ca>.crt ...     then   sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
+  .\PkiTransport.ps1 -CrlOcspServer `
+        .\transport\agantra-pki-crl-ocsp-server-<date>.zip   (-Release, -Tar, -NoCaRevocationInfo, `
+        -Out, -Force)
+  On Ubuntu 24.04 / 26.04:  sudo ./linux/pki-server/pki-server.sh csr --no-tsa --source ./pki --out
+  ./csr   (sign the CSRs on the CA machine: PkiRevocation.ps1 -Action SignCsr -For Ocsp)
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-<ca>.crt ...     then `
+            sudo ./linux/pki-server/pki-server.sh install --no-tsa --source ./pki
 
 TIME STAMP SERVER   (-TimestampServer)
-  .\PkiTransport.ps1 -TimestampServer                         .\transport\agantra-pki-timestamp-server-<date>.zip   (-Release, -Tar, -NoCaRevocationInfo, -Out, -Force)
-  On Ubuntu 24.04 / 26.04:  sudo ./linux/pki-server/pki-server.sh csr --tsa-only --source ./pki --out ./csr     (sign: PkiRevocation.ps1 -Action SignCsr -For Tsa -Ca <ca>)
-     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/tsa-<ca>.crt      then   sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
+  .\PkiTransport.ps1 -TimestampServer `
+        .\transport\agantra-pki-timestamp-server-<date>.zip   (-Release, -Tar, `
+        -NoCaRevocationInfo, -Out, -Force)
+  On Ubuntu 24.04 / 26.04:  sudo ./linux/pki-server/pki-server.sh csr --tsa-only --source ./pki
+  --out ./csr     (sign: PkiRevocation.ps1 -Action SignCsr -For Tsa -Ca <ca>)
+     sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/tsa-<ca>.crt      then `
+           sudo ./linux/pki-server/pki-server.sh install --tsa-only --source ./pki
 
 SERVER   (-Server)
-  .\PkiTransport.ps1 -Server                                  .\transport\agantra-pki-server-<date>.zip (latest release of the normal family)
-  .\PkiTransport.ps1 -Server -Release 2 -Tar                  release R2, and also a .tar.gz (mode bits kept on every tool)
+  .\PkiTransport.ps1 -Server `
+        .\transport\agantra-pki-server-<date>.zip (latest release of the normal family)
+  .\PkiTransport.ps1 -Server -Release 2 -Tar                  release R2, and also a .tar.gz (mode `
+        bits kept on every tool)
   .\PkiTransport.ps1 -Server -NoCaRevocationInfo -Out D:\share\pki-server-nocr.zip
   -Out <file.zip>  -Force  -Tar   as for the package.      -PkiRoot / -Release / -NoCaRevocationInfo   which PKI (ONE PKI per package).
-  -IncludeServiceKeys  LAB ONLY: also the OCSP / time stamp private keys. A CA key is never included. Without it the keys are made ON the server
-                       (pki-server.sh csr) and signed here (PkiRevocation.ps1 -Action SignCsr): nothing secret travels.
-  The package is opened again and scanned: one private key inside = deleted, exit 5. The server reads hosts, CA list and URLs from the
-  server\ folder of the PKI (written by pki_setup.ps1 / PkiRevocation.ps1), not from a file you have to keep in step.
-  On Ubuntu:  unzip, then  sudo ./linux/pki-server/pki-server.sh install --source ./pki     (docs\PKI-SERVER-MANUAL.txt)
+  -IncludeServiceKeys  LAB ONLY: also the OCSP / time stamp private keys. A CA key is never
+                       included. Without it the keys are made ON the server (pki-server.sh csr) and
+                       signed here (PkiRevocation.ps1 -Action SignCsr): nothing secret travels.
+  The package is opened again and scanned: one private key inside = deleted, exit 5. The server
+  reads hosts, CA list and URLs from the server\ folder of the PKI (written by pki_setup.ps1 /
+  PkiRevocation.ps1), not from a file you have to keep in step.
+  On Ubuntu:  unzip, then  sudo ./linux/pki-server/pki-server.sh install --source ./pki
+  (docs\PKI-SERVER-MANUAL.txt)
 
-  -Release <n>  -NoCaRevocationInfo   WHICH PKI of .\pki\ is packed (-Pack, -DevKit): release R<n>, else the LATEST; the NoCR family with the switch.
-                       ONE PKI per package: the kit of release 2 holds R2 only. A release that no longer exists = the latest, with a warning.
-  The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV / OV / EV),
-  ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains (one fullchain file per intermediate), ca\publish,
-  certpack.json, certpack.tsv, SHA256SUMS, README.txt. Every file has its SHA-256 listed.
+  -Release <n>  -NoCaRevocationInfo   WHICH PKI of .\pki\ is packed (-Pack, -DevKit): release R<n>,
+                else the LATEST; the NoCR family with the switch.
+                       ONE PKI per package: the kit of release 2 holds R2 only. A release that no
+                       longer exists = the latest, with a warning.
+  The package always holds: ca\roots (Enterprise, Track and Quadrant roots), ca\intermediates (DV /
+  OV / EV), ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains (one fullchain file per
+  intermediate), ca\publish, certpack.json, certpack.tsv, SHA256SUMS, README.txt. Every file has its
+  SHA-256 listed.
 
 DEVKIT  (source: one zip for the developers)
-  .\PkiTransport.ps1 -DevKit -GeneratePassword                    zip + the .certpacked (zip AES-256) with the ISSUING CA keys
+  .\PkiTransport.ps1 -DevKit -GeneratePassword                    zip + the .certpacked (zip `
+        AES-256) with the ISSUING CA keys
   .\PkiTransport.ps1 -DevKit -Out D:\share\devkit.zip -KitArchiveFormat 7z -ArchiveFormat 7z
-  .\PkiTransport.ps1 -DevKit -DevKitNoKeys                        trust only: the generators then cannot issue
-  .\PkiTransport.ps1 -DevKit -DevKitNoServer                      without the server\ folder (the server kit: pki-server.sh, no key)
+  .\PkiTransport.ps1 -DevKit -DevKitNoKeys                        trust only: the generators then `
+        cannot issue
+  .\PkiTransport.ps1 -DevKit -DevKitNoServer                      without the server\ folder (the `
+        server kit: pki-server.sh, no key)
   The kit holds, in one folder:
-      <name>.certpacked                           CA certificates + the pki folder with the keys of the intermediate (issuing) CAs.
-                                                  NO root key: Enterprise, Track and Quadrant root keys, OCSP / TSA and old leaf keys are left out.
-      Install-PkiTrust.ps1 / .sh                  unpack it and put the PKI in the Local Machine store (Windows) / the Ubuntu store;
-                                                  give every intermediate a NEW RANDOM serial counter (copies must not issue the same serials)
-      GenerateLeafCertificate.ps1 / .sh           GeneratePersonLeafCertificate.ps1 / .sh        GenerateOffice365LeafCertificate.ps1 / .sh
-      Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (and LF line endings); Windows developers need no Linux
-      devkit.env  examples\  docs\  START-HERE.txt  SHA256SUMS  scripts\ (the PowerShell modules)
-  -KitArchiveFormat zip|7z   the outer archive (default zip, not encrypted: the .certpacked inside is).
+      <name>.certpacked                           CA certificates + the pki folder with the keys of
+                                            the intermediate (issuing) CAs.
+                                                  NO root key: Enterprise, Track and Quadrant root
+                                                  keys, OCSP / TSA and old leaf keys are left out.
+      Install-PkiTrust.ps1 / .sh                  unpack it and put the PKI in the Local Machine
+                                            store (Windows) / the Ubuntu store;
+                                                  give every intermediate a NEW RANDOM serial
+                                                  counter (copies must not issue the same serials)
+      GenerateLeafCertificate.ps1 / .sh           GeneratePersonLeafCertificate.ps1 / .sh
+                                            GenerateOffice365LeafCertificate.ps1 / .sh
+      Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (and LF line
+      endings); Windows developers need no Linux devkit.env  examples\  docs\  START-HERE.txt
+      SHA256SUMS  scripts\ (the PowerShell modules)
+  -KitArchiveFormat zip|7z   the outer archive (default zip, not encrypted: the .certpacked inside
+                             is).
   -ArchiveFormat zip|7z      the .certpacked inside (AES-256).        -DevKitNoKeys   no private keys at all.   -DevKitNoServer   leave the server\ folder out.
   -Out <file>   -GeneratePassword / -PackagePassword   as for -Pack.   Manual: docs\DevKit-MANUAL.txt
-  Certificates issued from a DevKit copy are NOT in the CRL / OCSP database of the master PKI (see the manual).
+  Certificates issued from a DevKit copy are NOT in the CRL / OCSP database of the master PKI (see
+  the manual).
 
 INSTALL  (destination: Windows 11 24H2 or newer (Windows Server 2025 / 2022))
   .\PkiTransport.ps1 -Install -Package .\dev.certpacked
-  1. SCAN. Windows 11 24H2 (build 26100) or newer, Windows Server 2025, Windows Server 2022 (classic certificates only). Windows 10 and
-     older, Windows 11 before 24H2, Windows Server before 2022 and specialised editions are NOT supported: the script says why and stops (exit code 2/5).
-     OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: it is INSTALLED when you agree (or give -InstallMissing) with
-     Install-DevEnvironment.ps1; otherwise the script stops (exit code 4). -SkipOpenSslCheck continues anyway.
-     Elevated PowerShell (administrator).
-  2. Only then: the package is decrypted, every file is checked against its SHA-256, and what -Extract selects is
-     written to -Destination.
-  3. Every ROOT goes to Trusted Root Certification Authorities, every INTERMEDIATE to Intermediate Certification
-     Authorities (the rules of pki_setup.ps1); the stores are read back; OpenSSL proves that every CA chains to the roots.
+  1. SCAN. Windows 11 24H2 (build 26100) or newer, Windows Server 2025, Windows Server 2022 (classic
+     certificates only). Windows 10 and older, Windows 11 before 24H2, Windows Server before 2022
+     and specialised editions are NOT supported: the script says why and stops (exit code 2/5).
+     OpenSSL 4.0.1 or newer (4.0.1 to 4.0.3 tested). Missing or older: it is INSTALLED when you
+     agree (or give -InstallMissing) with Install-DevEnvironment.ps1; otherwise the script stops
+     (exit code 4). -SkipOpenSslCheck continues anyway. Elevated PowerShell (administrator).
+  2. Only then: the package is decrypted, every file is checked against its SHA-256, and what
+     -Extract selects is written to -Destination.
+  3. Every ROOT goes to Trusted Root Certification Authorities, every INTERMEDIATE to Intermediate
+     Certification Authorities (the rules of pki_setup.ps1); the stores are read back; OpenSSL
+     proves that every CA chains to the roots.
   -Package <file>        The .certpacked.       -PackagePassword / prompt as for -Pack.
   -Destination <folder>  Default .\certpacked-received\<package name>.
-  -Extract <list>        roots | intermediates | chains | ca | leafcerts | pki | all (= fullchain). Default ca.
-                         -IncludeLeafCerts at the destination adds leafcerts.
-  -InstallLeafPfx        Also imports the leaf PFX files into LocalMachine\My (only the leaf). Needs leafcerts in the
-                         package. -PfxPassword <text> is the PFX password (default Abc12345!).
+  -Extract <list>        roots | intermediates | chains | ca | leafcerts | pki | all (= fullchain).
+                         Default ca. -IncludeLeafCerts at the destination adds leafcerts.
+  -InstallLeafPfx        Also imports the leaf PFX files into LocalMachine\My (only the leaf). Needs
+                         leafcerts in the package. -PfxPassword <text> is the PFX password (default
+                         Abc12345!).
   -Force                 Overwrite files that exist and differ.     -SevenZipPath <exe>   7-Zip, for a 7z package.
-  -InstallMissing        Install what is missing instead of only reporting it: 7-Zip (7z packages, -ArchiveFormat 7z) and OpenSSL 4.0.1+
-                         (FIPS + quantum-safe, proven) with Install-DevEnvironment.ps1, which must sit next to this script (the kit has
+  -InstallMissing        Install what is missing instead of only reporting it: 7-Zip (7z packages,
+                         -ArchiveFormat 7z) and OpenSSL 4.0.1+ (FIPS + quantum-safe, proven) with
+                         Install-DevEnvironment.ps1, which must sit next to this script (the kit has
                          it). Without the switch you are asked when a person is at the console.
-  -OpenSslPath <exe>     Use this openssl.        -SkipOpenSslCheck   Do not stop when OpenSSL 4.0.1+ is missing.
+  -OpenSslPath <exe>     Use this openssl.        -SkipOpenSslCheck   Do not stop when OpenSSL
+                                                                      4.0.1+ is missing.
   -NoVerify              Do not run the OpenSSL chain check at the end.
 
 OTHER
-  -Check -Package <f>    The scan (and, with -Package, whether the password opens the file). Nothing is installed.
+  -Check -Package <f>    The scan (and, with -Package, whether the password opens the file). Nothing
+                         is installed.
   -List -Package <f>     What is in the package (scope, CAs, leaves, files).
-  -RemoveTrust -Package <f>   Remove the CA certificates of the package from the Windows stores (elevated).
-  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and -Destination, children
-                         and recursive, list the programs that hold files open, and stop. Done at every start too.
+  -RemoveTrust -Package <f>   Remove the CA certificates of the package from the Windows stores
+                              (elevated).
+  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and
+                         -Destination, children and recursive, list the programs that hold files
+                         open, and stop. Done at every start too.
   -Verbose               Show detail.         -Help   This text.
 
 EXIT CODES   0 ok   1 error   2 Windows not supported   3 not Windows (use pki-transport.sh)   4 OpenSSL 4.0.1+ missing
 
 LIMITATIONS
-  * A package with leaf certificates or CA keys contains PRIVATE KEYS. Send it over a channel you trust, send the
-    password by another one, delete the package and the extracted files when you are done.
-  * 7-Zip gets the password as an argument (-p<password>) and it is visible in a process list while it runs. The default
-    zip engine of this script has no external process.
-  * Not tested here on Windows: -Install, -RemoveTrust (the Windows stores, administrator check, Windows scan of a real
-    machine). The rest is tested on Linux with OpenSSL 4.0.3 and the real 7-Zip.
+  * A package with leaf certificates or CA keys contains PRIVATE KEYS. Send it over a channel you
+    trust, send the password by another one, delete the package and the extracted files when you are
+    done.
+  * 7-Zip gets the password as an argument (-p<password>) and it is visible in a process list while
+    it runs. The default zip engine of this script has no external process.
+  * Not tested here on Windows: -Install, -RemoveTrust (the Windows stores, administrator check,
+    Windows scan of a real machine). The rest is tested on Linux with OpenSSL 4.0.3 and the real
+    7-Zip.
 
 WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
-                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
-                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
+                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
+                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
+                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
+                pki-<name>-nocr-NN).
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 
-if ($Help) { Show-PkiTransportHelp; exit 0 }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-PkiTransportHelp }; exit 0 }
 
 # Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
 $__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'

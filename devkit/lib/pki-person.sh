@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 # PKI Script - DevKit shell library for the person / Office 365 generators (sourced; not run on its own)
 # Author : Nicko Satria Utama <nicko@nextmantra.com>   Company: Agantra Inovatif OU (NextMantra)
 # ---- Platform gate (5.0.0): Linux only (VM, bare metal or WSL). Accepted: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+,
@@ -22,7 +25,7 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.3.6"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
@@ -41,11 +44,11 @@ person_main() {
       --hash) HASH="$(pki_lc "$2")"; shift ;; --days) DAYS="$2"; shift ;;
       --no-crl) NOCRL=1 ;; --no-ocsp) NOOCSP=1 ;; --no-revocation-info) NOCRL=1; NOOCSP=1 ;;
       --release) PKI_WANT_REL="$2"; shift ;; --no-ca-revocation-info) PKI_WANT_NOCR=1 ;;
-      --out) OUT="$2"; shift ;; --pfx-password) PFXPW="$2"; shift ;; --openssl) OSSL="$2"; shift ;;
+      --out) OUT="$2"; shift ;; --hash-file) HASHFILES="$2"; shift ;; --pfx-password) PFXPW="$2"; shift ;; --openssl) OSSL="$2"; shift ;;
       --qc-statements) QCS=1 ;; --non-repudiation) NONREP=1 ;; --check-estonian-id) CHECKEE=1 ;;
       --no-dns-from-email) DNSFLAG="--no-dns-from-email" ;; --dns-from-email) DNSFLAG="--dns-from-email" ;;
       --no-document-signing-eku) NODOCSIGN=1 ;;
-      --version) echo "$TOOL $VERSION"; exit 0 ;; --help|-h) usage; exit 0 ;;
+      --version) echo "$TOOL $VERSION"; exit 0 ;; --help|-h) usage | help_pager; exit 0 ;;
       *) pki_die "unknown option '$1'. See ./$TOOL --help" ;;
     esac; shift
   done
@@ -128,6 +131,7 @@ person_main() {
     pki_sign "$cnf" "$dir/$stem.key" "$dir/$stem.crt" "$days" "$md"
     pki_package "$dir" "$stem" "${pw:-$PFXPW}"
     pki_verify "$dir/$stem.crt" "$nocrl" "$noocsp"
+    pki_hash_files "$dir" "$stem" "${HASHFILES:-sha256,sha512}"      # <stem>.sha256 / .sha512 ... (--hash-file)
     local t; t="$("$OPENSSL" x509 -in "$dir/$stem.crt" -noout -text)"
     printf '%s' "$t" | grep -q 'rfc822Name\|email:' || pki_die "$label: the SAN has no e-mail address"
     printf '{\n  "tool": "%s %s", "profile": "%s",\n  "subject": {"serialNumber": "%s", "givenName": "%s", "surname": "%s", "commonName": "%s", "country": "%s"},\n  "email": "%s", "dns": "%s",\n  "level": "%s", "quadrant": %s, "days": %s, "issuer": "%s", "serial": "%s",\n  "revocationInfo": {"crlDistributionPoints": %s, "ocsp": %s}\n}\n' \

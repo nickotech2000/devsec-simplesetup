@@ -29,53 +29,73 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.3.6"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="5.3.6"
+VERSION="6.4.1"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib/pki-lib.sh"
 
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 usage() {
 cat <<'EOF'
 ============================================================
  GenerateLeafCertificate.sh - leaf certificates from the DevKit (Linux / Ubuntu)
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
+ Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+ Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
  Manual : docs/DevKit-MANUAL.txt      Windows twin: GenerateLeafCertificate.ps1
- Needs  : bash, openssl 3.0+ (4.0.1+ recommended). The PKI must be installed first: ./Install-PkiTrust.sh
+ Needs  : bash, openssl 3.0+ (4.0.1+ recommended). The PKI must be installed first:
+ ./Install-PkiTrust.sh
 
 USAGE
-  ./GenerateLeafCertificate.sh --dns www.example.com                         OV set: one certificate per purpose
+  ./GenerateLeafCertificate.sh --dns www.example.com                         OV set: one \
+        certificate per purpose
   ./GenerateLeafCertificate.sh --ev --dns api.example.com --purpose ServerAuth
   ./GenerateLeafCertificate.sh --dns app.example.com --add-development-san --no-revocation-info
   ./GenerateLeafCertificate.sh --purpose EmailProtection --email me@example.com
 
 LEVEL AND TRACK
-  --ov (default)  --ev  --dv          Level. EV: 397 days at most, CPS = ev-cps.pdf, no High Assurance policy.
+  --ov (default)  --ev  --dv          Level. EV: 397 days at most, CPS = ev-cps.pdf, no High
+  Assurance policy.
   --quadrant 1|2   1 = Classic non-FIPS (default, RSA)    2 = Classic FIPS (ECDSA).   --fips = --quadrant 2
   (The Quantum quadrants 3 and 4 need the PowerShell generator.)
 
+HASH FILES (6.4.1)
+  --hash-file A,B       a hash file per algorithm next to every certificate: <name>.sha256 and
+                        <name>.sha512 (default); sha256, sha384, sha512 or None. Each line is
+                        "<hash>  <file>": check with  sha256sum -c <name>.sha256
+
 PURPOSES
-  none given            the SET: one certificate per purpose (ServerAuth, ClientAuth, ServerClientAuth, CodeSigning,
-                        EmailProtection, TimeStamping, OcspSigning), each in its own folder
-  --purpose A,B         ONE certificate with these purposes (ServerAuth ClientAuth ServerClientAuth CodeSigning
-                        EmailProtection TimeStamping OcspSigning; TimeStamping and OcspSigning stand alone)
+  none given            the SET: one certificate per purpose (ServerAuth, ClientAuth,
+                        ServerClientAuth, CodeSigning, EmailProtection, TimeStamping, OcspSigning),
+                        each in its own folder
+  --purpose A,B         ONE certificate with these purposes (ServerAuth ClientAuth ServerClientAuth
+                        CodeSigning EmailProtection TimeStamping OcspSigning; TimeStamping and
+                        OcspSigning stand alone) Also (5.3.7, not in the set): DocumentSigning
+                        (Microsoft Office / Office 365 / other office, EKU 1.3.6.1.4.1.311.10.3.12),
+                        DocumentSigningAdobe (Adobe Acrobat PDF, EKU 1.2.840.113583.1.1.5) and any
+                        CUSTOM EKU as a dotted OID, e.g. --purpose
+                        DocumentSigning,1.3.6.1.4.1.99999.1.2
   --exclude-purpose A,B take these out of the set
 
 NAMES
   --dns a,b   --ip a,b   --email a,b   --cn TEXT
-  --add-development-san    merge the development list (DNS, IP, e-mail of devkit.env) into the SAN. S/MIME gets the
-                           e-mail addresses only, and ECDSA P-384 / SHA-512 by default (like GeneratePersonLeafCertificate).
+  --add-development-san    merge the development list (DNS, IP, e-mail of devkit.env) into the SAN.
+                           S/MIME gets the e-mail addresses only, and ECDSA P-384 / SHA-512 by
+                           default (like GeneratePersonLeafCertificate).
 
 KEY AND SIGNATURE
   --key-type rsa|ecdsa   --key-bits 2048|3072|4096|8192   --curve P-256|P-384|P-521   --hash sha256|sha384|sha512
-  Defaults: Quadrant 1 RSA 2048, Quadrant 2 ECDSA P-256; code signing is raised to RSA 4096 / ECDSA P-384.
+  Defaults: Quadrant 1 RSA 2048, Quadrant 2 ECDSA P-256; code signing is raised to RSA 4096 / ECDSA
+  P-384.
   --days N                 validity (default: OV and DV from the configuration, EV 397)
 
 REVOCATION INFORMATION
@@ -86,22 +106,27 @@ REVOCATION INFORMATION
 OUTPUT
   --out DIR                default ./leafcerts          --pfx-password TEXT   default Abc12345! (the lab password)
   --openssl FILE           use this openssl             --help, -h   this text      --version
-  --release N              the release of the PKI (R1, R2 ...). Default: the LATEST. A deleted release = the latest, with a warning.
-  --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the normal family.
+  --release N              the release of the PKI (R1, R2 ...). Default: the LATEST. A deleted
+                           release = the latest, with a warning.
+  --no-ca-revocation-info  use the NoCR family (CA certificates without CRL / OCSP). Default: the
+                           normal family.
 
-Each folder: <name>.crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json. Every certificate is verified against the
-roots (chain, and no CRL / OCSP when you asked for none) before the script reports it. Serial numbers are random 128-bit.
-Certificates made from a DevKit copy are NOT in the CRL / OCSP database of the master PKI: they are development certificates.
+Each folder: <name>.crt .key .pub .pfx -chain.crt -fullchain.crt leaf-info.json. Every certificate
+is verified against the
+roots (chain, and no CRL / OCSP when you asked for none) before the script reports it. Serial
+numbers are random 128-bit.
+Certificates made from a DevKit copy are NOT in the CRL / OCSP database of the master PKI: they are
+development certificates.
 EOF
 }
 
-LEVEL=OV; QUAD=1; PURPOSES=""; EXCLUDE=""; DNS=""; IPS=""; MAILS=""; CN=""; DEVSAN=0
+LEVEL=OV; QUAD=1; HASHFILES="sha256,sha512"; PURPOSES=""; EXCLUDE=""; DNS=""; IPS=""; MAILS=""; CN=""; DEVSAN=0
 KEYTYPE=""; KEYBITS=""; CURVE=""; HASH=""; DAYS=""; NOCRL=0; NOOCSP=0; OUT="$PWD/leafcerts"; PFXPW='Abc12345!'; OSSL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --ov) LEVEL=OV ;; --ev) LEVEL=EV ;; --dv) LEVEL=DV ;; --level) LEVEL="$(pki_uc "$2")"; shift ;;
     --quadrant) QUAD="$2"; shift ;; --fips) QUAD=2 ;; --classic) ;;
-    --purpose) PURPOSES="$2"; shift ;; --exclude-purpose) EXCLUDE="$2"; shift ;;
+    --purpose) PURPOSES="$2"; shift ;; --hash-file) HASHFILES="$2"; shift ;; --exclude-purpose) EXCLUDE="$2"; shift ;;
     --dns) DNS="$2"; shift ;; --ip) IPS="$2"; shift ;; --email) MAILS="$2"; shift ;; --cn|--common-name) CN="$2"; shift ;;
     --add-development-san) DEVSAN=1 ;;
     --key-type) KEYTYPE="$(pki_lc "$2")"; shift ;; --key-bits) KEYBITS="$2"; shift ;; --curve) CURVE="$(pki_uc "$2")"; shift ;; --hash) HASH="$(pki_lc "$2")"; shift ;;
@@ -110,7 +135,7 @@ while [ $# -gt 0 ]; do
     --release) PKI_WANT_REL="$2"; shift ;; --no-ca-revocation-info) PKI_WANT_NOCR=1 ;;
     --out) OUT="$2"; shift ;; --pfx-password) PFXPW="$2"; shift ;; --openssl) OSSL="$2"; shift ;;
     --version) echo "GenerateLeafCertificate.sh $VERSION"; exit 0 ;;
-    --help|-h) usage; exit 0 ;;
+    --help|-h) usage | help_pager; exit 0 ;;
     *) pki_die "unknown option '$1'. See ./GenerateLeafCertificate.sh --help" ;;
   esac; shift
 done
@@ -128,7 +153,12 @@ if [ -z "$PURPOSES" ]; then
     [ $skip = 0 ] && PLIST="$PLIST $p"
   done
 else PLIST="$(pki_list "$PURPOSES" | tr '\n' ' ')"; fi
-for p in $PLIST; do case " $ALL_PURPOSES " in *" $p "*) ;; *) pki_die "unknown purpose '$p'. Use: $ALL_PURPOSES" ;; esac; done
+# DocumentSigning and DocumentSigningAdobe are chosen with --purpose only (not in the set); a custom EKU is a dotted OID
+is_oid() { printf '%s' "$1" | grep -Eq '^[0-2](\.(0|[1-9][0-9]*)){2,}$'; }
+for p in $PLIST; do
+  case " $ALL_PURPOSES DocumentSigning DocumentSigningAdobe " in *" $p "*) continue ;; esac
+  is_oid "$p" || pki_die "unknown purpose '$p'. Use: $ALL_PURPOSES DocumentSigning DocumentSigningAdobe, or a custom EKU as a dotted OID (for example 1.3.6.1.4.1.99999.1.2)"
+done
 [ -n "$(printf '%s' "$PLIST" | tr -d ' ')" ] || pki_die "no purpose left"
 if [ $SETMODE = 0 ]; then
   case " $PLIST " in *" TimeStamping "*|*" OcspSigning "*) [ "$(echo $PLIST | wc -w)" -gt 1 ] && pki_die "TimeStamping and OcspSigning must be the ONLY purpose of their certificate." ;; esac
@@ -155,7 +185,7 @@ OUT="${OUT%/}"
 # issue <purposes (space list)> <folder> <role-for-cn>
 issue() {
   local plist="$1" dir="$2" token="$3" role="$4"
-  local eku="" ku="digitalSignature" iscs=0 isemail=0 isweb=0 istsa=0 isocsp=0 extra="" p
+  local eku="" ku="digitalSignature" isdoc=0 iscs=0 isemail=0 isweb=0 istsa=0 isocsp=0 extra="" p
   for p in $plist; do
     case "$p" in
       ServerAuth) eku="$eku${eku:+,}serverAuth"; isweb=1 ;;
@@ -165,6 +195,9 @@ issue() {
       EmailProtection) eku="$eku${eku:+,}emailProtection,clientAuth"; isemail=1; isweb=0 ;;
       TimeStamping) eku="critical,timeStamping"; istsa=1 ;;
       OcspSigning) eku="OCSPSigning"; isocsp=1; extra="1.3.6.1.5.5.7.48.1.5 = ASN1:NULL" ;;
+      DocumentSigning) eku="$eku${eku:+,}1.3.6.1.4.1.311.10.3.12"; isdoc=1 ;;
+      DocumentSigningAdobe) eku="$eku${eku:+,}1.2.840.113583.1.1.5"; isdoc=1 ;;
+      *) eku="$eku${eku:+,}$p" ;;
     esac
   done
   # key
@@ -182,7 +215,7 @@ issue() {
   md="$CA_MD"; [ -n "$HASH" ] && md="$HASH"
   [ -z "$HASH" ] && [ "$isemail" = 1 ] && [ "$DEVSAN" = 1 ] && md=sha512
   # key usage
-  [ "$isemail" = 1 ] && ku="$ku,nonRepudiation"
+  { [ "$isemail" = 1 ] || [ "$isdoc" = 1 ]; } && ku="$ku,nonRepudiation"
   [ "$kt" = ecdsa ] && [ "$isemail" = 1 ] && ku="$ku,keyAgreement"
   [ "$kt" = rsa ] && { [ "$isemail" = 1 ] || printf '%s' "$plist" | grep -q 'ServerAuth\|ServerClientAuth'; } && ku="$ku,keyEncipherment"
   # SAN
@@ -231,6 +264,7 @@ issue() {
   pki_sign "$cnf" "$dir/$stem.key" "$dir/$stem.crt" "$dv" "$md"
   pki_package "$dir" "$stem" "$PFXPW"
   pki_verify "$dir/$stem.crt" "$NOCRL" "$NOOCSP"
+  pki_hash_files "$dir" "$stem" "$HASHFILES"      # <stem>.sha256 / <stem>.sha512 ... (--hash-file)
   local sig; sig="$("$OPENSSL" x509 -in "$dir/$stem.crt" -noout -text | awk -F': ' '/Signature Algorithm/ {print $2; exit}')"
   printf '{\n  "tool": "GenerateLeafCertificate.sh %s",\n  "level": "%s", "quadrant": %s, "purposes": "%s",\n  "issuer": "%s", "serial": "%s", "signature": "%s",\n  "commonName": "%s", "days": %s,\n  "san": {"dns": %s, "ip": %s, "email": %s},\n  "revocationInfo": {"crlDistributionPoints": %s, "ocsp": %s},\n  "developmentSan": %s\n}\n' \
     "$VERSION" "$LEVEL" "$QUAD" "$plist" "$CA_SLUG" "$PKI_LAST_SERIAL" "$sig" "$cn" "$dv" \
@@ -259,7 +293,8 @@ else
   tk=""; role=""
   for p in $PLIST; do
     case "$p" in ServerAuth) t=server ;; ClientAuth) t=client ;; ServerClientAuth) t=server-client ;; CodeSigning) t=codesign; role="Code Signing" ;;
-      EmailProtection) t=email ;; TimeStamping) t=timestamp; role="Time Stamping" ;; OcspSigning) t=ocsp; role="OCSP Responder" ;; esac
+      EmailProtection) t=email ;; TimeStamping) t=timestamp; role="Time Stamping" ;; OcspSigning) t=ocsp; role="OCSP Responder" ;;
+      DocumentSigning) t=docsign ;; DocumentSigningAdobe) t=docsign-adobe ;; *) t="oid-$(printf '%s' "$p" | tr . -)" ;; esac
     tk="$tk${tk:+-}$t"
   done
   [ "$(echo $PLIST | wc -w)" -gt 1 ] && role=""

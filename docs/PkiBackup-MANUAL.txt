@@ -1,25 +1,44 @@
 ====================================================================================================
  Backup-Pki.ps1 / Restore-Pki.ps1 / Test-PkiBackup.ps1  -  back up and restore the whole PKI
- Version 5.3.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.4.1          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : Backs up and restores the whole PKI (Windows).
+ Who reads it : The owner of the PKI.
+ You need     : Administrator PowerShell 7.
+ Start with   : Run Backup-Pki.ps1 -Help first.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+
 1. WHAT IT IS FOR
-   Your PKI is files: the CA keys and certificates in pki\, the leaf certificates in leafcerts\, the company settings (<company>_pki.cnf). Lose the disk and you lose the PKI.
-   Backup-Pki.ps1 packs all of it into ONE password-protected file (a .certpacked, AES-256: the same format as the transport file) and puts it, with its checksums and the restore
-   tools, into a zip in the folder  backup-pki\ . Restore-Pki.ps1 puts it back. Test-PkiBackup.ps1 tells you that the file is still intact. Windows only, PowerShell only.
+   Your PKI is files: the CA keys and certificates in pki\, the leaf certificates in leafcerts\, the
+   company settings (<company>_pki.cnf). Lose the disk and you lose the PKI. Backup-Pki.ps1 packs
+   all of it into ONE password-protected file (a .certpacked, AES-256: the same format as the
+   transport file) and puts it, with its checksums and the restore tools, into a zip in the folder
+   backup-pki\ . Restore-Pki.ps1 puts it back. Test-PkiBackup.ps1 tells you that the file is still
+   intact. Windows only, PowerShell only.
 
 2. WHERE THEY RUN  (all three scripts, checked first; nothing is done when a check fails)
-   Windows        Windows 11 Home or Pro, 24H2 or newer    |   Windows Server 2025 Essentials, Standard, Datacenter
-   Processor      Intel or AMD, 64 bit (AMD64 / x86-64)  ONLY.  ARM and 32 bit: refused (exit 5), also when a program is emulated.
-   Window         PowerShell 7 (pwsh) started with "Run as administrator".  Any other window: refused (exit 2).
-   Prepared       Restore-Pki.ps1 checks ALL the software: PowerShell 7, OpenSSL 4, Python 3, .NET SDK 8 and .NET SDK 10 on the PATH. Anything missing is listed and the script says
+   Windows        Windows 11 Home or Pro, 24H2 or newer    |   Windows Server 2025 Essentials,
+                                                               Standard, Datacenter
+   Processor      Intel or AMD, 64 bit (AMD64 / x86-64)  ONLY.  ARM and 32 bit: refused (exit 5),
+                  also when a program is emulated.
+   Window         PowerShell 7 (pwsh) started with "Run as administrator".  Any other window:
+                  refused (exit 2).
+   Prepared       Restore-Pki.ps1 checks ALL the software: PowerShell 7, OpenSSL 4, Python 3, .NET
+                  SDK 8 and .NET SDK 10 on the PATH. Anything missing is listed and the script says
                   "you need to run Prepare-Computer.ps1" (exit 4, nothing written).
-   Standalone     Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1 and Prepare-Computer.ps1 need NO other .ps1: the zip holds just these four. (The shared code is built into the three
-                  backup scripts; the maintainer's sources and builder are in scripts\backup\ - see the end of this manual.)
+   Standalone     Backup-Pki.ps1, Restore-Pki.ps1, Test-PkiBackup.ps1 and Prepare-Computer.ps1 need
+                  NO other .ps1: the zip holds just these four. (The shared code is built into the
+                  three backup scripts; the maintainer's sources and builder are in scripts\backup\
+                  - see the end of this manual.)
 
 3. THE ORDER
    On the PKI machine (once, then at every change of the PKI):
-      pwsh  (Administrator)         .\Backup-Pki.ps1                 asks for the password twice -> backup-pki\pki-payload-...zip
+      pwsh  (Administrator)         .\Backup-Pki.ps1                 asks for the password twice ->
+                                                                     backup-pki\pki-payload-...zip
       copy the zip to ANOTHER disk or computer;  keep the password somewhere else.
    Later, or on a new machine:
       Windows PowerShell (Administrator)   unzip the backup zip, go into the folder, run   .\Prepare-Computer.ps1     (installs PowerShell 7, .NET SDK 8 + 10, OpenSSL 4, Python 3; once;
@@ -32,74 +51,115 @@
    backup-pki\pki-payload-<yyyymmdd>-<computer-name>-<windows-version>-<6 hex>.zip          example: pki-payload-20261014-pc01-windows-11-25h2-a1b2c3.zip
       <windows-version> = windows-11-24h2 | windows-11-25h2 | windows-11-26h2 ... | windows-server-2025.   The 6 hex characters are random: two backups of one day never collide.
    Inside it (one folder with the same name):
-      <name>.certpacked      the encrypted backup (rename to .zip to open it with 7-Zip and the password)
+      <name>.certpacked      the encrypted backup (rename to .zip to open it with 7-Zip and the
+                             password)
       SHA256SUMS, SHA512SUMS checksums of every other file in the folder (sha256sum -c works too)
       Restore-Pki.ps1        Test-PkiBackup.ps1   Backup-Pki.ps1   Prepare-Computer.ps1   (each standalone, each has its own -Help)
       README.txt             the same steps as above
-   The folder backup-pki\ is made when it does not exist. It is in .gitignore (it holds private keys).
-   Inside the .certpacked:  certpack.json (format "agantra-pki-backup", every file with its SHA-256, the folders including empty ones, per PKI the list of its CA certificates with
-      thumbprint and whether their private key is in the backup, and the key totals), SHA256SUMS, README.txt, data\<the PKI files>.
-   PRIVATE KEYS: a backup is made to restore from, so it holds the key of EVERY certificate: all roots, all intermediates, all profile / leaf certificates and the .pfx files.
-      Backup-Pki.ps1 proves it: each certificate is matched with its key by the public key (OpenSSL). A CA certificate without a key is a WARNING (a CA signed by SignExternalCa keeps its key
-      in the other department); a certificate signed from a request has its key with the requester (INFO). The result is printed, stored in the backup and printed again by Restore-Pki.ps1.
-   ONLY YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo ...) are never backed up. Your organization(s) are read from `Organization =` in every *_pki.cnf. A certificate is yours when its
-   issuer's O is yours, or it is a self-signed root of yours, or it is a CA of yours (key present). A file, key, .pfx or whole PKI folder that holds only other CAs is left out and listed ("Left out").
-   What is backed up: pki\ (all PKIs, all releases, all keys), leafcerts\, external-ca\, csr-signed\, every *_pki.cnf, pki_tools.cnf, devkit.env.
-   Not backed up: transport\ and backup-pki\ itself, the Windows certificate stores, the OpenSSL / Python installation.
+   The folder backup-pki\ is made when it does not exist. It is in .gitignore (it holds private
+   keys). Inside the .certpacked:  certpack.json (format "agantra-pki-backup", every file with its
+   SHA-256, the folders including empty ones, per PKI the list of its CA certificates with
+   thumbprint and whether their private key is in the backup, and the key totals), SHA256SUMS,
+   README.txt, data\<the PKI files>. PRIVATE KEYS: a backup is made to restore from, so it holds the
+   key of EVERY certificate: all roots, all intermediates, all profile / leaf certificates and the
+   .pfx files. Backup-Pki.ps1 proves it: each certificate is matched with its key by the public key
+   (OpenSSL). A CA certificate without a key is a WARNING (a CA signed by SignExternalCa keeps its
+   key in the other department); a certificate signed from a request has its key with the requester
+   (INFO). The result is printed, stored in the backup and printed again by Restore-Pki.ps1. ONLY
+   YOUR PKI: certificates of other CAs (DigiCert, GlobalSign, Sectigo ...) are never backed up. Your
+   organization(s) are read from `Organization =` in every *_pki.cnf. A certificate is yours when
+   its issuer's O is yours, or it is a self-signed root of yours, or it is a CA of yours (key
+   present). A file, key, .pfx or whole PKI folder that holds only other CAs is left out and listed
+   ("Left out"). What is backed up: pki\ (all PKIs, all releases, all keys), leafcerts\,
+   external-ca\, csr-signed\, every *_pki.cnf, pki_tools.cnf, devkit.env. Not backed up: transport\
+   and backup-pki\ itself, the Windows certificate stores, the OpenSSL / Python installation.
 
 5. THE PASSWORD
-   It is asked FIRST (right after the PKI is found), before the long scan, so that no Enter pressed while waiting is taken as an empty password; the key buffer is cleared before every prompt and an answer
-   that comes back empty at once is ignored and asked again. You type it; no password, no backup (exit 3). At least 12 characters, with at least 1 upper case letter, 1 lower case letter, 1 digit and 1 special character. Printable ASCII only.
-   Every rule that is broken is shown; three tries. It is asked twice. It is stored NOWHERE and cannot be recovered: without it the backup is only noise. Keep it apart from the zip.
-   Unattended runs: the environment variable PKI_BACKUP_PASSWORD is accepted (the policy still applies). Other programs can read a process environment: prefer the prompt.
+   It is asked FIRST (right after the PKI is found), before the long scan, so that no Enter pressed
+   while waiting is taken as an empty password; the key buffer is cleared before every prompt and an
+   answer that comes back empty at once is ignored and asked again. You type it; no password, no
+   backup (exit 3). At least 12 characters, with at least 1 upper case letter, 1 lower case letter,
+   1 digit and 1 special character. Printable ASCII only. Every rule that is broken is shown; three
+   tries. It is asked twice. It is stored NOWHERE and cannot be recovered: without it the backup is
+   only noise. Keep it apart from the zip. Unattended runs: the environment variable
+   PKI_BACKUP_PASSWORD is accepted (the policy still applies). Other programs can read a process
+   environment: prefer the prompt.
 
 6. Backup-Pki.ps1
    .\Backup-Pki.ps1                       back up the PKI in the folder of the script
-   .\Backup-Pki.ps1 -Check                list what would be backed up (files, MB, key files, PKI folders); no password, nothing written
+   .\Backup-Pki.ps1 -Check                list what would be backed up (files, MB, key files, PKI
+                                          folders); no password, nothing written
    .\Backup-Pki.ps1 -List                 list the backups in backup-pki\
    -PkiRoot <folder>    the folder that holds pki\ (default: the script's folder)         -BackupRoot <folder>   another backup folder
-   After packing it decrypts the .certpacked again (every file is authenticated), then prints the SHA-256 and SHA-512 of the zip: write them down to compare after a copy.
+   After packing it decrypts the .certpacked again (every file is authenticated), then prints the
+   SHA-256 and SHA-512 of the zip: write them down to compare after a copy.
 
 7. Test-PkiBackup.ps1
    .\Test-PkiBackup.ps1                       checks the unzipped folder it is in
-   .\Test-PkiBackup.ps1 -Backup <zip | folder | backup-pki>       a zip, an unzipped backup, or every zip of the backup folder
-   .\Test-PkiBackup.ps1 -Backup .\backup-pki -Deep               also asks for the password, decrypts and checks the SHA-256 of every file inside
-   Prints OK or FAIL for every file. One changed byte, a missing file or an added file = FAIL, exit 6. Run it after every copy and from time to time (disks rot).
+   .\Test-PkiBackup.ps1 -Backup <zip | folder | backup-pki>       a zip, an unzipped backup, or
+                                                                  every zip of the backup folder
+   .\Test-PkiBackup.ps1 -Backup .\backup-pki -Deep               also asks for the password,
+                                                                 decrypts and checks the SHA-256 of
+                                                                 every file inside
+   Prints OK or FAIL for every file. One changed byte, a missing file or an added file = FAIL, exit
+   6. Run it after every copy and from time to time (disks rot).
 
 8. Restore-Pki.ps1
-   .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps                 from the unzipped backup folder (the .certpacked is next to the script)
+   .\Restore-Pki.ps1 -Destination C:\PKI-DevSecOps                 from the unzipped backup folder
+                                                                   (the .certpacked is next to the
+                                                                   script)
    .\Restore-Pki.ps1 -Package <zip | .certpacked | folder> -Destination <folder>
-   .\Restore-Pki.ps1 -Check ...        everything except writing: the password, the checksums, the list of what would be restored
-   Order: the computer -> Administrator -> ALL software present (else: run Prepare-Computer.ps1) -> SHA256SUMS -> password -> every file inside decrypted and checked
-          -> ONE BY ONE comparison with this computer -> write only what is missing -> check the written files again.
+   .\Restore-Pki.ps1 -Check ...        everything except writing: the password, the checksums, the
+                                       list of what would be restored
+   Order: the computer -> Administrator -> ALL software present (else: run Prepare-Computer.ps1) ->
+          SHA256SUMS -> password -> every file inside decrypted and checked  -> ONE BY ONE
+          comparison with this computer -> write only what is missing -> check the written files
+          again.
    ONE BY ONE: every PKI of the backup is compared with
         (a) <Destination>\pki\<name>:  each file by SHA-256 - identical, different or missing;
         (b) the Local Machine certificate store (Root and Intermediate):  each CA certificate of that PKI by thumbprint (lines "in Local Machine store" / "NOT in ...").
-      A PKI whose folder is there with all files identical is NOT restored. A PKI whose CA certificates are ALL in the Local Machine store is NOT restored (the store holds certificates,
-      not private keys; the output says so, and -Force restores the keys anyway). A PKI folder that exists but differs: you are asked whether to replace it (Y default). Everything else is restored.
-      The other files (leafcerts, external-ca, csr-signed, settings) are compared file by file: identical = skipped, missing = written, different = you are asked (below).
-   ONLY YOUR PKI is restored: certificates of other CAs inside a backup are listed as "Not restored" and never written.
-   REPLACE QUESTION: when your PKI folder is there but differs from the backup, Restore asks "Replace it with the version in the backup? [Y/n]"; Enter = Y. Y: the old folder is renamed
-   <name>.before-restore-<time> (never deleted) and the backup version is written. n: the old one stays. -Yes answers Y to every question; with nobody to ask (no keyboard) the old one stays.
-      If nothing is missing: "Nothing to restore" and nothing is changed (exit 0).
-   -Destination: without it the folder of the script is used when it is the project (it has pki_setup.ps1); a script from the backup zip needs -Destination.
-   NOTHING IS DELETED OR SILENTLY OVERWRITTEN. -Force restores anyway: a PKI folder (or file) that exists is RENAMED to <name>.before-restore-<yyyymmdd-HHmmss> first (never deleted).
-   -Yes             answer Y to every replace question (the old folders / files are still renamed, never deleted)
-   -RestrictAccess   pki\, leafcerts\, external-ca\, csr-signed\ get access for Administrators and SYSTEM only (icacls), BEFORE the keys are written.
-   While it runs the decrypted files are in a temporary folder of the administrator; the folder is deleted at the end (also after an error).
+      A PKI whose folder is there with all files identical is NOT restored. A PKI whose CA
+      certificates are ALL in the Local Machine store is NOT restored (the store holds certificates,
+      not private keys; the output says so, and -Force restores the keys anyway). A PKI folder that
+      exists but differs: you are asked whether to replace it (Y default). Everything else is
+      restored. The other files (leafcerts, external-ca, csr-signed, settings) are compared file by
+      file: identical = skipped, missing = written, different = you are asked (below).
+   ONLY YOUR PKI is restored: certificates of other CAs inside a backup are listed as "Not restored"
+   and never written. REPLACE QUESTION: when your PKI folder is there but differs from the backup,
+   Restore asks "Replace it with the version in the backup? [Y/n]"; Enter = Y. Y: the old folder is
+   renamed <name>.before-restore-<time> (never deleted) and the backup version is written. n: the
+   old one stays. -Yes answers Y to every question; with nobody to ask (no keyboard) the old one
+   stays. If nothing is missing: "Nothing to restore" and nothing is changed (exit 0). -Destination:
+   without it the folder of the script is used when it is the project (it has pki_setup.ps1); a
+   script from the backup zip needs -Destination. NOTHING IS DELETED OR SILENTLY OVERWRITTEN. -Force
+   restores anyway: a PKI folder (or file) that exists is RENAMED to
+   <name>.before-restore-<yyyymmdd-HHmmss> first (never deleted).
+   -Yes             answer Y to every replace question (the old folders / files are still renamed,
+                    never deleted)
+   -RestrictAccess   pki\, leafcerts\, external-ca\, csr-signed\ get access for Administrators and
+                     SYSTEM only (icacls), BEFORE the keys are written.
+   While it runs the decrypted files are in a temporary folder of the administrator; the folder is
+   deleted at the end (also after an error).
 
 9. EXIT CODES   0 ok   1 error   2 not an Administrator window   3 password refused or wrong   4 Prepare-Computer.ps1 not run (PowerShell 7 / OpenSSL 4 / Python 3 / .NET SDK 8 / .NET SDK 10 missing)
                 5 system not supported (Windows version, edition, ARM, not Windows)   6 a checksum does not match (damaged or changed)
 
 10. FOR THE MAINTAINER
-   The three scripts are generated. Sources: scripts\backup\Backup-Pki.src.ps1, Restore-Pki.src.ps1, Test-PkiBackup.src.ps1 (each has the line #@@EMBED-LIBRARY@@), the shared code
-   scripts\backup\PkiBackupCommon.ps1 and the zip engine scripts\16_CertPack.ps1. After a change:  pwsh -File .\scripts\backup\Build-BackupScripts.ps1  - it writes the finished scripts
-   to the project root. Do not edit the root copies by hand.
+   The three scripts are generated. Sources: scripts\backup\Backup-Pki.src.ps1, Restore-Pki.src.ps1,
+   Test-PkiBackup.src.ps1 (each has the line #@@EMBED-LIBRARY@@), the shared code
+   scripts\backup\PkiBackupCommon.ps1 and the zip engine scripts\16_CertPack.ps1. After a change:
+   pwsh -File .\scripts\backup\Build-BackupScripts.ps1  - it writes the finished scripts to the
+   project root. Do not edit the root copies by hand.
 
 11. NOT TESTED HERE
-   Built and tested on Ubuntu 24.04 with PowerShell 7 and the Windows checks simulated (PKI_FAKE_OS, PKI_FAKE_ARCH, PKI_FAKE_ADMIN): password policy, backup, checksum check (also a changed
-   file), restore (identical files), the one-by-one comparison (all identical, one file different, all CA certificates in a fake store, empty destination), wrong password, -Force, refusal without Prepare-Computer or without a .NET SDK. NOT tested on real Windows: the Windows version names (DisplayVersion), the ARM check, the
-   Administrator check, icacls (-RestrictAccess), Windows PowerShell 5.1 showing the "needs PowerShell 7" message. What to run on your machines: PKI-Acceptance-Checklists.txt, E33.
+   Built and tested on Ubuntu 24.04 with PowerShell 7 and the Windows checks simulated (PKI_FAKE_OS,
+   PKI_FAKE_ARCH, PKI_FAKE_ADMIN): password policy, backup, checksum check (also a changed file),
+   restore (identical files), the one-by-one comparison (all identical, one file different, all CA
+   certificates in a fake store, empty destination), wrong password, -Force, refusal without
+   Prepare-Computer or without a .NET SDK. NOT tested on real Windows: the Windows version names
+   (DisplayVersion), the ARM check, the Administrator check, icacls (-RestrictAccess), Windows
+   PowerShell 5.1 showing the "needs PowerShell 7" message. What to run on your machines:
+   PKI-Acceptance-Checklists.txt, E33.
 ====================================================================================================
- Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
 ====================================================================================================

@@ -75,51 +75,93 @@ function Show-DevEnvHelp {
     @'
 ============================================================
  Install-DevEnvironment.ps1 - Windows 11 developer bootstrap
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : docs\Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling: Install-DevEnvironment.sh
+ Manual : docs\Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling:
+ Install-DevEnvironment.sh
 
 WHAT IT DOES   (run in an ELEVATED PowerShell; -Check, -Help and -Unblock need no elevation)
-  Installs through WinGet what is missing: PowerShell 7, .NET 10 and 8 SDK, Node.js, Go, PHP, Python, Git, 7-Zip, FireDaemon
-  OpenSSL (FIPS + quantum-safe), Windows Terminal. Then it PROVES OpenSSL: version 4.0.1 or newer, FIPS provider active,
+  Installs through WinGet what is missing: PowerShell 7, .NET 10 and 8 SDK, Node.js, Go, PHP,
+  Python, Git, 7-Zip, FireDaemon
+  OpenSSL (FIPS + quantum-safe), Windows Terminal. Then it PROVES OpenSSL: version 4.0.1 or newer,
+  FIPS provider active,
   ML-DSA sign / verify, ML-KEM key generation, ML-DSA inside the FIPS provider.
 
 USAGE
   .\Install-DevEnvironment.ps1                          everything
-  .\Install-DevEnvironment.ps1 -Check                   scan only: what is installed, OpenSSL readiness; changes nothing
+  .\Install-DevEnvironment.ps1 -Check                   scan only: what is installed, OpenSSL `
+        readiness; changes nothing
   .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip       just these (what the PKI scripts need)
   .\Install-DevEnvironment.ps1 -SkipPHP -SkipGo         everything except these
-  .\Install-DevEnvironment.ps1 -Unblock                 UNBLOCK + UNLOCK this folder, children and recursive, then stop
+  .\Install-DevEnvironment.ps1 -Unblock                 UNBLOCK + UNLOCK this folder, children and `
+        recursive, then stop
 
 PARAMETERS
-  -Only <list>           PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, OpenSSL, 7Zip, WindowsTerminal. Installs only these.
-  -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipOpenSSL -SkipWindowsTerminal -Skip7Zip
+  -Only <list>           PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, OpenSSL, 7Zip,
+                         WindowsTerminal. Installs only these.
+  -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipOpenSSL
+  -SkipWindowsTerminal -Skip7Zip
   -Check                 Scan only. Exit code 0 when OpenSSL is ready, 4 when it is not.
-  -WithOqsProvider       Also download the third-party oqsprovider (NOT needed: OpenSSL 4 has native ML-DSA and ML-KEM).
-                         Without it the master openssl.cnf does not mention oqsprovider at all.
-  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) every file below this script's folder, then stop.
-                         The same is done silently at every start, before anything else.
+  -WithOqsProvider       Also download the third-party oqsprovider (NOT needed: OpenSSL 4 has native
+                         ML-DSA and ML-KEM). Without it the master openssl.cnf does not mention
+                         oqsprovider at all.
+  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) every file below this
+                         script's folder, then stop. The same is done silently at every start,
+                         before anything else.
   -Help                  This text.
 
 OPENSSL
-  FireDaemon.OpenSSL is installed by WinGet. If it reports less than 4.0.1 the script runs "winget upgrade". It then writes
-  fipsmodule.cnf (openssl fipsinstall), the machine variables OPENSSL_MODULES and OPENSSL_CONF, and a master openssl.cnf that
-  activates the default and FIPS providers. The PKI scripts ignore OPENSSL_CONF (they use their own configuration).
+  FireDaemon.OpenSSL is installed by WinGet. If it reports less than 4.0.1 the script runs "winget
+  upgrade". It then writes fipsmodule.cnf (openssl fipsinstall), the machine variables
+  OPENSSL_MODULES and OPENSSL_CONF, and a master openssl.cnf that activates the default and FIPS
+  providers. The PKI scripts ignore OPENSSL_CONF (they use their own configuration).
 
 EXIT CODES   0 ok   1 error (for example not elevated)   4 OpenSSL not ready
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
-if ($Help) { Show-DevEnvHelp; exit 0 }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-DevEnvHelp }; exit 0 }
 
 # Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
 $__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'

@@ -28,7 +28,7 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.3.6"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
@@ -236,6 +236,18 @@ pki_package() {
   "$OPENSSL" pkey -in "$d/$s.key" -pubout -out "$d/$s.pub" 2>/dev/null
   "$OPENSSL" pkcs12 -export -inkey "$d/$s.key" -in "$d/$s.crt" -certfile "$CA_CHAIN" -out "$d/$s.pfx" -passout "pass:$pw" 2>/dev/null \
     || pki_warn "PFX could not be written"
+}
+
+# pki_hash_files <dir> <stem> <list>   (6.4.1)  <stem>.sha256 / <stem>.sha512 ...: one file per algorithm next to the certificate.
+# Lines are "<hash>  <file>" (sha256sum format) for every <stem>.crt .pem .cer .der .p7b .pfx that exists. list = sha256,sha512 | sha384 | None
+pki_hash_files() {
+  local d="$1" s="$2" list="${3:-sha256,sha512}" ha hcmd ext
+  for ha in $(pki_list "$list"); do
+    case "$(printf '%s' "$ha" | tr 'A-Z' 'a-z')" in none) continue ;; esac
+    case "$ha" in sha256|sha384|sha512) hcmd="${ha}sum" ;; *) pki_warn "hash '$ha' is not supported by this script (sha256, sha384, sha512)"; continue ;; esac
+    command -v "$hcmd" >/dev/null 2>&1 || hcmd="shasum -a ${ha#sha}"
+    ( cd "$d" && : > "$s.$ha" && for ext in crt pem cert cer der p7b pfx; do [ -f "$s.$ext" ] && $hcmd "$s.$ext" >> "$s.$ha"; done; true )
+  done
 }
 
 # pki_verify <crt> <expect: "no-crl" etc. as 0/1 flags>  -> proves the chain and reports revocation extensions

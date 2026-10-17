@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.1">
+<meta name="description" content="Make server, client, code-signing, e-mail and document-signing certificates.">
+<title>Leaf certificates - PKI DevSecOps Agantra</title>
+<style>
+@font-face{font-family:"Roboto";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/roboto-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-mono-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Material Symbols Outlined";font-style:normal;font-weight:400;font-display:block;src:url("fonts/material-symbols-outlined-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Font Awesome Solid";font-style:normal;font-weight:900;font-display:block;src:url("fonts/fa-solid-900.woff2") format("woff2")}
+:root{color-scheme:light dark;--primary:#0b57d0;--on-primary:#ffffff;--primary-c:#d3e3fd;--on-primary-c:#041e49;--bg:#f8f9fc;--surface:#ffffff;--surface-2:#eef2f9;--surface-3:#e4eaf4;--text:#1a1c1e;--muted:#4a5565;--line:#c9d1de;--code-bg:#f1f4f9;--ok:#146c2e;--warn:#8c4a00;--e1:0 1px 2px rgba(0,0,0,.18),0 1px 3px 1px rgba(0,0,0,.1);--e2:0 1px 2px rgba(0,0,0,.2),0 2px 6px 2px rgba(0,0,0,.12);--bar:64px}
+:root[data-theme="dark"]{--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Roboto","Segoe UI",system-ui,-apple-system,"Noto Sans","PingFang SC","Microsoft YaHei",Arial,sans-serif;font-size:16px;line-height:1.65;min-height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;flex-direction:column}
+a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+code,pre,.mono{font-family:"Roboto Mono",Consolas,"Cascadia Mono",Menlo,"DejaVu Sans Mono","Liberation Mono",monospace}
+.ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:"liga";font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle;user-select:none;-webkit-user-select:none}
+.fa{font-family:"Font Awesome Solid";font-weight:900;font-style:normal;display:inline-block;line-height:1;-webkit-font-smoothing:antialiased}
+.fa-globe::before{content:"\f0ac"}.fa-envelope::before{content:"\f0e0"}.fa-copy::before{content:"\f0c5"}.fa-link::before{content:"\f0c1"}.fa-shield::before{content:"\f132"}.fa-check::before{content:"\f00c"}
+.skip{position:absolute;left:-999px;top:0;background:var(--primary);color:var(--on-primary);padding:8px 14px;z-index:100;border-radius:0 0 8px 0}.skip:focus{left:0}
+.bar{position:fixed;top:0;left:0;right:0;height:var(--bar);background:var(--surface);box-shadow:var(--e1);display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:50}
+.brand{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:10px;color:var(--text);font-weight:500;font-size:1.15rem;white-space:nowrap}.brand:hover{text-decoration:none}
+.brand .ms{color:var(--primary);font-size:30px}.brand small{font-weight:400;font-size:.78rem;color:var(--on-primary-c);background:var(--primary-c);border-radius:999px;padding:2px 10px}
+.grow{-webkit-box-flex:1;-ms-flex:1;flex:1}
+.topnav{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:2px;position:relative}
+.nb{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text);font:inherit;font-size:.95rem;font-weight:500;padding:8px 14px;border-radius:999px;cursor:pointer}
+.nb:hover{background:var(--surface-3);text-decoration:none}.nb[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.nb .ms{font-size:20px}
+.mega{position:absolute;right:0;top:calc(var(--bar) - 8px);width:min(940px,94vw);max-height:calc(100vh - var(--bar) - 20px);overflow:auto;background:var(--surface);border-radius:16px;box-shadow:var(--e2);padding:16px 20px;display:none;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 22px}
+.mega.open{display:grid}.mg{min-width:0}
+.mega h2,.drawer h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 8px 2px;padding:0;border:0;font-weight:700}
+.mega a,.drawer a.dl{display:block;padding:6px 10px;border-radius:8px;color:var(--text);font-size:.92rem;line-height:1.35}
+.mega a:hover,.drawer a.dl:hover{background:var(--surface-3);text-decoration:none}.mega a[aria-current="page"],.drawer a[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.sbox{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;background:var(--surface-2);border-radius:999px;padding:0 6px 0 12px;margin:0 6px}
+.sbox input{border:0;background:transparent;color:var(--text);font:inherit;font-size:.92rem;width:190px;padding:8px 6px}.sbox input:focus{outline:0}.sbox:focus-within{box-shadow:0 0 0 2px var(--primary)}
+.sbox .ms{color:var(--muted);font-size:20px}
+#menubtn{display:none}
+.scrim{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);z-index:55;display:none}.scrim.open{display:block}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(88vw,340px);background:var(--surface);z-index:60;overflow-y:auto;padding:12px 12px 40px;-webkit-transform:translateX(105%);transform:translateX(105%);transition:-webkit-transform .22s ease,transform .22s ease;box-shadow:var(--e2);visibility:hidden}
+.drawer.open{-webkit-transform:none;transform:none;visibility:visible}
+.drawer .dh{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.drawer .sbox{display:-webkit-box;display:-ms-flexbox;display:flex;margin:8px 4px}.drawer .sbox input{width:100%}
+.wrap{-webkit-box-flex:1;-ms-flex:1 0 auto;flex:1 0 auto;padding:calc(var(--bar) + 28px) 20px 40px;width:100%;max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:0 36px}
+.wrap.has-toc{grid-template-columns:minmax(0,1fr) 250px}
+.page{min-width:0;max-width:940px}
+.side{position:sticky;top:calc(var(--bar) + 20px);align-self:start;max-height:calc(100vh - var(--bar) - 40px);overflow:auto;font-size:.88rem;border-left:2px solid var(--line);padding:2px 0 2px 14px;display:none}
+.wrap.has-toc .side{display:block}.side h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;padding:0;border:0}
+.side a{display:block;padding:3px 0;color:var(--muted);line-height:1.35}.side a.l3{padding-left:12px;font-size:.84rem}.side a:hover,.side a.on{color:var(--primary);text-decoration:none}
+.crumb{font-size:.85rem;color:var(--muted);margin:0 0 6px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px;font-weight:500}
+h2{font-size:1.45rem;margin:2.4rem 0 .6rem;padding-top:.7rem;border-top:1px solid var(--line);line-height:1.3;font-weight:500}
+h3{font-size:1.1rem;margin:1.7rem 0 .4rem;line-height:1.35;font-weight:500;color:var(--primary)}
+.anchor{opacity:0;margin-left:8px;font-size:.8em;color:var(--muted)}h2:hover .anchor,h3:hover .anchor,.anchor:focus{opacity:1}
+.lead{color:var(--muted);margin:0 0 14px;font-size:1.05rem}
+.meta{display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:6px 8px;margin:12px 0 18px}
+.chip{display:inline-block;background:var(--surface-2);color:var(--muted);border-radius:8px;padding:3px 12px;font-size:.84rem}
+p{margin:.6em 0}ul,ol{margin:.5em 0 .9em;padding-left:1.5em}li{margin:.25em 0}
+.decision{background:var(--surface);border-radius:12px;box-shadow:var(--e1);border-left:4px solid var(--primary);padding:10px 14px;margin:12px 0}
+.dnum{font-weight:700;margin-right:6px}.dstate{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;padding:1px 9px;border-radius:999px;background:var(--primary-c);color:var(--on-primary-c);margin-right:6px}
+.code{position:relative;margin:.8em 0;background:var(--code-bg);border:1px solid var(--line);border-radius:12px}
+.code pre{margin:0;padding:14px 16px;overflow-x:auto;font-size:.84rem;line-height:1.55;tab-size:4;-moz-tab-size:4;white-space:pre}
+.code .copy{position:absolute;top:8px;right:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:.78rem;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);cursor:pointer}
+.code .copy:hover{color:var(--text);background:var(--surface-3)}
+ul.check{list-style:none;padding-left:0}ul.check li{background:var(--surface);border-radius:12px;box-shadow:var(--e1);margin:8px 0;padding:10px 14px}
+ul.check label{display:block;cursor:pointer}ul.check input{margin-right:10px;width:18px;height:18px;vertical-align:-3px;accent-color:var(--primary)}ul.check input:checked + span{color:var(--muted);text-decoration:line-through}
+.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:.8em 0}th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top;font-size:.92rem}th{background:var(--surface-2)}
+.toc{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 18px;margin:16px 0 24px}
+.toc summary{cursor:pointer;font-weight:500}.toc ol{list-style:none;padding-left:0;margin:8px 0 2px;-webkit-columns:2 300px;columns:2 300px;-webkit-column-gap:28px;column-gap:28px}
+.toc li{margin:2px 0;-webkit-column-break-inside:avoid;break-inside:avoid;font-size:.92rem}.toc li.l3{padding-left:16px;font-size:.86rem}
+.pn{display:-webkit-box;display:-ms-flexbox;display:flex;justify-content:space-between;gap:12px;margin:44px 0 0;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.pn a{display:block;border-radius:16px;background:var(--surface);box-shadow:var(--e1);padding:12px 18px;min-width:220px;max-width:48%;color:var(--text)}.pn a:hover{box-shadow:var(--e2);text-decoration:none}.pn small{display:block;color:var(--muted)}.pn .nx{text-align:right;margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin:12px 0 28px}
+.card{display:block;background:var(--surface);border-radius:16px;box-shadow:var(--e1);padding:16px 18px;color:var(--text)}
+.card:hover{box-shadow:var(--e2);text-decoration:none;background:var(--surface-2)}.card b{display:block;margin-bottom:4px;font-weight:500;color:var(--primary)}.card span{color:var(--muted);font-size:.92rem}
+.hero{background:var(--primary-c);color:var(--on-primary-c);border-radius:28px;padding:28px 32px;margin:0 0 26px}.hero h1{color:inherit}.hero p{max-width:70ch}.hero a{color:inherit;text-decoration:underline}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:999px;background:var(--primary);color:var(--on-primary);font:inherit;font-weight:500;padding:9px 20px;cursor:pointer}.btn:hover{text-decoration:none;box-shadow:var(--e2)}
+#totop{position:fixed;right:20px;bottom:20px;display:none;z-index:40;border-radius:16px;padding:12px}
+mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
+.hit{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 16px;margin:10px 0}.hit small{color:var(--muted)}
+.foot{background:var(--surface-2);border-top:1px solid var(--line);padding:22px 20px 26px;color:var(--muted);font-size:.9rem}
+.foot .in{max-width:1180px;margin:0 auto;display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+.foot a{color:var(--primary)}.foot .fa{margin-right:6px}.foot p{margin:.2em 0}
+@media (max-width:1180px){.wrap.has-toc{grid-template-columns:minmax(0,1fr)}.wrap.has-toc .side{display:none}}
+@media (max-width:900px){.topnav{display:none}#menubtn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex}.brand small{display:none}.wrap{padding:calc(var(--bar) + 18px) 14px 30px}}
+@media (max-width:520px){html{font-size:15px}h1{font-size:1.55rem}.pn a{max-width:100%;width:100%}.code pre{font-size:.78rem}.hero{padding:20px;border-radius:20px}}
+@media (min-width:1700px){html{font-size:17px}.wrap{max-width:1320px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.drawer{transition:none}}
+.a11y{position:fixed;top:calc(var(--bar) + 8px);right:12px;width:min(340px,calc(100vw - 24px));max-height:calc(100vh - var(--bar) - 24px);overflow:auto;background:var(--surface);color:var(--text);border-radius:16px;box-shadow:var(--e2);padding:14px 18px 16px;z-index:70}
+.a11y[hidden]{display:none}.a11y h2{font-size:1.1rem;margin:0 0 8px;padding:0;border:0}
+.a11y fieldset{border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:6px 12px 8px}.a11y legend{font-size:.8rem;font-weight:700;color:var(--muted);padding:0 6px}
+.a11y label{display:block;padding:4px 0;cursor:pointer}.a11y input{margin-right:8px;width:17px;height:17px;vertical-align:-3px;accent-color:var(--primary)}
+.a11y .row{display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.btn.alt{background:var(--surface-3);color:var(--text)}
+:root[data-cb="deut"]{--primary:#0072b2;--on-primary:#fff;--primary-c:#cfe6f5;--on-primary-c:#00263f;--ok:#005a8c;--warn:#a84300}
+:root[data-cb="deut"][data-theme="dark"]{--primary:#56b4e9;--on-primary:#00263f;--primary-c:#0b4468;--on-primary-c:#d6ecfa;--ok:#56b4e9;--warn:#f0a35e}
+:root[data-cb="trit"]{--primary:#a3153f;--on-primary:#fff;--primary-c:#f7d9e1;--on-primary-c:#4a0a1c;--ok:#00706f;--warn:#a3153f}
+:root[data-cb="trit"][data-theme="dark"]{--primary:#ff9db5;--on-primary:#4a0a1c;--primary-c:#6b1230;--on-primary-c:#ffe0e8;--ok:#5fd0cf;--warn:#ff9db5}
+:root[data-cb="mono"] body{-webkit-filter:grayscale(1);filter:grayscale(1)}
+:root[data-contrast="high"]{--bg:#fff;--surface:#fff;--surface-2:#f2f2f2;--surface-3:#e0e0e0;--text:#000;--muted:#111;--line:#000;--code-bg:#fff;--primary:#0000b8;--on-primary:#fff;--primary-c:#dfe3ff;--on-primary-c:#000}
+:root[data-contrast="high"][data-theme="dark"]{--bg:#000;--surface:#000;--surface-2:#141414;--surface-3:#2a2a2a;--text:#fff;--muted:#f0f0f0;--line:#fff;--code-bg:#000;--primary:#ffe94d;--on-primary:#000;--primary-c:#333300;--on-primary-c:#fff}
+:root[data-contrast="high"] .card,:root[data-contrast="high"] .decision,:root[data-contrast="high"] .code,:root[data-contrast="high"] ul.check li{border:2px solid var(--line);box-shadow:none}
+:root[data-links="u"] a,:root[data-cb] a{text-decoration:underline}
+:root[data-size="l"]{font-size:18px}:root[data-size="xl"]{font-size:20px}
+:root[data-motion="off"]{scroll-behavior:auto}:root[data-motion="off"] *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+@media print{.bar,.drawer,.scrim,.side,.pn,#totop,.copy,.toc,.skip{display:none!important}.wrap{padding:0;max-width:none;display:block}body{background:#fff;color:#000}.code{border-color:#999;background:#fff}.code pre{white-space:pre-wrap;color:#000}a{color:#000}h2{page-break-after:avoid}.code,.decision{page-break-inside:avoid}.foot{background:#fff;border:0}}
+@media (min-width:1181px){.wrap.has-toc .toc{display:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="bar">
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.1</small></a>
+<span class="grow"></span>
+<nav class="topnav" aria-label="Main">
+<a class="nb" href="index.html">Home</a>
+<a class="nb" href="START-HERE.html">Start here</a>
+<a class="nb" href="GLOSSARY.html">Glossary</a>
+<button type="button" class="nb" id="docsbtn" aria-haspopup="true" aria-expanded="false" aria-controls="mega">Documents<span class="ms" aria-hidden="true">expand_more</span></button>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button>
+<button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button>
+<div class="mega" id="mega"><div class="mg"><h2>Start</h2><a href="README.html">README</a><a href="START-HERE.html">Start here</a><a href="GLOSSARY.html">Glossary (technical terms)</a><a href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a href="GenerateLeafCertificate-MANUAL.html" aria-current="page">Leaf certificates</a><a href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a href="PkiTrustKit-MANUAL.html">Trust kit</a><a href="DevKit-MANUAL.html">DevKit</a><a href="PkiTransport-MANUAL.html">Transport package</a><a href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a href="PrepareComputer-MANUAL.html">Prepare a computer</a><a href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a href="scripts-README.html">Modules (scripts folder)</a><a href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a href="PKI-ChangeLog.html">Change log</a><a href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div></div>
+</nav>
+<button type="button" class="nb" id="menubtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><span class="ms" aria-hidden="true">menu</span></button>
+</header>
+<div class="a11y" id="a11y" role="dialog" aria-labelledby="a11yt" hidden>
+<h2 id="a11yt">Accessibility</h2>
+<fieldset><legend>Colors</legend>
+<label><input type="radio" name="a-cb" value="off" checked> Normal colors</label>
+<label><input type="radio" name="a-cb" value="deut"> Red-green safe (protanopia, deuteranopia)</label>
+<label><input type="radio" name="a-cb" value="trit"> Blue-yellow safe (tritanopia)</label>
+<label><input type="radio" name="a-cb" value="mono"> Grayscale (no color at all)</label>
+</fieldset>
+<fieldset><legend>Contrast and links</legend>
+<label><input type="checkbox" id="a-hc"> High contrast</label>
+<label><input type="checkbox" id="a-links"> Underline every link</label>
+</fieldset>
+<fieldset><legend>Text size</legend>
+<label><input type="radio" name="a-size" value="n" checked> Normal</label>
+<label><input type="radio" name="a-size" value="l"> Large</label>
+<label><input type="radio" name="a-size" value="xl"> Extra large</label>
+</fieldset>
+<label><input type="checkbox" id="a-motion"> Reduce motion</label>
+<div class="row"><button type="button" class="btn alt" data-a11y-reset="1">Reset</button><button type="button" class="btn" data-a11y-close="1">Close</button></div>
+</div>
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+<div class="dh"><strong>Menu</strong><button type="button" class="nb" data-close="1" aria-label="Close menu"><span class="ms" aria-hidden="true">close</span></button></div>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<a class="dl" href="index.html">Home</a>
+<div class="mg"><h2>Start</h2><a class="dl" href="README.html">README</a><a class="dl" href="START-HERE.html">Start here</a><a class="dl" href="GLOSSARY.html">Glossary (technical terms)</a><a class="dl" href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a class="dl" href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a class="dl" href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a class="dl" href="GenerateLeafCertificate-MANUAL.html" aria-current="page">Leaf certificates</a><a class="dl" href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a class="dl" href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a class="dl" href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a class="dl" href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a class="dl" href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a class="dl" href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a class="dl" href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a class="dl" href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a class="dl" href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a class="dl" href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a class="dl" href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a class="dl" href="PkiTrustKit-MANUAL.html">Trust kit</a><a class="dl" href="DevKit-MANUAL.html">DevKit</a><a class="dl" href="PkiTransport-MANUAL.html">Transport package</a><a class="dl" href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a class="dl" href="PrepareComputer-MANUAL.html">Prepare a computer</a><a class="dl" href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a class="dl" href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a class="dl" href="scripts-README.html">Modules (scripts folder)</a><a class="dl" href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a class="dl" href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a class="dl" href="PKI-ChangeLog.html">Change log</a><a class="dl" href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div>
+<p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
+<p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
+</nav>
+<main class="wrap has-toc" id="content">
+<div class="page">
+<p class="crumb"><a href="index.html">Home</a> &rsaquo; Certificates</p>
+<h1>Leaf certificates</h1>
+<p class="lead">Make server, client, code-signing, e-mail and document-signing certificates.</p>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l3"><a href="#17-no-crl-no-ocsp-in-the-certificates-4-9-5">17  No CRL / no OCSP in the certificates (4.9.5)</a></li><li class="l3"><a href="#a-failed-run-removes-its-own-new-folder">a failed run removes its own new folder.</a></li><li class="l3"><a href="#build-it">build it.</a></li><li class="l3"><a href="#x">...</a></li><li class="l3"><a href="#sslclient-smimesign-timestampsign-ocsphelper-code-signing-ha">sslclient, smimesign, timestampsign, ocsphelper; code signing has none) before the script says OK.</a></li><li class="l3"><a href="#password">password.</a></li><li class="l3"><a href="#serverauth-an-unknown-token-or-an-invalid-name-stops-the-scr">(serverauth ...). An unknown token or an invalid name stops the script at the start.</a></li><li class="l3"><a href="#policy-the-issuing-ca-does-not-carry-is-reported">policy the issuing CA does not carry is reported.</a></li><li class="l3"><a href="#leafcerts-yourself-owner-only-on-a-shared-machine">leafcerts\ yourself (owner only) on a shared machine.</a></li><li class="l2"><a href="#10-recipes-copy-and-paste">10  RECIPES (COPY AND PASTE)</a></li><li class="l3"><a href="#generateleafcertificate-ps1-unblock">.\GenerateLeafCertificate.ps1 -Unblock</a></li><li class="l3"><a href="#excludepurpose-with-the-set-only">-ExcludePurpose with the set only</a></li><li class="l3"><a href="#addresses-in-the-san">addresses in the SAN.</a></li><li class="l3"><a href="#endings-except-convert-formats-ps1-utf-8-with-bom-crlf">endings, except convert-formats.ps1 (UTF-8 with BOM, CRLF).</a></li><li class="l3"><a href="#orphan-existing-leaf-certificates">orphan existing leaf certificates.</a></li><li class="l3"><a href="#test-pkileafresult-checks-the-number-of-ip-addresses-in-the">* Test-PkiLeafResult checks the number of IP addresses in the issued SAN.</a></li><li class="l3"><a href="#names-details-pki-setup-ps1-shownames">names. Details: pki_setup.ps1 -ShowNames.</a></li><li class="l2"><a href="#17-no-crl-no-ocsp-in-the-certificates-4-9-5-2">17  NO CRL / NO OCSP IN THE CERTIFICATES  (4.9.5)</a></li><li class="l3"><a href="#caissuers-kept-ev-nocrl-adddevelopmentsan-ocsp-kept-no-crl">caIssuers kept), -EV -NoCrl -AddDevelopmentSAN (OCSP kept, no CRL).</a></li><li class="l2"><a href="#hash-files-6-3-6">HASH FILES (6.3.6)</a></li></ol></details>
+<h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> What it is   : Makes server, client, code-signing, e-mail and time-stamp certificates from your
+                CAs.
+ Who reads it : Developers and the PKI owner.
+ You need     : A PKI made by pki_setup.ps1, OpenSSL 4.
+ Start with   : Run section 3 (First run): one command makes 7 certificates.
+ Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - leaf certificates          Version 6.4.1           2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
+ Related: .\GenerateLeafCertificate.ps1 -Help     (the same text as section 13 of this file)
+          <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>                  (the PKI itself, trust, servers)
+          <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>      (design, section 15 = this script)
+          <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a>         (what to run on your machines, section B)
+          <a href="scripts-README.html">scripts-README.txt</a>                    (the shared modules)
+          <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>                     (GenerateLeafCertificate.sh: the Ubuntu twin in the DevKit)</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What the script does                       8  Unblock and unlock (every main script)
+    2  What you need, and the OpenSSL check       9  TLS: tls-guidance.txt
+    3  First run                                 10  Recipes (copy and paste)
+    4  Purposes: one certificate for each        11  Troubleshooting
+    5  Formats: all of them, in one go           12  Limits you must know
+    6  Where the files go, names, unique folders 13  -Help (the complete text)
+    7  Level, quadrant, keys, validity, policies 14  What changed in 4.7
+                                                15  Three TLS certificates and the development SAN (4.9.1)
+                                                16  Code signing subject and quadrant names (4.9.2)</pre></div>
+<h3 id="17-no-crl-no-ocsp-in-the-certificates-4-9-5">17  No CRL / no OCSP in the certificates (4.9.5)<a class="anchor" href="#17-no-crl-no-ocsp-in-the-certificates-4-9-5" aria-label="Link to this section">#</a></h3>
+<p>1  WHAT THE SCRIPT DOES</p>
+<p>pki_setup.ps1 builds the CAs and one default EV leaf per quadrant. GenerateLeafCertificate.ps1 issues every other leaf certificate from the intermediates (DV, OV or EV; Classic or Quantum; FIPS or non-FIPS).</p>
+<div class="code"><pre> ONE RUN, EVERYTHING
+      .\GenerateLeafCertificate.ps1 -DnsName www.example.com
+   makes SEVEN certificates, one for EVERY purpose (TLS in THREE variants: server only, client only,
+   server + client; code signing, S/MIME, time stamping, OCSP signing), each in EVERY format (PEM,
+   DER, CER, CERT, P7B, RFC 7468, PFX), validates all of them, and writes them to &lt;script
+   folder&gt;\leafcerts\www.example.com\&lt;purpose&gt;\
+   (next to the scripts, NOT inside the pki folder).</pre></div>
+<p>Every certificate has its own purpose and its own key (the three TLS certificates too). Code signing and TLS are NOT mixed in one certificate (that is the usual practice, and RFC 3161 requires a time stamping certificate to carry that purpose alone). To get ONE certificate with several purposes anyway, give -Purpose (section 4).</p>
+<p>It uses the shared modules of the scripts folder (set Library), the same generator as pki_setup.ps1, and the naming configuration of agantra_pki.cnf [ leaf_names ]. Nothing it does is irreversible: a folder that exists is never touched (a new one with the date and time is made), and</p>
+<h3 id="a-failed-run-removes-its-own-new-folder">a failed run removes its own new folder.<a class="anchor" href="#a-failed-run-removes-its-own-new-folder" aria-label="Link to this section">#</a></h3>
+<p>2  WHAT YOU NEED, AND THE OPENSSL CHECK</p>
+<div class="code"><pre> * PowerShell 7+, the PKI made by pki_setup.ps1 (folder .\pki, or -PkiRoot).
+ * OpenSSL 4.x WITH the FIPS module and native ML-DSA. Before anything is made the script checks and
+   prints:
+       OPENSSL READINESS  (4.x with FIPS and quantum-safe support)
+       [PASS] OpenSSL 4.x            [PASS] ML-DSA (default provider)
+       [PASS] FIPS provider          [PASS] ML-DSA (FIPS provider)
+   What THIS run needs and is missing STOPS the script (a FIPS leaf needs the FIPS provider, a
+   Quantum leaf needs ML-DSA). What it does not need is a warning. Both suggest the fix: run your
+   bootstrap, elevated, OpenSSL only:
+       .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+   then open a NEW PowerShell window. OpenSSL 3.x is refused. Check only:   .\GenerateLeafCertificate.ps1 -Check
+ * A quadrant the PKI does not have (built with -ClassicPKI or -Quadrant) is refused with the way to</pre></div>
+<h3 id="build-it">build it.<a class="anchor" href="#build-it" aria-label="Link to this section">#</a></h3>
+<p>3  FIRST RUN</p>
+<div class="code"><pre>   Get-ChildItem -Path . -Recurse -File | Unblock-File       first start only, if the zip came from
+                                                             the Internet
+   .\GenerateLeafCertificate.ps1 -Check                      READY: OpenSSL 4.x with the FIPS
+                                                             provider and ML-DSA.
+   .\GenerateLeafCertificate.ps1 -DnsName www.example.com    EV, Classic (Q1): the whole set, all
+                                                             formats
+   .\GenerateLeafCertificate.ps1 -List                       what was made
+ Defaults: -EV, -Classic, no -FIPS, RSA 2048, EV 397 days. The output ends with a table:
+       PURPOSE          KEY          DAYS   EXPIRES     SUBJECT CN / FOLDER
+       ServerAuth       RSA-2048     397    2027-11-06  www.example.com</pre></div>
+<h3 id="x">...<a class="anchor" href="#x" aria-label="Link to this section">#</a></h3>
+<p>4  PURPOSES: ONE CERTIFICATE FOR EACH</p>
+<div class="code"><pre> ServerAuth       TLS server.        EKU serverAuth (1.3.6.1.5.5.7.3.1).
+                  Key usage digitalSignature (+ keyEncipherment for RSA).   SAN: DNS names / IPs.   CN: first DNS name.
+ ClientAuth       TLS client, mutual TLS.   EKU clientAuth (1.3.6.1.5.5.7.3.2).
+                  Key usage digitalSignature.   SAN: DNS names / IPs.   CN: first DNS name.
+ ServerClientAuth TLS server AND client in ONE certificate.   EKU serverAuth + clientAuth.
+                  Key usage as ServerAuth.   SAN and CN as ServerAuth.   (Section 15.)
+ CodeSigning      Code signing.   EKU codeSigning (1.3.6.1.5.5.7.3.3).
+                  Key usage digitalSignature.   SAN: none.   Subject: C=EE, ST=Tallinn, L=Tallinn,
+                                                             O=&lt;company&gt;, CN=&lt;company&gt;
+                  (-CodeSigningCompany; empty = the organization, default Agantra Inovatif OU).
+                  Section 16.
+ EmailProtection  S/MIME.   EKU emailProtection (1.3.6.1.5.5.7.3.4) AND clientAuth
+                            (1.3.6.1.5.5.7.3.2) - every e-mail certificate.
+                  Key usage digitalSignature, nonRepudiation (+ keyEncipherment for RSA).
+                  SAN: e-mail address.   CN: the e-mail address.
+ TimeStamping     RFC 3161 time stamping.   EKU timeStamping (1.3.6.1.5.5.7.3.8), CRITICAL and the
+                                            only purpose.
+                  Key usage digitalSignature.   SAN: none.   CN: &quot;&lt;company&gt; Time Stamping&quot;.
+                  Default: Quadrant 1 (Classic, non-FIPS), 1825 days, policy OID
+                  1.3.6.1.4.1.67096.1.4 (-TimestampQuadrant, -TimestampPolicyOid, -TimestampDays).
+                  Not a special certificate type: this IS the TSA certificate.
+ OcspSigning      OCSP responder.   EKU OCSPSigning (1.3.6.1.5.5.7.3.9) + no-check extension
+                                    (1.3.6.1.5.5.7.48.1.5).
+                  Key usage digitalSignature.   SAN: none.   CN: &quot;&lt;company&gt; OCSP Responder&quot;.</pre></div>
+<div class="code"><pre> DocumentSigning      (5.3.7, NOT in the set: ask with -Purpose)   Document signing for Microsoft
+                                                                   Office / Office 365 / Microsoft
+                                                                   365 and other office programs
+                  (LibreOffice ...).   EKU 1.3.6.1.4.1.311.10.3.12 (Microsoft Document Signing).   Key usage digitalSignature + nonRepudiation.   SAN: none.   CN: the company.
+ DocumentSigningAdobe (5.3.7, NOT in the set)   Document signing for Adobe Acrobat / Reader (PDF).   EKU 1.2.840.113583.1.1.5 (Adobe Authentic Documents Trust).   Same key usage / SAN / CN.
+                  Both in ONE certificate: -Purpose DocumentSigning,DocumentSigningAdobe.   (Acrobat only shows a green &quot;trusted&quot; mark when the CA is in its trust list or you add it.)
+ Custom EKU   (5.3.7) any dotted OID in the -Purpose list, for example -Purpose
+              1.3.6.1.4.1.99999.1.2 or -Purpose ServerAuth,1.3.6.1.4.1.99999.1.2. Written into
+              extendedKeyUsage as
+                  it is (digits and dots, first arc 0, 1 or 2, at least three arcs; anything else is
+                  refused with the list of valid names) and checked in the finished certificate. The
+                  file names get oid-1-3-6-... in them. No program trusts a custom OID until it is
+                  told to.</pre></div>
+<div class="code"><pre> The set     no -Purpose (or -AllPurposes) = all SEVEN (DocumentSigning / DocumentSigningAdobe are
+             not in it). -ExcludePurpose TimeStamping,OcspSigning leaves some out; -ExcludePurpose
+             ServerClientAuth drops the combined TLS certificate and keeps the two separate ones.
+ TLS         -Purpose ServerAuth,ClientAuth    THREE certificates: server only, client only, server
+                                               + client.
+             -Purpose ServerClientAuth         ONE certificate with both EKUs.
+ One certificate with several other purposes
+             -Purpose ServerAuth,EmailProtection    ONE certificate carrying exactly these.
+             TimeStamping and OcspSigning must stand alone. Cannot be combined with -AllPurposes /
+             -ExcludePurpose.
+ Names       ServerAuth, ClientAuth and ServerClientAuth use -DnsName / -IpAddress / -EmailAddress,
+             or the [ leaf_san ] list of agantra_pki.cnf when none is given. EmailProtection uses
+             -EmailAddress, else the contact e-mail (-ContactEmail, default info@nextmantra.com).
+             The other three have no SAN. -CommonName replaces the CN of the TLS certificates and is
+             the base (&quot;&lt;base&gt; Code Signing&quot;) of the others; the base defaults to the company name.
+ Forced up   Code signing: RSA &gt;= 4096, ECDSA &gt;= P-384, ML-DSA &gt;= 65, SHA-256 or stronger. A note
+             says so.
+ Every certificate of a set is validated on its own with the OpenSSL purpose that fits (sslserver,</pre></div>
+<h3 id="sslclient-smimesign-timestampsign-ocsphelper-code-signing-ha">sslclient, smimesign, timestampsign, ocsphelper; code signing has none) before the script says OK.<a class="anchor" href="#sslclient-smimesign-timestampsign-ocsphelper-code-signing-ha" aria-label="Link to this section">#</a></h3>
+<p>5  FORMATS: ALL OF THEM, IN ONE GO</p>
+<p>-Format defaults to ALL: every certificate is written in every format below at once. Each file is read back by OpenSSL after it is written (the RFC 7468 file is also checked for its strict form).</p>
+<div class="code"><pre> Format    File                  What it is                                            Used by
+ --------  --------------------  ----------------------------------------------------  ---------------------------------
+ (always)  &lt;stem&gt;.crt            PEM text, the certificate                             nginx, Apache, most tools
+ (always)  &lt;stem&gt;.key            PKCS#8 PEM private key (RFC 7468 label PRIVATE KEY)   every server; keep it private
+ (always)  &lt;stem&gt;.key         private key, PKCS#8 PEM (-----BEGIN PRIVATE KEY-----), LF line
+                              endings, one per certificate / EKU
+ (always)  &lt;stem&gt;.pub         public key of that key pair, PEM (SubjectPublicKeyInfo, -----BEGIN
+                              PUBLIC KEY-----)
+ (always)  &lt;stem&gt;.pub.der     the same public key in DER
+ (always)  &lt;stem&gt;-fullchain.crt  leaf + intermediate + quadrant root + track root     nginx ssl_certificate, Apache
+ (always)  &lt;stem&gt;-chain.crt      the same without the leaf                             ssl_trusted_certificate, mTLS
+ PEM       &lt;stem&gt;.pem            PEM text, the certificate (extension .pem)            Linux tools, OpenSSL
+ DER       &lt;stem&gt;.der            binary ASN.1 DER                                      Java, appliances, firmware
+ CER       &lt;stem&gt;.cer            DER binary, the Windows default export                double-click in Windows
+ CERT      &lt;stem&gt;.cert           PEM text (extension .cert)                            Node.js / Go conventions
+ P7B       &lt;stem&gt;.p7b            PKCS#7, PEM armor: leaf + chain, no key               Windows and Java import
+ RFC7468   &lt;stem&gt;.rfc7468.pem    strict PEM: 64-character lines, LF only, nothing      tools that parse PEM strictly
+                                 around the block
+ PFX       &lt;stem&gt;.pfx            PKCS#12: key + leaf + chain, password (-Password)     Kestrel, IIS, Windows import
+           &lt;stem&gt;-fips.pfx       FIPS-conformant PKCS#12 (FIPS leaves only)            FIPS-validated software</pre></div>
+<p>-Format PEM,DER selects some. -LegacyPfx makes a 3DES / SHA-1 PFX for very old software. convert-formats.ps1 in every folder is clean PowerShell with the exact OpenSSL commands to convert THAT certificate between every format (and key formats: PKCS#8 DER, encrypted, traditional RSA / EC), with its real file names and OpenSSL path. Run it from the folder; it asks for the PFX</p>
+<h3 id="password">password.<a class="anchor" href="#password" aria-label="Link to this section">#</a></h3>
+<p>6  WHERE THE FILES GO, NAMES, UNIQUE FOLDERS</p>
+<div class="code"><pre> &lt;script folder&gt;\                        (the project folder: pki_setup.ps1, GenerateLeafCertificate.ps1, scripts\ ...)
+   pki\                                  the PKI (CAs, default leaves). NOT used for the leaves of
+                                         this script.
+   leafcerts\                            ALL leaf folders of this script
+     leaf-index.json                    every certificate made (-List shows it)
+     www.example.com\                   the SET (name = {Name}, the first DNS name)
+       leaf-set.json
+       serverauth\    www.example.com-server-ev-q1-rsa2048.crt .key .pem .der .cer .cert .p7b
+                      .rfc7468.pem .pfx
+                      -fullchain.crt -chain.crt .cnf   convert-formats.ps1   tls-guidance.txt   leaf-info.json
+       clientauth\    ...                                      (tls-guidance.txt for ServerAuth and
+                                                               ClientAuth only)
+       codesigning\  emailprotection\  timestamping\  ocspsigning\
+     www.example.com_20261005-164713\   the SAME run again: a NEW folder with the date and time
+ A single certificate (-Purpose) goes to leafcerts\&lt;name&gt;\ directly, without purpose folders.
+ -OutputRoot &lt;path&gt; or [ leaf_names ] OutputFolder changes the folder (a name is relative to the
+ script folder, a full path is used as it is).</pre></div>
+<div class="code"><pre> UNIQUE FOLDERS: if leafcerts\&lt;name&gt; exists, the script creates &lt;name&gt;_&lt;yyyyMMdd&gt;-&lt;HHmmss&gt; (and -2,
+                 -3 inside the
+ same second). Nothing is overwritten. A set is all or nothing: if one certificate fails, the new
+ folder is removed.</pre></div>
+<div class="code"><pre> NAMES  (agantra_pki.cnf [ leaf_names ]; defaults in scripts\01b_CaNaming.ps1)
+     OutputFolder  = leafcerts         PurposeFolder = {PurposeName}
+     Folder        = {Name}            PurposeStem   = {Name}-{Purpose}-{Level}-{Tag}      (inside a set)
+     Stem          = {Name}-{Level}-{Tag}                                                  (one certificate)
+     UniqueSuffix  = _{Date}-{Time}
+     Tokens: {Name} {Level} {Quadrant} {Tag} {Algorithm} {Track} {Fips} {Purpose} {PurposeName}
+             {Date} {Time}
+   {Purpose} is short (server, client, codesign, email, timestamp, ocsp), {PurposeName} long</pre></div>
+<h3 id="serverauth-an-unknown-token-or-an-invalid-name-stops-the-scr">(serverauth ...). An unknown token or an invalid name stops the script at the start.<a class="anchor" href="#serverauth-an-unknown-token-or-an-invalid-name-stops-the-scr" aria-label="Link to this section">#</a></h3>
+<p>7  LEVEL, QUADRANT, KEYS, VALIDITY, POLICIES</p>
+<div class="code"><pre> Level / quadrant  -DV | -OV | -EV (default EV).  -Classic = quadrant 1, -Classic -FIPS = 2,
+                   -Quantum = 3, -Quantum -FIPS = 4 (internal numbers). In NAMES (CAs and leaf file
+                   names) Q1 = non-FIPS, Q2 = FIPS in both tracks: Classic Q1 / Q2, Quantum Q1 / Q2
+                   (a Quantum FIPS leaf is ...-ev-q2-mldsa65.crt). Browsers and Windows servers:
+                   Classic. OpenSSL services and mutual TLS: Quantum (or Classic).
+ Subject           DV: CN only. OV: C ST L street postalCode O OU CN + name / emailAddress /
+                   telephoneNumber. EV: OV + serialNumber, businessCategory, jurisdictionC / ST / L,
+                   and -Duns (organizationIdentifier = DUNS+&lt;n&gt;, a private convention). Values:
+                   command line, else [ subject_ev ] / [ subject_ov ].
+ Keys (floors are REJECTED, not corrected)
+                   RSA 2048 | 3072 | 4096 | 8192   ECDSA P-256 | P-384 | P-521   ML-DSA 44 | 65 | 87
+                   Defaults: quadrant 1 RSA 2048, 2 ECDSA P-256, 3 / 4 ML-DSA-65. Hash sha256 |
+                   sha384 | sha512 (the issuer&#39;s by default); SHA-1, SHA-224, MD5 rejected.
+ Validity          EV 397 days (the maximum, for every purpose), OV 3 years, DV 5 years, or -Days.
+                   Never longer than the issuer.
+ Policies          The level OID (EV 2.23.140.1.1, OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [
+                   policy_oids ] / [ iana_pen ], and -Policy &quot;OID&quot; or &quot;OID|<a href="https://cps.url" target="_blank" rel="noopener noreferrer">https://cps.url</a>&quot;. A</pre></div>
+<h3 id="policy-the-issuing-ca-does-not-carry-is-reported">policy the issuing CA does not carry is reported.<a class="anchor" href="#policy-the-issuing-ca-does-not-carry-is-reported" aria-label="Link to this section">#</a></h3>
+<p>8  UNBLOCK AND UNLOCK (EVERY MAIN SCRIPT)</p>
+<div class="code"><pre> Every main script of this project (pki_setup.ps1, GenerateLeafCertificate.ps1, and the transport
+ script of Phase C) has the same mechanism:
+   UNBLOCK   removes the Windows &quot;downloaded from the Internet&quot; mark (Zone.Identifier) from every
+             file.
+   UNLOCK    removes the Read-only attribute from every file AND folder.
+   Both work on the script folder and everything below it, children and recursive, hidden items
+   included.</pre></div>
+<div class="code"><pre> AUTOMATIC   The STANDARD BOOTSTRAP at the top of the script does it at every start, BEFORE any
+             other script is loaded (a blocked script cannot be loaded). The folders include
+             leafcerts when it is next to the scripts. After a run the new leaf folder is unblocked
+             and unlocked as well.
+ -Unblock    .\GenerateLeafCertificate.ps1 -Unblock      (and  .\pki_setup.ps1 -Unblock)
+             processes the script folder, the pki folder and the leaf folder, prints how many files
+             were unblocked and how many items unlocked, lists the programs that hold files open
+             there (Windows Restart Manager) and stops. Nothing is killed: close the listed program
+             (Explorer window, editor, shell).
+ First time  A script that is blocked the very first time cannot run its own bootstrap; run once:
+                 Get-ChildItem -Path . -Recurse -File | Unblock-File
+ On Linux and macOS only the Read-only part applies (there is no Internet mark).
+ NOT done by the scripts: they never change the access rights (ACLs) of a key file. Protect pki\ and</pre></div>
+<h3 id="leafcerts-yourself-owner-only-on-a-shared-machine">leafcerts\ yourself (owner only) on a shared machine.<a class="anchor" href="#leafcerts-yourself-owner-only-on-a-shared-machine" aria-label="Link to this section">#</a></h3>
+<p>9  TLS: tls-guidance.txt</p>
+<div class="code"><pre> Written in the ServerAuth and ClientAuth folders, tailored to the profile of the certificate:
+   Classic non-FIPS  TLS 1.3 + 1.2; AES-256-GCM, ChaCha20-Poly1305, AES-128-GCM;
+                     groups X25519MLKEM768, X25519, P-256, P-384.
+   Classic FIPS      the same without ChaCha20 and X25519; groups SecP256r1MLKEM768,
+                     SecP384r1MLKEM1024, P-256, P-384.
+   Quantum (ML-DSA) TLS 1.3 only; for OpenSSL 3.5+ servers and mutual TLS.
+   HTTP/2: ALPN h2.   HTTP/3: QUIC, UDP 443, TLS 1.3, Alt-Svc header.
+ With settings for nginx, Apache httpd, Kestrel, Node.js and Go, and the s_client command that
+ proves the handshake. Proven here on OpenSSL 4.0.3 (TLS 1.3, hybrid key exchange, Verification OK):
+ RSA, ECDSA P-384 FIPS and ML-DSA-65 FIPS leaves. Cipher and group names depend on your server
+ build: verify on your server. Details: design file, 15.6.</pre></div>
+<h2 id="10-recipes-copy-and-paste">10  RECIPES (COPY AND PASTE)<a class="anchor" href="#10-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The whole set for a public web site (EV)
+     .\GenerateLeafCertificate.ps1 -EV -DnsName www.example.com,example.com
+ Internal service, DV, FIPS, ECDSA P-384, only the TLS pair
+     .\GenerateLeafCertificate.ps1 -DV -Classic -FIPS -KeyType ECDSA -Curve P-384 -DnsName api.int.example `
+         -ExcludePurpose CodeSigning,EmailProtection,TimeStamping,OcspSigning
+ Mutual TLS between OpenSSL services (ML-DSA), no S/MIME
+     .\GenerateLeafCertificate.ps1 -OV -Quantum -DnsName svc.int.example -ExcludePurpose EmailProtection
+ One TLS certificate with server + client authentication, only a PFX
+     .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth -Format PFX
+ A code signing certificate only
+     .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany &quot;Example Ltd&quot;
+ An S/MIME certificate for a person
+     .\GenerateLeafCertificate.ps1 -DV -Purpose EmailProtection -EmailAddress user@example.com
+ A time stamping and an OCSP certificate
+     .\GenerateLeafCertificate.ps1 -OV -ExcludePurpose ServerAuth,ClientAuth,CodeSigning,EmailProtection
+ Short-lived, 90 days
+     .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Days 90
+ Extra policy with a CPS pointer
+     .\GenerateLeafCertificate.ps1 -EV -DnsName x.example.com `
+         -Policy &quot;1.3.6.1.4.1.99999.9|<a href="https://example.com/cps" target="_blank" rel="noopener noreferrer">https://example.com/cps</a>&quot;
+ Windows: also import the PFX files of the leaves into LocalMachine\My (elevated; only the leaf is
+          imported)
+     .\GenerateLeafCertificate.ps1 -OV -DnsName w.example.com -InstallPfx
+ The three TLS certificates only (server, client, server + client)
+     .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerAuth,ClientAuth
+ One TLS certificate that is both server and client
+     .\GenerateLeafCertificate.ps1 -OV -DnsName api.example.com -Purpose ServerClientAuth
+ Development: everything, with the development SAN (EV subject, EV policy, SAN rules of EV not
+              applied)
+     .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN
+ Development: your own name first, the development SAN after it, ML-DSA, FIPS
+     .\GenerateLeafCertificate.ps1 -EV -Quantum -FIPS -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerClientAuth
+ Code signing certificate for your own company (CN = O = Example Ltd; empty company = Agantra
+ Inovatif OU)
+     .\GenerateLeafCertificate.ps1 -EV -Purpose CodeSigning -CodeSigningCompany &quot;Example Ltd&quot;
+ Count what went into the SAN
+     openssl x509 -in &lt;leaf&gt;.crt -noout -ext subjectAltName
+ Unblock and unlock everything</pre></div>
+<h3 id="generateleafcertificate-ps1-unblock">.\GenerateLeafCertificate.ps1 -Unblock<a class="anchor" href="#generateleafcertificate-ps1-unblock" aria-label="Link to this section">#</a></h3>
+<p>11  TROUBLESHOOTING</p>
+<div class="code"><pre> Message                                           Cause and fix
+ ------------------------------------------------  ----------------------------------------------------------------
+ &quot;OpenSSL 4.0 or newer ... not found&quot;              Only 3.x. Run Install-DevEnvironment.ps1 (output says how)
+ &quot;This leaf certificate needs FIPS / ML-DSA&quot;       4.x without the FIPS module or ML-DSA: same fix
+                                                   (-Check)
+ &quot;This PKI has no Quadrant N&quot;                      The PKI was built with -ClassicPKI / -Quadrant:
+                                                   use a quadrant it has
+ &quot;RSA key size ... is rejected&quot; / &quot;Hash ... is     The floors (section 7): RSA 2048, ECDSA P-256,
+                                                   SHA-256
+  rejected&quot;
+ &quot;-Purpose makes ONE certificate ...&quot;              -Purpose cannot be combined with -AllPurposes /
+                                                   -ExcludePurpose
+ &quot;TimeStamping must be the ONLY purpose&quot;           Time stamping and OCSP stand alone: use the set
+ &quot;-ExcludePurpose removed every purpose&quot;           Leave at least one purpose in
+ &quot;ServerAuth needs at least one DNS name or IP&quot;    Give -DnsName / -IpAddress
+ &quot;EmailProtection needs ... e-mail address&quot;        Give -EmailAddress
+ &quot;Invalid leaf naming&quot;                             A template in [ leaf_names ] is wrong (unknown
+                                                   token, invalid name)
+ &quot;The folder ... exists already&quot;                   Not an error: a NEW folder with the date and time
+                                                   was made
+ Leaf of the old PKI does not verify               pki_setup -Clean made new CA keys; old leaves
+                                                   belong to the old PKI
+ Files are read-only / blocked, a folder is busy   .\GenerateLeafCertificate.ps1 -Unblock (section 8)
+ Leaves are in pki\leafcerts                       Version 4.6 wrote there; they are not moved: copy
+                                                   them to leafcerts\
+ &quot;Invalid IP range ...&quot; / &quot;more than 1024 addresses&quot;   A range in [ development_san ] is first-last,
+                                                       IPv4, at most 1024 addresses
+ &quot;unknown key ... Use DNS.n, IP.n, IPRange.n or email.n&quot; A key in [ development_san ] is misspelled
+ &quot;Invalid DNS name in the development SAN&quot;          A DNS.n entry of [ development_san ] is not a
+                                                    host name
+ -Purpose ServerClientAuth -ExcludePurpose ...      Refused: -Purpose is not a set. Use</pre></div>
+<h3 id="excludepurpose-with-the-set-only">-ExcludePurpose with the set only<a class="anchor" href="#excludepurpose-with-the-set-only" aria-label="Link to this section">#</a></h3>
+<p>12  LIMITS YOU MUST KNOW</p>
+<ul><li>Tested on Linux with OpenSSL 4.0.3 and the real FIPS provider. NOT tested: -InstallPfx and everything that touches the Windows stores, the Windows &quot;Internet mark&quot; part of the unblock (it uses Unblock-File), and the server settings of tls-guidance.txt in your nginx / Apache / Kestrel versions.</li><li>ML-DSA certificates (-Quantum): Windows Schannel (Kestrel / IIS on Windows), Java 25 and the browsers do not accept them for HTTPS today. Use Classic leaves there.</li><li>Private PKI: wildcard and internal names are allowed; a public CA would refuse some. EV certificates: 397 days at most.</li><li>-Duns is a private convention (organizationIdentifier = DUNS+&lt;n&gt;); EV here is the policy and the subject fields, not a browser EV badge.</li><li>Mixing purposes in one certificate (-Purpose) is allowed except TimeStamping / OcspSigning, but a warning recommends separate certificates when code signing is combined with TLS or S/MIME.</li><li>The OCSP certificate is a responder certificate for YOUR OCSP responder software; this PKI does not run one.</li><li>leafcerts\ is never deleted by pki_setup.ps1 (-Clean, -RemoveAllTrust). Leaves of a replaced PKI stay until you delete them; pki_setup warns when it finds them.</li><li>-AddDevelopmentSAN makes certificates whose SAN is NOT EV-conformant (wildcards, IP addresses, internal names, e-mail addresses): by intent, for development; a public CA would not issue them. A SAN with 428 entries adds about 6 KB to each TLS certificate, and leaf-index.json lists every entry of every certificate.</li><li>The hostname rules of a client apply as always: *.nextmantra.com matches app.nextmantra.com, not a.b.nextmantra.com and not nextmantra.com itself (that has its own entry). Some clients ignore IP</li></ul>
+<h3 id="addresses-in-the-san">addresses in the SAN.<a class="anchor" href="#addresses-in-the-san" aria-label="Link to this section">#</a></h3>
+<p>13  -HELP  (THE COMPLETE TEXT, IDENTICAL TO  .\GenerateLeafCertificate.ps1 -Help)</p>
+<p>GenerateLeafCertificate.ps1 - leaf certificates of the Agantra Inovatif Enterprise PKI Version 6.4.1 Author : Nicko Satria Utama Company: Agantra Inovatif O&#220; (NextMantra) Email  : nicko@nextmantra.com</p>
+<div class="code"><pre> Manual : docs\GenerateLeafCertificate-MANUAL.txt  Design : docs\PKI-Design-with-FIPS-and-PQC.txt
+          (section 15)
+ Ubuntu : GenerateLeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl, no
+          PowerShell needed.
+ Needs  : PowerShell 7+, OpenSSL 4.x with the FIPS module and ML-DSA, and a PKI made by
+          pki_setup.ps1.</pre></div>
+<div class="code"><pre>WHAT IT DOES
+  ONE RUN makes a certificate for EVERY purpose, each in EVERY format, validates all of them, and
+  writes them to
+      &lt;script folder&gt;\leafcerts\&lt;name&gt;\&lt;purpose&gt;\      (NOT inside the pki folder)
+  The &quot;set&quot; is SEVEN certificates, because TLS comes in THREE variants:
+      ServerAuth        TLS server only                 CodeSigning      code signing (Authenticode and others)
+      ClientAuth        TLS client only (mutual TLS)    TimeStamping     RFC 3161 time stamping (critical, alone)
+      ServerClientAuth  TLS server AND client in ONE    OcspSigning      OCSP responder (with the no-check extension)
+      EmailProtection   S/MIME (EKU emailProtection + clientAuth, so the same certificate also logs
+                        in to mutual TLS / VPN / 802.1X)
+  Every certificate has its own purpose, its own key and its own folder. The three TLS certificates
+  carry the same names but are three separate certificates: one for servers (serverAuth), one for
+  clients (clientAuth) and one that is both (serverAuth + clientAuth, for a service that is server
+  and client, for example mutual TLS between services). Mixing other purposes in one certificate is
+  possible (see -Purpose) but not the default: code signing and TLS should not share a certificate.
+  If the set folder exists, a NEW folder &lt;name&gt;_&lt;yyyyMMdd&gt;-&lt;HHmmss&gt; is created. Nothing is
+  overwritten. The same generator makes the default EV leaves of pki_setup.ps1.</pre></div>
+<div class="code"><pre>BEFORE IT STARTS
+  1. UNBLOCK + UNLOCK: the script folder (scripts, certificates, keys, leafcerts), children and
+     recursive, loses the Windows &quot;downloaded from the Internet&quot; mark and the Read-only attribute.
+     Every run. -Unblock does it on its own.
+  2. OpenSSL: must be 4.x and have the FIPS provider (fipsmodule.cnf) and native ML-DSA. What THIS
+     run needs and is missing stops the script; what it does not need is a warning. Both suggest the
+     fix: run
+     Install-DevEnvironment.ps1 (OpenSSL with FIPS and quantum support).   .\GenerateLeafCertificate.ps1 -Check</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>USAGE
+  .\GenerateLeafCertificate.ps1 -DnsName www.example.com                      EV, Classic: the whole set, all formats
+  .\GenerateLeafCertificate.ps1 -DV -DnsName a.example.com,b.example.com
+  .\GenerateLeafCertificate.ps1 -OV -Classic -FIPS -DnsName api.example.com -KeyType ECDSA -Curve P-384
+  .\GenerateLeafCertificate.ps1 -EV -Quantum -DnsName mtls.example.com        ML-DSA leaves (OpenSSL services, mTLS)
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -ExcludePurpose TimeStamping,OcspSigning
+  .\GenerateLeafCertificate.ps1 -OV -Purpose DocumentSigning,DocumentSigningAdobe -Format PFX      (Office + Adobe PDF in one certificate)
+  .\GenerateLeafCertificate.ps1 -OV -Purpose 1.3.6.1.4.1.99999.1.2                                 (a custom EKU OID)
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerAuth,ClientAuth -Format PFX   (3 certs)
+  .\GenerateLeafCertificate.ps1 -OV -DnsName shop.example.com -Purpose ServerClientAuth   (1 cert)
+  .\GenerateLeafCertificate.ps1 -EV -AddDevelopmentSAN         the set + development SAN
+  .\GenerateLeafCertificate.ps1 -EV -DnsName api.nextmantra.com -AddDevelopmentSAN -Purpose ServerAuth,ClientAuth
+  .\GenerateLeafCertificate.ps1 -OV -Purpose CodeSigning -CodeSigningCompany &quot;Example Ltd&quot;   CN = O = Example Ltd
+  .\GenerateLeafCertificate.ps1 -List                                         leaf certificates made so far
+  .\GenerateLeafCertificate.ps1 -Unblock                                      unblock + unlock the folders, then stop</pre></div>
+<div class="code"><pre>LEVEL AND QUADRANT   (defaults: -EV, -Classic, no -FIPS)
+  -DV | -OV | -EV      Domain / Organization / Extended validation. Chooses the intermediate
+                       q&lt;N&gt;-dv|ov|ev.
+  -Classic | -Quantum  Classic: RSA or ECDSA leaf.  Quantum: ML-DSA leaf.
+  -FIPS                FIPS quadrant (FIPS provider).  Quadrant NUMBERS (parameters, ids, folders):
+                       -Classic = 1, -Classic -FIPS = 2, -Quantum = 3, -Quantum -FIPS = 4.  In NAMES
+                       the number is Q1 = non-FIPS, Q2 = FIPS in BOTH tracks (Classic Q1 / Q2,
+                       Quantum Q1 / Q2), also in the file names of the leaves; see .\pki_setup.ps1
+                       -ShowNames.
+  Browser-facing sites and Windows servers: Classic (quadrants 1 / 2). Quantum: OpenSSL-based
+  services and mutual TLS. A quadrant the PKI does not have (built with -ClassicPKI or -Quadrant) is
+  refused with the fix.</pre></div>
+<div class="code"><pre>PURPOSES
+  (none) | -AllPurposes   One certificate for EACH purpose (the set above). -AllPurposes only says
+                          it out loud.
+  -ExcludePurpose &lt;list&gt;  Leave purposes out of the set: ServerAuth ClientAuth ServerClientAuth CodeSigning
+                          EmailProtection TimeStamping OcspSigning (the two document purposes are
+                          not in the set). (-ExcludePurpose ServerClientAuth drops the combined
+                          certificate and keeps the two separate ones.)
+  -Purpose &lt;list&gt;         NOT a set (with two exceptions below): ONE certificate that carries
+                          exactly these purposes, for example ServerAuth,EmailProtection.
+                          TimeStamping and OcspSigning must stand alone. Cannot be combined with
+                          -AllPurposes / -ExcludePurpose. Also (5.3.7): DocumentSigning (Microsoft
+                          Office 365 / Office, EKU 1.3.6.1.4.1.311.10.3.12), DocumentSigningAdobe
+                          (Adobe PDF, EKU 1.2.840.113583.1.1.5) and a CUSTOM EKU = any dotted OID,
+                          e.g. -Purpose DocumentSigning,1.3.6.1.4.1.99999.1.2 ServerAuth,ClientAuth
+                          (nothing else)  -&gt; THREE certificates: server only, client only and
+                                                                   server + client (the TLS part of
+                                                                   the set).
+                          ServerClientAuth                      -&gt; ONE certificate with serverAuth + clientAuth.
+  Names per purpose in a set:
+      ServerAuth, ClientAuth, ServerClientAuth   the DNS names / IPs you give (first = primary,
+                                                 wildcard *.example.com
+                               allowed), or the [ leaf_san ] list of agantra_pki.cnf when none is
+                               given.
+      EmailProtection          -EmailAddress, else the contact e-mail (ContactEmail). The CN is the
+                               e-mail address. EVERY e-mail certificate carries the extended key
+                               usages emailProtection AND clientAuth.
+      CodeSigning              no SAN; its own short subject (see CODE SIGNING SUBJECT).
+      TimeStamping, OcspSigning   no SAN; CN = &quot;&lt;company or -CommonName&gt; Time Stamping | OCSP
+                                  Responder&quot;.</pre></div>
+<div class="code"><pre>TIME STAMPING CERTIFICATE (RFC 3161)
+  No special certificate type is needed: the TimeStamping leaf of this script IS the time stamp
+  server certificate (EKU timeStamping, critical, the only purpose). Defaults: Quadrant 1 = Classic,
+  non-FIPS (never quantum unless you ask), RSA, valid 1825 days, certificate policy OID &lt;your PEN
+  arc&gt;.1.4 (1.3.6.1.4.1.67096.1.4) added next to the CA&#39;s DV/OV/EV policy.
+  -TimestampQuadrant 1|2|3|4   1 Classic non-FIPS (default)  2 Classic FIPS  3 Quantum non-FIPS  4 Quantum FIPS (prepared for the future;
+                               the PKI server kit signs RSA / ECDSA only)
+  -TimestampPolicyOid &lt;oid&gt;    the TSA policy OID (also written to tsa.cnf default_policy by the
+                               server kit)
+  -TimestampDays &lt;n&gt;           validity of the time stamp certificate     -OcspDays &lt;n&gt;   validity of OCSP responder certificates
+  Config: [ timestamp ] Quadrant / PolicyOid / Days in agantra_pki.cnf.  Keys of the OCSP / TSA
+          certificates can also be made on the
+  server (pki-server.sh csr) and signed with PkiRevocation.ps1 -Action SignCsr.</pre></div>
+<div class="code"><pre>REVOCATION INFORMATION   (4.9.5)
+  -NoCrl             no CRL distribution point in ANY generated certificate (the whole set, or the
+                     one certificate)
+  -NoOcsp            no OCSP URL (Authority Information Access OCSP) in any generated certificate
+  -NoRevocationInfo  both. The CA issuer URL (caIssuers) stays. Use it for development / Office / offline systems that say &quot;cannot connect
+                     to the revocation server&quot;. Such a certificate cannot be checked or revoked by
+                     CRL / OCSP; leaf-info.json records
+                     revocationInfo {crlDistributionPoints, ocsp}.   Same switches: GeneratePersonLeafCertificate.ps1, GenerateOffice365LeafCertificate.ps1.
+                     NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release,
+                     or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a
+                     NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.</pre></div>
+<div class="code"><pre>NAMES
+  -DnsName &lt;a,b&gt;   -IpAddress &lt;a,b&gt;   -EmailAddress &lt;a,b&gt;   -CommonName &lt;text&gt;
+  Given on the command line = exactly these names. -CommonName replaces the CN of the TLS
+  certificates and is the base of the CN of Time Stamping and OCSP signing (code signing: see CODE
+  SIGNING SUBJECT).</pre></div>
+<div class="code"><pre>DEVELOPMENT SAN   (-AddDevelopmentSAN)
+  E-MAIL (S/MIME) with -AddDevelopmentSAN (4.9.4): the certificate gets the algorithm of
+  GeneratePersonLeafCertificate.ps1 by default: ECDSA P-384, SHA-512
+                       (Quadrants 1 and 2; -KeyType / -Curve / -Hash win), key usage
+                       digitalSignature + nonRepudiation + keyAgreement. The policies are the same
+                       as those of every OV / EV certificate (level OID, company PEN OIDs, High
+                       Assurance for OV; CPS URL by level), see -CpsUrl.
+  Adds the development list to the SAN. It is MERGED with the names you give (yours stay first, the
+  CN is your first name; duplicates are removed). With no -DnsName the names of [ leaf_san ] come
+  first. The list:
+      DNS    nextmantra.com  www.nextmantra.com  *.nextmantra.com  localhost  local.dev
+             nextmantra.internal  *.nextmantra.internal  nextmantra.developer  *.nextmantra.developer
+             nextmantra.api  *.nextmantra.api  nextmantra.ldap  *.nextmantra.ldap
+             agantra.internal  *.agantra.internal  agantra.developer  *.agantra.developer
+             agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap                                 (21 names)
+      IP     127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200  172.16.0.1 - 172.16.0.200
+             192.168.1.1 - 192.168.1.100  192.168.2.1 - 192.168.2.100  (603 in all,
+             every address of the four ranges is written)
+      E-MAIL nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com  airlangga@nextmantra.com
+  Where it goes: ServerAuth, ClientAuth, ServerClientAuth (and any certificate with one of them):
+                 everything.
+  EmailProtection: the e-mail addresses only. CodeSigning, TimeStamping, OcspSigning: nothing (they
+                   carry no SAN).
+  EV: the SAN rules of EV certificates (no wildcard, no IP address, no internal name, no e-mail
+      address) are
+  deliberately NOT applied, so an EV leaf with -AddDevelopmentSAN is the way to make EV-looking
+  certificates for development. The EV subject, the EV policy and the 397-day limit stay. A warning
+  is printed and leaf-info.json says developmentSan / evSanOverride = true. FOR DEVELOPMENT ONLY: a
+  public CA would not issue such a certificate. Change the list in [ development_san ] of
+  agantra_pki.cnf (DNS.n, IP.n, IPRange.n = first-last, email.n); without that section the built-in
+  list above is used. A range may have at most 1024 addresses.</pre></div>
+<div class="code"><pre>CODE SIGNING SUBJECT   (-CodeSigningCompany)
+  -CodeSigningCompany &lt;name&gt;   CN = O = &lt;name&gt;. Empty: CN = O = the organization (-Organization or
+                               the cnf; default Agantra Inovatif OU). Alias: -CodesignCompany.
+  The subject of every code signing certificate is short, at every level (DV, OV, EV):
+      C = EE   ST = Tallinn   L = Tallinn   O = &lt;company&gt;   CN = &lt;company&gt;
+  -Country / -State / -Locality change C, ST and L. Nothing else is written: no OU, street, postal
+  code, contact fields and, at -EV, none of the EV-only fields (serialNumber, businessCategory,
+  jurisdiction*). &lt;company&gt; may not be longer than 64 characters. -CommonName does not apply to code
+  signing.</pre></div>
+<div class="code"><pre>KEY AND SIGNATURE   (floors are enforced: weaker values are REJECTED)
+  -KeyType RSA|ECDSA|MLDSA   Default: quadrant 1 RSA, 2 ECDSA, 3 / 4 MLDSA. Quantum quadrants take
+                             MLDSA only.
+  -KeyBits &lt;n&gt;               RSA 2048 | 3072 | 4096 | 8192 (default 2048; below 2048 is rejected).
+  -Curve P-256|P-384|P-521   ECDSA (default P-256; smaller curves are rejected).
+  -PqcAlgorithm mldsa44|65|87  ML-DSA parameter set (default mldsa65, from the configuration).
+  -Hash sha256|sha384|sha512 Digest of the signature (default: the issuer&#39;s). SHA-1, SHA-224, MD5
+  ... rejected. Code signing is FORCED up: RSA &gt;= 4096, ECDSA &gt;= P-384, ML-DSA &gt;= 65, SHA-256 or
+  stronger (a note says so).</pre></div>
+<div class="code"><pre>VALIDITY AND POLICIES
+  -Days &lt;n&gt;            Default: EV 397 days (the maximum, for every purpose), OV 3 years, DV 5
+                       years. Never longer than the issuer.
+  -Policy &lt;list&gt;       Extra certificate policies: &quot;OID&quot; or &quot;OID|CPS-URL&quot;. The level policy (EV
+                       2.23.140.1.1, OV 2.23.140.1.2.2, DV 2.23.140.1.2.1), [ policy_oids ] / [
+                       iana_pen ] and these are written.
+  -CpsUrl &lt;url&gt;        CPS pointer on every policy of a DV / OV certificate (default
+                       <a href="https://nextmantra.com/security/certs" target="_blank" rel="noopener noreferrer">https://nextmantra.com/security/certs</a>).
+  -CpsUrlEv &lt;url&gt;      CPS pointer on every policy of an EV certificate (default
+                       <a href="https://nextmantra.com/security/certs/ev-cps.pdf" target="_blank" rel="noopener noreferrer">https://nextmantra.com/security/certs/ev-cps.pdf</a>).
+  POLICIES of a leaf: the level policy (DV 2.23.140.1.2.1 | OV 2.23.140.1.2.2 | EV 2.23.140.1.1),
+  the company policy 1.3.6.1.4.1.&lt;PEN&gt;.1 and its level policy
+                       (.1.1 EV, .1.2 OV, .1.3 DV), and for EVERY OV certificate the HIGH ASSURANCE
+                       policy 1.3.6.1.4.1.&lt;PEN&gt;.1.5 ([ policy_oids ] HighAssurance). Each policy
+                       carries the CPS pointer above.</pre></div>
+<div class="code"><pre>SUBJECT   (DV: CN only.  OV: CN O OU L ST C street postalCode + contact.  EV: OV + serialNumber,
+           businessCategory, jurisdiction*, and -Duns)
+  -Organization -OrganizationalUnit -Country -State -Locality -Street -PostalCode
+  -Serial -BusinessCategory -JurisdictionCountry -JurisdictionState -JurisdictionLocality
+  -Duns &lt;number&gt;       EV: written as organizationIdentifier = DUNS+&lt;number&gt; (a private convention)
+  -ContactName -ContactEmail -ContactPhone      Defaults come from [ subject_ov ] / [ subject_ev ].</pre></div>
+<div class="code"><pre>OUTPUT   (ALL formats in ONE go by default)
+  -Format &lt;list&gt;       PEM .pem | DER .der | CER .cer (DER) | CERT .cert (PEM) | P7B .p7b (leaf +
+                       chain) |
+                       RFC7468 .rfc7468.pem (strict PEM) | PFX .pfx | ALL.   Default ALL.
+                       ALWAYS written: &lt;stem&gt;.crt  .key (PKCS#8)  .pub  .pub.der (public key)  -fullchain.crt  -chain.crt  .cnf
+                       A FIPS leaf also gets &lt;stem&gt;-fips.pfx (FIPS-conformant PKCS#12).
+  -OutputRoot &lt;path&gt;   Folder that receives the leaf folders (default &lt;script folder&gt;\leafcerts).
+  -Password &lt;text&gt;     PFX password (default Abc12345!, the lab password of the PKI).    -LegacyPfx  3DES / SHA-1 PFX.
+                       Friendly name inside every leaf PFX (shown in certlm.msc after the import):
+                       &quot;&lt;Primary EKU&gt; for &lt;CN&gt; Sign by : &lt;Intermediate CA CN&gt;&quot;, for example
+                       &quot;Server Authentication for nextmantra.com Sign by : Agantra EV RSA-4096 G1
+                       CA&quot;.
+  -NoGuidance          Do not write convert-formats.ps1 and tls-guidance.txt.
+  -InstallPfx          Windows: also import the leaf PFX files into LocalMachine\My (elevated). Only
+                       the leaf.
+  Written in every purpose folder (unless -NoGuidance):
+      convert-formats.ps1   clean PowerShell with the exact OpenSSL syntax for every format of this
+                            leaf
+      tls-guidance.txt      TLS 1.2 / 1.3, HTTP/2, HTTP/3 (ServerAuth and ClientAuth only)
+      leaf-info.json        what was issued (also added to leafcerts\leaf-index.json)
+  Written in the set folder:  leaf-set.json</pre></div>
+<div class="code"><pre>NAMES OF THE FOLDERS AND FILES   (agantra_pki.cnf [ leaf_names ]; defaults in scripts\01b_CaNaming.ps1)
+  OutputFolder = leafcerts   Folder = {Name}   Stem = {Name}-{Level}-{Tag}   UniqueSuffix = _{Date}-{Time}
+  PurposeFolder = {PurposeName}   PurposeStem = {Name}-{Purpose}-{Level}-{Tag}
+  Tokens: {Name} {Level} {Quadrant} {Tag} {Algorithm} {Track} {Fips} {Purpose} {PurposeName} {Date}
+          {Time}
+  Example: leafcerts\www.example.com\serverauth\www.example.com-server-ev-q1-rsa2048.crt</pre></div>
+<div class="code"><pre>INFORMATION, UNBLOCK AND UNLOCK
+  -List                Show the leaf certificates made so far.      -Check   OpenSSL readiness only.
+  -Unblock             UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder, the pki
+                       folder and the leaf folder, children and recursive, list the programs that
+                       hold files open, and stop. (A script that is blocked the very first time
+                       needs once:
+                        Get-ChildItem -Path . -Recurse -File | Unblock-File )
+  -ConfigFile &lt;path&gt;   Configuration file (default agantra_pki.cnf next to the script).
+  -PkiRoot &lt;path&gt;      The PKI folder (default: the latest release in .\pki\).
+  -Release &lt;n&gt;         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
+                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
+                       release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-&lt;name&gt;-nocr-&lt;NN&gt;, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot &lt;folder&gt; names one PKI folder and
+                                                   overrides both.
+  -OpenSslPath &lt;path&gt;  Use this openssl (4.x).        -FipsModuleConfig &lt;path&gt;   fipsmodule.cnf of the FIPS module.
+  -Verbose             Show every OpenSSL command.    -Help   This text.</pre></div>
+<div class="code"><pre>LIMITATIONS
+  * ML-DSA leaves (-Quantum) work with OpenSSL 3.5+ services and mutual TLS. Windows Schannel
+    (Kestrel / IIS on Windows), Java 25 and the browsers do not accept them for HTTPS today: use a
+    Classic leaf there.
+  * Private PKI: wildcard and internal names are allowed; a public CA would refuse some. EV
+    certificates are capped at 397 days.
+  * -AddDevelopmentSAN makes certificates that are NOT EV-conformant in their SAN (by intent);
+    development only. A SAN with 428 entries makes every TLS certificate about 6 KB larger than
+    usual.
+  * A set is all or nothing: if one certificate fails, the new set folder is removed.
+  * Leaves of version 4.6 are in pki\leafcerts; they are not moved. Files are UTF-8 without BOM, LF</pre></div>
+<h3 id="endings-except-convert-formats-ps1-utf-8-with-bom-crlf">endings, except convert-formats.ps1 (UTF-8 with BOM, CRLF).<a class="anchor" href="#endings-except-convert-formats-ps1-utf-8-with-bom-crlf" aria-label="Link to this section">#</a></h3>
+<p>14  WHAT CHANGED IN THIS VERSION  (4.7.0)</p>
+<div class="code"><pre> 1. ONE RUN, EVERY PURPOSE: with no -Purpose the script makes a certificate for each of ServerAuth,
+    ClientAuth, CodeSigning, EmailProtection, TimeStamping and OcspSigning (new: the last two).
+    -ExcludePurpose, -AllPurposes. -Purpose still makes ONE certificate with exactly the listed
+    purposes (the 4.6 behaviour).
+ 2. ALL FORMATS BY DEFAULT: -Format defaults to ALL (PEM, DER, CER, CERT, P7B, RFC 7468, PFX). They
+    all existed in 4.6 but had to be asked for with -Format ALL; now every certificate comes in
+    every format at once.
+ 3. LOCATION: &lt;script folder&gt;\leafcerts instead of pki\leafcerts. [ leaf_names ] OutputFolder and
+    -OutputRoot override.
+ 4. UNBLOCK AND UNLOCK: the same standard bootstrap at the start of pki_setup.ps1 and
+    GenerateLeafCertificate.ps1 (children and recursive, hidden items included, Read-only removed
+    too), -Unblock in both, Unlock-PkiTree and Invoke-PkiUnblockUnlock in 00_Common.ps1.
+ 5. This manual (new file) with the -Help text.
+ Also: cross-certificate chains (-fullchain-cross.crt) for the leaves of a set; pki_setup.ps1 warns
+       when a new PKI would</pre></div>
+<h3 id="orphan-existing-leaf-certificates">orphan existing leaf certificates.<a class="anchor" href="#orphan-existing-leaf-certificates" aria-label="Link to this section">#</a></h3>
+<p>15  THREE TLS CERTIFICATES AND THE DEVELOPMENT SAN  (4.9.1)</p>
+<div class="code"><pre> THE THREE TLS CERTIFICATES
+ Whenever ServerAuth and ClientAuth are both wanted, the run makes THREE certificates, each with its
+ own key and its own folder:
+      serverauth\                 EKU serverAuth                  a TLS server (a web server, an
+                                                                  API, a database)
+      clientauth\                 EKU clientAuth                  a TLS client (a browser identity,
+                                                                  a service that calls another:
+                                                                  mutual TLS)
+      serverauth-clientauth\      EKU serverAuth + clientAuth     a service that is both: a server
+                                                                  for some peers, a client for
+                                                                  others
+ They carry the same names (DNS, IP, e-mail) and the same subject; only the EKU (and so the use)
+ differs. Why three: a strict server or client may refuse a certificate whose EKU is wider than the
+ role (some require clientAuth only, some serverAuth only), and a certificate with both EKUs is
+ accepted where either role is needed. Keep the key of each in the place that needs it; do not share
+ one key.
+   Default (the set)                          the three, together with code signing, S/MIME, time
+                                              stamping, OCSP = 7 certificates
+   -Purpose ServerAuth,ClientAuth             the three (a set folder with three purpose folders)
+   -Purpose ServerClientAuth                  ONE certificate with both EKUs (directly in
+                                              leafcerts\&lt;name&gt;\)
+   -ExcludePurpose ServerClientAuth ...       the two separate ones (and whatever else of the set
+                                              you did not exclude)
+   -Purpose ServerAuth,EmailProtection        as before: ONE certificate carrying exactly these (any
+                                              other mix)
+ Purpose names in files: folder serverauth-clientauth, stem token server-client
+ (www.example.com-server-client-ev-q1-rsa2048.crt). leaf-set.json and leaf-index.json show the
+ combined certificate as ServerAuth+ClientAuth / [ServerAuth, ClientAuth]. pki_setup.ps1 is not
+ changed: its default EV leaves stay ONE certificate per quadrant with both EKUs.</pre></div>
+<div class="code"><pre> -AddDevelopmentSAN
+ One switch puts the development names into the SAN. It is meant for the machines of a developer:
+ the names of your sites, the loopback address, your private networks and your own mailboxes in ONE
+ certificate, so that any service of the lab can use it.
+      DNS (21)   nextmantra.com  www.nextmantra.com  *.nextmantra.com  localhost  local.dev
+                 nextmantra.internal  *.nextmantra.internal  nextmantra.developer  *.nextmantra.developer
+                 nextmantra.api  *.nextmantra.api  nextmantra.ldap  *.nextmantra.ldap
+                 agantra.internal  *.agantra.internal  agantra.developer  *.agantra.developer
+                 agantra.api  *.agantra.api  agantra.ldap  *.agantra.ldap
+      IP (603)   127.0.0.1  ::1  10.10.2.2  192.168.0.1 - 192.168.0.200 (200 addresses)  172.16.0.1
+                 - 172.16.0.200 (200 addresses)
+                  192.168.1.1 - 192.168.1.100 (100 addresses)  192.168.2.1 - 192.168.2.100 (100 addresses)   [4.9.6: the last two ranges were added]
+      E-mail (4) nicko@nextmantra.com  robby@nextmantra.com  info@nextmantra.com  airlangga@nextmantra.com
+ (A wildcard *.nextmantra.com covers ONE label: app.nextmantra.com yes, a.b.nextmantra.com no,
+ nextmantra.com no: hence the separate entries. &quot;*.nextmantra,ldap&quot; in the request was read as
+ *.nextmantra.ldap: please check that this is what you meant.)</pre></div>
+<div class="code"><pre>   Where it goes     ServerAuth, ClientAuth, ServerClientAuth (and any certificate that has one of
+                     them): DNS, IP and e-mail. EmailProtection: the e-mail addresses only (DNS
+                     names and IP addresses make no sense in S/MIME). CodeSigning, TimeStamping,
+                     OcspSigning: nothing; they carry no SAN.
+   Merge             Your -DnsName / -IpAddress / -EmailAddress come FIRST (the first DNS name is
+                     the CN); the development names follow; duplicates (case-insensitive; IPv6 by
+                     value) are removed. With no names at all the names of [ leaf_san ] come first.
+   EV                The SAN rules of EV certificates (no wildcard, no IP address, no internal name,
+                     no e-mail address) are deliberately NOT applied, also at -EV. The EV subject,
+                     the EV policy OID and the 397-day limit are kept. A warning says so;
+                     leaf-info.json and leaf-index.json carry developmentSan = true and
+                     evSanOverride = true; leaf-set.json carries developmentSan. The result is for
+                     development; no public CA would issue it and a public EV validator would reject
+                     it.
+   The list          [ development_san ] in agantra_pki.cnf:  DNS.n = name   IP.n = address   IPRange.n = first-last (IPv4, at most
+                     1024 addresses, each address written one by one)   email.n = address.   Edit it freely. Without that section the
+                     same list is built in. A bad entry stops the run before anything is written,
+                     with the entry in the message.
+   Check             Every certificate is validated: each DNS name and e-mail address must be in the
+                     issued certificate, and the number of IP addresses must match. Tested with
+                     OpenSSL 4.0.3 against the full chain: app.nextmantra.com, x.agantra.internal,
+                     db.nextmantra.ldap, localhost, 192.168.0.1, 192.168.0.200, 192.168.1.1,
+                     192.168.1.100, 192.168.2.1, 192.168.2.100, 172.16.0.100, ::1, 10.10.2.2 and
+                     robby@nextmantra.com verify; a.b.nextmantra.com, 192.168.0.201, 192.168.1.101,
+                     192.168.2.101, 172.16.0.201, 10.10.2.3 and nobody@nextmantra.com do not.</pre></div>
+<div class="code"><pre> ALSO CHANGED IN 4.9.1
+   * A set made with no -DnsName used the company name for the set folder; it now uses the first
+     name of the default SAN (nextmantra.com), like a single certificate does. The certificates
+     themselves did not change.</pre></div>
+<h3 id="test-pkileafresult-checks-the-number-of-ip-addresses-in-the">* Test-PkiLeafResult checks the number of IP addresses in the issued SAN.<a class="anchor" href="#test-pkileafresult-checks-the-number-of-ip-addresses-in-the" aria-label="Link to this section">#</a></h3>
+<p>16  CODE SIGNING SUBJECT AND QUADRANT NAMES  (4.9.2)</p>
+<div class="code"><pre> CODE SIGNING SUBJECT   (-CodeSigningCompany, alias -CodesignCompany)
+ Every code signing certificate has a short subject, at every level (DV, OV, EV):
+      C = EE     ST = Tallinn     L = Tallinn     O = &lt;company&gt;     CN = &lt;company&gt;
+   -CodeSigningCompany &quot;Example Ltd&quot;   CN = O = Example Ltd
+   (empty)                             CN = O = the organization: -Organization or [ subject_ov ] O,
+                                       default Agantra Inovatif OU
+   -Country / -State / -Locality       change C, ST and L (otherwise the cnf, then EE / Tallinn /
+                                       Tallinn)
+ Nothing else is written: no OU, street, postal code, contact fields, and at -EV none of the EV-only
+ fields (serialNumber, businessCategory, jurisdiction*). The EV policy, the validity of the level
+ and the issuer (the EV intermediate for -EV) are unchanged. The company name may have at most 64
+ characters (it is CN and O); a longer name stops the run before a file is written. -CommonName does
+ not apply to code signing (it still applies to the TLS certificates and is the base of the CN of
+ Time Stamping and OCSP signing). In a set the code signing certificate gets this subject while the
+ others keep theirs. The folder of a single code signing certificate is named after the company.
+ This is not an &quot;EV code signing&quot; subject in the sense of the CA/B Forum (that needs serialNumber,
+ jurisdiction and businessCategory): it is for your own lab and signing scripts, installers and
+ drivers inside your organization.</pre></div>
+<div class="code"><pre> QUADRANT NUMBERS IN NAMES
+ Quadrant numbers 1..4 stay in the parameters, the issuer ids (q3-ev ...) and the folders. In NAMES
+ the number is Q1 = non-FIPS and Q2 = FIPS in both tracks. So the CAs are called Classic Q1 /
+ Classic Q2 / Quantum Q1 / Quantum Q2 and, since 4.9.2, the files of a leaf too:
+      -Classic              quadrant 1   www.example.com-ev-q1-rsa2048.crt
+      -Classic -FIPS        quadrant 2   www.example.com-ev-q2-ecdsa-p256.crt
+      -Quantum              quadrant 3   www.example.com-ev-q1-mldsa65.crt      (before 4.9.2: q3)
+      -Quantum -FIPS        quadrant 4   www.example.com-ev-q2-mldsa65.crt      (before 4.9.2: q4)
+ The algorithm in the name tells Classic and Quantum apart. Leaves made before 4.9.2 keep their file</pre></div>
+<h3 id="names-details-pki-setup-ps1-shownames">names. Details: pki_setup.ps1 -ShowNames.<a class="anchor" href="#names-details-pki-setup-ps1-shownames" aria-label="Link to this section">#</a></h3>
+<div class="code"><pre> 4.9.3  KEY PAIR FILES AND LINE ENDINGS
+   * Every certificate (every purpose folder) has its key pair: &lt;stem&gt;.key (private, PKCS#8) and
+     &lt;stem&gt;.pub / &lt;stem&gt;.pub.der (public).
+   * All PEM files are LF-only, no BOM. A CRLF key makes nginx/OpenSSL 3.5+ on Linux fail with
+     &quot;PEM_read_bio_PrivateKey() failed (SSL: error:1E08010C:DECODER routines::unsupported:No
+     supported data to decode)&quot;.
+     Files made by older versions: on the Linux host   sed -i &#39;s/\r$//&#39; &lt;stem&gt;.key &lt;stem&gt;-fullchain.crt &lt;stem&gt;.crt
+     (and never copy PEM files with a tool that converts line endings; keep the key 640
+     root:www-data or 600).</pre></div>
+<h2 id="17-no-crl-no-ocsp-in-the-certificates-4-9-5-2">17  NO CRL / NO OCSP IN THE CERTIFICATES  (4.9.5)<a class="anchor" href="#17-no-crl-no-ocsp-in-the-certificates-4-9-5-2" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> -NoCrl             no CRL distribution point (crlDistributionPoints) in ANY certificate this run
+                    makes: the whole set, or the single certificate.
+ -NoOcsp            no OCSP URL (the OCSP method of Authority Information Access). The caIssuers URL
+                    stays.
+ -NoRevocationInfo  both.
+ Same switches in GeneratePersonLeafCertificate.ps1 and GenerateOffice365LeafCertificate.ps1
+ (4.9.4); the Ubuntu twin has --no-crl / --no-ocsp / --no-revocation-info.</pre></div>
+<div class="code"><pre> WHY    A client that cannot reach the CRL / OCSP host of a private PKI reports an error: Word /
+        Excel &quot;cannot connect to the revocation server&quot;, a TLS client &quot;unable to get certificate
+        CRL&quot;, an offline build agent that waits for a time-out. A certificate without the URL has
+        nothing to fetch.
+ COST   The client can no longer learn that the certificate was revoked: it accepts it until it
+        expires. The certificate stays in the CA database; PkiRevocation.ps1 revokes it and the CRL
+        lists it, but nobody reads the CRL. Use it for development, Office and offline systems - not
+        for a certificate that must be revocable.
+ CHECK  The finished certificate is read back (Test-PkiLeafResult): a certificate that still has what you left out is an error. leaf-info.json records
+        &quot;revocationInfo&quot;: { &quot;crlDistributionPoints&quot;: true|false, &quot;ocsp&quot;: true|false }.
+ EXAMPLES
+      .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com -NoRevocationInfo          the whole set of 7 certificates without CRL and OCSP
+      .\GenerateLeafCertificate.ps1 -EV -DnsName api.example.com -Purpose ServerAuth -NoCrl     keeps the OCSP URL
+      .\GenerateLeafCertificate.ps1 -OV -AddDevelopmentSAN -Purpose EmailProtection -NoRevocationInfo
+ Tested on a fresh build: -OV -NoRevocationInfo (7 certificates: no CRL distribution point, no OCSP,</pre></div>
+<h3 id="caissuers-kept-ev-nocrl-adddevelopmentsan-ocsp-kept-no-crl">caIssuers kept), -EV -NoCrl -AddDevelopmentSAN (OCSP kept, no CRL).<a class="anchor" href="#caissuers-kept-ev-nocrl-adddevelopmentsan-ocsp-kept-no-crl" aria-label="Link to this section">#</a></h3>
+<p>5.0.0: -Pki &lt;name&gt; chooses the company&#39;s PKI (default agantra; Tab completes; list: pki_setup.ps1 -ListPki). Windows Server 2022: classic only (-Quantum is an error). OS rules: <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a> section 6.</p>
+<h2 id="hash-files-6-3-6">HASH FILES (6.3.6)<a class="anchor" href="#hash-files-6-3-6" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> For every certificate file set, the script writes hash files next to the files:
+   &lt;name&gt;.sha256    &lt;name&gt;.sha512
+ Each line is &quot;&lt;hash&gt;  &lt;file name&gt;&quot;, so you can check them with:   sha256sum -c &lt;name&gt;.sha256
+ Use -HashFile (PowerShell) or --hash-file (shell) to choose other hashes, for example sha384.
+ The hash files only show that a file was not changed or damaged. They do not replace the signature.</pre></div>
+<nav class="pn" aria-label="Previous and next document"><a class="pv" href="PkiProfiles-MANUAL.html"><small>&larr; Previous</small>Profiles: PKI for another company</a><a class="nx" href="GeneratePersonLeafCertificate-MANUAL.html"><small>Next &rarr;</small>Person certificates</a></nav>
+<p class="crumb">Made from GenerateLeafCertificate-MANUAL.txt by Build-HtmlDocs.ps1 6.4.1.</p>
+
+</div>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a class="l3" href="#17-no-crl-no-ocsp-in-the-certificates-4-9-5">17  No CRL / no OCSP in the certificates (4.9.5)</a><a class="l3" href="#a-failed-run-removes-its-own-new-folder">a failed run removes its own new folder.</a><a class="l3" href="#build-it">build it.</a><a class="l3" href="#x">...</a><a class="l3" href="#sslclient-smimesign-timestampsign-ocsphelper-code-signing-ha">sslclient, smimesign, timestampsign, ocsphelper; code signing has none) before the script says OK.</a><a class="l3" href="#password">password.</a><a class="l3" href="#serverauth-an-unknown-token-or-an-invalid-name-stops-the-scr">(serverauth ...). An unknown token or an invalid name stops the script at the start.</a><a class="l3" href="#policy-the-issuing-ca-does-not-carry-is-reported">policy the issuing CA does not carry is reported.</a><a class="l3" href="#leafcerts-yourself-owner-only-on-a-shared-machine">leafcerts\ yourself (owner only) on a shared machine.</a><a href="#10-recipes-copy-and-paste">10  RECIPES (COPY AND PASTE)</a><a class="l3" href="#generateleafcertificate-ps1-unblock">.\GenerateLeafCertificate.ps1 -Unblock</a><a class="l3" href="#excludepurpose-with-the-set-only">-ExcludePurpose with the set only</a><a class="l3" href="#addresses-in-the-san">addresses in the SAN.</a><a class="l3" href="#endings-except-convert-formats-ps1-utf-8-with-bom-crlf">endings, except convert-formats.ps1 (UTF-8 with BOM, CRLF).</a><a class="l3" href="#orphan-existing-leaf-certificates">orphan existing leaf certificates.</a><a class="l3" href="#test-pkileafresult-checks-the-number-of-ip-addresses-in-the">* Test-PkiLeafResult checks the number of IP addresses in the issued SAN.</a><a class="l3" href="#names-details-pki-setup-ps1-shownames">names. Details: pki_setup.ps1 -ShowNames.</a><a href="#17-no-crl-no-ocsp-in-the-certificates-4-9-5-2">17  NO CRL / NO OCSP IN THE CERTIFICATES  (4.9.5)</a><a class="l3" href="#caissuers-kept-ev-nocrl-adddevelopmentsan-ocsp-kept-no-crl">caIssuers kept), -EV -NoCrl -AddDevelopmentSAN (OCSP kept, no CRL).</a><a href="#hash-files-6-3-6">HASH FILES (6.3.6)</a></aside>
+</main>
+<footer class="foot"><div class="in">
+<div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
+<p>We are an Estonian company in AI and Web3.</p></div>
+<div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
+<p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.1</p></div>
+</div></footer>
+<button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
+<script>
+(function(){
+  "use strict";
+  var d=document,w=window,root=d.documentElement;
+  function $(s,c){return (c||d).querySelector(s)}
+  function $$(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s))}
+  function store(k,v){try{if(v===undefined){return w.localStorage.getItem(k)}w.localStorage.setItem(k,v)}catch(e){return null}}
+  function dark(){var a=root.getAttribute("data-theme");if(a){return a==="dark"}return !!(w.matchMedia&&w.matchMedia("(prefers-color-scheme: dark)").matches)}
+  var saved=store("pkidocs-theme");if(saved==="dark"||saved==="light"){root.setAttribute("data-theme",saved)}
+  function paintTheme(){$$(".themebtn").forEach(function(b){var ic=$(".ms",b),tx=$(".tx",b);if(ic){ic.textContent=dark()?"light_mode":"dark_mode"}if(tx){tx.textContent=dark()?"Light":"Dark"}b.setAttribute("aria-label",dark()?"Switch to light mode":"Switch to dark mode")})}
+  $$(".themebtn").forEach(function(b){b.addEventListener("click",function(){var n=dark()?"light":"dark";root.setAttribute("data-theme",n);store("pkidocs-theme",n);paintTheme()})});
+  paintTheme();
+  var mega=$("#mega"),mb=$("#docsbtn"),dr=$("#drawer"),sc=$("#scrim"),menu=$("#menubtn");
+  function closeMega(){if(mega){mega.classList.remove("open");if(mb){mb.setAttribute("aria-expanded","false")}}}
+  function setDrawer(o){if(!dr){return}dr.classList[o?"add":"remove"]("open");sc.classList[o?"add":"remove"]("open");menu.setAttribute("aria-expanded",o?"true":"false");if(o){var f=$("a,input,button",dr);if(f){f.focus()}}}
+  if(mb){mb.addEventListener("click",function(e){e.stopPropagation();var o=!mega.classList.contains("open");closeMega();if(o){mega.classList.add("open");mb.setAttribute("aria-expanded","true")}})}
+  if(menu){menu.addEventListener("click",function(){setDrawer(true)})}
+  $$("[data-close]").forEach(function(b){b.addEventListener("click",function(){setDrawer(false);if(menu){menu.focus()}})});
+  if(sc){sc.addEventListener("click",function(){setDrawer(false)})}
+  d.addEventListener("click",function(e){if(mega&&!e.target.closest("#mega")&&e.target!==mb){closeMega()}});
+  d.addEventListener("keydown",function(e){var k=e.key||"";if(k==="Escape"||k==="Esc"){closeMega();setDrawer(false)}
+    if(k==="/"&&!/INPUT|TEXTAREA/.test(e.target.tagName||"")){var q=$(".sbox input");if(q&&q.offsetParent!==null){e.preventDefault();q.focus()}}});
+  $$(".sbox input").forEach(function(q){q.addEventListener("keydown",function(e){if((e.key||"")==="Enter"){var v=q.value.replace(/^\s+|\s+$/g,"");if(v){w.location.href=(w.PKI_INDEX||"index.html")+"#q="+encodeURIComponent(v)}}})});
+  $$(".copy").forEach(function(b){b.addEventListener("click",function(){
+    var pre=b.parentNode.querySelector("pre"),txt=pre?pre.textContent:"",lab=$(".tx",b);
+    function done(){if(lab){var o=lab.textContent;lab.textContent="Copied";w.setTimeout(function(){lab.textContent=o},1300)}}
+    function fb(){var ta=d.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";d.body.appendChild(ta);ta.select();try{d.execCommand("copy");done()}catch(e){}d.body.removeChild(ta)}
+    if(w.navigator.clipboard&&w.navigator.clipboard.writeText){w.navigator.clipboard.writeText(txt).then(done,fb)}else{fb()}})});
+  var page=(w.location.pathname.split("/").pop()||"index.html");
+  $$("ul.check input").forEach(function(c,i){var k="pkidocs-chk-"+page+"-"+i;if(store(k)==="1"){c.checked=true}c.addEventListener("change",function(){store(k,c.checked?"1":"0")})});
+  var tt=$("#totop");if(tt){w.addEventListener("scroll",function(){tt.style.display=(w.pageYOffset>600)?"block":"none"});tt.addEventListener("click",function(){w.scrollTo(0,0)})}
+  var links=$$(".side a");if(links.length&&w.IntersectionObserver){var map={};links.forEach(function(a){map[a.getAttribute("href").slice(1)]=a});
+    var io=new w.IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){links.forEach(function(a){a.classList.remove("on")});var a=map[en.target.id];if(a){a.classList.add("on")}}})},{rootMargin:"-80px 0px -70% 0px"});
+    $$("h2[id],h3[id]").forEach(function(h){io.observe(h)})}
+  var A11Y=$("#a11y"),abtns=$$(".a11ybtn"),st={cb:"off",hc:false,size:"n",links:false,motion:false};
+  try{var raw=store("pkidocs-a11y");if(raw){var o=JSON.parse(raw);for(var key in st){if(o&&o[key]!==undefined){st[key]=o[key]}}}}catch(e){}
+  function applyA11y(){
+    function set(a,v){if(v){root.setAttribute(a,v)}else{root.removeAttribute(a)}}
+    set("data-cb",st.cb==="off"?"":st.cb);set("data-contrast",st.hc?"high":"");set("data-size",st.size==="n"?"":st.size);set("data-links",st.links?"u":"");set("data-motion",st.motion?"off":"");
+    if((st.cb!=="off"||st.hc)&&!root.getAttribute("data-theme")){root.setAttribute("data-theme",dark()?"dark":"light")}
+    if(A11Y){$$("input[name=a-cb]",A11Y).forEach(function(r){r.checked=(r.value===st.cb)});$$("input[name=a-size]",A11Y).forEach(function(r){r.checked=(r.value===st.size)});
+      $("#a-hc").checked=st.hc;$("#a-links").checked=st.links;$("#a-motion").checked=st.motion}
+    paintTheme()}
+  function saveA11y(){store("pkidocs-a11y",JSON.stringify(st))}
+  if(A11Y){
+    var openA=function(o){A11Y.hidden=!o;abtns.forEach(function(b){b.setAttribute("aria-expanded",o?"true":"false")});if(o){setDrawer(false);var f=$("input",A11Y);if(f){f.focus()}}};
+    abtns.forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();openA(A11Y.hidden)})});
+    $$("[data-a11y-close]",A11Y).forEach(function(b){b.addEventListener("click",function(){openA(false);if(abtns[0]){abtns[0].focus()}})});
+    A11Y.addEventListener("change",function(e){var t=e.target;
+      if(t.name==="a-cb"){st.cb=t.value}else if(t.name==="a-size"){st.size=t.value}else if(t.id==="a-hc"){st.hc=t.checked}else if(t.id==="a-links"){st.links=t.checked}else if(t.id==="a-motion"){st.motion=t.checked}
+      saveA11y();applyA11y()});
+    $("[data-a11y-reset]",A11Y).addEventListener("click",function(){st={cb:"off",hc:false,size:"n",links:false,motion:false};saveA11y();applyA11y()});
+    d.addEventListener("click",function(e){if(!A11Y.hidden&&!e.target.closest("#a11y")&&!e.target.closest(".a11ybtn")){openA(false)}});
+    d.addEventListener("keydown",function(e){if((e.key||"")==="Escape"&&!A11Y.hidden){openA(false)}})}
+  applyA11y();
+  var box=$("#results");
+  if(box&&w.PKI_SEARCH){
+    var esc=function(s){return s.replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+    var run=function(){
+      var m=/[#&]q=([^&]*)/.exec(w.location.hash),term="";try{term=m?decodeURIComponent(m[1]):""}catch(e){term=""}
+      var home=$("#home");$$(".sbox input").forEach(function(q){if(term){q.value=term}});
+      if(!term){box.innerHTML="";if(home){home.hidden=false}return}
+      if(home){home.hidden=true}
+      var words=term.toLowerCase().split(/\s+/).filter(Boolean),res=[];
+      w.PKI_SEARCH.forEach(function(s){var low=s.t.toLowerCase(),hay=s.h.toLowerCase()+" "+s.d.toLowerCase()+" "+low,ok=true,score=0;
+        for(var i=0;i<words.length;i++){if(hay.indexOf(words[i])<0){ok=false;break}score+=(s.h.toLowerCase().indexOf(words[i])>=0)?5:1}
+        if(ok){var p0=low.indexOf(words[0]),a=Math.max(0,p0-70);res.push({s:s,score:score,sn:(a>0?"... ":"")+s.t.substr(a,220)+" ..."})}});
+      res.sort(function(a,b){return b.score-a.score});
+      var out="<h1>Search: "+esc(term)+"</h1><p class=\"lead\">"+res.length+" place(s) found.</p>";
+      res.slice(0,60).forEach(function(r){var sn=esc(r.sn);words.forEach(function(wd){sn=sn.replace(new RegExp("("+wd.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"),"<mark>$1</mark>")});
+        out+="<div class=\"hit\"><a href=\""+r.s.p+(r.s.i?"#"+r.s.i:"")+"\"><b>"+esc(r.s.d)+"</b> &rsaquo; "+esc(r.s.h||"start")+"</a><br><small>"+sn+"</small></div>"});
+      if(!res.length){out+="<p>Nothing found. Try fewer or shorter words.</p>"}
+      box.innerHTML=out};
+    w.addEventListener("hashchange",run);run()}
+})();
+</script>
+</body>
+</html>

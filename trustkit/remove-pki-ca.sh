@@ -4,42 +4,53 @@
 # Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 # ============================================================
 # Takes PKIs away again that install-pki-ca.sh put on this Linux machine: one company, several, or all.  Run:  ./remove-pki-ca.sh --help
-VERSION="5.3.6"
+VERSION="6.4.1"
 set -u
 
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 usage() {
 cat <<'EOT'
 ============================================================
  remove-pki-ca.sh  -  remove PKIs that install-pki-ca.sh installed (Linux)
- Version 5.3.6
- Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.4.1
+ Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email:
+                               nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
-  install-pki-ca.sh writes a list of everything it installed (/var/lib/pki-trust-kit/installed.tsv): the root files in the system store
-  (pki-<company>-....crt), the files it opened into the folder pki/ next to it, and the Firefox imports (--firefox).
-  This script reads that list and removes the files of the PKI(s) you name, then refreshes the system store (update-ca-certificates /
-  update-ca-trust). It needs no package, no password and no other file. It is the "RemoveTrust / RemoveAllTrust" of the destination machine.
+  install-pki-ca.sh writes a list of everything it installed (/var/lib/pki-trust-kit/installed.tsv):
+  the root files in the system store (pki-<company>-....crt), the files it opened into the folder
+  pki/ next to it, and the Firefox imports (--firefox).
+  This script reads that list and removes the files of the PKI(s) you name, then refreshes the
+  system store (update-ca-certificates / update-ca-trust). It needs no package, no password and no
+  other file. It is the "RemoveTrust / RemoveAllTrust" of the destination machine.
 
 HOW TO RUN
     bash remove-pki-ca.sh --list               what the kit installed (company, release, root files)
-    bash remove-pki-ca.sh --pki raksaka        remove ONE company (every release of it); --pki agantra,raksaka for several
+    bash remove-pki-ca.sh --pki raksaka        remove ONE company (every release of it); --pki \
+          agantra,raksaka for several
     bash remove-pki-ca.sh --pki raksaka --check   only show what would be removed
     bash remove-pki-ca.sh --all                remove EVERYTHING the kit installed (all companies)
-    bash remove-pki-ca.sh --org raksaka        no list (or an older kit): remove  pki-raksaka-*.crt  from the system store
+    bash remove-pki-ca.sh --org raksaka        no list (or an older kit): remove \
+          pki-raksaka-*.crt  from the system store
   sudo is used by itself for the system store (unless you are root).
 
 OPTIONS
   --pki NAME[,NAME]   the company short name(s) as shown by --list
   --all               every PKI in the list
-  --org NAME[,NAME]   by name, without the list: the files  <store>/pki-NAME-*.crt  (and the legacy  NAME-pki-*.crt)
+  --org NAME[,NAME]   by name, without the list: the files  <store>/pki-NAME-*.crt  (and the legacy
+                      NAME-pki-*.crt)
   --list              show the list and stop
   --keep-files        leave the opened files in the folder pki/ (only the system store is cleaned)
   --check             show what would be removed, change nothing
   --yes               do not ask "Remove N file(s)?"
   --help
 
-SUPPORTED  Ubuntu 24.04 / 26.04 or newer, CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+ (15, 16 ...),
-           openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Any other distribution or older version is REFUSED with an error (exit 5), nothing is changed.
+SUPPORTED  Ubuntu 24.04 / 26.04 or newer, CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle Linux
+10+, SUSE Linux Enterprise 15+ (15, 16 ...),
+           openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Any other distribution or older version is
+           REFUSED with an error (exit 5), nothing is changed.
 EXIT     0 done   1 error   5 this Linux distribution / version is not supported
 ============================================================
 EOT
@@ -63,7 +74,7 @@ while [ $# -gt 0 ]; do
     --keep-files) KEEPFILES=1; shift ;;
     --check) CHECK=1; shift ;;
     --yes|-y) YES=1; shift ;;
-    -h|--help) usage; exit 0 ;;
+    -h|--help) usage | help_pager; exit 0 ;;
     *) die "unknown option: $1  (try --help)" ;;
   esac
 done

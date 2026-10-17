@@ -43,6 +43,13 @@ $script:PkiEkuMap = [ordered]@{
     # Microsoft Office / document purposes (GenerateOffice365LeafCertificate.ps1; not in the purpose sets of GenerateLeafCertificate.ps1)
     DocumentSigning    = '1.3.6.1.4.1.311.10.3.12'     # szOID_KP_DOCUMENT_SIGNING (Microsoft Office document signature)
     DocumentEncryption = '1.3.6.1.4.1.311.80.1'        # szOID_KP_DOCUMENT_ENCRYPTION
+    DocumentSigningAdobe = '1.2.840.113583.1.1.5'      # Adobe Authentic Documents Trust (Acrobat / Reader: certified and approval PDF signatures)
+}
+# a custom purpose is a dotted OID (5.3.7): -Purpose 1.3.6.1.4.1.99999.1
+$script:PkiOidPattern = '^[0-2](\.(0|[1-9][0-9]*)){2,}$'
+function Test-PkiPurposeName {
+    param([string]$Name)
+    return ($script:PkiPurposeProfiles.Contains($Name) -or $script:PkiEkuMap.Contains($Name) -or ($Name -match $script:PkiOidPattern))
 }
 # The purposes of a SET (one certificate each). Order = order of generation.
 $script:PkiPurposeProfiles = [ordered]@{
@@ -53,6 +60,9 @@ $script:PkiPurposeProfiles = [ordered]@{
     EmailProtection = @{ Token = 'email';     Label = 'S/MIME + TLS client'; Web = $false; Eku = @('EmailProtection', 'ClientAuth') }
     TimeStamping    = @{ Token = 'timestamp'; Label = 'Time stamping'; Web = $false; CnRole = 'Time Stamping' }
     OcspSigning     = @{ Token = 'ocsp';      Label = 'OCSP signing';  Web = $false; CnRole = 'OCSP Responder' }
+    # Document signing (5.3.7): chosen with -Purpose, NOT part of the default set (one certificate per purpose)
+    DocumentSigning      = @{ Token = 'docsign';       Label = 'Document signing (Microsoft Office 365 / Office, LibreOffice)'; Web = $false; NotInSet = $true }
+    DocumentSigningAdobe = @{ Token = 'docsign-adobe'; Label = 'Document signing (Adobe Acrobat / Reader PDF)'; Web = $false; NotInSet = $true }
 }
 # hashes below SHA-256 are rejected
 $script:PkiRejectedHashes = @('md2', 'md4', 'md5', 'sha1', 'sha-1', 'sha224', 'sha-224', 'ripemd160', 'whirlpool', 'mdc2')
@@ -406,8 +416,9 @@ function Get-PkiLeafEkuInfo {
     # EKU names -> openssl names, key usage, extra extensions
     param([Parameter(Mandatory)][string[]]$Eku, [Parameter(Mandatory)][string]$Family)
     $names = foreach ($e in $Eku) {
-        if (-not $script:PkiEkuMap.Contains($e)) { throw "Unknown purpose '$e'. Use: $($script:PkiEkuMap.Keys -join ', ')." }
-        $script:PkiEkuMap[$e]
+        if ($script:PkiEkuMap.Contains($e)) { $script:PkiEkuMap[$e] }
+        elseif ($e -match $script:PkiOidPattern) { $e }
+        else { throw "Unknown purpose '$e'. Use: $($script:PkiEkuMap.Keys -join ', ') or a dotted OID such as 1.3.6.1.4.1.99999.1." }
     }
     $critical = $false
     $extra = [System.Collections.Generic.List[string]]::new()
@@ -421,7 +432,7 @@ function Get-PkiLeafEkuInfo {
     }
     $ku = [System.Collections.Generic.List[string]]::new()
     [void]$ku.Add('digitalSignature')
-    if ($Eku -contains 'EmailProtection') { [void]$ku.Add('nonRepudiation') }
+    if ($Eku -contains 'EmailProtection' -or $Eku -contains 'DocumentSigning' -or $Eku -contains 'DocumentSigningAdobe') { [void]$ku.Add('nonRepudiation') }     # a signature that binds the signer (contentCommitment)
     if ($Family -eq 'ecdsa' -and $Eku -contains 'EmailProtection') { [void]$ku.Add('keyAgreement') }     # S/MIME encryption with ECDH
     if ($Family -eq 'rsa' -and ($Eku -contains 'ServerAuth' -or $Eku -contains 'EmailProtection')) { [void]$ku.Add('keyEncipherment') }
     $ekus = ($names -join ',')
@@ -535,13 +546,13 @@ function New-PkiLeafSpec {
     $cnValue = @($dn | Where-Object { $_[0] -eq 'CN' } | ForEach-Object { $_[1] }) | Select-Object -First 1
     $primary = if ($san.Dns.Count -gt 0) { $san.Dns[0] } elseif ($san.Ip.Count -gt 0) { $san.Ip[0] } elseif ($san.Email.Count -gt 0) { $san.Email[0] } elseif ($cnValue) { $cnValue } else { 'leaf' }
     $nq = [int](Get-PkiNamingQuadrant -Ca $ca)      # the number in NAMES: 1 = non-FIPS, 2 = FIPS, in both tracks (file names of the leaf)
-    $purposeAbbr = ($eku | ForEach-Object { if ($script:PkiPurposeProfiles.Contains($_)) { $script:PkiPurposeProfiles[$_].Token } else { $_.ToLowerInvariant() } }) -join '-'
-    $purposeLong = ($eku | ForEach-Object { $_.ToLowerInvariant() }) -join '-'
+    $purposeAbbr = ($eku | ForEach-Object { if ($script:PkiPurposeProfiles.Contains($_)) { $script:PkiPurposeProfiles[$_].Token } elseif ($_ -match $script:PkiOidPattern) { 'oid-' + ($_ -replace '\.', '-') } else { $_.ToLowerInvariant() } }) -join '-'
+    $purposeLong = ($eku | ForEach-Object { if ($_ -match $script:PkiOidPattern) { 'oid-' + ($_ -replace '\.', '-') } else { $_.ToLowerInvariant() } }) -join '-'
     if ($eku -contains 'EmailProtection') { $purposeAbbr = 'email'; $purposeLong = 'emailprotection' }     # S/MIME (+ clientAuth): the short names stay
     # Friendly name of the PFX (shown in certlm.msc / the Windows import): "<Primary EKU> for <CN> Sign by : <Intermediate CA CN>"
-    $ekuLabels = @{ ServerAuth = 'Server Authentication'; ClientAuth = 'Client Authentication'; CodeSigning = 'Code Signing'; EmailProtection = 'Secure Email'; TimeStamping = 'Time Stamping'; OcspSigning = 'OCSP Signing' }
+    $ekuLabels = @{ ServerAuth = 'Server Authentication'; ClientAuth = 'Client Authentication'; CodeSigning = 'Code Signing'; EmailProtection = 'Secure Email'; TimeStamping = 'Time Stamping'; OcspSigning = 'OCSP Signing'; DocumentSigning = 'Document Signing'; DocumentSigningAdobe = 'Document Signing (Adobe)' }
     $firstEku = [string](@($eku) | Select-Object -First 1)
-    $ekuText = if ($ekuLabels.ContainsKey($firstEku)) { $ekuLabels[$firstEku] } elseif ($firstEku) { $firstEku } else { 'Certificate' }
+    $ekuText = if ($ekuLabels.ContainsKey($firstEku)) { $ekuLabels[$firstEku] } elseif ($firstEku -match $script:PkiOidPattern) { "Custom EKU $firstEku" } elseif ($firstEku) { $firstEku } else { 'Certificate' }
     $friendly = "$ekuText for $(if ($cnValue) { $cnValue } else { $primary }) Sign by : $(Get-PkiCaCommonName -Ca $ca)"
     $now = Get-Date
     $tokens = @{
@@ -750,6 +761,9 @@ function New-PkiLeafCertificate {
     $extra = Write-PkiLeafFormats -Spec $Spec -R $R
     foreach ($f in @($full, $chainF, (Join-Path $dir "$stem.pem"), (Join-Path $dir "$stem.cert"))) { [void](ConvertTo-PkiLfFile -Path $f) }
     $R.PubPem = $pubPem; $R.PubDer = $pubDer
+    # <stem>.sha256 / <stem>.sha512 ... : the hashes of the certificate files of this stem (-HashFile; default sha256 + sha512)
+    $hashAlgs = if (Test-Path variable:script:PkiHashFileAlgs) { @($script:PkiHashFileAlgs) } else { @('sha256', 'sha512') }
+    [void](Write-PkiHashFiles -Directory $dir -Stem $stem -Algorithm $hashAlgs)
     $R.Files = @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -notlike '*.tmp.*' } | ForEach-Object { $_.Name } | Sort-Object)
     Write-PkiLog "  thumbprint : $($fp.Sha1)" 'OK'
     return $R
@@ -768,8 +782,12 @@ function Test-PkiLeafResult {
 
     if ($t -notmatch 'CA:FALSE') { [void]$problems.Add('basicConstraints CA:FALSE is missing') }
     foreach ($e in $Spec.Eku) {
-        $label = switch ($e) { 'ServerAuth' { 'TLS Web Server Authentication' } 'ClientAuth' { 'TLS Web Client Authentication' } 'EmailProtection' { 'E-mail Protection' } 'CodeSigning' { 'Code Signing' } 'TimeStamping' { 'Time Stamping' } 'OcspSigning' { 'OCSP Signing' } 'DocumentSigning' { '1.3.6.1.4.1.311.10.3.12|Document Signing' } 'DocumentEncryption' { '1.3.6.1.4.1.311.80.1|Document Encryption' } }
-        if ($t -notmatch $(if ($label -like '*|*') { $label } else { [regex]::Escape($label) })) { [void]$problems.Add("extended key usage '$label' is missing") }
+        $label = switch ($e) { 'ServerAuth' { 'TLS Web Server Authentication' } 'ClientAuth' { 'TLS Web Client Authentication' } 'EmailProtection' { 'E-mail Protection' } 'CodeSigning' { 'Code Signing' } 'TimeStamping' { 'Time Stamping' } 'OcspSigning' { 'OCSP Signing' } 'DocumentSigning' { '1.3.6.1.4.1.311.10.3.12|Document Signing' } 'DocumentEncryption' { '1.3.6.1.4.1.311.80.1|Document Encryption' } 'DocumentSigningAdobe' { '1.2.840.113583.1.1.5|Adobe' } default { [regex]::Escape($e) } }
+        if ($label -like '*|*') { $rx = $label } elseif ($e -match $script:PkiOidPattern) { $rx = $label } else { $rx = [regex]::Escape($label) }
+        $found = ($t -match $rx)
+        # a custom OID that OpenSSL knows by name is printed with the name: then count the entries of the extension
+        if (-not $found -and $e -match $script:PkiOidPattern -and $t -match '(?m)X509v3 Extended Key Usage:[^\r\n]*\r?\n\s*([^\r\n]+)') { $found = (@($Matches[1] -split ',\s*').Count -ge @($Spec.Eku).Count) }
+        if (-not $found) { [void]$problems.Add("extended key usage '$label' is missing") }
     }
     if ($Spec.Eku -contains 'OcspSigning' -and $t -notmatch 'OCSP No Check') { [void]$problems.Add('the OCSP no-check extension is missing') }
     if ($Spec.Eku -contains 'TimeStamping' -and $t -notmatch '(?s)Extended Key Usage:\s*critical') { [void]$problems.Add('the time stamping extended key usage is not critical') }

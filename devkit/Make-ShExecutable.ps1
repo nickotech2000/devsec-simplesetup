@@ -25,7 +25,7 @@ if ($Help) {
 @'
 ============================================================
  Make-ShExecutable.ps1 - make the .sh files executable (Windows developers)
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
@@ -36,15 +36,20 @@ if ($Help) {
  .\Make-ShExecutable.ps1 -Path <folder>     another folder (recursive)
  .\Make-ShExecutable.ps1 -LineEndingsOnly   only CRLF -> LF
 
- 1. CRLF -> LF in every .sh / .py / .env  (the usual reason why a script copied from Windows fails on Ubuntu).
- 2. chmod +x: through WSL (wsl chmod) or, when pwsh runs on Linux / macOS, chmod. Without WSL on Windows the bit cannot be
-    set; use  bash ./GenerateLeafCertificate.sh ...  (works without the bit) or run  bash make-executable.sh  on the Ubuntu machine.
+ 1. CRLF -> LF in every .sh / .py / .env  (the usual reason why a script copied from Windows fails
+    on Ubuntu).
+ 2. chmod +x: through WSL (wsl chmod) or, when pwsh runs on Linux / macOS, chmod. Without WSL on
+    Windows the bit cannot be set; use  bash ./GenerateLeafCertificate.sh ...  (works without the
+    bit) or run  bash make-executable.sh  on the Ubuntu machine.
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@ | Write-Host
     exit 0

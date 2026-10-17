@@ -35,92 +35,157 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
-$script:Version = '5.3.6'
+$script:Version = '6.4.1'
 $root = $PSScriptRoot
 
 function Show-PackageHelp {
     @'
 ============================================================
  New-PkiServerPackage.ps1 - the PKI + the Linux scripts as ONE zip for Ubuntu 24.04 / 26.04
- Version 5.3.6
- Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
+ Version 6.4.1
+ Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email:
+                                 nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
-  Builds <name>.zip (and with -Tar also <name>.tar.gz) that you copy to the Ubuntu VM / WSL. It holds:
-    linux\                 pki-server\ (the server kit: nginx CRL/CA host, OCSP, RFC 3161 time stamping), pki-transport.sh,
-                           Install-DevEnvironment.sh, fix-permissions.sh
-    pki\                   the PKI WITHOUT any private key: publish\ (CA certificates, CRLs), every CA's certificate, chain,
-                           configuration, index.txt, serial and crlnumber (the OCSP responders read index.txt), the public parts of
-                           ocsp\ and tsa\ (certificates, chains, .pub, info json)
-    pki\server\            made by pki_setup.ps1: the host names, the CA list and every URL of THIS PKI. pki-server.sh reads it (no key inside)
-    agantra_pki.cnf        only a fallback for the host names when the PKI has no server\ folder (a PKI of an older version)
-    docs\PKI-Server-Design.txt, docs\PKI-SERVER-MANUAL.txt, docs\PkiRevocation-MANUAL.txt   the documents
+  Builds <name>.zip (and with -Tar also <name>.tar.gz) that you copy to the Ubuntu VM / WSL. It
+  holds:
+    linux\                 pki-server\ (the server kit: nginx CRL/CA host, OCSP, RFC 3161 time
+                           stamping), pki-transport.sh, Install-DevEnvironment.sh,
+                           fix-permissions.sh
+    pki\                   the PKI WITHOUT any private key: publish\ (CA certificates, CRLs), every
+                           CA's certificate, chain, configuration, index.txt, serial and crlnumber
+                           (the OCSP responders read index.txt), the public parts of ocsp\ and tsa\
+                           (certificates, chains, .pub, info json)
+    pki\server\            made by pki_setup.ps1: the host names, the CA list and every URL of THIS
+                           PKI. pki-server.sh reads it (no key inside)
+    agantra_pki.cnf        only a fallback for the host names when the PKI has no server\ folder (a
+                           PKI of an older version)
+    docs\PKI-Server-Design.txt, docs\PKI-SERVER-MANUAL.txt, docs\PkiRevocation-MANUAL.txt   the
+    documents
     README-SERVER-PACKAGE.txt, SHA256SUMS, PACKAGE-MANIFEST.txt
-  Every text file is written with LF and no BOM (OpenSSL 3.5+ and nginx on Linux reject CRLF keys / PEM). The .sh and .py files get
-  mode 755 inside the zip (and inside the .tar.gz), everything else 644.
+  Every text file is written with LF and no BOM (OpenSSL 3.5+ and nginx on Linux reject CRLF keys /
+  PEM). The .sh and .py files get mode 755 inside the zip (and inside the .tar.gz), everything else
+  644.
 
 NEVER IN THE PACKAGE
-  *.key, *.pfx, *.p12, private\ folders, issued\ (copies of every issued certificate), leafcerts\, .csr, *.old, backups, any file
-  that contains "PRIVATE KEY". After the package is built it is opened again and scanned: one hit = the package is deleted, exit 5.
-  The OCSP and time stamp keys: the safe way is to make them ON the server (pki-server.sh csr -> PkiRevocation.ps1 -Action SignCsr ->
-  pki-server.sh import-cert), so no key ever travels. -IncludeServiceKeys is for a lab only: it adds the .key of the OCSP / time
-  stamp certificates found in pki\ocsp and pki\tsa (never a CA key).
+  *.key, *.pfx, *.p12, private\ folders, issued\ (copies of every issued certificate), leafcerts\,
+  .csr, *.old, backups, any file that contains "PRIVATE KEY". After the package is built it is
+  opened again and scanned: one hit = the package is deleted, exit 5.
+  The OCSP and time stamp keys: the safe way is to make them ON the server (pki-server.sh csr ->
+  PkiRevocation.ps1 -Action SignCsr -> pki-server.sh import-cert), so no key ever travels.
+  -IncludeServiceKeys is for a lab only: it adds the .key of the OCSP / time stamp certificates
+  found in pki\ocsp and pki\tsa (never a CA key).
 
 USAGE
-  .\New-PkiServerPackage.ps1 [-PkiRoot <folder>] [-Release <n>] [-NoCaRevocationInfo] [-Output <file.zip>] [-RootName <name>] [-IncludeServiceKeys] [-NoPki] [-CrlOnly] [-NoTsa] [-TsaOnly] [-Tar] [-Force]
+  .\New-PkiServerPackage.ps1 [-PkiRoot <folder>] [-Release <n>] [-NoCaRevocationInfo] [-Output `
+        <file.zip>] [-RootName <name>] [-IncludeServiceKeys] [-NoPki] [-CrlOnly] [-NoTsa] `
+        [-TsaOnly] [-Tar] [-Force]
 
 ALSO AS PkiTransport.ps1 -Server (same package, same checks, lands in .\transport\).
 
 PARAMETERS
-  -PkiRoot <folder>      one PKI folder made by pki_setup.ps1 (default: the latest release in .\pki\ next to this script)
-  -Release <n>           the release to pack (R1, R2 ...). Default: the LATEST. A release that no longer exists = the latest, with a warning.
-  -NoCaRevocationInfo    pack the NoCR family (pki\pki-<name>-nocr-<NN>). Default: the normal family (the NoCR one when it is the only one).
-                         ONE PKI per package (inside the zip it is always pki\). The CRL and CA files of several releases can all be installed
-                         on one server (the file stems differ: ...-r2, ...-nocr); the OCSP responders and the time stamp server serve the
-                         release of the package that was installed LAST.
+  -PkiRoot <folder>      one PKI folder made by pki_setup.ps1 (default: the latest release in .\pki\
+                         next to this script)
+  -Release <n>           the release to pack (R1, R2 ...). Default: the LATEST. A release that no
+                         longer exists = the latest, with a warning.
+  -NoCaRevocationInfo    pack the NoCR family (pki\pki-<name>-nocr-<NN>). Default: the normal family
+                         (the NoCR one when it is the only one). ONE PKI per package (inside the zip
+                         it is always pki\). The CRL and CA files of several releases can all be
+                         installed on one server (the file stems differ: ...-r2, ...-nocr); the OCSP
+                         responders and the time stamp server serve the release of the package that
+                         was installed LAST.
   -Output <file.zip>     default: .\agantra-pki-server-<yyyyMMdd-HHmmss>.zip next to this script
   -RootName <name>       the folder inside the zip (default agantra-pki-server)
   -IncludeServiceKeys    lab only: include the OCSP / TSA private keys (see above)
-  -CrlOnly               the SMALL package of a CRL / CA-certificate server (no OCSP, no time stamping): pki-server.sh only, pki\publish + pki\server
-                         of the PKI, README-CRL-SERVER.txt. On Ubuntu:  sudo ./linux/pki-server/pki-server.sh install --crl-only --source ./pki
-                         (also as PkiTransport.ps1 -CrlServer). Default file name agantra-pki-crl-server-<date>.zip
-  -NoTsa                 the package of a CRL + OCSP server (no time stamping): no pki-tsa.py, no pki\tsa, README-CRL-OCSP-SERVER.txt; on Ubuntu
-                         install with --no-tsa. Default file name agantra-pki-crl-ocsp-server-<date>.zip (also PkiTransport.ps1 -CrlOcspServer)
-  -TsaOnly               the package of a TIME STAMP server only (RFC 3161): no OCSP dispatcher, no pki\ocsp, README-TIMESTAMP-SERVER.txt; on Ubuntu
-                         install with --tsa-only. Default file name agantra-pki-timestamp-server-<date>.zip (also PkiTransport.ps1 -TimestampServer)
-  -NoPki                 only the Linux scripts and documents (the kit scripts for a repository check-out, no certificates)
-  -Tar                   also write a .tar.gz with the same content (tar keeps the mode bits on every tool)
+  -CrlOnly               the SMALL package of a CRL / CA-certificate server (no OCSP, no time
+                         stamping): pki-server.sh only, pki\publish + pki\server of the PKI,
+                         README-CRL-SERVER.txt. On Ubuntu:  sudo ./linux/pki-server/pki-server.sh
+                         install --crl-only --source ./pki (also as PkiTransport.ps1 -CrlServer).
+                         Default file name agantra-pki-crl-server-<date>.zip
+  -NoTsa                 the package of a CRL + OCSP server (no time stamping): no pki-tsa.py, no
+                         pki\tsa, README-CRL-OCSP-SERVER.txt; on Ubuntu install with --no-tsa.
+                         Default file name agantra-pki-crl-ocsp-server-<date>.zip (also
+                         PkiTransport.ps1 -CrlOcspServer)
+  -TsaOnly               the package of a TIME STAMP server only (RFC 3161): no OCSP dispatcher, no
+                         pki\ocsp, README-TIMESTAMP-SERVER.txt; on Ubuntu install with --tsa-only.
+                         Default file name agantra-pki-timestamp-server-<date>.zip (also
+                         PkiTransport.ps1 -TimestampServer)
+  -NoPki                 only the Linux scripts and documents (the kit scripts for a repository
+                         check-out, no certificates)
+  -Tar                   also write a .tar.gz with the same content (tar keeps the mode bits on
+                         every tool)
   -Force                 overwrite an existing output file
   -Help                  this text
 
 ON UBUNTU / WSL
   cd ~ && unzip /mnt/c/Users/<you>/agantra-pki-server-*.zip && cd agantra-pki-server
-  bash linux/fix-permissions.sh                 (only needed when the zip tool dropped the execute bits; harmless otherwise)
-  sudo ./linux/pki-server/pki-server.sh csr --source ./pki --out ./csr           keys stay on the server
-  (Windows)  .\PkiRevocation.ps1 -Action SignCsr -Csr ocsp-q1-ev.csr -For Ocsp -Ca q1-ev      and -For Tsa for tsa-*.csr
-  sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-q1-ev.crt --cert ./signed/tsa-q1-ev.crt
+  bash linux/fix-permissions.sh                 (only needed when the zip tool dropped the execute `
+        bits; harmless otherwise)
+  sudo ./linux/pki-server/pki-server.sh csr --source ./pki --out ./csr           keys stay on the `
+        server
+  (Windows)  .\PkiRevocation.ps1 -Action SignCsr -Csr ocsp-q1-ev.csr -For Ocsp -Ca q1-ev      and
+  -For Tsa for tsa-*.csr
+  sudo ./linux/pki-server/pki-server.sh import-cert --cert ./signed/ocsp-q1-ev.crt --cert `
+        ./signed/tsa-q1-ev.crt
   sudo ./linux/pki-server/pki-server.sh install --source ./pki
   ./linux/pki-server/pki-server.sh dns          the names for the Windows hosts file
-  WSL test: add the dns lines to C:\Windows\System32\drivers\etc\hosts (Notepad as administrator), WSL IP: hostname -I.
-  Windows 11 23H2+ with mirrored networking: use 127.0.0.1 in the hosts file. Without systemd in WSL use:  pki-server.sh run
+  WSL test: add the dns lines to C:\Windows\System32\drivers\etc\hosts (Notepad as administrator),
+  WSL IP: hostname -I.
+  Windows 11 23H2+ with mirrored networking: use 127.0.0.1 in the hosts file. Without systemd in WSL
+  use:  pki-server.sh run
 
-EXIT CODES   0 ok   1 error   4 PKI folder not found   5 a private key was found in the package (deleted)
+EXIT CODES   0 ok   1 error   4 PKI folder not found   5 a private key was found in the package
+                                                       (deleted)
 ============================================================
 
 WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
-                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
-                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
+                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
+                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
+                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
+                pki-<name>-nocr-NN).
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
-if ($Help) { Show-PackageHelp; exit 0 }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-PackageHelp }; exit 0 }
 
 # Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
 $__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
@@ -232,6 +297,13 @@ Get-ChildItem -LiteralPath $linuxDir -Recurse -File -Force | ForEach-Object {
 $cn = $profile.ConfigPath
 if ($CrlOnly) { }
 elseif (Test-Path -LiteralPath $cn) { Add-File -Path $cn -Name "$RootName/$(Split-Path -Leaf $cn)" } else { Write-Msg "not found, not packed: $cn" 'WARN' }
+# 6.4.1: the web server configuration generator (nginx / Apache, Ubuntu and RHEL style) goes into every package
+foreach ($wf in 'Create-WebServerConfig.sh', 'Create-WebServerConfig.ps1') {
+    $wp = Join-Path $root $wf
+    if (Test-Path -LiteralPath $wp -PathType Leaf) { Add-File -Path $wp -Name "$RootName/$wf" } else { Write-Msg "not found, not packed: $wf" 'WARN' }
+}
+$wm = Join-Path (Join-Path $root 'docs') 'Create-WebServerConfig-MANUAL.txt'
+if (Test-Path -LiteralPath $wm) { Add-File -Path $wm -Name "$RootName/docs/Create-WebServerConfig-MANUAL.txt" } else { Write-Msg 'not found, not packed: docs\Create-WebServerConfig-MANUAL.txt' 'WARN' }
 foreach ($d in $(if ($CrlOnly) { @('PKI-SERVER-MANUAL.txt') } else { @('PKI-Server-Design.txt', 'PKI-SERVER-MANUAL.txt', 'PkiRevocation-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'linux-README.txt') })) {
     $p = Join-Path (Join-Path $root 'docs') $d
     if (Test-Path -LiteralPath $p) { Add-File -Path $p -Name "$RootName/docs/$d" } else { Write-Msg "not found, not packed: docs\$d" 'WARN' }

@@ -52,29 +52,41 @@ function Show-NewConfigHelp {
     @'
 ============================================================
  New-PkiConfig.ps1 - make the configuration of another company's PKI
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : docs\pki_setup-MANUAL.txt (section PKI PROFILES)   Design : docs\PKI-Design-with-FIPS-and-PQC.txt
+ Manual : docs\pki_setup-MANUAL.txt (section 9)   Design :
+ docs\PKI-Design-with-FIPS-and-PQC.txt
 
 WHAT IT DOES
-  Asks for the data of a company and writes  <short>_pki.cnf  next to the scripts, made from the template agantra_pki.cnf.
-  The file is a PKI PROFILE: with  -Pki <short>  every script uses it. The new PKI has exactly the same structure as the Agantra PKI:
-  Enterprise Root, Classic / Quantum Track Roots, Quadrant Roots (Q1 non-FIPS, Q2 FIPS), DV / OV / EV intermediates, CRL, OCSP, time
-  stamping. Only the company data differ (names of the CAs, subject, policy URLs, domain names).
-  SHORT NAME = the first real word of the company name, plain ASCII, small letters: "Raksaka Teknologi Indonesia" and "PT Raksaka Teknologi
-  Indonesia" -> raksaka -> raksaka_pki.cnf;  "PT Bumi Daya Sakti" -> bumi;  "Tecooli Service OU" -> tecooli;  ArgÜwilis -> arguwilis.
-  Words like PT, CV, Tbk, SDN, BHD, LLC, GmbH in front are skipped. The same short name of another company gets a number: tecooli002, tecooli003 ...
-  The PKI of a profile is built in  .\pki\pki-<short>-01 , pki-<short>-02 ...  (the Agantra PKI: pki-default-01 ...).
+  Asks for the data of a company and writes  <short>_pki.cnf  next to the scripts, made from the
+  template agantra_pki.cnf.
+  The file is a PKI PROFILE: with  -Pki <short>  every script uses it. The new PKI has exactly the
+  same structure as the Agantra PKI:
+  Enterprise Root, Classic / Quantum Track Roots, Quadrant Roots (Q1 non-FIPS, Q2 FIPS), DV / OV /
+  EV intermediates, CRL, OCSP, time stamping. Only the company data differ (names of the CAs,
+  subject, policy URLs, domain names).
+  SHORT NAME = the first real word of the company name, plain ASCII, small letters: "Raksaka
+  Teknologi Indonesia" and "PT Raksaka Teknologi
+  Indonesia" -> raksaka -> raksaka_pki.cnf;  "PT Bumi Daya Sakti" -> bumi;  "Tecooli Service OU" ->
+  tecooli;  ArgÜwilis -> arguwilis.
+  Words like PT, CV, Tbk, SDN, BHD, LLC, GmbH in front are skipped. The same short name of another
+  company gets a number: tecooli002, tecooli003 ...
+  The PKI of a profile is built in  .\pki\pki-<short>-01 , pki-<short>-02 ...  (the Agantra PKI:
+  pki-default-01 ...).
 
 USAGE
-  .\New-PkiConfig.ps1                      asks for every value (Enter = the shown default; optional values may stay empty)
-  .\New-PkiConfig.ps1 -CompanyName 'Raksaka Teknologi Indonesia' -ContactName 'Budi Santoso' -ContactEmail budi@raksaka.co.id `
-                      -CompanyId 1234567890 -Address 'Jl. Sudirman 1' -City Jakarta -Province 'DKI Jakarta' -Country ID `
+  .\New-PkiConfig.ps1                      asks for every value (Enter = the shown default; `
+        optional values may stay empty)
+  .\New-PkiConfig.ps1 -CompanyName 'Raksaka Teknologi Indonesia' -ContactName 'Budi Santoso' `
+        -ContactEmail budi@raksaka.co.id `
+                      -CompanyId 1234567890 -Address 'Jl. Sudirman 1' -City Jakarta -Province 'DKI
+                      Jakarta' -Country ID `
                       -Website https://www.raksaka.co.id
-  Then:   .\pki_setup.ps1 -Pki raksaka -InstallTrust          build and install the PKI of that company
+  Then:   .\pki_setup.ps1 -Pki raksaka -InstallTrust          build and install the PKI of that
+          company
           .\pki_setup.ps1 -ListPki                            all PKIs and their folders
 
 PARAMETERS  (* = required; the others are optional)
@@ -84,24 +96,60 @@ PARAMETERS  (* = required; the others are optional)
   -Address *            street and number                     -City *         -Province *     (state)
   -Country *            two letters (ISO 3166), e.g. ID, EE, DE
   -PostalCode           optional                              -Phone          optional, e.g. +62 21 5551234
-  -Website *            domain only: https:// and http:// are removed (www.example.com, api.example.com)
-  -IanaPen              optional IANA Private Enterprise Number (company policy OIDs 1.3.6.1.4.1.<PEN>.1 ...)
-  EV data:  -BusinessCategory (default Private Organization)  -JurisdictionCountry (default: Country)
-            -JurisdictionState (default: Province)  -JurisdictionLocality (default: City)  -Duns (organizationIdentifier DUNS+number)
-  -InternalDomain       base of the CRL / OCSP / CA-issuer host names: crl.<it> , ocsp.<it> , crt.<it>   Default: <short>.internal
+  -Website *            domain only: https:// and http:// are removed (www.example.com,
+                        api.example.com)
+  -IanaPen              optional IANA Private Enterprise Number (company policy OIDs
+                        1.3.6.1.4.1.<PEN>.1 ...)
+  EV data:  -BusinessCategory (default Private Organization)  -JurisdictionCountry (default:
+  Country)
+            -JurisdictionState (default: Province)  -JurisdictionLocality (default: City)  -Duns
+            (organizationIdentifier DUNS+number)
+  -InternalDomain       base of the CRL / OCSP / CA-issuer host names: crl.<it> , ocsp.<it> ,
+                        crt.<it>   Default: <short>.internal
   -OutDirectory         where to write the file. Default: next to the scripts.
   -Force                replace an existing file (otherwise the script stops).
   -NonInteractive       never ask: a missing required value is an error.
   -Help                 this text.
 
-AFTER IT: open the file, read the comments, change what you want (validity, policies, SAN lists ...). Precedence stays:
+AFTER IT: open the file, read the comments, change what you want (validity, policies, SAN lists
+...). Precedence stays:
   command line > file > built-in default.
-RUNS ON: Windows 11 24H2+, Windows Server 2025 / 2022, Ubuntu 24+ / RHEL family 10+ / SUSE 15+ with PowerShell 7.
+RUNS ON: Windows 11 24H2+, Windows Server 2025 / 2022, Ubuntu 24+ / RHEL family 10+ / SUSE 15+ with
+PowerShell 7.
 ============================================================
 '@ | Write-Host
 }
 
-if ($Help) { Show-NewConfigHelp; exit 0 }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-NewConfigHelp }; exit 0 }
 
 $__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'
 if (-not (Test-Path -LiteralPath $__pf)) { [Console]::Error.WriteLine('[ERROR] scripts/00a_Platform.ps1 is missing: the operating system cannot be checked. Nothing was done.'); exit 5 }
@@ -256,7 +304,7 @@ try {
         "# Company : $company",
         "# Contact : $cName <$cMail>",
         "# Website : $site",
-        "# Made by : New-PkiConfig.ps1 (5.3.6) on $stamp, from the template agantra_pki.cnf",
+        "# Made by : New-PkiConfig.ps1 (6.4.1) on $stamp, from the template agantra_pki.cnf",
         '# Author  : Nicko Satria Utama',
         '# Company : Agantra Inovatif OÜ (NextMantra)',
         '# Email   : nicko@nextmantra.com',

@@ -1,9 +1,20 @@
 ====================================================================================================
- Install-DevEnvironment  -  USER MANUAL   (Install-DevEnvironment.ps1 for Windows, Install-DevEnvironment.sh for Linux and macOS)
+ Install-DevEnvironment  -  USER MANUAL   (Install-DevEnvironment.ps1 for Windows,
+                                          Install-DevEnvironment.sh for Linux and macOS)
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 5.3.6     2026-10-14
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : Installs the developer tools on Windows and Linux.
+ Who reads it : Developers and infrastructure staff.
+ You need     : Internet access; Administrator or sudo.
+ Start with   : Read the quick start.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+ Agantra Inovatif Enterprise PKI - developer bootstrap                          Version 6.4.1      2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Related: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt, PKI-Design-with-FIPS-and-PQC.txt (section 18)
+ Related: pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt, PkiTransport-MANUAL.txt,
+          PKI-Design-with-FIPS-and-PQC.txt (section 18)
 
  CONTENTS
     1  What the two scripts do                    7  What I changed in your Install-DevEnvironment.ps1, and why
@@ -16,37 +27,51 @@
  1  WHAT THE TWO SCRIPTS DO
 ====================================================================================================
 
- They prepare a machine for development and for the Agantra PKI scripts, and install what is MISSING (nothing that is present is replaced):
-     Install-DevEnvironment.ps1   Windows 11, through WinGet. Runs in Windows PowerShell 5.1 and PowerShell 7. Elevated, except -Check, -Help, -Unblock.
-     Install-DevEnvironment.sh    Linux (Ubuntu / Debian, RHEL / CentOS Stream / Rocky / Oracle / Alma, SLES / openSUSE) and macOS, through the
-                                  package manager of the system, and for OpenSSL and pwsh through the official source / release.
+ They prepare a machine for development and for the Agantra PKI scripts, and install what is MISSING
+ (nothing that is present is replaced):
+     Install-DevEnvironment.ps1   Windows 11, through WinGet. Runs in Windows PowerShell 5.1 and
+                                  PowerShell 7. Elevated, except -Check, -Help, -Unblock.
+     Install-DevEnvironment.sh    Linux (Ubuntu / Debian, RHEL / CentOS Stream / Rocky / Oracle /
+                                  Alma, SLES / openSUSE) and macOS, through the package manager of
+                                  the system, and for OpenSSL and pwsh through the official source /
+                                  release.
  The PKI scripts call them when something they need is missing: Windows PKI scripts suggest  Install-DevEnvironment.ps1 -Only OpenSSL,7Zip ;
- PkiTransport.ps1 and Unpack-PkiTransport.ps1 run it when you give -InstallMissing (or answer yes); pki-transport.sh runs Install-DevEnvironment.sh.
- The transport -Kit carries both scripts, so a destination needs nothing else.
+ PkiTransport.ps1 and Unpack-PkiTransport.ps1 run it when you give -InstallMissing (or answer yes);
+ pki-transport.sh runs Install-DevEnvironment.sh. The transport -Kit carries both scripts, so a
+ destination needs nothing else.
 ====================================================================================================
  2  COMPONENTS
 ====================================================================================================
 
    Component        Windows (WinGet package)                 Linux / macOS (how)
    ---------------  ---------------------------------------  ------------------------------------------------------------------------
-   tools            (part of Windows)                        curl, tar, gzip, unzip, ca-certificates, compiler, make, perl
-   7zip / 7Zip      7zip.7zip                                7zip, else p7zip (+ plugins; EPEL on the RHEL family); macOS: sevenzip
-   openssl / OpenSSL FireDaemon.OpenSSL (+ fipsmodule.cnf)    a FULL build from the official source release (section 3)
-   git, python      Git.Git, Python.PythonInstallManager     distribution packages (git; python3 + pip)
-   go, node, php    GoLang.Go, OpenJS.NodeJS, PHP.PHP        golang / go, nodejs + npm, php-cli (SUSE: php8-cli): best effort
-   dotnet           Microsoft.DotNet.SDK.10 and .8           dotnet-sdk-10.0, else 9.0, else 8.0; macOS: brew cask dotnet-sdk
+   tools            (part of Windows)                        curl, tar, gzip, unzip,
+                                                             ca-certificates, compiler, make, perl
+   7zip / 7Zip      7zip.7zip                                7zip, else p7zip (+ plugins; EPEL on
+                                                             the RHEL family); macOS: sevenzip
+   openssl / OpenSSL FireDaemon.OpenSSL (+ fipsmodule.cnf)    a FULL build from the official source
+                                                              release (section 3)
+   git, python      Git.Git, Python.PythonInstallManager     distribution packages (git; python3 +
+                                                             pip)
+   go, node, php    GoLang.Go, OpenJS.NodeJS, PHP.PHP        golang / go, nodejs + npm, php-cli
+                                                             (SUSE: php8-cli): best effort
+   dotnet           Microsoft.DotNet.SDK.10 and .8           dotnet-sdk-10.0, else 9.0, else 8.0;
+                                                             macOS: brew cask dotnet-sdk
    pwsh / PowerShell Microsoft.PowerShell                    the PowerShell GitHub release (checksum verified), /opt/microsoft/powershell
    Windows Terminal Microsoft.WindowsTerminal                (Windows only)
  Select with  -Only OpenSSL,7Zip  /  --only openssl,7zip,  or leave out with -SkipPHP -Skip7Zip ...  /  --skip php,dotnet.
- Every component is VERIFIED after the install (the program is found); a package manager that "finishes" but leaves nothing on PATH is reported as FAIL.
+ Every component is VERIFIED after the install (the program is found); a package manager that
+ "finishes" but leaves nothing on PATH is reported as FAIL.
 ====================================================================================================
  3  OPENSSL 4: "FULL", "READY", "STRIPPED"
 ====================================================================================================
 
- The PKI needs more than "an OpenSSL 4". It needs the FIPS provider (Quadrants 2 and 4) and the post-quantum algorithms ML-DSA and ML-KEM
- (Quadrants 3 and 4). A STRIPPED build (a build without enable-fips, a "light" package, an OpenSSL that only reports 4.x) is refused.
+ The PKI needs more than "an OpenSSL 4". It needs the FIPS provider (Quadrants 2 and 4) and the
+ post-quantum algorithms ML-DSA and ML-KEM (Quadrants 3 and 4). A STRIPPED build (a build without
+ enable-fips, a "light" package, an OpenSSL that only reports 4.x) is refused.
 
- READY means all of these are proven (the same five checks in both scripts, on the binary that will be used):
+ READY means all of these are proven (the same five checks in both scripts, on the binary that will
+ be used):
      version          4.0.1 or newer (4.0.1 to 4.0.3 tested)
      FIPS provider    loads with fipsmodule.cnf and reports active
      ML-DSA           ML-DSA-65 key, sign and verify
@@ -55,36 +80,47 @@
  Windows also checks that the machine-wide OPENSSL_CONF loads without provider errors.
 
  WINDOWS  FireDaemon.OpenSSL by WinGet. If it reports less than 4.0.1 the script runs "winget upgrade". It writes fipsmodule.cnf
-          (openssl fipsinstall), OPENSSL_MODULES, OPENSSL_CONF and a master openssl.cnf that activates default and FIPS.
-          oqsprovider is OPTIONAL (-WithOqsProvider): OpenSSL 4 has native ML-DSA and ML-KEM, and the master configuration mentions
-          oqsprovider only when its DLL exists (a missing DLL named in the configuration makes every openssl command print errors).
- PATH     Windows: the OpenSSL bin folder is added to the MACHINE Path (new terminals). Linux / macOS: the bin folder of OpenSSL 4 is put FIRST
-          on the PATH of login shells: /etc/profile.d/openssl4.sh (with sudo) or a marked block in ~/.profile and ~/.bashrc; the system
-          openssl files are not touched; a link  openssl4  is also made. --no-path leaves the PATH alone. Open a NEW terminal afterwards.
+          (openssl fipsinstall), OPENSSL_MODULES, OPENSSL_CONF and a master openssl.cnf that
+          activates default and FIPS. oqsprovider is OPTIONAL (-WithOqsProvider): OpenSSL 4 has
+          native ML-DSA and ML-KEM, and the master configuration mentions oqsprovider only when its
+          DLL exists (a missing DLL named in the configuration makes every openssl command print
+          errors).
+ PATH     Windows: the OpenSSL bin folder is added to the MACHINE Path (new terminals). Linux /
+          macOS: the bin folder of OpenSSL 4 is put FIRST on the PATH of login shells:
+          /etc/profile.d/openssl4.sh (with sudo) or a marked block in ~/.profile and ~/.bashrc; the
+          system openssl files are not touched; a link  openssl4  is also made. --no-path leaves the
+          PATH alone. Open a NEW terminal afterwards.
  LINUX / MACOS  A FULL build from https://github.com/openssl/openssl/releases (4.0.3; --openssl-version changes it):
-     * the tarball is checked against the .sha256 file of the same release page; nothing is built when it differs;
+     * the tarball is checked against the .sha256 file of the same release page; nothing is built
+       when it differs;
      * ./Configure --prefix=<prefix> --openssldir=<prefix>/ssl --libdir=lib enable-fips -Wl,-rpath,<prefix>/lib   (no "no-docs" unless you ask)
-     * make -j<cores> and  make install  (libraries, headers, documentation, the FIPS module, fipsmodule.cnf)
-     * default prefix /opt/openssl-4.0.3 (macOS /usr/local/openssl-4.0.3); the system openssl is NOT replaced; a link  openssl4  is put in
-       /usr/local/bin. The rpath means the binary runs without LD_LIBRARY_PATH.
+     * make -j<cores> and  make install  (libraries, headers, documentation, the FIPS module,
+       fipsmodule.cnf)
+     * default prefix /opt/openssl-4.0.3 (macOS /usr/local/openssl-4.0.3); the system openssl is NOT
+       replaced; a link  openssl4  is put in /usr/local/bin. The rpath means the binary runs without
+       LD_LIBRARY_PATH.
  BUILD TIME  About 5 minutes on 8 cores, 15 to 25 on 2 cores, over an hour on ONE core. Measured here: on a 1-core VM 542 object files in two
-     minutes and more than 30 minutes without finishing. --openssl-no-docs shortens it a little; --openssl-jobs N sets the parallel jobs.
- After the build the five checks run; the script fails (exit 4) when they do not pass. pki-transport.sh and the PowerShell PKI scripts accept
- only a READY OpenSSL.
+     minutes and more than 30 minutes without finishing. --openssl-no-docs shortens it a little;
+     --openssl-jobs N sets the parallel jobs.
+ After the build the five checks run; the script fails (exit 4) when they do not pass.
+ pki-transport.sh and the PowerShell PKI scripts accept only a READY OpenSSL.
 ====================================================================================================
  4  CHECK FIRST: -Check / --check
 ====================================================================================================
 
      .\Install-DevEnvironment.ps1 -Check            ./linux/Install-DevEnvironment.sh --check
- Lists every component (found or missing) and the OpenSSL readiness, installs nothing, needs no elevation. Exit 0 = OpenSSL ready, 4 = not ready.
- With --only: ./linux/Install-DevEnvironment.sh --check --only openssl,7zip
+ Lists every component (found or missing) and the OpenSSL readiness, installs nothing, needs no
+ elevation. Exit 0 = OpenSSL ready, 4 = not ready. With --only: ./linux/Install-DevEnvironment.sh
+ --check --only openssl,7zip
 ====================================================================================================
  5  UNBLOCK AND UNLOCK
 ====================================================================================================
 
- Both scripts do it at EVERY start, silently, for their own folder (children and recursive), before anything else; -Unblock / --unblock does only that.
+ Both scripts do it at EVERY start, silently, for their own folder (children and recursive), before
+ anything else; -Unblock / --unblock does only that.
    Windows    UNBLOCK: the "downloaded from the Internet" mark (Zone.Identifier) is removed from every file.   UNLOCK: the Read-only attribute.
-   Linux      UNLOCK: write permission is set (chmod -R u+rw), scripts get the execute bit, the immutable flag is removed where chattr exists.
+   Linux      UNLOCK: write permission is set (chmod -R u+rw), scripts get the execute bit, the
+              immutable flag is removed where chattr exists.
    macOS      UNBLOCK: the quarantine mark (xattr -dr com.apple.quarantine).   UNLOCK: write permission and the locked flags (chflags nouchg,noschg).
  A script that is blocked the very first time cannot run its own bootstrap: Windows  Get-ChildItem -Path . -Recurse -File | Unblock-File ;
  macOS  xattr -dr com.apple.quarantine . ; Linux  chmod +x *.sh .  The same mechanism is in pki_setup.ps1, GenerateLeafCertificate.ps1,
@@ -93,37 +129,55 @@
  6  HOW THE PKI SCRIPTS USE THEM
 ====================================================================================================
 
-   PkiTransport.ps1 -Install ... -InstallMissing      OpenSSL 4 missing or not ready on the Windows destination: installs it with
-                                                      Install-DevEnvironment.ps1 -Only OpenSSL, then scans again
+   PkiTransport.ps1 -Install ... -InstallMissing      OpenSSL 4 missing or not ready on the Windows
+                                                      destination: installs it with
+                                                      Install-DevEnvironment.ps1 -Only OpenSSL, then
+                                                      scans again
    PkiTransport.ps1 -Pack -ArchiveFormat 7z -InstallMissing        7-Zip missing: installs it
-   Unpack-PkiTransport.ps1 -Package x.certpacked -InstallMissing   a 7z package and no 7-Zip: installs it (Windows: the bootstrap or WinGet;
-                                                      Linux / macOS: Install-DevEnvironment.sh --only 7zip)
-   pki-transport.sh                                   when OpenSSL 4 is missing it asks (or --install-openssl) and runs Install-DevEnvironment.sh
-                                                      when it sits next to it, else its own copy of the same build; 7-Zip and the store tooling
-                                                      are installed on demand
- Without -InstallMissing the PowerShell scripts ASK when a person is at the console and stop with a clear message otherwise.
- The scripts look for the bootstrap next to themselves and in the parent folder; the transport kit has them.
+   Unpack-PkiTransport.ps1 -Package x.certpacked -InstallMissing   a 7z package and no 7-Zip:
+                                                                   installs it (Windows: the
+                                                                   bootstrap or WinGet;
+                                                      Linux / macOS: Install-DevEnvironment.sh
+                                                      --only 7zip)
+   pki-transport.sh                                   when OpenSSL 4 is missing it asks (or
+                                                      --install-openssl) and runs
+                                                      Install-DevEnvironment.sh when it sits next to
+                                                      it, else its own copy of the same build; 7-Zip
+                                                      and the store tooling are installed on demand
+ Without -InstallMissing the PowerShell scripts ASK when a person is at the console and stop with a
+ clear message otherwise. The scripts look for the bootstrap next to themselves and in the parent
+ folder; the transport kit has them.
 ====================================================================================================
  7  WHAT I CHANGED IN YOUR Install-DevEnvironment.ps1, AND WHY
 ====================================================================================================
 
- CHECKED. Parsed without errors; -Help, -Unblock and the OpenSSL readiness code were run (on PowerShell 7 / Linux). NOT run on Windows. Found and changed:
-   1. The master openssl.cnf always activated oqsprovider, even when the DLL download had failed: every openssl command then prints a provider
-      error. Now oqsprovider appears only when oqsprovider.dll exists, and the download is opt-in (-WithOqsProvider).
-   2. The download came from  oqs-provider/releases/latest/download/oqsprovider-win64.zip : no version, no checksum, and I could not confirm that
-      file exists. OpenSSL 4 does not need it (native ML-DSA / ML-KEM). Removed from the default path.
-   3. "winget install FireDaemon.OpenSSL" could leave an older OpenSSL. The version is read and "winget upgrade" runs when it is below 4.0.1.
-   4. The final scan only printed algorithm lists. It now PROVES version, FIPS, ML-DSA, ML-KEM, ML-DSA in FIPS (section 3) and exits 4 when not ready.
+ CHECKED. Parsed without errors; -Help, -Unblock and the OpenSSL readiness code were run (on
+ PowerShell 7 / Linux). NOT run on Windows. Found and changed:
+   1. The master openssl.cnf always activated oqsprovider, even when the DLL download had failed:
+      every openssl command then prints a provider error. Now oqsprovider appears only when
+      oqsprovider.dll exists, and the download is opt-in (-WithOqsProvider).
+   2. The download came from  oqs-provider/releases/latest/download/oqsprovider-win64.zip : no
+      version, no checksum, and I could not confirm that file exists. OpenSSL 4 does not need it
+      (native ML-DSA / ML-KEM). Removed from the default path.
+   3. "winget install FireDaemon.OpenSSL" could leave an older OpenSSL. The version is read and
+      "winget upgrade" runs when it is below 4.0.1.
+   4. The final scan only printed algorithm lists. It now PROVES version, FIPS, ML-DSA, ML-KEM,
+      ML-DSA in FIPS (section 3) and exits 4 when not ready.
  ADDED (additive: everything else behaves as before):
-   -Help, -Check, -Only <list>, -Skip7Zip + the 7-Zip component (7zip.7zip), -WithOqsProvider, -Unblock and the silent unblock / unlock at start.
-   The administrator check does not apply to -Check. Windows PowerShell 5.1 syntax only in the new code ($IsWindows, ?: and -AsHashtable are not used).
+   -Help, -Check, -Only <list>, -Skip7Zip + the 7-Zip component (7zip.7zip), -WithOqsProvider,
+   -Unblock and the silent unblock / unlock at start. The administrator check does not apply to
+   -Check. Windows PowerShell 5.1 syntax only in the new code ($IsWindows, ?: and -AsHashtable are
+   not used).
  NOT changed: the list of WinGet packages, the PATH functions, the logging, the Windows 11 check.
 ====================================================================================================
  8  RECIPES (COPY AND PASTE)
 ====================================================================================================
 
  What does this machine have?                         .\Install-DevEnvironment.ps1 -Check             ./linux/Install-DevEnvironment.sh --check
- Just what the PKI scripts need                       .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip  sudo ./linux/Install-DevEnvironment.sh --yes --only openssl,7zip
+ Just what the PKI scripts need                       .\Install-DevEnvironment.ps1 -Only
+                                                      OpenSSL,7Zip  sudo
+                                                      ./linux/Install-DevEnvironment.sh --yes --only
+                                                      openssl,7zip
  Everything except PHP and Go                        .\Install-DevEnvironment.ps1 -SkipPHP -SkipGo    sudo ./linux/Install-DevEnvironment.sh --yes --skip php,go
  OpenSSL on a machine with several cores              sudo ./linux/Install-DevEnvironment.sh --yes --only openssl --openssl-jobs 8
  OpenSSL somewhere else                               sudo ./linux/Install-DevEnvironment.sh --yes --only openssl --openssl-prefix /opt/ssl4
@@ -135,37 +189,67 @@
 
  Symptom                                           Cause and fix
  ------------------------------------------------  --------------------------------------------------------------------------------------
- "a STRIPPED build: no FIPS module or no ML-DSA"   An OpenSSL 4 without enable-fips (Homebrew, a "light" package): build the full one (--only openssl)
- "NOT READY" after the Windows install              Read the readiness table: FIPS (fipsmodule.cnf missing), ML-DSA, ML-KEM; run the script again elevated
- FireDaemon reports 3.x                             The script runs winget upgrade; if it stays 3.x install a newer FireDaemon OpenSSL by hand
- The build seems to hang                            It is compiling: hundreds of files; one core needs over an hour. Use a machine with cores
- "SHA-256 of the tarball does not match"            Nothing was built. Retry (corrupt download) or check the proxy; never override
- 7zip not installable on RHEL / Rocky / Oracle      Enable EPEL (and CRB), or install 7-Zip by hand and give --7z to pki-transport.sh
- pwsh: "SHA-256 does not match hashes.sha256"     (4.9.5 and older) the release hash file has Windows line ends; fixed in this version. There is no apt package "pwsh"
-                                                      on Ubuntu. A failed check prints expected / real hash; with the .NET SDK installed the script then tries
-                                                      dotnet tool install PowerShell (untested). This script unpacks the official release to /opt/microsoft/powershell and links /usr/local/bin/pwsh.
- FIPS provider: "no fipsmodule.cnf / fips.so found"   WARN, not a failure: the FIPS quadrants (Q2 / Q4) are unavailable with this OpenSSL. The script looks in the package files
-                                                      and makes fipsmodule.cnf with "openssl fipsinstall" when only fips.so exists (/etc/agantra-pki or ~/.config/agantra-pki).
-                                                      By hand:  openssl4 fipsinstall -out fipsmodule.cnf -module <.../ossl-modules/fips.so>  then  -FipsModuleConfig <path>.
- pwsh: "could not read the latest release"          GitHub unreachable or rate limited: retry later or install PowerShell 7 by hand
- "Not root and no sudo"                             Run with sudo or as root (only --check, --dry-run and --unblock work without)
- Windows: the script window shows red text          Read the log: %ProgramData%\Agantra\WindowsDeveloperBootstrap\Logs
+ "a STRIPPED build: no FIPS module or no ML-DSA"   An OpenSSL 4 without enable-fips (Homebrew, a
+                                                   "light" package): build the full one (--only
+                                                   openssl)
+ "NOT READY" after the Windows install              Read the readiness table: FIPS (fipsmodule.cnf
+                                                    missing), ML-DSA, ML-KEM; run the script again
+                                                    elevated
+ FireDaemon reports 3.x                             The script runs winget upgrade; if it stays 3.x
+                                                    install a newer FireDaemon OpenSSL by hand
+ The build seems to hang                            It is compiling: hundreds of files; one core
+                                                    needs over an hour. Use a machine with cores
+ "SHA-256 of the tarball does not match"            Nothing was built. Retry (corrupt download) or
+                                                    check the proxy; never override
+ 7zip not installable on RHEL / Rocky / Oracle      Enable EPEL (and CRB), or install 7-Zip by hand
+                                                    and give --7z to pki-transport.sh
+ pwsh: "SHA-256 does not match hashes.sha256"  (4.9.5 and older) the release hash file has Windows
+       line ends; fixed in this version. There is no apt package "pwsh"
+                                                      on Ubuntu. A failed check prints expected /
+                                                      real hash; with the .NET SDK installed the
+                                                      script then tries dotnet tool install
+                                                      PowerShell (untested). This script unpacks the
+                                                      official release to /opt/microsoft/powershell
+                                                      and links /usr/local/bin/pwsh.
+ FIPS provider: "no fipsmodule.cnf / fips.so found"  WARN, not a failure: the FIPS quadrants (Q2 /
+                Q4) are unavailable with this OpenSSL. The script looks in the package files
+                                                      and makes fipsmodule.cnf with "openssl
+                                                      fipsinstall" when only fips.so exists
+                                                      (/etc/agantra-pki or ~/.config/agantra-pki).
+                                                      By hand:  openssl4 fipsinstall -out
+                                                      fipsmodule.cnf -module
+                                                      <.../ossl-modules/fips.so>  then
+                                                      -FipsModuleConfig <path>.
+ pwsh: "could not read the latest release"  GitHub unreachable or rate limited: retry later or
+       install PowerShell 7 by hand
+ "Not root and no sudo"                             Run with sudo or as root (only --check,
+                                                    --dry-run and --unblock work without)
+ Windows: the script window shows red text  Read the log:
+          %ProgramData%\Agantra\WindowsDeveloperBootstrap\Logs
  macOS: the build needs a compiler                  xcode-select --install, then run again
 ====================================================================================================
  10  LIMITS AND WHAT WAS TESTED
 ====================================================================================================
 
  TESTED (Linux, Ubuntu 24.04 as root, OpenSSL 4.0.3 full build at hand):
-   * Install-DevEnvironment.sh: syntax, --help, --check, the five readiness checks against the real OpenSSL 4.0.3 (all pass), rejection of the system
-     OpenSSL 3.0 and of a fake "4.0.3" that is 3.0 underneath, REAL installation of 7-Zip with apt (and its verification), --unblock, dry runs for
-     Ubuntu, Rocky, openSUSE Tumbleweed and macOS, the pwsh release lookup, the OpenSSL download with checksum and Configure;
-   * the PowerShell side: -InstallMissing installed 7-Zip through the companion script for a 7z package; the kit carries both bootstraps;
-   * Install-DevEnvironment.ps1: parses, -Help, -Unblock, and the readiness functions (run on PowerShell 7) against the real OpenSSL.
- NOT TESTED: Install-DevEnvironment.ps1 on Windows 11 (WinGet installs, the FireDaemon upgrade, Windows PowerShell 5.1), the finished OpenSSL
-   COMPILE (a 1-core VM could not finish it), any install on the RHEL family, SUSE or macOS, the package names of dotnet / node / go / php, the
-   pwsh download itself (only the version lookup and the plan).
- LIMITS: needs the Internet (package managers, GitHub). The OpenSSL source build trusts the checksum of the same release page, not a signature.
-   Distribution packages for go / node / php / dotnet may be older than "latest". Nothing here removes or downgrades anything.
+   * Install-DevEnvironment.sh: syntax, --help, --check, the five readiness checks against the real
+     OpenSSL 4.0.3 (all pass), rejection of the system OpenSSL 3.0 and of a fake "4.0.3" that is 3.0
+     underneath, REAL installation of 7-Zip with apt (and its verification), --unblock, dry runs for
+     Ubuntu, Rocky, openSUSE Tumbleweed and macOS, the pwsh release lookup, the OpenSSL download
+     with checksum and Configure;
+   * the PowerShell side: -InstallMissing installed 7-Zip through the companion script for a 7z
+     package; the kit carries both bootstraps;
+   * Install-DevEnvironment.ps1: parses, -Help, -Unblock, and the readiness functions (run on
+     PowerShell 7) against the real OpenSSL.
+ NOT TESTED: Install-DevEnvironment.ps1 on Windows 11 (WinGet installs, the FireDaemon upgrade,
+             Windows PowerShell 5.1), the finished OpenSSL
+   COMPILE (a 1-core VM could not finish it), any install on the RHEL family, SUSE or macOS, the
+   package names of dotnet / node / go / php, the pwsh download itself (only the version lookup and
+   the plan).
+ LIMITS: needs the Internet (package managers, GitHub). The OpenSSL source build trusts the checksum
+         of the same release page, not a signature.
+   Distribution packages for go / node / php / dotnet may be older than "latest". Nothing here
+   removes or downgrades anything.
 ====================================================================================================
  11  Install-DevEnvironment.ps1 -Help  (THE COMPLETE TEXT)
 ====================================================================================================
@@ -175,34 +259,42 @@
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
 ============================================================
- Manual : docs\Install-DevEnvironment-MANUAL.txt     Linux / macOS sibling: Install-DevEnvironment.sh
+ Manual : docs\Install-DevEnvironment-MANUAL.txt  Linux / macOS sibling: Install-DevEnvironment.sh
 
 WHAT IT DOES   (run in an ELEVATED PowerShell; -Check, -Help and -Unblock need no elevation)
-  Installs through WinGet what is missing: PowerShell 7, .NET 10 and 8 SDK, Node.js, Go, PHP, Python, Git, 7-Zip, FireDaemon
-  OpenSSL (FIPS + quantum-safe), Windows Terminal. Then it PROVES OpenSSL: version 4.0.1 or newer, FIPS provider active,
-  ML-DSA sign / verify, ML-KEM key generation, ML-DSA inside the FIPS provider.
+  Installs through WinGet what is missing: PowerShell 7, .NET 10 and 8 SDK, Node.js, Go, PHP,
+  Python, Git, 7-Zip, FireDaemon OpenSSL (FIPS + quantum-safe), Windows Terminal. Then it PROVES
+  OpenSSL: version 4.0.1 or newer, FIPS provider active, ML-DSA sign / verify, ML-KEM key
+  generation, ML-DSA inside the FIPS provider.
 
 USAGE
   .\Install-DevEnvironment.ps1                          everything
-  .\Install-DevEnvironment.ps1 -Check                   scan only: what is installed, OpenSSL readiness; changes nothing
+  .\Install-DevEnvironment.ps1 -Check                   scan only: what is installed, OpenSSL
+                                                        readiness; changes nothing
   .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip       just these (what the PKI scripts need)
   .\Install-DevEnvironment.ps1 -SkipPHP -SkipGo         everything except these
-  .\Install-DevEnvironment.ps1 -Unblock                 UNBLOCK + UNLOCK this folder, children and recursive, then stop
+  .\Install-DevEnvironment.ps1 -Unblock                 UNBLOCK + UNLOCK this folder, children and
+                                                        recursive, then stop
 
 PARAMETERS
-  -Only <list>           PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, OpenSSL, 7Zip, WindowsTerminal. Installs only these.
-  -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipOpenSSL -SkipWindowsTerminal -Skip7Zip
+  -Only <list>           PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, OpenSSL, 7Zip,
+                         WindowsTerminal. Installs only these.
+  -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipOpenSSL
+  -SkipWindowsTerminal -Skip7Zip
   -Check                 Scan only. Exit code 0 when OpenSSL is ready, 4 when it is not.
-  -WithOqsProvider       Also download the third-party oqsprovider (NOT needed: OpenSSL 4 has native ML-DSA and ML-KEM).
-                         Without it the master openssl.cnf does not mention oqsprovider at all.
-  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) every file below this script's folder, then stop.
-                         The same is done silently at every start, before anything else.
+  -WithOqsProvider       Also download the third-party oqsprovider (NOT needed: OpenSSL 4 has native
+                         ML-DSA and ML-KEM). Without it the master openssl.cnf does not mention
+                         oqsprovider at all.
+  -Unblock               UNBLOCK (Internet mark) and UNLOCK (Read-only) every file below this
+                         script's folder, then stop. The same is done silently at every start,
+                         before anything else.
   -Help                  This text.
 
 OPENSSL
-  FireDaemon.OpenSSL is installed by WinGet. If it reports less than 4.0.1 the script runs "winget upgrade". It then writes
-  fipsmodule.cnf (openssl fipsinstall), the machine variables OPENSSL_MODULES and OPENSSL_CONF, and a master openssl.cnf that
-  activates the default and FIPS providers. The PKI scripts ignore OPENSSL_CONF (they use their own configuration).
+  FireDaemon.OpenSSL is installed by WinGet. If it reports less than 4.0.1 the script runs "winget
+  upgrade". It then writes fipsmodule.cnf (openssl fipsinstall), the machine variables
+  OPENSSL_MODULES and OPENSSL_CONF, and a master openssl.cnf that activates the default and FIPS
+  providers. The PKI scripts ignore OPENSSL_CONF (they use their own configuration).
 
 EXIT CODES   0 ok   1 error (for example not elevated)   4 OpenSSL not ready
 ====================================================================================================
@@ -218,18 +310,26 @@ EXIT CODES   0 ok   1 error (for example not elevated)   4 OpenSSL not ready
  Manual : docs/Install-DevEnvironment-MANUAL.txt     Windows sibling: Install-DevEnvironment.ps1
 
 WHAT IT DOES
-  Installs what is MISSING, verifies each component, and prints a summary. Nothing that is already there is replaced.
+  Installs what is MISSING, verifies each component, and prints a summary. Nothing that is already
+  there is replaced.
     tools      curl, tar, gzip, unzip, ca-certificates, compiler, make, perl
     7zip       7-Zip: the archive tool of the .certpacked transport (AES-256 zip, 7z)
-    openssl    DEFAULT = the OpenSSL of your distribution (apt install openssl): Ubuntu 26.04 ships 3.5.x (ML-DSA, ML-KEM), Ubuntu 24.04
-               ships 3.0.x (Classic RSA / ECDSA only). Nothing is built, nothing is replaced, the PATH is not touched. Enough for the DevKit
-               generators (GenerateLeafCertificate.sh ...). Then PROVEN: version, FIPS provider, ML-DSA, ML-KEM.
-               --openssl-source ppa     OpenSSL 4 from YOUR PPA (package nicko-su-openssl4, ppa:nickotech2000/nicko-su-prod), Ubuntu 24.04 / 26.04.
-               --openssl-source build   OpenSSL 4.0.1+ as a FULL build from the official source (SHA-256 checked) into --openssl-prefix,
-                                        link openssl4 in /usr/local/bin. This is what pki_setup.ps1 needs on a CA machine (it requires 4.x).
-    nginx      YOUR nginx from YOUR PPA (ppa:nickotech2000/nicko-su-prod, package nicko-su-nginx 1.31.x). Ubuntu 24.04 / 26.04 only; other
-               systems skip it. For the CRL / OCSP / time stamp server (linux/pki-server/pki-server.sh installs it by itself as well).
-    git python go node php dotnet pwsh     developer tools (distribution packages; pwsh from the PowerShell GitHub release)
+    openssl    DEFAULT = the OpenSSL of your distribution (apt install openssl): Ubuntu 26.04 ships
+               3.5.x (ML-DSA, ML-KEM), Ubuntu 24.04 ships 3.0.x (Classic RSA / ECDSA only). Nothing
+               is built, nothing is replaced, the PATH is not touched. Enough for the DevKit
+               generators (GenerateLeafCertificate.sh ...). Then PROVEN: version, FIPS provider,
+               ML-DSA, ML-KEM.
+               --openssl-source ppa     OpenSSL 4 from YOUR PPA (package nicko-su-openssl4,
+                                        ppa:nickotech2000/nicko-su-prod), Ubuntu 24.04 / 26.04.
+               --openssl-source build   OpenSSL 4.0.1+ as a FULL build from the official source
+                                        (SHA-256 checked) into --openssl-prefix, link openssl4 in
+                                        /usr/local/bin. This is what pki_setup.ps1 needs on a CA
+                                        machine (it requires 4.x).
+    nginx      YOUR nginx from YOUR PPA (ppa:nickotech2000/nicko-su-prod, package nicko-su-nginx
+               1.31.x). Ubuntu 24.04 / 26.04 only; other systems skip it. For the CRL / OCSP / time
+               stamp server (linux/pki-server/pki-server.sh installs it by itself as well).
+    git python go node php dotnet pwsh     developer tools (distribution packages; pwsh from the
+                                           PowerShell GitHub release)
 
 USAGE
   ./Install-DevEnvironment.sh --check                      what is installed, OpenSSL readiness; changes nothing
@@ -243,63 +343,92 @@ USAGE
 
 OPTIONS
   --only LIST            Comma-separated components (above). Default: all.      --skip LIST   All except these.
-  --check                Scan only: components found, OpenSSL readiness. Exit 0 when OpenSSL is ready, 4 when not.
-                         (ready = the OpenSSL of the chosen --openssl-source: 3.0.0+ for system, 4.0.1+ for ppa / build)
+  --check                Scan only: components found, OpenSSL readiness. Exit 0 when OpenSSL is
+                         ready, 4 when not. (ready = the OpenSSL of the chosen --openssl-source:
+                         3.0.0+ for system, 4.0.1+ for ppa / build)
   --yes, -y              Do not ask. Needed when there is no terminal.         --dry-run   Print system-changing commands.
   --openssl-source S     system (default) | ppa | build   (see openssl above).
   --ppa PPA              The PPA for nginx and OpenSSL 4. Default ppa:nickotech2000/nicko-su-prod.   --nginx-package P   Default nicko-su-nginx.
-  --openssl-prefix DIR   (build) Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS: /usr/local/openssl-4.0.3).
+  --openssl-prefix DIR   (build) Where OpenSSL is installed. Default /opt/openssl-4.0.3 (macOS:
+                         /usr/local/openssl-4.0.3).
   --openssl-version V    (build) Build this version instead of 4.0.3 (4.0.1 or newer).
-  --no-path              (ppa / build) Do not put the OpenSSL 4 bin folder on the PATH (default: it is put FIRST on the PATH of every login shell:
-                         /etc/profile.d/openssl4.sh with sudo, else a marked block in ~/.profile and ~/.bashrc).
-  --openssl-no-docs      Skip the manual pages (shorter build). The cryptography is still the FULL build.
+  --no-path              (ppa / build) Do not put the OpenSSL 4 bin folder on the PATH (default: it
+                         is put FIRST on the PATH of every login shell: /etc/profile.d/openssl4.sh
+                         with sudo, else a marked block in ~/.profile and ~/.bashrc).
+  --openssl-no-docs      Skip the manual pages (shorter build). The cryptography is still the FULL
+                         build.
   --openssl-jobs N       Parallel compile jobs. Default: the number of CPU cores.
-  --unblock              UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, immutable, locked flags) this script's
-                         folder, children and recursive, then stop. The same is done silently at every start.
+  --unblock              UNBLOCK (macOS quarantine mark) and UNLOCK (read-only, immutable, locked
+                         flags) this script's folder, children and recursive, then stop. The same is
+                         done silently at every start.
   --version              Show the version.                                     --help, -h   This text.
 
 OPENSSL BUILD TIME  (only with --openssl-source build; be warned)
-  A full build compiles hundreds of files. About 5 minutes on 8 cores, 15 to 25 on 2 cores, and over an hour on ONE core
-  (measured: more than 30 minutes without finishing on a 1-core VM). Use a machine with cores, or --openssl-no-docs.
+  A full build compiles hundreds of files. About 5 minutes on 8 cores, 15 to 25 on 2 cores, and over
+  an hour on ONE core (measured: more than 30 minutes without finishing on a 1-core VM). Use a
+  machine with cores, or --openssl-no-docs.
 
 PLATFORMS  (family: package manager)
   Ubuntu, Debian: apt     RHEL, CentOS Stream, Rocky, Oracle, Alma: dnf (yum)     SLES, openSUSE: zypper     macOS: Homebrew
-  macOS needs the Xcode command line tools (xcode-select --install) for the OpenSSL build and Homebrew for the others.
+  macOS needs the Xcode command line tools (xcode-select --install) for the OpenSSL build and
+  Homebrew for the others.
 
 EXIT CODES   0 ok   1 error   2 platform not supported   4 OpenSSL not ready   6 a component could not be installed
 
 LIMITATIONS
   * Needs root (or sudo) to install packages and into /opt. Not needed for --check and --unblock.
-  * Package names differ between distributions and versions; each component is tried with the usual names and then
-    verified, never assumed. dotnet, node, go and php are best effort (your distribution may not ship a current version).
-  * The PPA (ppa:nickotech2000/nicko-su-prod) publishes nicko-su-nginx 1.31.6 and nicko-su-openssl4 4.0.3 for Ubuntu 24.04 (noble) and 26.04
-    (resolute), amd64. add-apt-repository, the package names and the installed paths were not testable in the author's sandbox (no PPA access):
+  * Package names differ between distributions and versions; each component is tried with the usual
+    names and then verified, never assumed. dotnet, node, go and php are best effort (your
+    distribution may not ship a current version).
+  * The PPA (ppa:nickotech2000/nicko-su-prod) publishes nicko-su-nginx 1.31.6 and nicko-su-openssl4
+    4.0.3 for Ubuntu 24.04 (noble) and 26.04 (resolute), amd64. add-apt-repository, the package
+    names and the installed paths were not testable in the author's sandbox (no PPA access):
     --dry-run shows the commands; the result is verified, never assumed.
-  * Tested on Ubuntu 24.04 (real apt). The other platforms are tested only by simulation (--dry-run). The OpenSSL source build
-    was NOT completed here (a 1-core VM); the Configure step, the download, the checksum and the readiness checks were tested.
+  * Tested on Ubuntu 24.04 (real apt). The other platforms are tested only by simulation
+    (--dry-run). The OpenSSL source build was NOT completed here (a 1-core VM); the Configure step,
+    the download, the checksum and the readiness checks were tested.
 ====================================================================================================
  13  WHAT CHANGED  (4.9.0)
 ====================================================================================================
 
- New: Install-DevEnvironment.sh; Install-DevEnvironment.ps1 revised (-Help, -Check, -Only, 7-Zip, OpenSSL proof, oqsprovider opt-in, unblock / unlock);
- -InstallMissing in PkiTransport.ps1 and Unpack-PkiTransport.ps1; pki-transport.sh rejects stripped OpenSSL builds, builds a FULL OpenSSL and has
- --unblock; the transport kit carries both bootstrap scripts; this manual.
+ New: Install-DevEnvironment.sh; Install-DevEnvironment.ps1 revised (-Help, -Check, -Only, 7-Zip,
+      OpenSSL proof, oqsprovider opt-in, unblock / unlock);
+ -InstallMissing in PkiTransport.ps1 and Unpack-PkiTransport.ps1; pki-transport.sh rejects stripped
+ OpenSSL builds, builds a FULL OpenSSL and has --unblock; the transport kit carries both bootstrap
+ scripts; this manual.
 ====================================================================================================
 
 ====================================================================================================
  14  OPENSSL SOURCE AND NGINX ON LINUX  (4.9.5)
 ====================================================================================================
- Install-DevEnvironment.sh --only openssl     DEFAULT = the OpenSSL of the distribution (--openssl-source system). Nothing is built or replaced; the PATH
-                                              is not touched. Ubuntu 26.04 ships 3.5.x (Classic AND post-quantum ML-DSA / ML-KEM); Ubuntu 24.04 ships 3.0.x (Classic
-                                              RSA / ECDSA only). That is enough for the DevKit generators (GenerateLeafCertificate.sh ...). The readiness check
-                                              shows PASS for what works and NOTE (not a failure) for what this OpenSSL cannot do (FIPS config, ML-DSA, ML-KEM).
- Install-DevEnvironment.sh --only openssl --openssl-source ppa     OpenSSL 4 from YOUR PPA (package nicko-su-openssl4 4.0.3), Ubuntu 24.04 / 26.04, amd64.
- Install-DevEnvironment.sh --only openssl --openssl-source build   the full source build (as before); pki-transport.sh and pki-server.sh --build-openssl use it.
- Install-DevEnvironment.sh --only nginx       nginx from YOUR PPA (package nicko-su-nginx 1.31.6). The PPA is added with add-apt-repository, the package is checked with
-                                              apt-cache; another nginx that is already installed is NOT replaced (the scan says "NOT from the PPA"). --ppa and
-                                              --nginx-package change the names. Other systems than Ubuntu skip it.
- pki_setup.ps1 (the CA machine) still needs OpenSSL 4.x: Windows - Install-DevEnvironment.ps1; Linux - --openssl-source ppa or build.
- NOT TESTED here: add-apt-repository on the PPA and the real installation of the two PPA packages (no Launchpad access in the sandbox). Tested: --check,
- --dry-run of every source, the version / readiness logic on Ubuntu 24.04 (OpenSSL 3.0.13), the syntax, the exit codes.
+ Install-DevEnvironment.sh --only openssl     DEFAULT = the OpenSSL of the distribution
+                                              (--openssl-source system). Nothing is built or
+                                              replaced; the PATH is not touched. Ubuntu 26.04 ships
+                                              3.5.x (Classic AND post-quantum ML-DSA / ML-KEM);
+                                              Ubuntu 24.04 ships 3.0.x (Classic RSA / ECDSA only).
+                                              That is enough for the DevKit generators
+                                              (GenerateLeafCertificate.sh ...). The readiness check
+                                              shows PASS for what works and NOTE (not a failure) for
+                                              what this OpenSSL cannot do (FIPS config, ML-DSA,
+                                              ML-KEM).
+ Install-DevEnvironment.sh --only openssl --openssl-source ppa     OpenSSL 4 from YOUR PPA (package
+                                                                   nicko-su-openssl4 4.0.3), Ubuntu
+                                                                   24.04 / 26.04, amd64.
+ Install-DevEnvironment.sh --only openssl --openssl-source build   the full source build (as
+                                                                   before); pki-transport.sh and
+                                                                   pki-server.sh --build-openssl use
+                                                                   it.
+ Install-DevEnvironment.sh --only nginx       nginx from YOUR PPA (package nicko-su-nginx 1.31.6).
+                                              The PPA is added with add-apt-repository, the package
+                                              is checked with apt-cache; another nginx that is
+                                              already installed is NOT replaced (the scan says "NOT
+                                              from the PPA"). --ppa and --nginx-package change the
+                                              names. Other systems than Ubuntu skip it.
+ pki_setup.ps1 (the CA machine) still needs OpenSSL 4.x: Windows - Install-DevEnvironment.ps1; Linux
+ - --openssl-source ppa or build. NOT TESTED here: add-apt-repository on the PPA and the real
+ installation of the two PPA packages (no Launchpad access in the sandbox). Tested: --check,
+ --dry-run of every source, the version / readiness logic on Ubuntu 24.04 (OpenSSL 3.0.13), the
+ syntax, the exit codes.
 
-5.0.0: Install-DevEnvironment.ps1 / .sh check the OS like every script (PkiProfiles-MANUAL.txt section 6): Windows 11 24H2+, Server 2025 / 2022; Linux list of the .sh scripts.
+5.0.0: Install-DevEnvironment.ps1 / .sh check the OS like every script (PkiProfiles-MANUAL.txt
+section 6): Windows 11 24H2+, Server 2025 / 2022; Linux list of the .sh scripts.

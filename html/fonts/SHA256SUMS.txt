@@ -1,0 +1,7 @@
+24e5fae26b41c08b2df81c91669f5aaae71d81a84a4713fc56b5c621b78dd456  /home/claude/pki/pki-phaseA/html/fonts/fa-solid-900.woff2
+946e24582425d894e605d7ad217ca2b398ed00a2d55da9071473e07b618bfa6a  /home/claude/pki/pki-phaseA/html/fonts/material-symbols-outlined-latin-400-normal.woff2
+425c0713a8176f92273d378599c7eac57de7fafabd4bd0ed457b70eb8f80d371  /home/claude/pki/pki-phaseA/html/fonts/roboto-latin-400-normal.woff2
+5bcc3aa180e7f26f643cd5b2621cd7c2de193d0661d913a94afd3d4881a7a34b  /home/claude/pki/pki-phaseA/html/fonts/roboto-latin-500-normal.woff2
+b9d66d1708156f765ada51939bc24ed259dafa69eb631b36e443680fe9e15879  /home/claude/pki/pki-phaseA/html/fonts/roboto-latin-700-normal.woff2
+e03013e0baa5690a803c188da2214d920c3245b25ad78421ecc8ae86cd842ae9  /home/claude/pki/pki-phaseA/html/fonts/roboto-mono-latin-400-normal.woff2
+283fbef73f42c21722c5a3efc7a44b0c38aac1ada665602b2144c13ed58c0e99  /home/claude/pki/pki-phaseA/html/fonts/roboto-mono-latin-700-normal.woff2

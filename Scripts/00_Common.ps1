@@ -183,6 +183,60 @@ function ConvertTo-PkiLfFile {
     return $true
 }
 
+# ------------------------------------------------------------
+# Hash files (6.4.1):  <stem>.sha256  <stem>.sha384  <stem>.sha512  <stem>.sha3-256 ...
+# One file per algorithm; every line is "<hash>  <file name>", the format of sha256sum / sha512sum, so
+#     sha256sum -c name.sha256            (Linux / macOS)        Get-FileHash on Windows
+# checks the files next to it. Only the files named <stem>.<extension> that exist are listed.
+# ------------------------------------------------------------
+$script:PkiHashAlgorithms = @('sha256', 'sha384', 'sha512', 'sha3-256', 'sha3-384', 'sha3-512')
+function Get-PkiFileHashHex {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Algorithm)
+    $a = $Algorithm.ToLowerInvariant()
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    $h = switch ($a) {
+        'sha256'   { [System.Security.Cryptography.SHA256]::HashData($bytes) }
+        'sha384'   { [System.Security.Cryptography.SHA384]::HashData($bytes) }
+        'sha512'   { [System.Security.Cryptography.SHA512]::HashData($bytes) }
+        'sha3-256' { if ([System.Security.Cryptography.SHA3_256]::IsSupported) { [System.Security.Cryptography.SHA3_256]::HashData($bytes) } else { $null } }
+        'sha3-384' { if ([System.Security.Cryptography.SHA3_384]::IsSupported) { [System.Security.Cryptography.SHA3_384]::HashData($bytes) } else { $null } }
+        'sha3-512' { if ([System.Security.Cryptography.SHA3_512]::IsSupported) { [System.Security.Cryptography.SHA3_512]::HashData($bytes) } else { $null } }
+        default    { throw "Unknown hash '$Algorithm'. Use: $($script:PkiHashAlgorithms -join ', ')." }
+    }
+    if ($null -eq $h) { throw "$a is not supported by this operating system (SHA-3 needs OpenSSL 1.1.1+ / Windows 11 24H2+)." }
+    return ([System.BitConverter]::ToString($h) -replace '-', '').ToLowerInvariant()
+}
+
+function Write-PkiHashFiles {
+    <#
+    .SYNOPSIS
+        Writes <Stem>.<alg> next to the files <Stem>.<ext> (one file per algorithm, sha256sum format, LF, no BOM).
+    .OUTPUTS
+        the names of the hash files written.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Directory,
+        [Parameter(Mandatory)][string]$Stem,
+        [string[]]$Algorithm = @('sha256', 'sha512'),
+        [string[]]$Extension = @('crt', 'pem', 'cert', 'cer', 'der', 'p7b', 'rfc7468.pem', 'pfx')
+    )
+    $made = [System.Collections.Generic.List[string]]::new()
+    $algs = @($Algorithm | Where-Object { $_ -and $_ -ne 'None' } | ForEach-Object { $_.ToLowerInvariant() } | Select-Object -Unique)
+    if ($algs.Count -eq 0) { return @() }
+    $files = @(foreach ($e in $Extension) { $n = "$Stem.$e"; if (Test-Path -LiteralPath (Join-Path $Directory $n) -PathType Leaf) { $n } })
+    if ($files.Count -eq 0) { return @() }
+    foreach ($a in $algs) {
+        try {
+            $lines = foreach ($f in $files) { '{0}  {1}' -f (Get-PkiFileHashHex -Path (Join-Path $Directory $f) -Algorithm $a), $f }
+            $out = Join-Path $Directory "$Stem.$a"
+            [System.IO.File]::WriteAllText($out, (($lines -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+            [void]$made.Add("$Stem.$a")
+        }
+        catch { Write-PkiLog "Hash file $Stem.$a was not written: $($_.Exception.Message)" 'WARN' }
+    }
+    return @($made)
+}
+
 function Assert-PkiFile {
     param([Parameter(Mandatory)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Required file does not exist: $Path" }

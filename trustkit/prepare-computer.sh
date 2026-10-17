@@ -27,33 +27,44 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    echo "[INFO] $(basename "$0") version 5.3.6" >&2
+    echo "[INFO] $(basename "$0") version 6.4.1" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="5.3.6"
+VERSION="6.4.1"
 
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 show_help() {
 cat <<'EOF'
 ============================================================
- prepare-computer.sh - get this Linux computer ready: OpenSSL + the latest Python 3, both on the PATH
- Version 5.3.6
+ prepare-computer.sh - get this Linux computer ready: OpenSSL + the latest Python 3, both on the
+ PATH
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
 WHAT IT DOES   (run it once; sudo is used for the install)
-  1. OpenSSL   looks for openssl; installs the package "openssl" (+ ca-certificates) of your distribution when it is missing or older than 3.0.
-  2. Python    looks for python3 (3.10 or newer); installs the newest Python 3 your distribution offers (+ pip, venv) when it is missing or older.
-  3. PATH      makes sure `openssl` and `python3` work in a new shell: when a newer OpenSSL sits in a folder that is not on the PATH (for example /opt/openssl4/bin),
-               that folder is put in front of the PATH for all users (/etc/profile.d/pki-openssl.sh, as root) or for you (~/.profile).
+  1. OpenSSL   looks for openssl; installs the package "openssl" (+ ca-certificates) of your
+     distribution when it is missing or older than 3.0.
+  2. Python    looks for python3 (3.10 or newer); installs the newest Python 3 your distribution
+     offers (+ pip, venv) when it is missing or older.
+  3. PATH      makes sure `openssl` and `python3` work in a new shell: when a newer OpenSSL sits in
+     a folder that is not on the PATH (for example /opt/openssl4/bin),
+               that folder is put in front of the PATH for all users (/etc/profile.d/pki-openssl.sh,
+               as root) or for you (~/.profile).
   Package managers:   Ubuntu 24 / 26: apt     CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10: dnf     SLES 15 / 16, openSUSE Leap 15 / 16, Tumbleweed: zypper
-  Whatever OpenSSL version the distribution ships (3.x or 4.x) is accepted. RSA / ECDSA need 3.0, ML-DSA (quantum) needs 3.5 or 4: if you have less, the script says so;
-  OpenSSL 4 can be added with linux/Install-DevEnvironment.sh --openssl-source ppa|build (full project).
+  Whatever OpenSSL version the distribution ships (3.x or 4.x) is accepted. RSA / ECDSA need 3.0,
+  ML-DSA (quantum) needs 3.5 or 4: if you have less, the script says so;
+  OpenSSL 4 can be added with linux/Install-DevEnvironment.sh --openssl-source ppa|build (full
+  project).
 
 USAGE   ./prepare-computer.sh [options]
   --only all|openssl|python   what to prepare (default all)
-  --check     only look: say what is there, what would be installed, what would be added to the PATH. Nothing is changed.
+  --check     only look: say what is there, what would be installed, what would be added to the
+              PATH. Nothing is changed.
   --yes       do not ask before installing
   --force     install / update the packages even when a good version is already there
   --no-path   do not touch the PATH
@@ -61,11 +72,14 @@ USAGE   ./prepare-computer.sh [options]
 
 AFTER IT
   Open a NEW shell (or: . /etc/profile), then:   openssl version     python3 --version     ./new-pki-csr.sh
-  If the PKI is already installed on this computer (ca-certificates, from install-pki-ca.sh), nothing changes: this script does not touch certificates.
+  If the PKI is already installed on this computer (ca-certificates, from install-pki-ca.sh),
+  nothing changes: this script does not touch certificates.
 
 WHERE IT RUNS
-  Linux: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES 15+, openSUSE 15+ (VM, bare metal, WSL).
-  Needs Internet access to the repositories of the distribution (RHEL: a registered subscription). On Windows use Prepare-Computer.ps1.
+  Linux: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES 15+, openSUSE
+  15+ (VM, bare metal, WSL).
+  Needs Internet access to the repositories of the distribution (RHEL: a registered subscription).
+  On Windows use Prepare-Computer.ps1.
   EXIT CODES   0 ok   1 error   4 something is still missing (OpenSSL below 3.0, Python not found)   5 system not supported
 ============================================================
 EOF
@@ -78,7 +92,7 @@ die() { say ERROR "$1"; exit "${2:-1}"; }
 ONLY=all; CHECK=0; YES=0; FORCE=0; NOPATH=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    -h|--help|-help|--Help|help) show_help; exit 0 ;;
+    -h|--help|-help|--Help|help) show_help | help_pager; exit 0 ;;
     --only) ONLY="$(printf '%s' "${2:-}" | tr 'A-Z' 'a-z')"; shift ;;
     --check) CHECK=1 ;; --yes|-y) YES=1 ;; --force) FORCE=1 ;; --no-path) NOPATH=1 ;;
     *) die "Unknown option: $1   (prepare-computer.sh --help)" ;;

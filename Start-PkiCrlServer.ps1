@@ -27,57 +27,106 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
 if ($Help) {
     @'
 ============================================================
  Start-PkiCrlServer.ps1 - CRL / CA-issuer server on this machine
-Version 5.3.6
- Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com
+Version 6.4.1
+ Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email:
+                               nicko@nextmantra.com
 ============================================================
 WHY
-  Word / Excel / Outlook (XAdES document signatures) show "Recoverable Signature - the signer's certificate can't be verified,
-  please try again later or check your network connection" when the REVOCATION STATUS of the chain is unknown:
-     - the CA certificates have no CRL URL at all (the NoCR family: certutil says CRYPT_E_NO_REVOCATION_CHECK), or
-     - the URLs are there, but the host names (crl.nextmantra.internal ...) do not resolve on this machine.
+  Word / Excel / Outlook (XAdES document signatures) show "Recoverable Signature - the signer's
+  certificate can't be verified, please try again later or check your network connection" when the
+  REVOCATION STATUS of the chain is unknown:
+     - the CA certificates have no CRL URL at all (the NoCR family: certutil says
+       CRYPT_E_NO_REVOCATION_CHECK), or
+     - the URLs are there, but the host names (crl.nextmantra.internal ...) do not resolve on this
+       machine.
   Both end in the same message. The cure is a CRL that can be fetched.
 
 WHAT IT DOES
-  Serves every pki\R*\publish folder (CRL and CA certificate files, by file name) over HTTP, for the host names that are
-  written in the certificates (read from pki\pki-<name>-<NN>\server\server.env). The host names must point to 127.0.0.1 in the
-  hosts file (the script prints the lines), so this machine finds the server. OCSP requests are answered 404: Windows then uses the CRL.
-  The script does NOT edit the hosts file itself (antivirus programs flag that, rightly): it prints the lines, you paste them.
+  Serves every pki\R*\publish folder (CRL and CA certificate files, by file name) over HTTP, for the
+  host names that are written in the certificates (read from pki\pki-<name>-<NN>\server\server.env).
+  The host names must point to 127.0.0.1 in the hosts file (the script prints the lines), so this
+  machine finds the server. OCSP requests are answered 404: Windows then uses the CRL.
+  The script does NOT edit the hosts file itself (antivirus programs flag that, rightly): it prints
+  the lines, you paste them.
 
 STEPS (Windows 11, elevated PowerShell = "Run as administrator")
-  1. Use the NORMAL PKI for the signer (its CA certificates carry the CRL URLs). Issue the certificate WITHOUT -NoRevocationInfo:
+  1. Use the NORMAL PKI for the signer (its CA certificates carry the CRL URLs). Issue the
+     certificate WITHOUT -NoRevocationInfo:
         .\GenerateOffice365LeafCertificate.ps1 -File persons.json
-  2. Add the printed lines to the hosts file (Notepad as Administrator), then  .\Start-PkiCrlServer.ps1   leave the window open (Ctrl+C stops it)
-  3. In another window, clear what Windows remembered about the failed downloads and check the chain: the two certutil commands are in
-     docs\PKI-SERVER-MANUAL.txt (chapter 7) and docs\GenerateOffice365LeafCertificate-MANUAL.txt. This script prints no download-cache commands.
-  4. Open the document in Word again. When you are done: Ctrl+C, and delete the lines from the hosts file.
+  2. Add the printed lines to the hosts file (Notepad as Administrator), then
+     .\Start-PkiCrlServer.ps1   leave the window open (Ctrl+C stops it)
+  3. In another window, clear what Windows remembered about the failed downloads and check the
+     chain: the two certutil commands are in docs\PKI-SERVER-MANUAL.txt (chapter 7) and
+     docs\GenerateOffice365LeafCertificate-MANUAL.txt. This script prints no download-cache
+     commands.
+  4. Open the document in Word again. When you are done: Ctrl+C, and delete the lines from the hosts
+     file.
 
 OPTIONS
   -Release N       serve only this release (default: every release found in pki\)
-  -Port N          default 80 (the URLs in the certificates have no port: another port only helps for a test with curl)
+  -Port N          default 80 (the URLs in the certificates have no port: another port only helps
+                   for a test with curl)
   -Help
 
 NOTES
-  * Real use: pki\pki-<name>-<NN>\server\ + linux\pki-server\pki-server.sh serve the same files with nginx, and the DNS records of
-    server\DNS-RECORDS.txt point to that server. This script is the one-machine shortcut.
-  * The CRLs are valid for the days set when the PKI was built (CRL_DAYS in server.env); renew: PkiRevocation.ps1 -Action NewCrl.
-  * Windows caches downloads: after a change clear its URL cache (command in docs\PKI-SERVER-MANUAL.txt, chapter 7).
+  * Real use: pki\pki-<name>-<NN>\server\ + linux\pki-server\pki-server.sh serve the same files with
+    nginx, and the DNS records of server\DNS-RECORDS.txt point to that server. This script is the
+    one-machine shortcut.
+  * The CRLs are valid for the days set when the PKI was built (CRL_DAYS in server.env); renew:
+    PkiRevocation.ps1 -Action NewCrl.
+  * Windows caches downloads: after a change clear its URL cache (command in
+    docs\PKI-SERVER-MANUAL.txt, chapter 7).
 
 WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
-                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
-                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
+                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
+                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
+                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
+                pki-<name>-nocr-NN).
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
-'@ | Write-Host
+'@ | Out-PagedHelp
     return
 }
 

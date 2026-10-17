@@ -1,0 +1,766 @@
+# ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OÜ (NextMantra)
+# Email  : nicko@nextmantra.com
+# Version: 6.4.1
+# ============================================================
+#requires -Version 7.0
+<#
+.SYNOPSIS
+    Makes the HTML version of the documentation: one self-contained HTML5 file for every text document in docs\ (and README.md),
+    plus index.html, in the folder html\ next to this script. Help: .\Build-HtmlDocs.ps1 -Help
+#>
+param(
+    [string]$DocsFolder,
+    [string]$OutFolder,
+    [switch]$IfStale,
+    [switch]$Watch,
+    [switch]$Help
+)
+$ErrorActionPreference = 'Stop'
+$script:ToolVersion = '6.4.1'
+$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) {
+@'
+====================================================================================================
+ Build-HtmlDocs.ps1 - make the HTML documentation from the text documents
+ Version 6.4.1
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+====================================================================================================
+ WHAT IT DOES
+   Reads every text document in docs\ (and README.md) and writes ONE HTML file for each, plus
+   index.html, into the folder html\ next to this script. Every file is complete by itself:
+   HTML5, CSS 3 and JavaScript are inside, the text is UTF-8, nothing is downloaded from the
+   internet. Open html\index.html with a double click.
+
+   The text files stay the source. Change a text file, run this script again, and the HTML is new.
+
+ OPTIONS
+   -DocsFolder <path>   where the text documents are (default: docs\ next to this script)
+   -OutFolder <path>    where the HTML goes (default: html\ next to this script)
+   -IfStale             build only when a text document is newer than html\index.html (fast; for
+                        scripts and hooks)
+   -Watch               keep running; every time a text document is saved, the HTML is made again
+                        (Ctrl+C stops)
+   -Help                this text
+
+ THE PAGES HAVE
+   a side menu with all documents, a table of contents for the page, previous / next links, a search
+   box (index.html searches all documents), a light and a dark theme, copy buttons for commands,
+   check boxes for the acceptance checklists (remembered in the browser), a print layout, and a
+   layout that follows the screen: phone, laptop 1366x768, Full HD and larger.
+   Browsers: Chrome, Edge, Firefox, Safari, Brave, Opera, UC Browser, QQ Browser.
+EXIT CODES   0 ok   1 error
+====================================================================================================
+'@ | Out-PagedHelp
+    exit 0
+}
+if (-not $DocsFolder) { $DocsFolder = Join-Path $root 'docs' }
+if (-not $OutFolder) { $OutFolder = Join-Path $root 'html' }
+if (-not (Test-Path -LiteralPath $DocsFolder -PathType Container)) { Write-Host "[ERROR] Docs folder not found: $DocsFolder" -ForegroundColor Red; exit 1 }
+
+function Get-DocsStamp {
+    $files = @(Get-ChildItem -LiteralPath $DocsFolder -Filter *.txt -File -ErrorAction SilentlyContinue) + @(Get-Item -LiteralPath (Join-Path $root 'README.md') -ErrorAction SilentlyContinue) + @(Get-Item -LiteralPath $PSCommandPath)
+    return (($files | Sort-Object FullName | ForEach-Object { $_.FullName + '|' + $_.LastWriteTimeUtc.Ticks + '|' + $_.Length }) -join ';')
+}
+if ($IfStale) {
+    $idx = Join-Path $OutFolder 'index.html'
+    if (Test-Path -LiteralPath $idx) {
+        $t = (Get-Item -LiteralPath $idx).LastWriteTimeUtc
+        $newer = @(Get-ChildItem -LiteralPath $DocsFolder -Filter *.txt -File) + @(Get-Item -LiteralPath (Join-Path $root 'README.md') -ErrorAction SilentlyContinue) + @(Get-Item -LiteralPath $PSCommandPath) | Where-Object { $_.LastWriteTimeUtc -gt $t }
+        $count = @(Get-ChildItem -LiteralPath $DocsFolder -Filter *.txt -File).Count
+        $pages = @(Get-ChildItem -LiteralPath $OutFolder -Filter *.html -File).Count
+        if (-not $newer -and $pages -gt $count) { Write-Host '[OK] html\ is up to date.' -ForegroundColor Green; exit 0 }
+    }
+}
+if ($Watch -and -not $env:PKI_HTML_CHILD) {
+    Write-Host '[INFO] Watching docs\ and README.md. Save a text document and the HTML is made again. Ctrl+C stops.' -ForegroundColor Cyan
+    $last = ''
+    while ($true) {
+        $now = Get-DocsStamp
+        if ($now -ne $last) {
+            $last = $now
+            $env:PKI_HTML_CHILD = '1'
+            try { & $PSCommandPath -DocsFolder $DocsFolder -OutFolder $OutFolder } catch { Write-Host "[WARN] $($_.Exception.Message)" -ForegroundColor Yellow }
+            Remove-Item Env:\PKI_HTML_CHILD -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 2
+    }
+}
+
+# ---------------------------------------------------------------- the list of documents: order, group, short plain-English description
+$Catalog = [ordered]@{
+    'README.md'                                  = @('Start', 'README', 'The front page of the project: what is in the box and how to start.')
+    'START-HERE.txt'                             = @('Start', 'Start here', 'Which file to read for which job.')
+    'GLOSSARY.txt'                               = @('Start', 'Glossary (technical terms)', 'Plain-English meaning of the technical words: PKI, CA, TLS, CRL, OCSP and more.')
+    'GLOSSARY-ENGLISH.txt'                       = @('Start', 'Glossary (English words)', 'The everyday English words and phrases used in these documents, explained simply.')
+    'pki_setup-MANUAL.txt'                       = @('Build and run the PKI', 'Build the PKI (pki_setup)', 'Make the root and intermediate CAs. The owner reads this first.')
+    'PkiProfiles-MANUAL.txt'                     = @('Build and run the PKI', 'Profiles: PKI for another company', 'One PKI per company, with its own settings file.')
+    'GenerateLeafCertificate-MANUAL.txt'         = @('Certificates', 'Leaf certificates', 'Make server, client, code-signing, e-mail and document-signing certificates.')
+    'GeneratePersonLeafCertificate-MANUAL.txt'   = @('Certificates', 'Person certificates', 'Certificates for people, from a JSON list.')
+    'GenerateOffice365LeafCertificate-MANUAL.txt'= @('Certificates', 'Office 365 certificates', 'Certificates for Microsoft Office and Office 365 users.')
+    'SignCsr-MANUAL.txt'                         = @('Certificates', 'Sign a request (CSR)', 'Sign a certificate request that someone sent you.')
+    'SignExternalCa-MANUAL.txt'                  = @('Certificates', 'Sign a CA of a department', 'Sign the CA request of another department.')
+    'NewPkiCsr-MANUAL.txt'                       = @('Certificates', 'Make a request (New-PkiCsr)', 'Make a key and a certificate request.')
+    'Export-PkiCa-MANUAL.txt'                    = @('Tools for CDN, web and signing', 'Export CA certificates', 'CA files for Cloudflare, Azure, CloudFront and other CDNs; chain from a leaf.')
+    'Create-WebServerConfig-MANUAL.txt'          = @('Tools for CDN, web and signing', 'Web server configuration', 'nginx and Apache configuration for Ubuntu and RHEL style Linux.')
+    'Sign-Code-MANUAL.txt'                       = @('Tools for CDN, web and signing', 'Code signing', 'Sign your software; set up a build pipeline.')
+    'PkiRevocation-MANUAL.txt'                   = @('Servers and revocation', 'Revocation, CRL, OCSP, time stamp', 'Revoke certificates and run the CRL, OCSP and timestamp services.')
+    'PKI-SERVER-MANUAL.txt'                      = @('Servers and revocation', 'The PKI server (Ubuntu)', 'Publish CRL, OCSP and time stamping from a Linux server.')
+    'PKI-Server-Design.txt'                      = @('Servers and revocation', 'PKI server design', 'Why the server is built the way it is.')
+    'PkiTrustKit-MANUAL.txt'                     = @('Give the PKI to other people', 'Trust kit', 'Let a computer trust your PKI (no keys inside).')
+    'DevKit-MANUAL.txt'                          = @('Give the PKI to other people', 'DevKit', 'One zip for a developer: trust plus the tools to issue certificates.')
+    'PkiTransport-MANUAL.txt'                    = @('Give the PKI to other people', 'Transport package', 'Move the PKI safely in an encrypted .certpacked.')
+    'PkiBackup-MANUAL.txt'                       = @('Give the PKI to other people', 'Backup and restore', 'Back up and restore the whole PKI (Windows).')
+    'PrepareComputer-MANUAL.txt'                 = @('Computers', 'Prepare a computer', 'Install PowerShell 7, .NET, OpenSSL 4 and Python.')
+    'Install-DevEnvironment-MANUAL.txt'          = @('Computers', 'Developer environment', 'Install the developer tools (Windows and Linux).')
+    'linux-README.txt'                           = @('Computers', 'Linux scripts', 'The shell scripts for Ubuntu and RHEL style Linux.')
+    'scripts-README.txt'                         = @('Reference', 'Modules (scripts folder)', 'What each module of the scripts folder does.')
+    'PUBLIC-CA-ENTERPRISE-ROOT.txt'              = @('Reference', 'Enterprise Root signed by a public CA', 'Use DigiCert, GlobalSign or Sectigo as the parent of your root.')
+    'PKI-Design-with-FIPS-and-PQC.txt'           = @('Reference', 'Design and decisions', 'Why everything is the way it is. Every numbered decision.')
+    'PKI-ChangeLog.txt'                          = @('Reference', 'Change log', 'What changed in each version.')
+    'PKI-Acceptance-Checklists.txt'              = @('Reference', 'Acceptance checklists', 'What to run and check to accept a version.')
+}
+$GroupOrder = @('Start', 'Build and run the PKI', 'Certificates', 'Tools for CDN, web and signing', 'Servers and revocation', 'Give the PKI to other people', 'Computers', 'Reference')
+
+# ---------------------------------------------------------------- helpers
+function ConvertTo-HtmlText { param([string]$s) return [System.Net.WebUtility]::HtmlEncode($s) }
+function ConvertTo-Slug { param([string]$s) $t = ($s.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-'); if (-not $t) { $t = 'x' }; if ($t.Length -gt 60) { $t = $t.Substring(0, 60).Trim('-') }; return $t }
+function Get-PageName { param([string]$file) return ([System.IO.Path]::GetFileNameWithoutExtension($file)) + '.html' }
+
+$script:PageMap = @{}      # source file name -> page file
+foreach ($k in $Catalog.Keys) { $script:PageMap[$k] = (Get-PageName $k) }
+
+function Add-InlineMarkup {
+    <# Input is plain text. Output is escaped HTML; real http(s) URLs and names of other documents become links. #>
+    param([string]$Text)
+    $rx = [regex]"(?<url>https?://[A-Za-z0-9][A-Za-z0-9\-._~:/?#@!$%&'*+,;=()]*)|(?<![\w/\\.-])(?<doc>[A-Za-z][A-Za-z0-9_.-]*\.(?:txt|md))(?![\w-])"
+    $sb = [System.Text.StringBuilder]::new(); $pos = 0
+    foreach ($m in $rx.Matches($Text)) {
+        [void]$sb.Append((ConvertTo-HtmlText $Text.Substring($pos, $m.Index - $pos)))
+        $val = $m.Value; $tail = ''
+        if ($m.Groups['url'].Success) {
+            while ($val.Length -gt 8 -and $val -match "[.,;:)!?']$") { $tail = $val.Substring($val.Length - 1) + $tail; $val = $val.Substring(0, $val.Length - 1) }
+            $nextCh = if (($m.Index + $val.Length) -lt $Text.Length) { $Text[$m.Index + $val.Length] } else { ' ' }
+            if ($val -match '^https?://[A-Za-z0-9.-]+\.[A-Za-z]{2,}' -and $nextCh -notin @('<', '>', '[', '{', '|')) {
+                [void]$sb.Append('<a href="' + (ConvertTo-HtmlText $val) + '" target="_blank" rel="noopener noreferrer">' + (ConvertTo-HtmlText $val) + '</a>' + (ConvertTo-HtmlText $tail))
+            } else { [void]$sb.Append((ConvertTo-HtmlText ($val + $tail))) }
+        } else {
+            if ($script:PageMap.ContainsKey($val)) { [void]$sb.Append('<a href="' + $script:PageMap[$val] + '">' + (ConvertTo-HtmlText $val) + '</a>') }
+            else { [void]$sb.Append((ConvertTo-HtmlText $val)) }
+        }
+        $pos = $m.Index + $m.Length
+    }
+    [void]$sb.Append((ConvertTo-HtmlText $Text.Substring($pos)))
+    return $sb.ToString()
+}
+
+function Test-CodeLike {
+    param([string]$Line)
+    if ($Line -match '^\s*(\.\\|\./|PS>|\$ |> |pwsh |powershell |bash |sudo |openssl |curl |cd |dotnet |winget |choco |apt |dnf |nginx |git |chmod |mkdir |cp |mv |export |set |[A-Za-z]:\\)') { return $true }
+    return $false
+}
+
+function Convert-BlockLines {
+    <# one block = consecutive non-blank lines. Returns HTML. #>
+    param([string[]]$Lines)
+    $text = $Lines -join "`n"
+    # checklist items
+    if ($Lines[0] -match '^\s*\[( |x|X)\]\s') {
+        $sb = [System.Text.StringBuilder]::new(); [void]$sb.Append('<ul class="check">')
+        $cur = $null
+        foreach ($l in $Lines) {
+            if ($l -match '^\s*\[( |x|X)\]\s+(.*)$') { if ($null -ne $cur) { [void]$sb.Append("<li><label><input type=`"checkbox`"> <span>$(Add-InlineMarkup $cur)</span></label></li>") }; $cur = $Matches[2] }
+            else { $cur += ' ' + $l.Trim() }
+        }
+        if ($null -ne $cur) { [void]$sb.Append("<li><label><input type=`"checkbox`"> <span>$(Add-InlineMarkup $cur)</span></label></li>") }
+        [void]$sb.Append('</ul>'); return $sb.ToString()
+    }
+    # bullet / numbered list: every line starts with a marker or continues the item (indented deeper)
+    if ($Lines[0] -match '^(\s*)([*\u2022-]|\d+[.)])\s+\S') {
+        $ind0 = $Matches[1].Length
+        $items = [System.Collections.Generic.List[string]]::new(); $ok = $true
+        foreach ($l in $Lines) {
+            if ($l -match '^(\s*)([*\u2022-]|\d+[.)])\s+(.*)$' -and $Matches[1].Length -le $ind0 + 1) { [void]$items.Add($Matches[3]) }
+            elseif ($l -match '^\s{2,}\S' -and $items.Count -gt 0 -and $l -notmatch '\S\s{3,}\S') { $items[$items.Count - 1] += ' ' + $l.Trim() }
+            else { $ok = $false; break }
+        }
+        if ($ok -and $items.Count -gt 0 -and -not ($items | Where-Object { $_ -match '\S\s{3,}\S' })) {
+            $ordered = $Lines[0] -match '^\s*\d+[.)]\s'
+            $tag = if ($ordered) { 'ol' } else { 'ul' }
+            return "<$tag>" + (($items | ForEach-Object { '<li>' + (Add-InlineMarkup $_) + '</li>' }) -join '') + "</$tag>"
+        }
+    }
+    # decision line "10.150 DECIDED (6.4.1) text"
+    if ($Lines[0] -match '^\s*(\d+\.\d+[a-z]?)\s+(DECIDED|FIXED|OPEN|NOTE|CHANGED|REJECTED|DONE|ANSWERED)\b\s*(.*)$') {
+        $rest = ($Lines | Select-Object -Skip 1 | ForEach-Object { $_.Trim() }) -join ' '
+        $first = $Matches[3]
+        return '<p class="decision"><span class="dnum">' + $Matches[1] + '</span> <span class="dstate">' + $Matches[2] + '</span> ' + (Add-InlineMarkup (($first + ' ' + $rest).Trim())) + '</p>'
+    }
+    # code / table / diagram: pre
+    $isPre = $false
+    foreach ($l in $Lines) {
+        if ($l -match '\S\s{3,}\S' -or $l -match '^\s{4,}\S' -or $l -match '[|+\u2500-\u257F\u25A0-\u25FF]' -or (Test-CodeLike $l) -or $l -match '^\s*[-=_]{5,}\s*$' -or $l -match '->|<-|=>') { $isPre = $true; break }
+    }
+    if (-not $isPre -and $Lines.Count -gt 0) {
+        # plain paragraph: join lines. A paragraph whose lines are short (a list of words, a poem) stays pre.
+        $joined = ($Lines | ForEach-Object { $_.Trim() }) -join ' '
+        return '<p>' + (Add-InlineMarkup $joined) + '</p>'
+    }
+    $code = $text
+    $cmd = $Lines | Where-Object { Test-CodeLike $_ }
+    $isCmd = ($cmd.Count -gt 0 -and $cmd.Count -ge [Math]::Ceiling($Lines.Count / 2))
+    $cls = if ($isCmd) { 'code cmd' } else { 'code' }
+    $copy = if ($isCmd) { '<button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button>' } else { '' }
+    return '<div class="' + $cls + '">' + $copy + '<pre>' + (Add-InlineMarkup $code) + '</pre></div>'
+}
+
+function Convert-TextDocument {
+    <# Returns @{ Title; Meta (lines); Sections = list of @{Level;Id;Title;Html;Text} } #>
+    param([string[]]$Lines, [string]$FallbackTitle)
+    $rule = '^\s*([=\-])\1{9,}\s*$'
+    $i = 0; $n = $Lines.Count
+    $title = $FallbackTitle; $meta = [System.Collections.Generic.List[string]]::new()
+    # banner
+    while ($i -lt $n -and [string]::IsNullOrWhiteSpace($Lines[$i])) { $i++ }
+    if ($i -lt $n -and $Lines[$i] -match $rule) {
+        $j = $i + 1; $banner = @()
+        while ($j -lt $n -and $Lines[$j] -notmatch $rule) { $banner += $Lines[$j]; $j++ }
+        if ($j -lt $n -and $banner.Count -gt 0 -and $banner.Count -le 14) {
+            $first = $banner | Where-Object { $_.Trim() } | Select-Object -First 1
+            $title = ($first.Trim() -replace '^[A-Z][A-Za-z0-9\- ]*\s+-\s+(?=\S)', { param($m) $m.Value })
+            foreach ($b in ($banner | Select-Object -Skip ([array]::IndexOf($banner, $first) + 1))) { if ($b.Trim()) { [void]$meta.Add($b.Trim()) } }
+            $i = $j + 1
+        }
+    }
+    $sections = [System.Collections.Generic.List[object]]::new()
+    $cur = @{ Level = 2; Id = 'top'; Title = ''; Lines = [System.Collections.Generic.List[string]]::new() }
+    $ids = @{}
+    function New-Id { param([string]$t) $b = ConvertTo-Slug $t; $x = $b; $k = 2; while ($ids.ContainsKey($x)) { $x = "$b-$k"; $k++ }; $ids[$x] = $true; return $x }
+    while ($i -lt $n) {
+        $l = $Lines[$i]
+        # heading: rule / title / rule
+        if ($l -match $rule -and ($i + 2) -lt $n -and $Lines[$i + 1].Trim() -and $Lines[$i + 1] -notmatch $rule -and $Lines[$i + 2] -match $rule) {
+            $sections.Add($cur); $t = $Lines[$i + 1].Trim()
+            $cur = @{ Level = 2; Id = (New-Id $t); Title = $t; Lines = [System.Collections.Generic.List[string]]::new() }; $i += 3; continue
+        }
+        # heading: title / underline
+        if ($l.Trim() -and $l -notmatch $rule -and ($i + 1) -lt $n -and $Lines[$i + 1] -match '^\s*([=\-])\1{4,}\s*$' -and $l.Length -lt 110 -and $l -notmatch '^\s*[A-Za-z][A-Za-z ]{0,20}\s*:\s' -and -not ($i -gt 0 -and $Lines[$i - 1] -match $rule)) {
+            $sections.Add($cur); $t = $l.Trim()
+            $cur = @{ Level = 3; Id = (New-Id $t); Title = $t; Lines = [System.Collections.Generic.List[string]]::new() }; $i += 2; continue
+        }
+        # a lone rule line: skip (decoration)
+        if ($l -match $rule) { [void]$cur.Lines.Add(''); $i++; continue }
+        [void]$cur.Lines.Add($l); $i++
+    }
+    $sections.Add($cur)
+    $out = [System.Collections.Generic.List[object]]::new()
+    foreach ($s in $sections) {
+        $blocks = [System.Collections.Generic.List[string]]::new(); $b = [System.Collections.Generic.List[string]]::new()
+        $flush = { if ($b.Count -gt 0) { [void]$blocks.Add((Convert-BlockLines -Lines $b.ToArray())); $b.Clear() } }
+        foreach ($l in $s.Lines) {
+            if ([string]::IsNullOrWhiteSpace($l)) { & $flush }
+            else { [void]$b.Add($l.TrimEnd()) }
+        }
+        & $flush
+        $plain = ($s.Lines -join "`n")
+        if ($s.Title -or $blocks.Count -gt 0) { $out.Add([pscustomobject]@{ Level = $s.Level; Id = $s.Id; Title = $s.Title; Html = ($blocks -join "`n"); Text = $plain }) }
+    }
+    return [pscustomobject]@{ Title = $title; Meta = @($meta); Sections = $out }
+}
+
+function Convert-Markdown {
+    param([string[]]$Lines, [string]$FallbackTitle)
+    $out = [System.Collections.Generic.List[object]]::new(); $title = $FallbackTitle
+    $cur = @{ Level = 2; Id = 'top'; Title = ''; Html = [System.Text.StringBuilder]::new(); Text = [System.Text.StringBuilder]::new() }
+    $ids = @{}; $inCode = $false; $codeBuf = [System.Collections.Generic.List[string]]::new(); $para = [System.Collections.Generic.List[string]]::new()
+    $list = [System.Collections.Generic.List[string]]::new(); $listTag = 'ul'; $table = [System.Collections.Generic.List[string]]::new()
+    function Md-Inline { param([string]$t)
+        $h = ConvertTo-HtmlText $t
+        $codes = [System.Collections.Generic.List[string]]::new()
+        $h = [regex]::Replace($h, '`([^`]+)`', { param($m) [void]$codes.Add($m.Groups[1].Value); "`u{E000}$($codes.Count - 1)`u{E001}" })
+        $h = [regex]::Replace($h, '\*\*([^*]+)\*\*', '<strong>$1</strong>')
+        $h = [regex]::Replace($h, '(?<![\w*])\*([^*\s][^*]*)\*(?![\w*])', '<em>$1</em>')
+        $h = [regex]::Replace($h, "`u{E000}(\d+)`u{E001}", { param($m) '<code>' + $codes[[int]$m.Groups[1].Value] + '</code>' })
+        $h = [regex]::Replace($h, '\[([^\]]+)\]\(([^)\s]+)\)', { param($m) $u = $m.Groups[2].Value; if ($script:PageMap.ContainsKey(($u -replace '^\./|^docs/', ''))) { $u = $script:PageMap[($u -replace '^\./|^docs/', '')] }; '<a href="' + $u + '">' + $m.Groups[1].Value + '</a>' })
+        return $h
+    }
+    $flushPara = { if ($para.Count -gt 0) { [void]$cur.Html.AppendLine('<p>' + (Md-Inline (($para | ForEach-Object { $_.Trim() }) -join ' ')) + '</p>'); $para.Clear() } }
+    $flushList = { if ($list.Count -gt 0) { [void]$cur.Html.AppendLine("<$listTag>" + (($list | ForEach-Object { '<li>' + (Md-Inline $_) + '</li>' }) -join '') + "</$listTag>"); $list.Clear() } }
+    $flushTable = { if ($table.Count -ge 2) {
+            $rows = @($table | ForEach-Object { , @((($_.Trim().Trim('|')) -split '\|') | ForEach-Object { $_.Trim() }) })
+            $sb = '<div class="tablewrap"><table><thead><tr>' + (($rows[0] | ForEach-Object { '<th>' + (Md-Inline $_) + '</th>' }) -join '') + '</tr></thead><tbody>'
+            for ($r = 2; $r -lt $rows.Count; $r++) { $sb += '<tr>' + (($rows[$r] | ForEach-Object { '<td>' + (Md-Inline $_) + '</td>' }) -join '') + '</tr>' }
+            [void]$cur.Html.AppendLine($sb + '</tbody></table></div>') }
+        elseif ($table.Count -eq 1) { [void]$cur.Html.AppendLine('<p>' + (Md-Inline $table[0]) + '</p>') }
+        $table.Clear() }
+    foreach ($l in $Lines) {
+        [void]$cur.Text.AppendLine($l)
+        if ($inCode) {
+            if ($l -match '^\s*```') { $inCode = $false; $code = ConvertTo-HtmlText ($codeBuf -join "`n"); [void]$cur.Html.AppendLine('<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>' + $code + '</pre></div>'); $codeBuf.Clear() }
+            else { [void]$codeBuf.Add($l) }
+            continue
+        }
+        if ($l -match '^\s*```') { & $flushPara; & $flushList; & $flushTable; $inCode = $true; continue }
+        if ($l -match '^\s*\|.*\|\s*$') { & $flushPara; & $flushList; [void]$table.Add($l); continue } else { & $flushTable }
+        if ($l -match '^(#{1,4})\s+(.*)$') {
+            & $flushPara; & $flushList
+            $lvl = $Matches[1].Length; $t = ($Matches[2] -replace '[*`]', '').Trim()
+            if ($lvl -eq 1 -and $title -eq $FallbackTitle) { $title = $t; continue }
+            $out.Add([pscustomobject]@{ Level = $cur.Level; Id = $cur.Id; Title = $cur.Title; Html = $cur.Html.ToString(); Text = $cur.Text.ToString() })
+            $b = ConvertTo-Slug $t; $x = $b; $k = 2; while ($ids.ContainsKey($x)) { $x = "$b-$k"; $k++ }; $ids[$x] = $true
+            $cur = @{ Level = $(if ($lvl -le 2) { 2 } else { 3 }); Id = $x; Title = $t; Html = [System.Text.StringBuilder]::new(); Text = [System.Text.StringBuilder]::new() }
+            continue
+        }
+        if ($l -match '^\s*([-*]|\d+\.)\s+(.*)$') {
+            & $flushPara
+            $tag = if ($Matches[1] -match '\d') { 'ol' } else { 'ul' }
+            if ($list.Count -gt 0 -and $tag -ne $listTag) { & $flushList }
+            $listTag = $tag; [void]$list.Add($Matches[2]); continue
+        }
+        if ($l -match '^\s{2,}\S' -and $list.Count -gt 0) { $list[$list.Count - 1] += ' ' + $l.Trim(); continue }
+        if ([string]::IsNullOrWhiteSpace($l)) { & $flushPara; & $flushList; continue }
+        if ($l -match '^\s*---+\s*$') { & $flushPara; & $flushList; continue }
+        & $flushList; [void]$para.Add($l)
+    }
+    & $flushPara; & $flushList; & $flushTable
+    $out.Add([pscustomobject]@{ Level = $cur.Level; Id = $cur.Id; Title = $cur.Title; Html = $cur.Html.ToString(); Text = $cur.Text.ToString() })
+    return [pscustomobject]@{ Title = $title; Meta = @(); Sections = @($out | Where-Object { $_.Title -or $_.Html.Trim() }) }
+}
+
+# ---------------------------------------------------------------- CSS and JavaScript (shared by every page)
+$Css = @'
+@font-face{font-family:"Roboto";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/roboto-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-mono-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Material Symbols Outlined";font-style:normal;font-weight:400;font-display:block;src:url("fonts/material-symbols-outlined-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Font Awesome Solid";font-style:normal;font-weight:900;font-display:block;src:url("fonts/fa-solid-900.woff2") format("woff2")}
+:root{color-scheme:light dark;--primary:#0b57d0;--on-primary:#ffffff;--primary-c:#d3e3fd;--on-primary-c:#041e49;--bg:#f8f9fc;--surface:#ffffff;--surface-2:#eef2f9;--surface-3:#e4eaf4;--text:#1a1c1e;--muted:#4a5565;--line:#c9d1de;--code-bg:#f1f4f9;--ok:#146c2e;--warn:#8c4a00;--e1:0 1px 2px rgba(0,0,0,.18),0 1px 3px 1px rgba(0,0,0,.1);--e2:0 1px 2px rgba(0,0,0,.2),0 2px 6px 2px rgba(0,0,0,.12);--bar:64px}
+:root[data-theme="dark"]{--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Roboto","Segoe UI",system-ui,-apple-system,"Noto Sans","PingFang SC","Microsoft YaHei",Arial,sans-serif;font-size:16px;line-height:1.65;min-height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;flex-direction:column}
+a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+code,pre,.mono{font-family:"Roboto Mono",Consolas,"Cascadia Mono",Menlo,"DejaVu Sans Mono","Liberation Mono",monospace}
+.ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:"liga";font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle;user-select:none;-webkit-user-select:none}
+.fa{font-family:"Font Awesome Solid";font-weight:900;font-style:normal;display:inline-block;line-height:1;-webkit-font-smoothing:antialiased}
+.fa-globe::before{content:"\f0ac"}.fa-envelope::before{content:"\f0e0"}.fa-copy::before{content:"\f0c5"}.fa-link::before{content:"\f0c1"}.fa-shield::before{content:"\f132"}.fa-check::before{content:"\f00c"}
+.skip{position:absolute;left:-999px;top:0;background:var(--primary);color:var(--on-primary);padding:8px 14px;z-index:100;border-radius:0 0 8px 0}.skip:focus{left:0}
+.bar{position:fixed;top:0;left:0;right:0;height:var(--bar);background:var(--surface);box-shadow:var(--e1);display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:50}
+.brand{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:10px;color:var(--text);font-weight:500;font-size:1.15rem;white-space:nowrap}.brand:hover{text-decoration:none}
+.brand .ms{color:var(--primary);font-size:30px}.brand small{font-weight:400;font-size:.78rem;color:var(--on-primary-c);background:var(--primary-c);border-radius:999px;padding:2px 10px}
+.grow{-webkit-box-flex:1;-ms-flex:1;flex:1}
+.topnav{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:2px;position:relative}
+.nb{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text);font:inherit;font-size:.95rem;font-weight:500;padding:8px 14px;border-radius:999px;cursor:pointer}
+.nb:hover{background:var(--surface-3);text-decoration:none}.nb[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.nb .ms{font-size:20px}
+.mega{position:absolute;right:0;top:calc(var(--bar) - 8px);width:min(940px,94vw);max-height:calc(100vh - var(--bar) - 20px);overflow:auto;background:var(--surface);border-radius:16px;box-shadow:var(--e2);padding:16px 20px;display:none;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 22px}
+.mega.open{display:grid}.mg{min-width:0}
+.mega h2,.drawer h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 8px 2px;padding:0;border:0;font-weight:700}
+.mega a,.drawer a.dl{display:block;padding:6px 10px;border-radius:8px;color:var(--text);font-size:.92rem;line-height:1.35}
+.mega a:hover,.drawer a.dl:hover{background:var(--surface-3);text-decoration:none}.mega a[aria-current="page"],.drawer a[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.sbox{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;background:var(--surface-2);border-radius:999px;padding:0 6px 0 12px;margin:0 6px}
+.sbox input{border:0;background:transparent;color:var(--text);font:inherit;font-size:.92rem;width:190px;padding:8px 6px}.sbox input:focus{outline:0}.sbox:focus-within{box-shadow:0 0 0 2px var(--primary)}
+.sbox .ms{color:var(--muted);font-size:20px}
+#menubtn{display:none}
+.scrim{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);z-index:55;display:none}.scrim.open{display:block}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(88vw,340px);background:var(--surface);z-index:60;overflow-y:auto;padding:12px 12px 40px;-webkit-transform:translateX(105%);transform:translateX(105%);transition:-webkit-transform .22s ease,transform .22s ease;box-shadow:var(--e2);visibility:hidden}
+.drawer.open{-webkit-transform:none;transform:none;visibility:visible}
+.drawer .dh{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.drawer .sbox{display:-webkit-box;display:-ms-flexbox;display:flex;margin:8px 4px}.drawer .sbox input{width:100%}
+.wrap{-webkit-box-flex:1;-ms-flex:1 0 auto;flex:1 0 auto;padding:calc(var(--bar) + 28px) 20px 40px;width:100%;max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:0 36px}
+.wrap.has-toc{grid-template-columns:minmax(0,1fr) 250px}
+.page{min-width:0;max-width:940px}
+.side{position:sticky;top:calc(var(--bar) + 20px);align-self:start;max-height:calc(100vh - var(--bar) - 40px);overflow:auto;font-size:.88rem;border-left:2px solid var(--line);padding:2px 0 2px 14px;display:none}
+.wrap.has-toc .side{display:block}.side h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;padding:0;border:0}
+.side a{display:block;padding:3px 0;color:var(--muted);line-height:1.35}.side a.l3{padding-left:12px;font-size:.84rem}.side a:hover,.side a.on{color:var(--primary);text-decoration:none}
+.crumb{font-size:.85rem;color:var(--muted);margin:0 0 6px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px;font-weight:500}
+h2{font-size:1.45rem;margin:2.4rem 0 .6rem;padding-top:.7rem;border-top:1px solid var(--line);line-height:1.3;font-weight:500}
+h3{font-size:1.1rem;margin:1.7rem 0 .4rem;line-height:1.35;font-weight:500;color:var(--primary)}
+.anchor{opacity:0;margin-left:8px;font-size:.8em;color:var(--muted)}h2:hover .anchor,h3:hover .anchor,.anchor:focus{opacity:1}
+.lead{color:var(--muted);margin:0 0 14px;font-size:1.05rem}
+.meta{display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:6px 8px;margin:12px 0 18px}
+.chip{display:inline-block;background:var(--surface-2);color:var(--muted);border-radius:8px;padding:3px 12px;font-size:.84rem}
+p{margin:.6em 0}ul,ol{margin:.5em 0 .9em;padding-left:1.5em}li{margin:.25em 0}
+.decision{background:var(--surface);border-radius:12px;box-shadow:var(--e1);border-left:4px solid var(--primary);padding:10px 14px;margin:12px 0}
+.dnum{font-weight:700;margin-right:6px}.dstate{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;padding:1px 9px;border-radius:999px;background:var(--primary-c);color:var(--on-primary-c);margin-right:6px}
+.code{position:relative;margin:.8em 0;background:var(--code-bg);border:1px solid var(--line);border-radius:12px}
+.code pre{margin:0;padding:14px 16px;overflow-x:auto;font-size:.84rem;line-height:1.55;tab-size:4;-moz-tab-size:4;white-space:pre}
+.code .copy{position:absolute;top:8px;right:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:.78rem;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);cursor:pointer}
+.code .copy:hover{color:var(--text);background:var(--surface-3)}
+ul.check{list-style:none;padding-left:0}ul.check li{background:var(--surface);border-radius:12px;box-shadow:var(--e1);margin:8px 0;padding:10px 14px}
+ul.check label{display:block;cursor:pointer}ul.check input{margin-right:10px;width:18px;height:18px;vertical-align:-3px;accent-color:var(--primary)}ul.check input:checked + span{color:var(--muted);text-decoration:line-through}
+.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:.8em 0}th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top;font-size:.92rem}th{background:var(--surface-2)}
+.toc{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 18px;margin:16px 0 24px}
+.toc summary{cursor:pointer;font-weight:500}.toc ol{list-style:none;padding-left:0;margin:8px 0 2px;-webkit-columns:2 300px;columns:2 300px;-webkit-column-gap:28px;column-gap:28px}
+.toc li{margin:2px 0;-webkit-column-break-inside:avoid;break-inside:avoid;font-size:.92rem}.toc li.l3{padding-left:16px;font-size:.86rem}
+.pn{display:-webkit-box;display:-ms-flexbox;display:flex;justify-content:space-between;gap:12px;margin:44px 0 0;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.pn a{display:block;border-radius:16px;background:var(--surface);box-shadow:var(--e1);padding:12px 18px;min-width:220px;max-width:48%;color:var(--text)}.pn a:hover{box-shadow:var(--e2);text-decoration:none}.pn small{display:block;color:var(--muted)}.pn .nx{text-align:right;margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin:12px 0 28px}
+.card{display:block;background:var(--surface);border-radius:16px;box-shadow:var(--e1);padding:16px 18px;color:var(--text)}
+.card:hover{box-shadow:var(--e2);text-decoration:none;background:var(--surface-2)}.card b{display:block;margin-bottom:4px;font-weight:500;color:var(--primary)}.card span{color:var(--muted);font-size:.92rem}
+.hero{background:var(--primary-c);color:var(--on-primary-c);border-radius:28px;padding:28px 32px;margin:0 0 26px}.hero h1{color:inherit}.hero p{max-width:70ch}.hero a{color:inherit;text-decoration:underline}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:999px;background:var(--primary);color:var(--on-primary);font:inherit;font-weight:500;padding:9px 20px;cursor:pointer}.btn:hover{text-decoration:none;box-shadow:var(--e2)}
+#totop{position:fixed;right:20px;bottom:20px;display:none;z-index:40;border-radius:16px;padding:12px}
+mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
+.hit{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 16px;margin:10px 0}.hit small{color:var(--muted)}
+.foot{background:var(--surface-2);border-top:1px solid var(--line);padding:22px 20px 26px;color:var(--muted);font-size:.9rem}
+.foot .in{max-width:1180px;margin:0 auto;display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+.foot a{color:var(--primary)}.foot .fa{margin-right:6px}.foot p{margin:.2em 0}
+@media (max-width:1180px){.wrap.has-toc{grid-template-columns:minmax(0,1fr)}.wrap.has-toc .side{display:none}}
+@media (max-width:900px){.topnav{display:none}#menubtn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex}.brand small{display:none}.wrap{padding:calc(var(--bar) + 18px) 14px 30px}}
+@media (max-width:520px){html{font-size:15px}h1{font-size:1.55rem}.pn a{max-width:100%;width:100%}.code pre{font-size:.78rem}.hero{padding:20px;border-radius:20px}}
+@media (min-width:1700px){html{font-size:17px}.wrap{max-width:1320px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.drawer{transition:none}}
+.a11y{position:fixed;top:calc(var(--bar) + 8px);right:12px;width:min(340px,calc(100vw - 24px));max-height:calc(100vh - var(--bar) - 24px);overflow:auto;background:var(--surface);color:var(--text);border-radius:16px;box-shadow:var(--e2);padding:14px 18px 16px;z-index:70}
+.a11y[hidden]{display:none}.a11y h2{font-size:1.1rem;margin:0 0 8px;padding:0;border:0}
+.a11y fieldset{border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:6px 12px 8px}.a11y legend{font-size:.8rem;font-weight:700;color:var(--muted);padding:0 6px}
+.a11y label{display:block;padding:4px 0;cursor:pointer}.a11y input{margin-right:8px;width:17px;height:17px;vertical-align:-3px;accent-color:var(--primary)}
+.a11y .row{display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.btn.alt{background:var(--surface-3);color:var(--text)}
+:root[data-cb="deut"]{--primary:#0072b2;--on-primary:#fff;--primary-c:#cfe6f5;--on-primary-c:#00263f;--ok:#005a8c;--warn:#a84300}
+:root[data-cb="deut"][data-theme="dark"]{--primary:#56b4e9;--on-primary:#00263f;--primary-c:#0b4468;--on-primary-c:#d6ecfa;--ok:#56b4e9;--warn:#f0a35e}
+:root[data-cb="trit"]{--primary:#a3153f;--on-primary:#fff;--primary-c:#f7d9e1;--on-primary-c:#4a0a1c;--ok:#00706f;--warn:#a3153f}
+:root[data-cb="trit"][data-theme="dark"]{--primary:#ff9db5;--on-primary:#4a0a1c;--primary-c:#6b1230;--on-primary-c:#ffe0e8;--ok:#5fd0cf;--warn:#ff9db5}
+:root[data-cb="mono"] body{-webkit-filter:grayscale(1);filter:grayscale(1)}
+:root[data-contrast="high"]{--bg:#fff;--surface:#fff;--surface-2:#f2f2f2;--surface-3:#e0e0e0;--text:#000;--muted:#111;--line:#000;--code-bg:#fff;--primary:#0000b8;--on-primary:#fff;--primary-c:#dfe3ff;--on-primary-c:#000}
+:root[data-contrast="high"][data-theme="dark"]{--bg:#000;--surface:#000;--surface-2:#141414;--surface-3:#2a2a2a;--text:#fff;--muted:#f0f0f0;--line:#fff;--code-bg:#000;--primary:#ffe94d;--on-primary:#000;--primary-c:#333300;--on-primary-c:#fff}
+:root[data-contrast="high"] .card,:root[data-contrast="high"] .decision,:root[data-contrast="high"] .code,:root[data-contrast="high"] ul.check li{border:2px solid var(--line);box-shadow:none}
+:root[data-links="u"] a,:root[data-cb] a{text-decoration:underline}
+:root[data-size="l"]{font-size:18px}:root[data-size="xl"]{font-size:20px}
+:root[data-motion="off"]{scroll-behavior:auto}:root[data-motion="off"] *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+@media print{.bar,.drawer,.scrim,.side,.pn,#totop,.copy,.toc,.skip{display:none!important}.wrap{padding:0;max-width:none;display:block}body{background:#fff;color:#000}.code{border-color:#999;background:#fff}.code pre{white-space:pre-wrap;color:#000}a{color:#000}h2{page-break-after:avoid}.code,.decision{page-break-inside:avoid}.foot{background:#fff;border:0}}
+@media (min-width:1181px){.wrap.has-toc .toc{display:none}}
+'@
+
+$Js = @'
+(function(){
+  "use strict";
+  var d=document,w=window,root=d.documentElement;
+  function $(s,c){return (c||d).querySelector(s)}
+  function $$(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s))}
+  function store(k,v){try{if(v===undefined){return w.localStorage.getItem(k)}w.localStorage.setItem(k,v)}catch(e){return null}}
+  function dark(){var a=root.getAttribute("data-theme");if(a){return a==="dark"}return !!(w.matchMedia&&w.matchMedia("(prefers-color-scheme: dark)").matches)}
+  var saved=store("pkidocs-theme");if(saved==="dark"||saved==="light"){root.setAttribute("data-theme",saved)}
+  function paintTheme(){$$(".themebtn").forEach(function(b){var ic=$(".ms",b),tx=$(".tx",b);if(ic){ic.textContent=dark()?"light_mode":"dark_mode"}if(tx){tx.textContent=dark()?"Light":"Dark"}b.setAttribute("aria-label",dark()?"Switch to light mode":"Switch to dark mode")})}
+  $$(".themebtn").forEach(function(b){b.addEventListener("click",function(){var n=dark()?"light":"dark";root.setAttribute("data-theme",n);store("pkidocs-theme",n);paintTheme()})});
+  paintTheme();
+  var mega=$("#mega"),mb=$("#docsbtn"),dr=$("#drawer"),sc=$("#scrim"),menu=$("#menubtn");
+  function closeMega(){if(mega){mega.classList.remove("open");if(mb){mb.setAttribute("aria-expanded","false")}}}
+  function setDrawer(o){if(!dr){return}dr.classList[o?"add":"remove"]("open");sc.classList[o?"add":"remove"]("open");menu.setAttribute("aria-expanded",o?"true":"false");if(o){var f=$("a,input,button",dr);if(f){f.focus()}}}
+  if(mb){mb.addEventListener("click",function(e){e.stopPropagation();var o=!mega.classList.contains("open");closeMega();if(o){mega.classList.add("open");mb.setAttribute("aria-expanded","true")}})}
+  if(menu){menu.addEventListener("click",function(){setDrawer(true)})}
+  $$("[data-close]").forEach(function(b){b.addEventListener("click",function(){setDrawer(false);if(menu){menu.focus()}})});
+  if(sc){sc.addEventListener("click",function(){setDrawer(false)})}
+  d.addEventListener("click",function(e){if(mega&&!e.target.closest("#mega")&&e.target!==mb){closeMega()}});
+  d.addEventListener("keydown",function(e){var k=e.key||"";if(k==="Escape"||k==="Esc"){closeMega();setDrawer(false)}
+    if(k==="/"&&!/INPUT|TEXTAREA/.test(e.target.tagName||"")){var q=$(".sbox input");if(q&&q.offsetParent!==null){e.preventDefault();q.focus()}}});
+  $$(".sbox input").forEach(function(q){q.addEventListener("keydown",function(e){if((e.key||"")==="Enter"){var v=q.value.replace(/^\s+|\s+$/g,"");if(v){w.location.href=(w.PKI_INDEX||"index.html")+"#q="+encodeURIComponent(v)}}})});
+  $$(".copy").forEach(function(b){b.addEventListener("click",function(){
+    var pre=b.parentNode.querySelector("pre"),txt=pre?pre.textContent:"",lab=$(".tx",b);
+    function done(){if(lab){var o=lab.textContent;lab.textContent="Copied";w.setTimeout(function(){lab.textContent=o},1300)}}
+    function fb(){var ta=d.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";d.body.appendChild(ta);ta.select();try{d.execCommand("copy");done()}catch(e){}d.body.removeChild(ta)}
+    if(w.navigator.clipboard&&w.navigator.clipboard.writeText){w.navigator.clipboard.writeText(txt).then(done,fb)}else{fb()}})});
+  var page=(w.location.pathname.split("/").pop()||"index.html");
+  $$("ul.check input").forEach(function(c,i){var k="pkidocs-chk-"+page+"-"+i;if(store(k)==="1"){c.checked=true}c.addEventListener("change",function(){store(k,c.checked?"1":"0")})});
+  var tt=$("#totop");if(tt){w.addEventListener("scroll",function(){tt.style.display=(w.pageYOffset>600)?"block":"none"});tt.addEventListener("click",function(){w.scrollTo(0,0)})}
+  var links=$$(".side a");if(links.length&&w.IntersectionObserver){var map={};links.forEach(function(a){map[a.getAttribute("href").slice(1)]=a});
+    var io=new w.IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){links.forEach(function(a){a.classList.remove("on")});var a=map[en.target.id];if(a){a.classList.add("on")}}})},{rootMargin:"-80px 0px -70% 0px"});
+    $$("h2[id],h3[id]").forEach(function(h){io.observe(h)})}
+  var A11Y=$("#a11y"),abtns=$$(".a11ybtn"),st={cb:"off",hc:false,size:"n",links:false,motion:false};
+  try{var raw=store("pkidocs-a11y");if(raw){var o=JSON.parse(raw);for(var key in st){if(o&&o[key]!==undefined){st[key]=o[key]}}}}catch(e){}
+  function applyA11y(){
+    function set(a,v){if(v){root.setAttribute(a,v)}else{root.removeAttribute(a)}}
+    set("data-cb",st.cb==="off"?"":st.cb);set("data-contrast",st.hc?"high":"");set("data-size",st.size==="n"?"":st.size);set("data-links",st.links?"u":"");set("data-motion",st.motion?"off":"");
+    if((st.cb!=="off"||st.hc)&&!root.getAttribute("data-theme")){root.setAttribute("data-theme",dark()?"dark":"light")}
+    if(A11Y){$$("input[name=a-cb]",A11Y).forEach(function(r){r.checked=(r.value===st.cb)});$$("input[name=a-size]",A11Y).forEach(function(r){r.checked=(r.value===st.size)});
+      $("#a-hc").checked=st.hc;$("#a-links").checked=st.links;$("#a-motion").checked=st.motion}
+    paintTheme()}
+  function saveA11y(){store("pkidocs-a11y",JSON.stringify(st))}
+  if(A11Y){
+    var openA=function(o){A11Y.hidden=!o;abtns.forEach(function(b){b.setAttribute("aria-expanded",o?"true":"false")});if(o){setDrawer(false);var f=$("input",A11Y);if(f){f.focus()}}};
+    abtns.forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();openA(A11Y.hidden)})});
+    $$("[data-a11y-close]",A11Y).forEach(function(b){b.addEventListener("click",function(){openA(false);if(abtns[0]){abtns[0].focus()}})});
+    A11Y.addEventListener("change",function(e){var t=e.target;
+      if(t.name==="a-cb"){st.cb=t.value}else if(t.name==="a-size"){st.size=t.value}else if(t.id==="a-hc"){st.hc=t.checked}else if(t.id==="a-links"){st.links=t.checked}else if(t.id==="a-motion"){st.motion=t.checked}
+      saveA11y();applyA11y()});
+    $("[data-a11y-reset]",A11Y).addEventListener("click",function(){st={cb:"off",hc:false,size:"n",links:false,motion:false};saveA11y();applyA11y()});
+    d.addEventListener("click",function(e){if(!A11Y.hidden&&!e.target.closest("#a11y")&&!e.target.closest(".a11ybtn")){openA(false)}});
+    d.addEventListener("keydown",function(e){if((e.key||"")==="Escape"&&!A11Y.hidden){openA(false)}})}
+  applyA11y();
+  var box=$("#results");
+  if(box&&w.PKI_SEARCH){
+    var esc=function(s){return s.replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+    var run=function(){
+      var m=/[#&]q=([^&]*)/.exec(w.location.hash),term="";try{term=m?decodeURIComponent(m[1]):""}catch(e){term=""}
+      var home=$("#home");$$(".sbox input").forEach(function(q){if(term){q.value=term}});
+      if(!term){box.innerHTML="";if(home){home.hidden=false}return}
+      if(home){home.hidden=true}
+      var words=term.toLowerCase().split(/\s+/).filter(Boolean),res=[];
+      w.PKI_SEARCH.forEach(function(s){var low=s.t.toLowerCase(),hay=s.h.toLowerCase()+" "+s.d.toLowerCase()+" "+low,ok=true,score=0;
+        for(var i=0;i<words.length;i++){if(hay.indexOf(words[i])<0){ok=false;break}score+=(s.h.toLowerCase().indexOf(words[i])>=0)?5:1}
+        if(ok){var p0=low.indexOf(words[0]),a=Math.max(0,p0-70);res.push({s:s,score:score,sn:(a>0?"... ":"")+s.t.substr(a,220)+" ..."})}});
+      res.sort(function(a,b){return b.score-a.score});
+      var out="<h1>Search: "+esc(term)+"</h1><p class=\"lead\">"+res.length+" place(s) found.</p>";
+      res.slice(0,60).forEach(function(r){var sn=esc(r.sn);words.forEach(function(wd){sn=sn.replace(new RegExp("("+wd.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"),"<mark>$1</mark>")});
+        out+="<div class=\"hit\"><a href=\""+r.s.p+(r.s.i?"#"+r.s.i:"")+"\"><b>"+esc(r.s.d)+"</b> &rsaquo; "+esc(r.s.h||"start")+"</a><br><small>"+sn+"</small></div>"});
+      if(!res.length){out+="<p>Nothing found. Try fewer or shorter words.</p>"}
+      box.innerHTML=out};
+    w.addEventListener("hashchange",run);run()}
+})();
+'@
+
+
+# ---------------------------------------------------------------- build
+$sources = [System.Collections.Generic.List[object]]::new()
+foreach ($k in $Catalog.Keys) {
+    $p = if ($k -eq 'README.md') { Join-Path $root 'README.md' } else { Join-Path $DocsFolder $k }
+    if (Test-Path -LiteralPath $p -PathType Leaf) { [void]$sources.Add([pscustomobject]@{ Key = $k; Path = $p; Group = $Catalog[$k][0]; Label = $Catalog[$k][1]; Desc = $Catalog[$k][2]; Page = $script:PageMap[$k] }) }
+}
+# any other .txt in docs\ that is not in the catalog
+foreach ($f in Get-ChildItem -LiteralPath $DocsFolder -Filter *.txt -File | Sort-Object Name) {
+    if (-not $Catalog.Contains($f.Name)) {
+        $script:PageMap[$f.Name] = (Get-PageName $f.Name)
+        [void]$sources.Add([pscustomobject]@{ Key = $f.Name; Path = $f.FullName; Group = 'Reference'; Label = [System.IO.Path]::GetFileNameWithoutExtension($f.Name); Desc = 'Document.'; Page = (Get-PageName $f.Name) })
+    }
+}
+if ($sources.Count -eq 0) { Write-Host '[ERROR] No documents found.' -ForegroundColor Red; exit 1 }
+if (Test-Path -LiteralPath $OutFolder) { Get-ChildItem -LiteralPath $OutFolder -Filter *.html -File -ErrorAction SilentlyContinue | Remove-Item -Force }
+[void](New-Item -ItemType Directory -Path $OutFolder -Force)
+
+$orderedSources = @(foreach ($g in $GroupOrder) { $sources | Where-Object { $_.Group -eq $g } }) + @($sources | Where-Object { $_.Group -notin $GroupOrder })
+$parsed = @{}
+foreach ($s in $orderedSources) {
+    $lines = [System.IO.File]::ReadAllLines($s.Path, [System.Text.UTF8Encoding]::new($false)) | ForEach-Object { $_ -replace "`t", '    ' }
+    if ($lines.Count -gt 0 -and $lines[0].StartsWith([string][char]0xFEFF)) { $lines[0] = $lines[0].Substring(1) }
+    $doc = if ($s.Key -like '*.md') { Convert-Markdown -Lines $lines -FallbackTitle $s.Label } else { Convert-TextDocument -Lines $lines -FallbackTitle $s.Label }
+    $parsed[$s.Key] = $doc
+}
+
+function New-NavLinks { param([string]$CurrentPage, [string]$Class)
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($g in $GroupOrder) {
+        $items = @($orderedSources | Where-Object { $_.Group -eq $g })
+        if ($items.Count -eq 0) { continue }
+        [void]$sb.Append('<div class="mg"><h2>' + (ConvertTo-HtmlText $g) + '</h2>')
+        foreach ($it in $items) {
+            $cur = if ($it.Page -eq $CurrentPage) { ' aria-current="page"' } else { '' }
+            [void]$sb.Append('<a' + $Class + ' href="' + $it.Page + '"' + $cur + '>' + (ConvertTo-HtmlText $it.Label) + '</a>')
+        }
+        [void]$sb.Append('</div>')
+    }
+    return $sb.ToString()
+}
+function New-HtmlShell {
+    param([string]$Title, [string]$CurrentPage, [string]$Body, [string]$ExtraScript = '', [string]$Description = '', [bool]$HasToc = $false, [string]$Side = '')
+    $mega = New-NavLinks -CurrentPage $CurrentPage -Class ''
+    $drawerLinks = New-NavLinks -CurrentPage $CurrentPage -Class ' class="dl"'
+    $desc = if ($Description) { '<meta name="description" content="' + (ConvertTo-HtmlText $Description) + '">' + "`n" } else { '' }
+    $curHome = if ($CurrentPage -eq 'index.html') { ' aria-current="page"' } else { '' }
+    $curStart = if ($CurrentPage -eq 'START-HERE.html') { ' aria-current="page"' } else { '' }
+    $curGloss = if ($CurrentPage -like 'GLOSSARY*.html') { ' aria-current="page"' } else { '' }
+    $wrapClass = if ($HasToc) { 'wrap has-toc' } else { 'wrap' }
+    $sideHtml = if ($HasToc) { '<aside class="side" aria-label="On this page"><h2>On this page</h2>' + $Side + '</aside>' } else { '' }
+    $year = '2026'
+    return @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
+<meta name="generator" content="Build-HtmlDocs.ps1 $script:ToolVersion">
+$desc<title>$(ConvertTo-HtmlText $Title) - PKI DevSecOps Agantra</title>
+<style>
+$Css
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="bar">
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>$script:ToolVersion</small></a>
+<span class="grow"></span>
+<nav class="topnav" aria-label="Main">
+<a class="nb" href="index.html"$curHome>Home</a>
+<a class="nb" href="START-HERE.html"$curStart>Start here</a>
+<a class="nb" href="GLOSSARY.html"$curGloss>Glossary</a>
+<button type="button" class="nb" id="docsbtn" aria-haspopup="true" aria-expanded="false" aria-controls="mega">Documents<span class="ms" aria-hidden="true">expand_more</span></button>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button>
+<button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button>
+<div class="mega" id="mega">$mega</div>
+</nav>
+<button type="button" class="nb" id="menubtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><span class="ms" aria-hidden="true">menu</span></button>
+</header>
+<div class="a11y" id="a11y" role="dialog" aria-labelledby="a11yt" hidden>
+<h2 id="a11yt">Accessibility</h2>
+<fieldset><legend>Colors</legend>
+<label><input type="radio" name="a-cb" value="off" checked> Normal colors</label>
+<label><input type="radio" name="a-cb" value="deut"> Red-green safe (protanopia, deuteranopia)</label>
+<label><input type="radio" name="a-cb" value="trit"> Blue-yellow safe (tritanopia)</label>
+<label><input type="radio" name="a-cb" value="mono"> Grayscale (no color at all)</label>
+</fieldset>
+<fieldset><legend>Contrast and links</legend>
+<label><input type="checkbox" id="a-hc"> High contrast</label>
+<label><input type="checkbox" id="a-links"> Underline every link</label>
+</fieldset>
+<fieldset><legend>Text size</legend>
+<label><input type="radio" name="a-size" value="n" checked> Normal</label>
+<label><input type="radio" name="a-size" value="l"> Large</label>
+<label><input type="radio" name="a-size" value="xl"> Extra large</label>
+</fieldset>
+<label><input type="checkbox" id="a-motion"> Reduce motion</label>
+<div class="row"><button type="button" class="btn alt" data-a11y-reset="1">Reset</button><button type="button" class="btn" data-a11y-close="1">Close</button></div>
+</div>
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+<div class="dh"><strong>Menu</strong><button type="button" class="nb" data-close="1" aria-label="Close menu"><span class="ms" aria-hidden="true">close</span></button></div>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<a class="dl" href="index.html"$curHome>Home</a>
+$drawerLinks
+<p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
+<p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
+</nav>
+<main class="$wrapClass" id="content">
+<div class="page">
+$Body
+</div>
+$sideHtml
+</main>
+<footer class="foot"><div class="in">
+<div><p>Copyright $year by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
+<p>We are an Estonian company in AI and Web3.</p></div>
+<div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
+<p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version $script:ToolVersion</p></div>
+</div></footer>
+<button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
+$ExtraScript<script>
+$Js
+</script>
+</body>
+</html>
+"@
+}
+
+$searchItems = [System.Collections.Generic.List[string]]::new()
+$count = 0
+for ($idx = 0; $idx -lt $orderedSources.Count; $idx++) {
+    $s = $orderedSources[$idx]; $doc = $parsed[$s.Key]
+    $title = $s.Label
+    $body = [System.Text.StringBuilder]::new()
+    [void]$body.AppendLine('<p class="crumb"><a href="index.html">Home</a> &rsaquo; ' + (ConvertTo-HtmlText $s.Group) + '</p>')
+    [void]$body.AppendLine('<h1>' + (ConvertTo-HtmlText $title) + '</h1>')
+    [void]$body.AppendLine('<p class="lead">' + (ConvertTo-HtmlText $s.Desc) + '</p>')
+    if ($doc.Meta.Count -gt 0) { [void]$body.AppendLine('<div class="meta">' + (($doc.Meta | ForEach-Object { '<span class="chip">' + (ConvertTo-HtmlText ($_ -replace '\s{2,}', ' ')) + '</span>' }) -join '') + '</div>') }
+    $seenH2 = $false
+    foreach ($sec in $doc.Sections) { if ($sec.Title) { if ($sec.Level -ge 3 -and -not $seenH2) { $sec.Level = 2 }; if ($sec.Level -le 2) { $seenH2 = $true } } }
+    $heads = @($doc.Sections | Where-Object { $_.Title })
+    $hasToc = ($heads.Count -ge 3)
+    $side = ''
+    if ($hasToc) {
+        [void]$body.AppendLine('<details class="toc"><summary>On this page</summary><ol>' + (($heads | ForEach-Object { '<li class="l' + $_.Level + '"><a href="#' + $_.Id + '">' + (ConvertTo-HtmlText $_.Title) + '</a></li>' }) -join '') + '</ol></details>')
+        $side = ($heads | ForEach-Object { '<a' + $(if ($_.Level -ge 3) { ' class="l3"' } else { '' }) + ' href="#' + $_.Id + '">' + (ConvertTo-HtmlText $_.Title) + '</a>' }) -join ''
+    }
+    foreach ($sec in $doc.Sections) {
+        if ($sec.Title) {
+            $tag = if ($sec.Level -le 2) { 'h2' } else { 'h3' }
+            [void]$body.AppendLine("<$tag id=`"$($sec.Id)`">" + (ConvertTo-HtmlText $sec.Title) + "<a class=`"anchor`" href=`"#$($sec.Id)`" aria-label=`"Link to this section`">#</a></$tag>")
+        }
+        [void]$body.AppendLine($sec.Html)
+        $plain = ($sec.Text -replace '\s+', ' ').Trim()
+        if ($plain.Length -gt 6000) { $plain = $plain.Substring(0, 6000) }
+        $je = '{"p":' + (ConvertTo-Json $s.Page -Compress) + ',"d":' + (ConvertTo-Json $s.Label -Compress) + ',"i":' + (ConvertTo-Json $(if ($sec.Title) { $sec.Id } else { '' }) -Compress) + ',"h":' + (ConvertTo-Json ([string]$sec.Title) -Compress) + ',"t":' + (ConvertTo-Json $plain -Compress) + '}'
+        [void]$searchItems.Add($je)
+    }
+    $prev = if ($idx -gt 0) { $orderedSources[$idx - 1] } else { $null }; $next = if ($idx -lt $orderedSources.Count - 1) { $orderedSources[$idx + 1] } else { $null }
+    $pn = '<nav class="pn" aria-label="Previous and next document">' + $(if ($prev) { '<a class="pv" href="' + $prev.Page + '"><small>&larr; Previous</small>' + (ConvertTo-HtmlText $prev.Label) + '</a>' } else { '' }) + $(if ($next) { '<a class="nx" href="' + $next.Page + '"><small>Next &rarr;</small>' + (ConvertTo-HtmlText $next.Label) + '</a>' } else { '' }) + '</nav>'
+    [void]$body.AppendLine($pn)
+    [void]$body.AppendLine('<p class="crumb">Made from ' + (ConvertTo-HtmlText ([System.IO.Path]::GetFileName($s.Path))) + ' by Build-HtmlDocs.ps1 ' + $script:ToolVersion + '.</p>')
+    $html = New-HtmlShell -Title $title -CurrentPage $s.Page -Body $body.ToString() -Description $s.Desc -HasToc $hasToc -Side $side
+    [System.IO.File]::WriteAllText((Join-Path $OutFolder $s.Page), ($html -replace "`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
+    $count++
+}
+
+# index.html with the search data
+$cards = [System.Text.StringBuilder]::new()
+foreach ($g in $GroupOrder) {
+    $items = @($orderedSources | Where-Object { $_.Group -eq $g })
+    if ($items.Count -eq 0) { continue }
+    [void]$cards.AppendLine('<h2>' + (ConvertTo-HtmlText $g) + '</h2><div class="cards">')
+    foreach ($it in $items) { [void]$cards.AppendLine('<a class="card" href="' + $it.Page + '"><b>' + (ConvertTo-HtmlText $it.Label) + '</b><span>' + (ConvertTo-HtmlText $it.Desc) + '</span></a>') }
+    [void]$cards.AppendLine('</div>')
+}
+$indexBody = @"
+<div id="home">
+<div class="hero"><h1>PKI DevSecOps Agantra documentation</h1>
+<p>Version $script:ToolVersion. The full documentation of the project, written for junior developers and infrastructure staff. Every page works without internet. Use the menu at the top right, or the search box (press <b>/</b>).</p>
+<p><b>New here?</b> Read <a href="START-HERE.html">Start here</a> first. If a word is new to you, open the <a href="GLOSSARY.html">Glossary</a> (technical words) or the <a href="GLOSSARY-ENGLISH.html">English words list</a>.</p>
+</div>
+$($cards.ToString())
+</div>
+<div id="results"></div>
+"@
+$searchJs = '<script>var PKI_INDEX="index.html";var PKI_SEARCH=[' + ($searchItems -join ',') + '];</script>' + "`n"
+$indexHtml = New-HtmlShell -Title 'Documentation' -CurrentPage 'index.html' -Body $indexBody -ExtraScript $searchJs -Description 'Documentation of the PKI DevSecOps project.'
+[System.IO.File]::WriteAllText((Join-Path $OutFolder 'index.html'), ($indexHtml -replace "`r`n", "`n"), [System.Text.UTF8Encoding]::new($false))
+$readme = @"
+HTML documentation of the PKI DevSecOps Agantra project - version $script:ToolVersion
+Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+
+HOW TO OPEN
+  1. Double-click index.html (any modern browser), or
+  2. Run  .\Serve-Docs.ps1  (or: python3 -m http.server 1434 --directory html) and open
+     http://localhost:1434/index.html
+
+FILES
+  *.html   one page per document. Every page has its own HTML5, CSS 3 and JavaScript inside.
+           Nothing is shared between pages except the font files.
+  fonts\   Roboto, Roboto Mono, Material Symbols and Font Awesome (Free) as local .woff2 files,
+           with their licenses (SIL OFL 1.1 and CC BY 4.0). Keep this folder next to the pages.
+
+The pages are made by Build-HtmlDocs.ps1 from the text documents in docs\ . Do not edit them by hand:
+change the text document and run the script again (or run it with -Watch).
+"@
+[System.IO.File]::WriteAllText((Join-Path $OutFolder 'README.txt'), ($readme -replace "`r`n", "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
+if (-not (Test-Path -LiteralPath (Join-Path $OutFolder 'fonts\roboto-latin-400-normal.woff2'))) { Write-Host '[WARN] html\fonts is missing: the pages work, but with system fonts and no icons.' -ForegroundColor Yellow }
+Write-Host "[OK] $count page(s) + index.html written to $OutFolder" -ForegroundColor Green
+exit 0

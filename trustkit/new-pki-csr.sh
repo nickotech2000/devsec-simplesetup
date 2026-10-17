@@ -28,64 +28,89 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    echo "[INFO] $(basename "$0") version 5.3.6" >&2
+    echo "[INFO] $(basename "$0") version 6.4.1" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="5.3.6"
+VERSION="6.4.1"
 DEVSAN_MARKER="add-development-san.pki-marker.invalid"
 
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 show_help() {
 cat <<'EOF'
 ============================================================
- new-pki-csr.sh - make a key and a certificate request (CSR) step by step (for the DESTINATION computer)
- Version 5.3.6
+ new-pki-csr.sh - make a key and a certificate request (CSR) step by step (for the DESTINATION
+ computer)
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
 WHAT IT DOES
-  Asks you, one question after the other, for the data of the certificate, makes a PRIVATE KEY and a CSR on this computer, and writes both into a new folder.
-  You send ONLY the .csr to the owner of the PKI (he signs it with SignCsr.ps1 / SignCsr.sh). The .key never leaves this computer.
+  Asks you, one question after the other, for the data of the certificate, makes a PRIVATE KEY and a
+  CSR on this computer, and writes both into a new folder.
+  You send ONLY the .csr to the owner of the PKI (he signs it with SignCsr.ps1 / SignCsr.sh). The
+  .key never leaves this computer.
   Standalone: it needs only bash and OpenSSL 3.x or 4.x (prepare-computer.sh installs it).
 
 WHAT THE REQUEST IS FOR  (--type, asked first)
-  leaf             a certificate for a server, a person, code signing or e-mail (default). Signed by SignCsr.ps1 / SignCsr.sh.
-  intermediate-ca  the certificate of a NEW CA of your department. The request asks for CA:TRUE and key usage keyCertSign + cRLSign, carries NO names (no SAN) and NEVER the
-                   development names. Company, country, department (OU) and the name of the CA (CN) are required; the key is RSA 4096 / 8192 or ECDSA P-384 / P-521
-                   (not ML-DSA, not RSA 2048 / 3072, not P-256). The owner of the PKI signs it with SignExternalCa.ps1 (a Quadrant Root; SignCsr refuses a CA request).
+  leaf             a certificate for a server, a person, code signing or e-mail (default). Signed by
+                   SignCsr.ps1 / SignCsr.sh.
+  intermediate-ca  the certificate of a NEW CA of your department. The request asks for CA:TRUE and
+  key usage keyCertSign + cRLSign, carries NO names (no SAN) and NEVER the
+                   development names. Company, country, department (OU) and the name of the CA (CN)
+                   are required; the key is RSA 4096 / 8192 or ECDSA P-384 / P-521 (not ML-DSA, not
+                   RSA 2048 / 3072, not P-256). The owner of the PKI signs it with
+                   SignExternalCa.ps1 (a Quadrant Root; SignCsr refuses a CA request).
 
 THE STEPS (press Enter to skip an optional one)
-   1 Common name (CN)      the host name of the server, or the name of the certificate            REQUIRED
-   2 Company ID            the registration number of the company: becomes the SERIAL NUMBER of the subject
+   1 Common name (CN)      the host name of the server, or the name of the certificate
+                           REQUIRED
+   2 Company ID            the registration number of the company: becomes the SERIAL NUMBER of the
+                           subject
    3 Company               the official company name (O)           4 E-mail   5 Contact phone   6 Contact person
    7 Address (street)      8 City   9 State / province   10 Country (2 letters, e.g. EE, ID, DE)   11 Postal code
   12 EV information        business category (Private Organization | Government Entity | Business Entity | Non-Commercial Entity) and the
-                           jurisdiction of registration (country, state, locality). Fill it and the CA signs an EV certificate.
-  13 IANA PEN (optional)   your Private Enterprise Number: your company policy OID 1.3.6.1.4.1.<PEN>.1 is put in the request
-  14 Names (SAN)           DNS names, IP addresses and e-mail addresses, ONE BY ONE (empty line = finished).
-                           "Add the development names?" puts a marker in the request: the CA then adds its development SAN list (like -AddDevelopmentSAN).
-  15 Key                   RSA 4096 + SHA-384 (default), RSA 2048 / 3072 / 8192, ECDSA P-256 / P-384 / P-521, ML-DSA-44 / 65 / 87 (OpenSSL 3.5+ or 4)
+                           jurisdiction of registration (country, state, locality). Fill it and the
+                           CA signs an EV certificate.
+  13 IANA PEN (optional)   your Private Enterprise Number: your company policy OID
+                           1.3.6.1.4.1.<PEN>.1 is put in the request
+  14 Names (SAN)           DNS names, IP addresses and e-mail addresses, ONE BY ONE (empty line =
+                           finished). "Add the development names?" puts a marker in the request: the
+                           CA then adds its development SAN list (like -AddDevelopmentSAN).
+  15 Key                   RSA 4096 + SHA-384 (default), RSA 2048 / 3072 / 8192, ECDSA P-256 / P-384
+                           / P-521, ML-DSA-44 / 65 / 87 (OpenSSL 3.5+ or 4)
 
-WHICH CERTIFICATE YOU GET  (the CA decides by what the request carries; Classic, Quadrant 1 unless it says otherwise)
-   EV information complete (business category + jurisdiction country + company ID + state + city)  ->  an EV certificate
-   a company (name + country) without EV information                                                   ->  an OV certificate
-   only a common name                                                                                    ->  a DV certificate
+WHICH CERTIFICATE YOU GET  (the CA decides by what the request carries; Classic, Quadrant 1 unless
+it says otherwise)
+   EV information complete (business category + jurisdiction country + company ID + state + city)
+   ->  an EV certificate a company (name + country) without EV information
+   ->  an OV certificate
+   only a common name
+                                            ->  a DV certificate
    The CRL and OCSP addresses in the certificate are those of the CA that signs it.
 
 RULES (the request is REFUSED here when it breaks one - the CA checks the same)
-   RSA below 2048 bit, ECDSA below P-256, ML-DSA other than 44 / 65 / 87, a request hash below SHA-256 (SHA-1, SHA-224, MD5 ...) are rejected.
+   RSA below 2048 bit, ECDSA below P-256, ML-DSA other than 44 / 65 / 87, a request hash below
+   SHA-256 (SHA-1, SHA-224, MD5 ...) are rejected.
    Code signing needs RSA 4096+, ECDSA P-384+, ML-DSA-65+.
 
-USAGE   new-pki-csr.sh [options]            (options skip the questions; with --non-interactive nothing is asked)
+USAGE   new-pki-csr.sh [options]            (options skip the questions; with --non-interactive
+        nothing is asked)
   --type leaf|intermediate-ca   --ou <department>
-  --cn <name>  --company-id <id>  --company <name>  --email <addr>  --phone <no>  --contact <person>  --address <street>  --city <c>  --state <s>
+  --cn <name>  --company-id <id>  --company <name>  --email <addr>  --phone <no>  --contact <person>
+               --address <street>  --city <c>  --state <s>
   --country <XX>  --postal-code <code>
-  --business-category <one of the four>  --jurisdiction-country <XX>  --jurisdiction-state <s>  --jurisdiction-locality <c>   (EV; default Country / State / City)
+  --business-category <one of the four>  --jurisdiction-country <XX>  --jurisdiction-state <s>
+                                         --jurisdiction-locality <c>   (EV; default Country / State
+                                         / City)
   --pen <number>   --san <name> (repeat, or comma list)   --add-development-san
   --purpose ServerAuth (default) | ClientAuth | ServerClientAuth | CodeSigning | EmailProtection
   --key rsa (default) | ecdsa | mldsa    --bits 2048|3072|4096|8192    --curve P-256|P-384|P-521    --mldsa 44|65|87    --digest SHA256|SHA384|SHA512
-  --name <text> (folder and file name, default the CN)   --out <folder> (default ./csr-requests)   --openssl <path>
+  --name <text> (folder and file name, default the CN)   --out <folder> (default ./csr-requests)
+  --openssl <path>
   --non-interactive   -h | --help
 
 RESULT  (folder  csr-requests/<name>_<yyyymmdd-HHMMSS>/ )
@@ -93,7 +118,8 @@ RESULT  (folder  csr-requests/<name>_<yyyymmdd-HHMMSS>/ )
   request-info.txt   what the request contains and which level it asks for     README.txt   what to do next
 
 WHERE IT RUNS
-  Linux: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES 15+, openSUSE 15+ (VM, bare metal, WSL).
+  Linux: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SLES 15+, openSUSE
+  15+ (VM, bare metal, WSL).
   The PowerShell twin for Windows: New-PkiCsr.ps1.     EXIT CODES   0 ok   1 error   4 OpenSSL not found   5 system not supported
 ============================================================
 EOF
@@ -108,7 +134,7 @@ BCAT=""; JCOUNTRY=""; JSTATE=""; JLOC=""; PEN=""; SANS=(); DEVSAN=0; PURPOSE="Se
 KEYTYPE="rsa"; BITS=4096; CURVE="P-384"; MLDSA=65; DIGEST="SHA384"; NAME=""; OUTDIR=""; OPENSSL_ARG=""; NONINT=0; KEYGIVEN=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    -h|--help|-help|--Help|help) show_help; exit 0 ;;
+    -h|--help|-help|--Help|help) show_help | help_pager; exit 0 ;;
     --type) CTYPE="$(printf '%s' "${2:-}" | tr 'A-Z' 'a-z')"; shift 2 ;;   --ou) OU="${2:-}"; shift 2 ;;
     --cn) CN="${2:-}"; shift 2 ;;            --company-id) COMPANY_ID="${2:-}"; shift 2 ;;   --company) COMPANY="${2:-}"; shift 2 ;;
     --email) EMAIL="${2:-}"; shift 2 ;;      --phone) PHONE="${2:-}"; shift 2 ;;             --contact) CONTACT="${2:-}"; shift 2 ;;

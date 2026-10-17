@@ -42,100 +42,171 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$script:Version = '5.3.6'
+$script:Version = '6.4.1'
+
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
 
 if ($Help) {
 @'
 ============================================================
- New-PkiTrustKit.ps1 - trust kits (CA certificates + a standalone installer) for Windows, Ubuntu, Red Hat family, SUSE family
- Version 5.3.6
- Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email: nicko@nextmantra.com
+ New-PkiTrustKit.ps1 - trust kits (CA certificates + a standalone installer) for Windows, Ubuntu,
+ Red Hat family, SUSE family
+ Version 6.4.1
+ Author : Nicko Satria Utama     Company: Agantra Inovatif OU (NextMantra)     Email:
+                                 nicko@nextmantra.com
 ============================================================
 FOR WHOM
-  People who only need to TRUST the PKI: junior developers, QA, customer testers. They do not sign or issue anything and need no key.
+  People who only need to TRUST the PKI: junior developers, QA, customer testers. They do not sign
+  or issue anything and need no key.
   They get ONE zip for their system, unzip it, run ONE script, give the password. That is all.
 
 WHAT YOU GET (in a new folder with a unique name inside .\transport\)
   transport\pki-trust-<pki-name>-<unique>-<date>-<time>\
-      windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  Remove-PkiCa.ps1  New-PkiCsr.ps1  Prepare-Computer.ps1  +  <name>.certpacked  (AES-256)
-      ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  remove-pki-ca.sh  new-pki-csr.sh  prepare-computer.sh  +  <name>.certpacked  (ZipCrypto, see below)
-      (Certificate request tools: New-PkiCsr.ps1 / new-pki-csr.sh make a key and a certificate request step by step; Prepare-Computer.ps1 / prepare-computer.sh install (PowerShell 7 on Windows,) OpenSSL and Python and put them on the PATH. Manual: docs\NewPkiCsr-MANUAL.txt)
-      redhat-pki-...zip     suse-pki-...zip                 the same for the Red Hat family and the SUSE family
-      PASSWORD.txt                                          the password of the .certpacked (send it by ANOTHER way than the zips)
+      windows-pki-<pki-name>-<unique>-<date>-<time>.zip     Install-PkiCa.ps1  Remove-PkiCa.ps1
+      New-PkiCsr.ps1  Prepare-Computer.ps1  +  <name>.certpacked  (AES-256)
+      ubuntu-pki-<pki-name>-<unique>-<date>-<time>.zip      install-pki-ca.sh  remove-pki-ca.sh
+      new-pki-csr.sh  prepare-computer.sh  +  <name>.certpacked  (ZipCrypto, see below) (Certificate
+      request tools: New-PkiCsr.ps1 / new-pki-csr.sh make a key and a certificate request step by
+      step; Prepare-Computer.ps1 / prepare-computer.sh install (PowerShell 7 on Windows,) OpenSSL
+      and Python and put them on the PATH. Manual: docs\NewPkiCsr-MANUAL.txt)
+      redhat-pki-...zip     suse-pki-...zip                 the same for the Red Hat family and the
+                            SUSE family
+      PASSWORD.txt                                          the password of the .certpacked (send it
+                                            by ANOTHER way than the zips)
       README.txt                                            what to tell the people
-  <pki-name> = <PkiName>-r<release> (or <PkiName>-nocr-r<release>, <PkiName>-all with -AllReleases; several companies: agantra-raksaka, more than three: multipki, -AllProfiles: allpki-all);
+  <pki-name> = <PkiName>-r<release> (or <PkiName>-nocr-r<release>, <PkiName>-all with -AllReleases;
+  several companies: agantra-raksaka, more than three: multipki, -AllProfiles: allpki-all);
   <unique> = 6 random characters, the same for the whole run.
 
 SEVERAL PKIs IN ONE KIT  (5.1.0)
-  A kit holds ONE .certpacked, and that .certpacked can hold as many PKIs as you choose - the PKIs of several companies, several releases of each:
+  A kit holds ONE .certpacked, and that .certpacked can hold as many PKIs as you choose - the PKIs
+  of several companies, several releases of each:
       -Pki agantra,raksaka       the latest release of each company          -Pki agantra,raksaka -AllReleases   every release of those companies
       -AllProfiles               every company that has a PKI, every release (implies -AllReleases)
-  The installer opens the .certpacked and installs EVERY PKI in it in one run (and writes down what it installed). certpack.tsv names the company and
-  the PKI folder of each certificate. A company in -Pki that has no PKI built yet stops the run (exit 4): build it first with pki_setup.ps1 -Pki <name>.
+  The installer opens the .certpacked and installs EVERY PKI in it in one run (and writes down what
+  it installed). certpack.tsv names the company and the PKI folder of each certificate. A company in
+  -Pki that has no PKI built yet stops the run (exit 4): build it first with pki_setup.ps1 -Pki
+  <name>.
 
 TAKING A PKI AWAY AGAIN ON THE DESTINATION  (5.1.0)
-  Every zip also holds a remove script: Remove-PkiCa.ps1 (Windows) / remove-pki-ca.sh (Linux). It reads the list the installer wrote and works like
+  Every zip also holds a remove script: Remove-PkiCa.ps1 (Windows) / remove-pki-ca.sh (Linux). It
+  reads the list the installer wrote and works like
   RemoveTrust / RemoveAllTrust of the PKI machine, without any package or password:
-      Remove-PkiCa.ps1 -List | -Pki raksaka | -Pki agantra,raksaka | -All | -Org "Raksaka" [-Check] [-Scope Machine|User] [-Yes]
-      remove-pki-ca.sh --list | --pki raksaka | --all | --org raksaka [--check] [--keep-files] [--yes]
+      Remove-PkiCa.ps1 -List | -Pki raksaka | -Pki agantra,raksaka | -All | -Org "Raksaka" [-Check]
+      [-Scope Machine|User] [-Yes] remove-pki-ca.sh --list | --pki raksaka | --all | --org raksaka
+      [--check] [--keep-files] [--yes]
 
 THE INSTALLERS (standalone: they need none of the other scripts of this project)
-  Windows (Install-PkiCa.ps1): Windows PowerShell 5.1 or PowerShell 7, Windows 10 / 11. In an ADMINISTRATOR window it installs into the
-     Local Machine stores, in a normal window into the Current User stores. Every root (top, track, quadrant) -> Trusted Root Certification
-     Authorities, every intermediate -> Intermediate Certification Authorities. An older version of the same PKI (same organization) is
-     removed and replaced. When it is done the extracted files, the script and the .certpacked are deleted: only the zip stays.
+  Windows (Install-PkiCa.ps1): Windows PowerShell 5.1 or PowerShell 7, Windows 10 / 11. In an
+  ADMINISTRATOR window it installs into the
+     Local Machine stores, in a normal window into the Current User stores. Every root (top, track,
+     quadrant) -> Trusted Root Certification
+     Authorities, every intermediate -> Intermediate Certification Authorities. An older version of
+     the same PKI (same organization) is removed and replaced. When it is done the extracted files,
+     the script and the .certpacked are deleted: only the zip stays.
      -Firefox: Firefox is told to use the Windows certificates. -Check: only show.
-  Both installers write a list of what they installed (Windows: %ProgramData%\PkiTrustKit\installed.tsv or %LOCALAPPDATA%\PkiTrustKit; Linux: /var/lib/pki-trust-kit/installed.tsv).
-  Linux (install-pki-ca.sh): the roots go to the system store of the distribution (ca-certificates): Ubuntu / Debian
-     /usr/local/share/ca-certificates + update-ca-certificates; RHEL family /etc/pki/ca-trust/source/anchors + update-ca-trust;
-     SUSE /etc/pki/trust/anchors + update-ca-certificates. The package is opened into the folder pki/ next to the script; the zip and pki/ stay.
+  Both installers write a list of what they installed (Windows:
+  %ProgramData%\PkiTrustKit\installed.tsv or %LOCALAPPDATA%\PkiTrustKit; Linux:
+  /var/lib/pki-trust-kit/installed.tsv).
+  Linux (install-pki-ca.sh): the roots go to the system store of the distribution (ca-certificates):
+  Ubuntu / Debian
+     /usr/local/share/ca-certificates + update-ca-certificates; RHEL family
+     /etc/pki/ca-trust/source/anchors + update-ca-trust;
+     SUSE /etc/pki/trust/anchors + update-ca-certificates. The package is opened into the folder
+     pki/ next to the script; the zip and pki/ stay.
      --firefox: Firefox profiles of the user. --check: only show.
 
 PARAMETERS
   -Target <list>      Windows, Ubuntu, Redhat, SUSE (any of them, comma separated)       -All   all four
   -Release <n>        the release of the PKI to pack (default: the latest)               -NoCaRevocationInfo   the NoCR family
-  -Pki <a,b,...>     the company/companies: one name, or several for one kit (5.1.0). Default agantra.
+  -Pki <a,b,...>     the company/companies: one name, or several for one kit (5.1.0). Default
+                     agantra.
   -AllProfiles        the PKIs of ALL companies, every release (5.1.0)
-  -AllReleases        every release (R1, R2 ...) AND every NoCR release (NoCR-R1, NoCR-R2 ...) of the chosen company/companies found in .\pki\
-   (alias -AllPki)    (an old flat PKI in pki\ itself too). All of them go into ONE .certpacked; the installer installs them all in one run.
-                      The kit is named <PkiName>-all. Not combined with -Release, -NoCaRevocationInfo, -PkiRoot.
+  -AllReleases        every release (R1, R2 ...) AND every NoCR release (NoCR-R1, NoCR-R2 ...) of
+                      the chosen company/companies found in .\pki\
+   (alias -AllPki)    (an old flat PKI in pki\ itself too). All of them go into ONE .certpacked; the
+                      installer installs them all in one run. The kit is named <PkiName>-all. Not
+                      combined with -Release, -NoCaRevocationInfo, -PkiRoot.
   -PkiRoot <folder>   one PKI folder made by pki_setup.ps1 (default: the latest release in .\pki\)
   -PkiName <text>     the name in the file names (default agantra); letters, digits and - only
   -OutDirectory <dir> where the run folder is made (default .\transport)
   -PackagePassword    the password (default: a strong one is generated and written to PASSWORD.txt)
-  -SelfExtract        ALSO make a self-extracting file of every zip (optional): Windows  windows-pki-...-selfextract.cmd  (double click: unpacks into the folder of the file),
-                      Linux  ubuntu-pki-...-selfextract.sh  (bash file.sh: unpacks into the CURRENT folder, or --dir F). They only EXTRACT: the PKI is still installed by the
-                      script that comes out (Install-PkiCa.ps1 / install-pki-ca.sh): the installer itself is never self-extracting.
+  -SelfExtract        ALSO make a self-extracting file of every zip (optional): Windows
+                      windows-pki-...-selfextract.cmd  (double click: unpacks into the folder of the
+                      file), Linux  ubuntu-pki-...-selfextract.sh  (bash file.sh: unpacks into the
+                      CURRENT folder, or --dir F). They only EXTRACT: the PKI is still installed by
+                      the script that comes out (Install-PkiCa.ps1 / install-pki-ca.sh): the
+                      installer itself is never self-extracting.
   -Force              overwrite an existing run folder (the names are unique: normally not needed)
   -Help               this text
 
 ABOUT THE PASSWORD
-  The package holds only PUBLIC certificates. The password is a gate against a wrong or changed package, not a secret-keeper: Linux packages use
-  ZipCrypto (opened by python3 / unzip / 7z that every distribution has; AES-256 would need 7-Zip), Windows packages use AES-256.
+  The package holds only PUBLIC certificates. The password is a gate against a wrong or changed
+  package, not a secret-keeper: Linux packages use
+  ZipCrypto (opened by python3 / unzip / 7z that every distribution has; AES-256 would need 7-Zip),
+  Windows packages use AES-256.
   There is no private key in any file of the kit.
 
-SUPPORTED SYSTEMS (checked by the installers; anything else is REFUSED with an error, nothing is changed, exit 5)
-  Windows : Windows 11 24H2 or newer (build 26100 and later: 25H2, 26H2 ...) and Windows Server 2025 = everything is installed.
-            Windows Server 2022 = only the CLASSIC root and intermediate CAs are installed (the post-quantum ones are skipped).
+SUPPORTED SYSTEMS (checked by the installers; anything else is REFUSED with an error, nothing is
+changed, exit 5)
+  Windows : Windows 11 24H2 or newer (build 26100 and later: 25H2, 26H2 ...) and Windows Server 2025
+  = everything is installed.
+            Windows Server 2022 = only the CLASSIC root and intermediate CAs are installed (the
+            post-quantum ones are skipped).
             Refused: Windows 10 and earlier, Windows 11 before 24H2, Windows Server before 2022.
-  Linux   : Ubuntu 24.04 / 26.04 or newer; CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle Linux 10+; SUSE Linux Enterprise 15+ (15, 16 ...);
-            openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Every other distribution or older version is refused.
+  Linux   : Ubuntu 24.04 / 26.04 or newer; CentOS Stream 10+, RHEL 10+, Rocky Linux 10+, Oracle
+          Linux 10+; SUSE Linux Enterprise 15+ (15, 16 ...);
+            openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Every other distribution or older version is
+            refused.
 
-EXIT CODES   0 ok   1 error   4 PKI folder not found   (the installers: 5 = this system is not supported)
+EXIT CODES   0 ok   1 error   4 PKI folder not found   (the installers: 5 = this system is not
+                                                       supported)
 ============================================================
 
 WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
-                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
-                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
+                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
+                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
+                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
+                pki-<name>-nocr-NN).
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
-'@ | Write-Host
+'@ | Out-PagedHelp
     return
 }
 

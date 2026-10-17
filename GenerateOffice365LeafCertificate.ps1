@@ -57,6 +57,7 @@ param(
     [string]$CpsUrlEv,
     # ---- output ----
     [ValidateSet('PEM', 'DER', 'CER', 'CERT', 'P7B', 'RFC7468', 'PFX', 'ALL')][string[]]$Format = @('ALL'),
+    [ValidateSet('sha256', 'sha384', 'sha512', 'sha3-256', 'sha3-384', 'sha3-512', 'None')][string[]]$HashFile = @('sha256', 'sha512'),
     [string]$OutputRoot,
     [string]$Password = 'Abc12345!',
     [switch]$LegacyPfx,
@@ -76,110 +77,202 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $script:ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$script:PkiHashFileAlgs = @($HashFile)      # 6.4.1: <name>.sha256 / .sha512 next to every certificate
 
 function Get-PersonCertSerial { param([string]$Path) try { $t = Get-PkiCertText -Path $Path; if ($t -match 'Serial Number:\s*\r?\n?\s*([0-9a-fA-F:]+)') { return ($Matches[1] -replace ':','').ToUpper() } } catch { }; return '' }
 
 function Show-PersonHelp {
     @'
 ============================================================
- GenerateOffice365LeafCertificate.ps1 - Microsoft Office / Microsoft 365 DOCUMENT SIGNING certificates
- Version 5.3.6
+ GenerateOffice365LeafCertificate.ps1 - Microsoft Office / Microsoft 365 DOCUMENT SIGNING
+ certificates
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Manual : docs\GenerateOffice365LeafCertificate-MANUAL.txt     Design : docs\PKI-Design-with-FIPS-and-PQC.txt (10.63)
- Ubuntu : GenerateOffice365LeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl + python3.
- Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.   Same mechanism as GeneratePersonLeafCertificate.ps1.
+ Manual : docs\GenerateOffice365LeafCertificate-MANUAL.txt     Design :
+ docs\PKI-Design-with-FIPS-and-PQC.txt (10.63)
+ Ubuntu : GenerateOffice365LeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash +
+ openssl + python3.
+ Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.   Same mechanism as
+ GeneratePersonLeafCertificate.ps1.
 
-WHAT IT MAKES   (a certificate to sign Word / Excel / PowerPoint / PDF documents; NOT a qualified certificate)
-  Extended key usage   Document Encryption 1.3.6.1.4.1.311.80.1  +  Secure Email / S/MIME 1.3.6.1.5.5.7.3.4  +  Document Signing 1.3.6.1.4.1.311.10.3.12
-                       (-NoDocumentSigningEku leaves out the Microsoft Document Signing OID: then only the first two)
-  Key usage            critical: Digital Signature (signing) + Non-Repudiation (contentCommitment) + Key Encipherment (RSA: the key exchange of document encryption)
-                       ECDSA keys cannot encipher keys: they get Key Agreement instead. Office document encryption (IRM / S/MIME) is RSA based: use RSA there.
-  Subject              [serialNumber = <ID>]  givenName  surname  CN = <Given> <Surname>  C = <country, default EE>   (names as you give them; UTF-8)
-  SAN                  rfc822Name = the e-mail address (the Microsoft 365 account).  -DnsFromEmail (or "dnsFromEmail": true) adds DNS:<domain> and DNS:*.<domain>.
-  Key                  Classic PKI only (Office uses the Windows CryptoAPI / CNG). RSA is the default and the most compatible: RSA 4096 (minimum 2048, enforced).
-                       ECDSA: -KeyType ECDSA, P-384 (default) or P-256 / P-521 (minimum P-256, enforced).
-                       Digest: the SHA-2 family only (SHA-1, MD5 and shorter are refused). The issuing CA decides (SHA-256 on Q1 RSA, SHA-384 on Q2 EC) unless
+WHAT IT MAKES   (a certificate to sign Word / Excel / PowerPoint / PDF documents; NOT a qualified
+                certificate)
+  Extended key usage   Document Encryption 1.3.6.1.4.1.311.80.1  +  Secure Email / S/MIME
+                       1.3.6.1.5.5.7.3.4  +  Document Signing 1.3.6.1.4.1.311.10.3.12
+                       (-NoDocumentSigningEku leaves out the Microsoft Document Signing OID: then
+                       only the first two)
+  Key usage            critical: Digital Signature (signing) + Non-Repudiation (contentCommitment) +
+                       Key Encipherment (RSA: the key exchange of document encryption) ECDSA keys
+                       cannot encipher keys: they get Key Agreement instead. Office document
+                       encryption (IRM / S/MIME) is RSA based: use RSA there.
+  Subject              [serialNumber = <ID>]  givenName  surname  CN = <Given> <Surname>  C =
+                       <country, default EE>   (names as you give them; UTF-8)
+  SAN                  rfc822Name = the e-mail address (the Microsoft 365 account).  -DnsFromEmail
+                       (or "dnsFromEmail": true) adds DNS:<domain> and DNS:*.<domain>.
+  Key                  Classic PKI only (Office uses the Windows CryptoAPI / CNG). RSA is the
+                       default and the most compatible: RSA 4096 (minimum 2048, enforced). ECDSA:
+                       -KeyType ECDSA, P-384 (default) or P-256 / P-521 (minimum P-256, enforced).
+                       Digest: the SHA-2 family only (SHA-1, MD5 and shorter are refused). The
+                       issuing CA decides (SHA-256 on Q1 RSA, SHA-384 on Q2 EC) unless
                        -Hash sha256|sha384|sha512.  Office baseline: SHA-256; SHA-384 / SHA-512 are supported.
-  Level                OV (default). EV with -Level EV (397 days). DV is never used.     Quadrant 1 = Classic NON-FIPS (default); -Fips or -Quadrant 2 = Classic FIPS.
-  Policies             the same as every OV / EV certificate: level policy, company PEN policies, the High Assurance policy (OV), each with the CPS pointer
-                       (OV https://nextmantra.com/security/certs, EV .../ev-cps.pdf).
+  Level                OV (default). EV with -Level EV (397 days). DV is never used.     Quadrant 1
+                       = Classic NON-FIPS (default); -Fips or -Quadrant 2 = Classic FIPS.
+  Policies             the same as every OV / EV certificate: level policy, company PEN policies,
+                       the High Assurance policy (OV), each with the CPS pointer (OV
+                       https://nextmantra.com/security/certs, EV .../ev-cps.pdf).
   Validity             730 days (OV) by default, -Days; cut to what the issuing CA has left.
-  Output               leafcerts\office365\<name>\  every format (PEM DER CER CERT P7B RFC7468 PFX), key + public key, chain, leaf-info.json, office365-info.json,
-                       OFFICE-NOTES.txt (how to use it), and one office365-batch-<date>.json summary per run (no passwords in it).
+  Output               leafcerts\office365\<name>\  every format (PEM DER CER CERT P7B RFC7468 PFX),
+                       key + public key, chain, leaf-info.json, office365-info.json,
+                       OFFICE-NOTES.txt (how to use it), and one office365-batch-<date>.json summary
+                       per run (no passwords in it).
 
 ONE SIGNER
-  .\GenerateOffice365LeafCertificate.ps1 -GivenName Budi -Surname Santoso -Email budi.santoso@example.co.id [-Country ID] [-IdCode STAFF-0001]
+  .\GenerateOffice365LeafCertificate.ps1 -GivenName Budi -Surname Santoso -Email `
+        budi.santoso@example.co.id [-Country ID] [-IdCode STAFF-0001]
   -GivenName / -Surname  Several given names are allowed.        -Email <address>   REQUIRED.
-  -IdCode <text>         Optional identifier (staff number, national ID, passport ...). Goes to the subject serialNumber (-SerialNumber replaces it,
-                         -SerialNumberFormat "{IdType}{Country}-{IdCode}" builds it).   -IdType <code>  optional label.
+  -IdCode <text>         Optional identifier (staff number, national ID, passport ...). Goes to the
+                         subject serialNumber (-SerialNumber replaces it, -SerialNumberFormat
+                         "{IdType}{Country}-{IdCode}" builds it).   -IdType <code>  optional label.
   -Country <CC>          Two letters, default EE ([ office365 ] Country).
-  -CommonName <text>     Replaces the CN.   -CommonNameFormat "{Given} {Surname}"  tokens {Given} {Surname} {SurnameFirst} {IdCode} {Country}; max 64 characters.
-  REVOCATION INFORMATION  (4.9.4)   by default the certificate has the CRL distribution point, the OCSP URL and the CA issuer URL of the issuing CA.
-  -NoCrl                 No CRL distribution point (crlDistributionPoints extension) in the certificate.
-  -NoOcsp                No OCSP URL (the OCSP method of Authority Information Access); the CA issuer URL stays.
-  -NoRevocationInfo      Both: no CRL and no OCSP. Use it when Word / Excel / Outlook say "cannot connect to the revocation server" because the URLs of this
-                         private PKI cannot be reached from the machine that checks the signature. Without any revocation URL a client has nothing to check:
-                         it accepts the certificate until it expires. The certificate is still recorded in the CA database (PkiRevocation.ps1 can still revoke it
-                         and the CRL lists it), but a client that has no URL will not learn about it. Per signer in the JSON file: "noCrl", "noOcsp", "noRevocationInfo"
-                         (true | false). Defaults for all: [ office365 ] NoCrl / NoOcsp in agantra_pki.cnf.
-                         NoCR: with this switch the leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust.
-                         WORD 365: this alone does NOT remove "Recoverable Signature" (the revocation status stays unknown). Issue WITHOUT it from the normal PKI and run  .\Start-PkiCrlServer.ps1  (elevated): it serves the CRLs on this machine.
+  -CommonName <text>     Replaces the CN.   -CommonNameFormat "{Given} {Surname}"  tokens {Given}
+                         {Surname} {SurnameFirst} {IdCode} {Country}; max 64 characters.
+  REVOCATION INFORMATION  (4.9.4)   by default the certificate has the CRL distribution point, the
+  OCSP URL and the CA issuer URL of the issuing CA.
+  -NoCrl                 No CRL distribution point (crlDistributionPoints extension) in the
+                         certificate.
+  -NoOcsp                No OCSP URL (the OCSP method of Authority Information Access); the CA
+                         issuer URL stays.
+  -NoRevocationInfo      Both: no CRL and no OCSP. Use it when Word / Excel / Outlook say "cannot
+                         connect to the revocation server" because the URLs of this private PKI
+                         cannot be reached from the machine that checks the signature. Without any
+                         revocation URL a client has nothing to check: it accepts the certificate
+                         until it expires. The certificate is still recorded in the CA database
+                         (PkiRevocation.ps1 can still revoke it and the CRL lists it), but a client
+                         that has no URL will not learn about it. Per signer in the JSON file:
+                         "noCrl", "noOcsp", "noRevocationInfo" (true | false). Defaults for all: [
+                         office365 ] NoCrl / NoOcsp in agantra_pki.cnf. NoCR: with this switch the
+                         leaf is signed by the NoCR PKI (latest NoCR release, or -Release N): its CA
+                         certificates carry no CRL / OCSP URL either. Without a NoCR PKI the script
+                         stops: pki_setup.ps1 -NoCaRevocationInfo -InstallTrust. WORD 365: this
+                         alone does NOT remove "Recoverable Signature" (the revocation status stays
+                         unknown). Issue WITHOUT it from the normal PKI and run
+                         .\Start-PkiCrlServer.ps1  (elevated): it serves the CRLs on this machine.
   -KeepCase              Names are kept as given (default for Office; [ office365 ] KeepCase).
 
 MANY SIGNERS - A JSON FILE  (JSON only; CSV is not accepted)
-  .\GenerateOffice365LeafCertificate.ps1 -ExampleFile .\office365.json      writes an example with 5 people (3 isGenerate true) and stops
-  .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -ValidateOnly   checks the file, shows the table, issues nothing
+  .\GenerateOffice365LeafCertificate.ps1 -ExampleFile .\office365.json      writes an example with `
+        5 people (3 isGenerate true) and stops
+  .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json -ValidateOnly   checks the file, `
+        shows the table, issues nothing
   .\GenerateOffice365LeafCertificate.ps1 -File .\office365.json
-  { "persons": [ { "isGenerate": true, "givenName": "Budi", "surname": "Santoso", "email": "budi.santoso@example.co.id", "country": "ID" }, { ... } ] }
-  Keys (any spelling or case):  givenName  surname  email  (required)     isGenerate (true | false; default true; false = skipped, not even checked)
-  idCode  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  noCrl  noOcsp  noRevocationInfo  (optional)
-  Keys that start with _ are comments. Every signer with isGenerate true is checked BEFORE anything is written: one error = nothing is issued, all errors
-  are listed. A signer is then issued on its own; a failure removes that signer's folder and the run goes on (-StopOnError stops). Exit 1 when one failed.
+  { "persons": [ { "isGenerate": true, "givenName": "Budi", "surname": "Santoso", "email":
+  "budi.santoso@example.co.id", "country": "ID" }, { ... } ] }
+  Keys (any spelling or case):  givenName  surname  email  (required)     isGenerate (true | false;
+  default true; false = skipped, not even checked) idCode  idType  serialNumber  country  level
+  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail
+  noCrl  noOcsp  noRevocationInfo  (optional)
+  Keys that start with _ are comments. Every signer with isGenerate true is checked BEFORE anything
+  is written: one error = nothing is issued, all errors are listed. A signer is then issued on its
+  own; a failure removes that signer's folder and the run goes on (-StopOnError stops). Exit 1 when
+  one failed.
 
 CERTIFICATE OPTIONS
   -Level OV|EV   -Quadrant 1|2   -Fips   -KeyType RSA|ECDSA   -KeyBits 2048|3072|4096|8192   -NoDocumentSigningEku   -Curve P-256|P-384|P-521   -Hash   -Days <n>
   -Policy <oid|oid=cps>  -CpsUrl <url>  -CpsUrlEv <url>
-  -Password <text>       Password of the PFX (default Abc12345!; the password key of a signer replaces it). CHANGE IT for real use.
+  -Password <text>       Password of the PFX (default Abc12345!; the password key of a signer
+                         replaces it). CHANGE IT for real use.
   -Format <list>         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)
+  -HashFile <list>       A hash file per algorithm next to every certificate: <name>.sha256
+                         <name>.sha512 (default). Also sha384 sha3-256 sha3-384 sha3-512 or None.
+                         Lines are "<hash>  <file>" (sha256sum -c <name>.sha256 checks them).
   -OutputRoot <path>     Default leafcerts\office365.
-  -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then stop.
-  -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.
-  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in .\pki\. A release that no longer exists
-                       (deleted) is not an error: the latest release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot <folder> names one PKI folder and overrides both.
+  -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then
+                         stop.
+  -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in
+  pki_setup.ps1.
+  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
+                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
+                       release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL /
+                       OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot <folder> names one PKI folder and
+                                            overrides both.
 
 USING THE CERTIFICATE  (OFFICE-NOTES.txt in every folder says the same)
-  1  Import the .pfx into Current User > Personal (double click, or -InstallPfx). Office finds the private key there.
-  1b Word / Excel say "cannot connect to the revocation server"? Making the CRL host reachable is the reliable fix: .\Start-PkiCrlServer.ps1 (this machine), or pki-server.sh (a server). -NoRevocationInfo (NoCR PKI, no CRL / OCSP URL) did NOT remove the message in Word 365 in the author's test; run  certutil -verify -urlfetch <cert>.cer  to see what fails.
-  2  The Root CA of this PKI must be trusted on the machine that OPENS the document (pki_setup.ps1 -InstallTrust, or the Root in Trusted Root Certification Authorities);
+  1  Import the .pfx into Current User > Personal (double click, or -InstallPfx). Office finds the
+  private key there.
+  1b Word / Excel say "cannot connect to the revocation server"? Making the CRL host reachable is
+  the reliable fix: .\Start-PkiCrlServer.ps1 (this machine), or pki-server.sh (a server).
+  -NoRevocationInfo (NoCR PKI, no CRL / OCSP URL) did NOT remove the message in Word 365 in the
+  author's test; run  certutil -verify -urlfetch <cert>.cer  to see what fails.
+  2  The Root CA of this PKI must be trusted on the machine that OPENS the document (pki_setup.ps1
+  -InstallTrust, or the Root in Trusted Root Certification Authorities);
      otherwise Office shows the signature as "not trusted".
-  3  Word / Excel / PowerPoint: File > Info > Protect Document > Add a Digital Signature.  PDF signing in Adobe needs the same trust on that machine.
-  4  The certificate is also an encryption certificate (Document Encryption, Secure Email, Key Encipherment): publish the .cer for people who encrypt for you.
-  This is an own-PKI certificate: Microsoft 365 does not treat it as a certificate of a public trust list.
+  3  Word / Excel / PowerPoint: File > Info > Protect Document > Add a Digital Signature.  PDF
+  signing in Adobe needs the same trust on that machine.
+  4  The certificate is also an encryption certificate (Document Encryption, Secure Email, Key
+  Encipherment): publish the .cer for people who encrypt for you.
+  This is an own-PKI certificate: Microsoft 365 does not treat it as a certificate of a public trust
+  list.
 
-DEFAULTS IN agantra_pki.cnf   [ office365 ]   Days  Level  CommonNameFormat  SerialNumberFormat  Country  KeyType  KeyBits  Curve  DnsFromEmail  KeepCase  NoCrl  NoOcsp
+DEFAULTS IN agantra_pki.cnf   [ office365 ]   Days  Level  CommonNameFormat  SerialNumberFormat
+                              Country  KeyType  KeyBits  Curve  DnsFromEmail  KeepCase  NoCrl
+                              NoOcsp
 EXIT CODES   0 ok   1 an error or a failed signer
 ============================================================
 
 WHICH PKI  (-Pki, 5.0.0)
-  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default: agantra (or DefaultPki of pki_tools.cnf).
-                The names: .\pki_setup.ps1 -ListPki  (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1.
-                The PKI folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR: pki-<name>-nocr-NN).
+  -Pki <name>   the company whose PKI is used: the file <name>_pki.cnf next to the scripts. Default:
+                agantra (or DefaultPki of pki_tools.cnf). The names: .\pki_setup.ps1 -ListPki
+                (press Tab after -Pki to see them). Make a new company: .\New-PkiConfig.ps1. The PKI
+                folders are .\pki\pki-default-NN (agantra) and .\pki\pki-<name>-NN (NoCR:
+                pki-<name>-nocr-NN).
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 
-if ($Help) { Show-PersonHelp; exit 0 }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-PersonHelp }; exit 0 }
 
 # Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
 $__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'

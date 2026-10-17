@@ -1,0 +1,550 @@
+====================================================================================================
+ Sign-Code - sign your software with a code-signing certificate
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OÜ (NextMantra)
+ Email  : nicko@nextmantra.com
+ Version: 6.4.1
+====================================================================================================
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : Signs your software (Windows, .NET, Java, APK, Office) and checks the certificate
+                and time server first.
+ Who reads it : Developers and DevSecOps staff.
+ You need     : A code-signing certificate (private PKI or public OV/EV).
+ Start with   : Read section 2 (Quick start); DevSecOps: section 10.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+
+Files : Sign-Code.ps1   (Windows 11, Windows Server 2022 / 2025)
+        Sign-Code.sh    (Ubuntu 24 / 25, CentOS Stream 10, RHEL 10, Rocky Linux 10, Oracle Linux 10)
+Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help
+
+CONTENTS
+  1. What is code signing, in plain words
+  2. Quick start (5 minutes)
+  3. What the script checks BEFORE it signs
+  4. Which files can be signed
+  5. Which certificate can be used
+  6. Timestamp servers
+  7. Tools: what is installed, and how
+  8. What you get after signing
+  9. All options (PowerShell and shell names side by side)
+ 10. Setting up a BUILD ENVIRONMENT (for DevSecOps)
+       10.1  Rules that are the same everywhere
+       10.2  GitHub Actions
+       10.3  Azure DevOps Services and Azure DevOps Server
+       10.4  AWS CodeBuild
+       10.5  Google Cloud Build
+       10.6  Alibaba Cloud Yunxiao (Flow)
+       10.7  A build VM in Azure, AWS, Alibaba or Google Cloud
+       10.8  Visual Studio 2026 and MSBuild
+       10.9  Keeping the key safe: PFX secret or cloud key?
+ 11. Exit codes
+ 12. Problems and answers
+ 13. What was NOT tested
+
+----------------------------------------------------------------------------------------------------
+1. WHAT IS CODE SIGNING, IN PLAIN WORDS
+----------------------------------------------------------------------------------------------------
+
+When you download a program, how do you know who made it, and that nobody changed it on the way?
+A code signature answers both questions. The maker adds a small block of data to the file. The
+block is made with the maker's PRIVATE KEY. Anyone can check it with the matching CERTIFICATE.
+
+  * If the file is changed later, even by one byte, the check fails.
+  * The certificate says who the maker is (your company name).
+  * A TIMESTAMP from an independent server proves WHEN the file was signed. Without it, the
+    signature stops being trusted the day the certificate expires. With it, the signature stays
+    good for years.
+
+Your certificate comes from one of two places:
+
+  PRIVATE PKI   A certificate made by this project (GenerateLeafCertificate.ps1 with
+                -Purpose CodeSigning). Good for internal tools, test and staging builds. Computers
+                must trust your root CA (Install-PkiTrust does that), otherwise Windows shows
+                "unknown publisher".
+  PUBLIC CA     An OV or EV code-signing certificate bought from DigiCert, Sectigo, GlobalSign,
+                SSL.com, Certum and others. Every computer trusts it. Needed for software you give
+                to customers. By industry rule the private key lives in hardware (a USB token or a
+                cloud HSM), so you cannot simply export it to a file.
+
+Sign-Code works with both.
+
+----------------------------------------------------------------------------------------------------
+2. QUICK START (5 MINUTES)
+----------------------------------------------------------------------------------------------------
+
+Step 1. Make the certificate (you do this once; skip it if you have a public certificate).
+
+    .\GenerateLeafCertificate.ps1 -Cn "My Company Code Signing" -Purpose CodeSigning
+
+  You get a folder with the certificate (.crt), the key (.key), the chain and a .pfx file.
+
+Step 2. Put the .pfx password in an environment variable. This keeps it out of your history.
+
+    Windows (PowerShell) :   $env:SIGN_PFX_PASSWORD = 'the password'
+    Linux (bash)         :   export SIGN_PFX_PASSWORD='the password'
+
+Step 3. Try the checks only. Nothing is signed.
+
+    .\Sign-Code.ps1 -Pfx .\codesign.pfx -CheckOnly
+    ./Sign-Code.sh  --pfx codesign.pfx --check-only
+
+  Good result: "Certificate complies" and "Timestamp server answers".
+
+Step 4. Sign.
+
+    .\Sign-Code.ps1 -Pfx .\codesign.pfx -File .\app.exe -File .\app.dll
+    .\Sign-Code.ps1 -Pfx .\codesign.pfx -Folder e:\build\a -Folder e:\build\b
+    ./Sign-Code.sh  --pfx codesign.pfx --folder ./publish --exclude '*.Tests.dll'
+
+Step 5. Look at the result. Next to every signed file you find two small files, for example
+        app.exe-signed.sha256 and app.exe-signed.sha512. Keep them with the release.
+
+----------------------------------------------------------------------------------------------------
+3. WHAT THE SCRIPT CHECKS BEFORE IT SIGNS
+----------------------------------------------------------------------------------------------------
+
+The script is strict on purpose. If a check fails, NOTHING is signed and the script ends.
+
+ A. THE CERTIFICATE  (a failure here ends the script with exit code 2)
+
+    Check                                     Why
+    ----------------------------------------  --------------------------------------------------
+    Not expired, already valid                A signature made with a bad certificate is useless.
+    Extended Key Usage contains               The "purpose" of the certificate. A web-server
+    "Code Signing" (1.3.6.1.5.5.7.3.3)        certificate must never sign code.
+    Key Usage has Digital Signature           The key is allowed to sign.
+    Not a CA certificate (CA:FALSE)           A CA key must never sign software.
+    RSA 2048 or larger, or ECDSA P-256+       Weaker keys are refused.
+    (public CA: RSA 3072 or larger)           This is the rule of the CA/Browser Forum.
+    Signature algorithm is not MD5 / SHA-1    Broken algorithms.
+    Not an ML-DSA (quantum) certificate       Windows Authenticode, Java, Android and NuGet
+                                              cannot verify ML-DSA signatures yet.
+
+  Warnings (the script goes on): the certificate ends in less than 30 days; it also carries other
+  purposes; it is self-signed; RSA is below 3072; the chain cannot be built on this computer.
+
+  PRIVATE PKI or PUBLIC CA?  The option -CertSource says which rules apply (default Auto: if the
+  chain ends at a root that this computer trusts it is "PublicCa", else "PrivatePki"). With
+  PublicCa the chain MUST be trusted, otherwise the script refuses the certificate.
+
+ B. THE TIMESTAMP SERVER  (a failure here ends the script with exit code 3)
+
+    The script sends a real RFC 3161 request to the server and reads the answer. It checks:
+      * the server can be reached from this computer (firewall, proxy, DNS),
+      * the answer is a valid timestamp,
+      * the certificate of the timestamp server is still valid, and has the "Time Stamping" purpose,
+      * (PowerShell) the clock of this computer differs by less than 5 minutes.
+    A warning appears if the timestamp certificate ends in less than 30 days.
+
+ C. THE TOOLS: see chapter 7.
+
+----------------------------------------------------------------------------------------------------
+4. WHICH FILES CAN BE SIGNED
+----------------------------------------------------------------------------------------------------
+
+  Type               Extensions                                  Signed with
+  -----------------  ------------------------------------------  --------------------------------
+  Windows programs   exe dll sys ocx scr cpl efi ax drv winmd    Windows : signtool
+  and installers     xll msi msp cab cat msix appx               Linux   : osslsigncode
+  Scripts            ps1 psm1 psd1 ps1xml psc1 cdxml             Windows : Set-AuthenticodeSignature
+                                                                 Linux   : osslsigncode
+                     vbs js wsf                                  Windows only (signtool)
+  .NET               The .dll and .exe that .NET Framework       same as Windows programs
+                     (Windows only) and .NET (any platform)
+                     build. NuGet packages: nupkg snupkg         dotnet nuget sign
+  Java               jar war ear                                 jarsigner (JDK)
+  Android            apk                                         apksigner (Android build-tools)
+                     aab                                         jarsigner
+  Microsoft Office   docm xlsm pptm dotm xlam ppam xltm potm     Windows only, signtool. Needs
+  VBA                doc xls ppt dot xla                         Microsoft Office (or the Office
+                                                                 SIP) installed on that PC.
+
+  Not supported: native Linux software (rpm, deb, ELF programs). Use GPG or "rpm --addsign".
+  A file with another extension is skipped with a warning. With -Strict (--strict) a skipped file
+  makes the run fail.
+
+  Notes
+    * An APK has no timestamp: the Android format does not have one.
+    * On Linux the VBA files and vbs / js / wsf are skipped (they need Windows).
+    * msix / appx: the "Publisher" inside the package must equal the subject of the certificate.
+
+----------------------------------------------------------------------------------------------------
+5. WHICH CERTIFICATE CAN BE USED
+----------------------------------------------------------------------------------------------------
+
+Choose ONE way:
+
+  -Pfx file.pfx               A PFX / P12 file. Password in the environment variable named by
+  --pfx file.pfx              -PfxPasswordEnv (default SIGN_PFX_PASSWORD). If the variable is empty
+                              and you sit at a console, you are asked.
+  -PfxBase64Env NAME          For pipelines: NAME is the environment variable that holds the PFX
+  --pfx-base64-env NAME       file as base64 text (a pipeline "secret"). The script writes a
+                              temporary file with owner-only rights and deletes it at the end.
+  -CertPem a.crt -KeyPem a.key   Your private PKI leaf as PEM files. Key password (if any) in the
+  --cert-pem / --key-pem      variable SIGN_KEY_PASSWORD (-KeyPasswordEnv).
+  -Thumbprint HEX             (Windows only) A certificate already in the Windows certificate
+                              store. This is how a hardware token (USB EV token, smart card) is
+                              used: the key stays on the token; Windows asks for the PIN.
+                              -StoreLocation CurrentUser (default) or LocalMachine.
+  -Provider NAME              The key is in a cloud key service or HSM and never leaves it:
+  --provider NAME
+        AzureKeyVault          AzureSignTool (Windows) or Jsign (Linux)
+        AzureTrustedSigning    Microsoft's cloud signing service (now named "Artifact Signing")
+        AwsKms                 AWS Key Management Service, through Jsign
+        GcpKms                 Google Cloud KMS, through Jsign
+        Pkcs11                 any HSM with a PKCS#11 library, through Jsign
+        DigiCertKeyLocker      DigiCert KeyLocker, through the smctl client
+      -ProviderArg "a|b|c"     The settings of the provider separated by "|" (see -Help).
+      -CertFile file.cer       The PUBLIC certificate. Needed so that chapter 3 can run its checks.
+
+How the password is protected. The script never puts your PFX password on a command line. On
+Windows the certificate is imported into a temporary store of the current user and removed in the
+end; the tools get the thumbprint. On Linux the key is copied into a temporary key store with a
+random password; the temporary files are deleted when the script ends (also on errors).
+
+----------------------------------------------------------------------------------------------------
+6. TIMESTAMP SERVERS
+----------------------------------------------------------------------------------------------------
+
+Default is DigiCert. Change it with -Timestamp NAME (--timestamp NAME), or with -TimestampUrl
+URL (--timestamp-url URL) for any other RFC 3161 server.
+
+  NAME         Address
+  -----------  ------------------------------------------------
+  DigiCert     http://timestamp.digicert.com                    (default)
+  GlobalSign   http://timestamp.globalsign.com/tsa/r6advanced1
+  Certum       http://time.certum.pl
+  Sectigo      http://timestamp.sectigo.com
+  SSLcom       http://ts.ssl.com
+  Entrust      http://timestamp.entrust.net/TSS/RFC3161sha2TS
+
+The addresses are the ones the companies publish. If one changes, use -TimestampUrl.
+
+Your own timestamp server. This project can run an RFC 3161 time-stamping service
+(linux/pki-server, see PKI-SERVER-MANUAL.txt). For internal builds you can point to it:
+  -TimestampUrl https://tsa.mycompany.internal/tsr
+For software that customers will install, use a public timestamp server: their computers trust it.
+
+----------------------------------------------------------------------------------------------------
+7. TOOLS: WHAT IS INSTALLED, AND HOW
+----------------------------------------------------------------------------------------------------
+
+The script looks for the tools it needs for the kinds of files you gave. If a tool is missing it
+installs it. Nothing is installed when you only run the checks.
+
+WINDOWS  (-Installer Winget, the default, or -Installer Chocolatey; -Installer None = never)
+
+  Tool                         Used for                     winget id                    choco id
+  ---------------------------  ---------------------------  ---------------------------  --------
+  Tool (used for)                          winget id                         Chocolatey id
+  ---------------------------------------  --------------------------------  ---------------------
+  signtool, Windows SDK (exe dll msi ...)  Microsoft.WindowsSDK.10.0.26100   windows-sdk-10-
+                                                                             version-2004-all
+  jarsigner, JDK 21 (jar war ear aab)      Microsoft.OpenJDK.21              microsoft-openjdk21
+  .NET SDK (nupkg)                         Microsoft.DotNet.SDK.9            dotnet-sdk
+  Jsign (AwsKms GcpKms Pkcs11)             -                                 jsign
+  apksigner (apk)                          -                                 android-sdk
+  AzureSignTool (AzureKeyVault)            dotnet tool install --global AzureSignTool
+
+  If winget is not installed (it is often missing on Windows Server), the script tries Chocolatey.
+  Package names change from time to time; if an install fails, install the tool by hand and run
+  the script again. PowerShell scripts need no extra tool: Set-AuthenticodeSignature is built in.
+
+LINUX  (--installer auto, the default: apt on Ubuntu, dnf on the Red Hat family; none = never)
+
+  Tool                Package (Ubuntu / apt)            Package (RHEL family / dnf)
+  ------------------  --------------------------------  ----------------------------------------
+  osslsigncode        osslsigncode                      osslsigncode, from EPEL (enabled for you)
+  jarsigner, keytool  default-jdk-headless              java-21-openjdk-devel
+  apksigner           apksigner                         no RPM: see below
+  dotnet              dotnet-sdk-9.0 or 8.0             dotnet-sdk-9.0 or 8.0
+                      (falls back to ppa:dotnet/backports)
+  Jsign               downloaded from Maven Central and checked against the published SHA-1; a
+                      Java runtime is needed
+  openssl, curl       openssl, curl                     openssl, curl
+
+  EPEL on the Red Hat family: CentOS Stream 10 and Rocky 10 use "crb" + "epel-release"; Oracle
+  Linux 10 uses "oracle-epel-release-el10"; RHEL 10 uses the EPEL release rpm.
+  PPA / COPR of your own: --ppa ppa:owner/name (Ubuntu) or --copr owner/project (Red Hat family)
+  adds that source before installing. apksigner on the Red Hat family has no standard package:
+  install the Android command-line tools, run  sdkmanager "build-tools;35.0.0"  and set
+  ANDROID_HOME, or use a COPR that has a package.
+  If you are not root the script uses sudo.
+
+----------------------------------------------------------------------------------------------------
+8. WHAT YOU GET AFTER SIGNING
+----------------------------------------------------------------------------------------------------
+
+  * Each file is signed in place (or a copy in -OutFolder, and the original stays untouched).
+  * The signature is verified. For a private PKI that this computer does not trust, the script
+    says "signature written; the root is not trusted by this machine" (this is normal). For a
+    public certificate an untrusted result is an error.
+  * Two hash files per signed file, in the same folder, in the format of sha256sum:
+        app.exe-signed.sha256        <hash>  app.exe
+        app.exe-signed.sha512        <hash>  app.exe
+    Check them later:   sha256sum -c app.exe-signed.sha256     (Linux)
+                        Get-FileHash app.exe -Algorithm SHA256  (Windows; compare the text)
+    The hashes are made AFTER signing, so they describe the file you ship.
+  * The certificate is printed: subject, issuer, serial, validity, key, thumbprints, purposes.
+  * sign-report_<date-time>.json lists every file, the result and the timestamp server.
+  * In a pipeline (-Ci): a short summary for GitHub Actions and a variable for Azure DevOps.
+
+----------------------------------------------------------------------------------------------------
+9. ALL OPTIONS
+----------------------------------------------------------------------------------------------------
+
+  PowerShell                   Shell                      Meaning
+  ---------------------------  -------------------------  -------------------------------------
+  -File <path>  (repeat)       --file <path>              One file to sign
+  -Folder <path>  (repeat)     --folder <path>            A folder: every supported file inside
+  -NoRecurse                   --no-recurse               Do not enter sub-folders
+  -Include / -Exclude <glob>   --include / --exclude      Name filters, repeatable
+  -OutFolder <path>            --out-folder <path>        Sign copies; keep the originals
+  -SkipSigned                  --skip-signed              Skip files that are already signed
+  -Pfx / -PfxPasswordEnv       --pfx / --pfx-password-env PFX file and its password variable
+  -PfxBase64Env <name>         --pfx-base64-env <name>    PFX from a secret, as base64
+  -Thumbprint, -StoreLocation  (Windows only)             Certificate or token in the Windows store
+  -CertPem, -KeyPem            --cert-pem, --key-pem      PEM pair; -KeyPasswordEnv for its password
+  -ChainFile <file>            --chain-file <file>        CA bundle of your private PKI
+  -CertSource Auto|PrivatePki  --cert-source ...          Which rule set to apply
+              |PublicCa
+  -Provider, -ProviderArg      --provider, --provider-arg Cloud key service or HSM
+  -CertFile <file>             --cert-file <file>         Public certificate for -Provider
+  -Timestamp <name>            --timestamp <name>         DigiCert, GlobalSign, Certum, Sectigo,
+                                                          SSLcom, Entrust
+  -TimestampUrl <url>          --timestamp-url <url>      Any RFC 3161 address
+  -Digest sha256|sha384|       --digest ...               File and timestamp digest (default
+          sha512                                          sha256)
+  -Description, -DescriptionUrl  --description, --description-url   Text shown in the signature
+  -Installer Winget|Chocolatey   --installer auto|none    How missing tools are installed
+             |None              --ppa / --copr           Extra package source (Linux)
+  -CheckOnly                   --check-only               Checks only, sign nothing
+  -ShowCertificate             --show-certificate         Print the certificate
+  -Strict                      --strict                   Skipped file = failed run
+  -Ci                          --ci                       Pipeline mode (chapter 10)
+  -Template <name>             --template <name>          Write pipeline files and stop
+  -Help                        --help                     The help text
+
+----------------------------------------------------------------------------------------------------
+10. SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)
+----------------------------------------------------------------------------------------------------
+
+Goal: the build server builds your software, signs it and publishes it, with nobody typing
+passwords. The same two scripts do the work everywhere. Only the way you hand over the secret is
+different.
+
+Ready-made starting files:   .\Sign-Code.ps1 -Template all      ./Sign-Code.sh --template all
+They are written to  transport\signing-ci_<date-time>\  : github-actions.yml, azure-pipelines.yml,
+aws-codebuild-buildspec.yml, google-cloudbuild.yaml, alibaba-yunxiao-flow.yml, Sign-Code.targets.
+Edit names and paths. They were written from the public documentation of each service and have
+NOT been run on a real pipeline (see chapter 13).
+
+10.1  RULES THAT ARE THE SAME EVERYWHERE
+
+  1. The scripts must be in the repository (or on the agent): Sign-Code.ps1 for Windows agents,
+     Sign-Code.sh for Linux agents. Both are also inside the DevKit.
+  2. Use the pipeline mode:  -Ci  /  --ci. It never asks a question, it writes annotations
+     (GitHub Actions, Azure DevOps), and it removes temporary secret files at the end.
+  3. Secrets go through environment variables mapped from the secret store of the service.
+     Never print them, never put them in the YAML text, never pass them as command-line text.
+  4. First run the checks alone (-CheckOnly) in a test pipeline. It proves: the secret decodes, the
+     password is right, the certificate passes, the agent can reach the timestamp server.
+  5. Sign AFTER the build and the tests, and BEFORE the package is published or hashed.
+  6. Do not sign test projects or obj folders. Use -Folder on the publish folder and -Exclude.
+  7. A non-zero exit code fails the step. Do not hide it with "continue on error".
+  8. Keep these as pipeline artifacts: sign-report_*.json and the *-signed.sha256 / *-signed.sha512
+     files. They are your evidence for auditors.
+  9. Network: outbound port 80 to the timestamp server, outbound HTTPS to the package sources.
+     Offline agent? Bake the tools into the image, add -Installer None / --installer none, and use
+     your own timestamp server with -TimestampUrl.
+ 10. Clock: the agent clock must be right (NTP). A clock that is wrong makes timestamp checks warn.
+ 11. Make the base64 text of a PFX:
+        PowerShell :  [Convert]::ToBase64String([IO.File]::ReadAllBytes("codesign.pfx"))
+        Linux      :  base64 -w0 codesign.pfx
+     Store the text in the secret store, and the PFX password in a second secret.
+
+10.2  GITHUB ACTIONS
+
+  Secrets (repository or environment): SIGN_PFX_B64 and SIGN_PFX_PASSWORD.
+  Hosted runner windows-latest (Windows Server 2025 image) has PowerShell 7, .NET and the Windows
+  SDK, so signtool is already there. ubuntu-latest has bash, openssl, curl, a JDK, and .NET.
+
+    - name: Sign
+      shell: pwsh
+      env:
+        SIGN_PFX_B64: ${{ secrets.SIGN_PFX_B64 }}
+        SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }}
+      run: ./Sign-Code.ps1 -Ci -PfxBase64Env SIGN_PFX_B64 -Folder out -Timestamp DigiCert
+
+  Linux runner: replace the last line with
+    bash ./Sign-Code.sh --ci --pfx-base64-env SIGN_PFX_B64 --folder out
+  Good to know: the script prints a ::add-mask:: line for its temporary passwords, writes errors
+  and warnings as annotations, and adds a summary to the job page.
+  For a public EV / OV certificate in a cloud key service use OIDC (no stored cloud password):
+  give the job  permissions: id-token: write  and log in with the cloud's official login action,
+  then call Sign-Code with -Provider.
+
+10.3  AZURE DEVOPS SERVICES AND AZURE DEVOPS SERVER
+
+  Put SIGN_PFX_B64 and SIGN_PFX_PASSWORD in a variable group (mark both as SECRET), or in Azure
+  Key Vault linked to the variable group. A secret variable is NOT visible to a script by
+  itself: map it with env: as in the template.
+
+    - pwsh: >
+        ./Sign-Code.ps1 -Ci -PfxBase64Env SIGN_PFX_B64
+        -Folder "$(Build.ArtifactStagingDirectory)\out"
+      displayName: Sign code
+      env:
+        SIGN_PFX_B64: $(SIGN_PFX_B64)
+        SIGN_PFX_PASSWORD: $(SIGN_PFX_PASSWORD)
+
+  * Microsoft-hosted agents: windows-latest has PowerShell 7 and the Windows SDK; ubuntu-latest
+    can use Sign-Code.sh.
+  * Self-hosted agents (also the only choice for Azure DevOps Server, the on-premises product):
+    install PowerShell 7 (Windows) or bash, openssl, curl (Linux). Run the agent service under a
+    normal account, not under SYSTEM or root if you can avoid it. A hardware token needs an
+    interactive session; for that use a cloud key service instead.
+  * The script writes ##vso[task.logissue] lines, so errors and warnings show in the run summary,
+    and sets the pipeline variable SignCode.Signed (number of signed files).
+  * Azure Key Vault or Artifact Signing: use an Azure Resource Manager service connection with
+    workload identity (federation) or a managed identity of the agent VM; then
+    -Provider AzureKeyVault -ProviderArg "https://myvault.vault.azure.net|certname" -CertFile x.cer.
+    The identity needs the Key Vault roles "Key Vault Crypto User" (sign) and "Key Vault
+    Certificate User" (read certificate).
+
+10.4  AWS CODEBUILD
+
+  Store the two secrets in AWS Secrets Manager (or Parameter Store) and read them in buildspec.yml
+  with  env: secrets-manager:  (see the template).
+  * Linux image (Amazon Linux 2023 or Ubuntu): use Sign-Code.sh. Amazon Linux is not in the
+    supported list of the script; it works with a warning if dnf is there.
+  * Windows image: use Sign-Code.ps1; install PowerShell 7 in the image if it is missing.
+  * Key in AWS KMS: the CodeBuild service role needs kms:Sign and kms:DescribeKey for that key.
+    Then:  --provider awskms --provider-arg "eu-central-1|alias/codesign" --cert-file codesign.cer
+    (the signing needs Jsign and Java; the script installs Jsign). Note that a KMS key signs, but
+    a certificate for it still comes from a CA that you ask (a CSR made from the KMS key).
+  * Public certificates from AWS Signer are a different service (not covered).
+
+10.5  GOOGLE CLOUD BUILD
+
+  Put the secrets in Secret Manager and map them with  availableSecrets / secretEnv  (see the
+  template). The Cloud Build service account needs "Secret Manager Secret Accessor".
+  * Use a Linux builder image with bash, openssl, curl and Java. Run  Sign-Code.sh.
+  * Key in Cloud KMS: give the service account roles/cloudkms.signerVerifier on that key, then
+    --provider gcpkms --provider-arg "projects/P/locations/L/keyRings/R|keyname" --cert-file x.crt
+    The script reads a short-lived access token with  gcloud auth print-access-token.
+  * Windows workers exist in Cloud Build; use Sign-Code.ps1 there.
+
+10.6  ALIBABA CLOUD YUNXIAO (FLOW)
+
+  Alibaba Cloud KMS has no code-signing service. Two safe options:
+   a) PRIVATE PKI certificate: keep the PFX (base64) and its password as secret variables in the
+      Yunxiao pipeline (or in KMS "Secrets Manager" and fetch them at build time into the two
+      variables). Then  bash Sign-Code.sh --ci --pfx-base64-env SIGN_PFX_B64 --folder ./out
+   b) Public certificate on a hardware module: use --provider pkcs11 with the library of your HSM.
+  The template alibaba-yunxiao-flow.yml is a generic starting point: the exact YAML of Flow
+  changes between versions, so copy the two commands into a "Run shell" (Linux) or "Run
+  PowerShell" (Windows) step of your own pipeline.
+
+10.7  A BUILD VM IN AZURE, AWS, ALIBABA OR GOOGLE CLOUD
+
+  A self-managed VM is the simplest case, and the best for hardware tokens or an HSM client.
+  1. Create the VM: Windows 11 / Server 2022 / Server 2025, or Ubuntu 24.04, or Rocky Linux 10.
+  2. Install PowerShell 7 (Windows) or nothing more than bash, openssl and curl (Linux).
+  3. Give the VM an identity instead of a password: managed identity (Azure), instance role (AWS),
+     RAM role (Alibaba), service account (Google). Give that identity only the right to use the key
+     or to read the secret.
+  4. Open outbound port 80 and 443 to the internet or to your internal mirrors.
+  5. Install the PKI trust: .\Install-PkiTrust.ps1 / ./Install-PkiTrust.sh (from the DevKit), so
+     the VM trusts your private root.
+  6. Run  Sign-Code -CheckOnly  once by hand.
+  7. Call Sign-Code from your build system (Jenkins, TeamCity, GitLab runner, a scheduled task).
+
+10.8  VISUAL STUDIO 2026 AND MSBUILD
+
+  On a developer PC, signing is normally OFF. On the build server it is switched on with a
+  property. Use the template file Sign-Code.targets:
+
+    1. Copy Sign-Code.ps1 and Sign-Code.targets into the repository, for example into  build\ .
+    2. In Directory.Build.targets add:   <Import Project="build\Sign-Code.targets" />
+    3. On the build server:   dotnet build -c Release -p:SignCode=true
+       or  msbuild MyApp.sln /p:Configuration=Release /p:SignCode=true
+       with SIGN_PFX_B64 and SIGN_PFX_PASSWORD in the environment.
+    4. Change the timestamp server with  -p:SignTimestamp=GlobalSign .
+
+  The target runs after the output is copied and signs the main assembly of each project. To sign
+  everything you publish (installer, all dlls), add one more step AFTER publish that runs
+  Sign-Code.ps1 -Folder on the publish folder. Visual Studio 2026 itself needs nothing special: the
+  command line above is what Visual Studio calls too. For an installer made with WiX or MSIX
+  packaging, sign the .msi / .msix file as the last step.
+
+10.9  KEEPING THE KEY SAFE: PFX SECRET OR CLOUD KEY?
+
+  Private PKI, internal software   A PFX secret in the secret store is acceptable. Use a leaf
+                                   with a short life (one year), a separate certificate per
+                                   product line, and rotate the secret.
+  Public OV / EV certificate       The CA/Browser Forum requires the key in a FIPS 140-2 level 2 /
+                                   Common Criteria EAL4+ device. You cannot export it to a PFX.
+                                   Use a cloud key service of the CA or of your cloud (Azure Key
+                                   Vault Premium or Managed HSM, Artifact Signing, DigiCert
+                                   KeyLocker, SSL.com eSigner, AWS CloudHSM, Google Cloud HSM).
+  Anywhere                         Limit who can edit the pipeline file: whoever can edit it can
+                                   sign anything. Use protected branches and approvals on the
+                                   "signing" environment or stage.
+
+----------------------------------------------------------------------------------------------------
+11. EXIT CODES
+----------------------------------------------------------------------------------------------------
+
+   0  All files were signed.
+   1  Error (the message says why): file not found, wrong password, bad option ...
+   2  The certificate was refused (chapter 3 A). Nothing was signed.
+   3  The timestamp server cannot be reached, or its answer or certificate is bad.
+   4  A needed tool is missing and could not be installed.
+   5  Wrong platform (the .ps1 is for Windows, the .sh for Linux).
+   6  At least one file failed to sign, or -Strict / --strict and a file was skipped.
+   7  There was no file to sign.
+
+----------------------------------------------------------------------------------------------------
+12. PROBLEMS AND ANSWERS
+----------------------------------------------------------------------------------------------------
+
+ "The PFX could not be opened"            Wrong password, or the variable is not mapped into the
+                                          step. Print only its LENGTH to test, never its value.
+ "The certificate is not for Code Signing" You used a web-server certificate. Make a new one with
+                                          -Purpose CodeSigning.
+ "RSA-2048 ... PublicCa"                  A public code-signing certificate needs RSA 3072+. Ask
+                                          your CA for a newer one.
+ "The timestamp server ... cannot be reached"
+                                          Firewall, proxy or DNS. Test:
+                                          curl -I http://timestamp.digicert.com
+                                          or choose another with -Timestamp.
+ "signtool was not found" on a server     winget is missing on Windows Server. Install Chocolatey,
+                                          or install the Windows SDK by hand ("Windows SDK Signing
+                                          Tools for Desktop Apps" is enough).
+ Windows still says "Unknown publisher"   Your private root is not trusted on that PC. Run
+                                          Install-PkiTrust on it, or use a public certificate.
+ Signature invalid after copying          Something changed the file after signing (antivirus,
+                                          an installer builder, Git line-end conversion). Sign
+                                          last, and mark binaries as binary in .gitattributes.
+ apksigner not found on Rocky / Oracle    See chapter 7: install the Android build-tools.
+ Java files: "unable to sign jar"         The key must be RSA or EC. jarsigner cannot use ML-DSA.
+
+----------------------------------------------------------------------------------------------------
+13. WHAT WAS NOT TESTED
+----------------------------------------------------------------------------------------------------
+
+Tested on Ubuntu 24.04 (the author's build machine): the certificate checks (good and bad
+certificates), the timestamp check (against a local RFC 3161 test server), signing of PowerShell
+scripts and a JAR with osslsigncode / jarsigner, the hash files, and the pipeline templates being
+written. The PowerShell script was tested up to and including the checks (-CheckOnly) on Linux.
+
+NOT tested (no such machine was available): signtool on Windows 11 / Server 2022 / 2025, winget
+and Chocolatey installs, signing of exe / dll / msi / VBA files on Windows, apksigner, NuGet
+signing, any cloud provider (Azure Key Vault, Artifact Signing, AWS KMS, Google Cloud KMS, PKCS#11,
+KeyLocker), the dnf / EPEL / COPR install path on CentOS Stream, Rocky and Oracle Linux, and the
+pipeline files on the real services (GitHub, Azure DevOps, AWS, Google, Alibaba). Run -CheckOnly
+first, then one small file, before you rely on a pipeline.

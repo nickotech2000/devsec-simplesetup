@@ -8,12 +8,15 @@
 PKI_PREFIX="__PKI_PREFIX__"      # written by New-PkiTrustKit.ps1; the files in the system store start with it
 PKI_TARGET="__PKI_TARGET__"      # ubuntu | redhat | suse  (auto = found from this machine)
 set -u
-VERSION="5.3.6"
+VERSION="6.4.1"
 
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 usage() {
 cat <<'EOF'
 install-pki-ca.sh  -  install the CA certificates of the PKI on this Linux machine (Ubuntu / Debian, RHEL family, SUSE family)
-Version 5.3.6
+Version 6.4.1
 Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 
 WHAT IT DOES
@@ -70,7 +73,7 @@ while [ $# -gt 0 ]; do
     --target) [ $# -ge 2 ] || die "--target needs a value"; TARGET="$2"; shift 2 ;;
     --firefox) FIREFOX=1; shift ;;
     --check) CHECK=1; shift ;;
-    -h|--help) usage; exit 0 ;;
+    -h|--help) usage | help_pager; exit 0 ;;
     *) die "unknown option: $1  (try --help)" ;;
   esac
 done

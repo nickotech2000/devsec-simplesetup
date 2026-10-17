@@ -23,7 +23,7 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.3.6"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
@@ -60,10 +60,13 @@ have() { command -v "$1" >/dev/null 2>&1; }
 run()  { if [ "$DRY" = 1 ]; then printf '  (dry-run) %s\n' "$*"; return 0; fi; "$@"; }
 priv() { if [ "$(id -u)" = 0 ]; then "$@"; elif have sudo; then sudo "$@"; else die "root is needed: $*"; fi; }
 
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 usage() {
 cat <<'EOF'
 pki-server.sh  -  Agantra PKI SERVER KIT  (Ubuntu 24.04 / 26.04)
-Version 5.3.6
+Version 6.4.1
 Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
 
@@ -141,9 +144,9 @@ EOF
 
 # ---------------------------------------------------------------- arguments
 need() { [ $# -ge 2 ] && [ -n "$2" ] || die "option $1 needs a value"; }
-[ $# -ge 1 ] || { usage; exit 0; }
+[ $# -ge 1 ] || { usage | help_pager; exit 0; }
 CMD="$1"; shift
-case "$CMD" in -h|--help|help) usage; exit 0 ;; esac
+case "$CMD" in -h|--help|help) usage | help_pager; exit 0 ;; esac
 while [ $# -gt 0 ]; do
   case "$1" in
     --source) need "$@"; SOURCE="$2"; shift 2 ;;
@@ -170,7 +173,7 @@ while [ $# -gt 0 ]; do
     --purge) PURGE=1; shift ;;
     --dry-run) DRY=1; shift ;;
     --yes|-y) YES=1; shift ;;
-    -h|--help) usage; exit 0 ;;
+    -h|--help) usage | help_pager; exit 0 ;;
     *) die "unknown option: $1  (try --help)" ;;
   esac
 done

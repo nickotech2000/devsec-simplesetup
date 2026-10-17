@@ -21,5 +21,9 @@ while IFS= read -r f; do
     *) if git show ":$f" 2>/dev/null | head -c 200000 | grep -Pzaq -- '-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{40,}'; then echo "pre-commit: PRIVATE KEY text in $f - refused"; fail=1; fi ;;
   esac
 done < <(git diff --cached --name-only --diff-filter=ACMR)
+# (4) the html\ folder is made from docs\*.txt: rebuild it when a text document is newer, and stage the result
+if command -v pwsh >/dev/null 2>&1 && [ -f Build-HtmlDocs.ps1 ]; then
+  pwsh -NoProfile -File ./Build-HtmlDocs.ps1 -IfStale >/dev/null 2>&1 && git add -A html 2>/dev/null
+fi
 [ "$fail" = 0 ] || { echo "pre-commit: commit refused."; exit 1; }
 exit 0

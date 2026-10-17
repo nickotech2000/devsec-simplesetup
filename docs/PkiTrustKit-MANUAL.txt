@@ -1,68 +1,110 @@
 ====================================================================================================
  Trust kits  -  the CA certificates of the PKI (no key) + small standalone scripts, one zip per system
- Version 5.3.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.4.1          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : Makes a small kit that lets other computers trust your PKI (no private keys inside).
+ Who reads it : The owner of the PKI, and people who receive the kit.
+ You need     : A PKI to pack; Administrator rights to install.
+ Start with   : Read the first section.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+
 1. WHAT IT IS, WHO IT IS FOR
-   For people who must TRUST the PKI and do nothing else: junior developers, QA, customer testers. They get ONE zip for their system, unzip it, run ONE script, type the password.
-   A trust kit holds public certificates only (CA certificates, no private key). Developers who also issue certificates use the DevKit (DevKit-MANUAL.txt).
+   For people who must TRUST the PKI and do nothing else: junior developers, QA, customer testers.
+   They get ONE zip for their system, unzip it, run ONE script, type the password. A trust kit holds
+   public certificates only (CA certificates, no private key). Developers who also issue
+   certificates use the DevKit (DevKit-MANUAL.txt).
 
 2. BUILD THE KITS  (on the PKI machine, PowerShell 7)
-      .\New-PkiTrustKit.ps1 -All -GeneratePassword                   all four systems: Windows, Ubuntu, Red Hat family, SUSE family
+      .\New-PkiTrustKit.ps1 -All -GeneratePassword                   all four systems: Windows,
+                                                                     Ubuntu, Red Hat family, SUSE
+                                                                     family
       .\New-PkiTrustKit.ps1 -Target Windows,Ubuntu                    some of them
-      .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka                 the PKIs of SEVERAL companies in ONE .certpacked per zip (the latest release of each)
+      .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka                 the PKIs of SEVERAL companies
+                                                                      in ONE .certpacked per zip
+                                                                      (the latest release of each)
       .\New-PkiTrustKit.ps1 -All -AllProfiles                         every company, every release          -AllReleases   every release of the chosen company
-      .\New-PkiTrustKit.ps1 -All -SelfExtract                         also .cmd / .sh files that only EXTRACT the zip (the installer stays a script you can read)
+      .\New-PkiTrustKit.ps1 -All -SelfExtract                         also .cmd / .sh files that
+                                                                      only EXTRACT the zip (the
+                                                                      installer stays a script you
+                                                                      can read)
       .\New-PkiTrustKit.ps1 -All -Release 2 | -NoCaRevocationInfo     a given release | the NoCR family
-   Result: transport\pki-trust-<name>-<unique>-<date>-<time>\ with windows-pki-...zip, ubuntu-pki-...zip, redhat-pki-...zip, suse-pki-...zip, PASSWORD.txt, README.txt.
-   Send the zips and the password by DIFFERENT ways. Windows zips use AES-256; Linux zips use ZipCrypto (python3 / unzip read it everywhere; the content is public anyway).
+   Result: transport\pki-trust-<name>-<unique>-<date>-<time>\ with windows-pki-...zip,
+           ubuntu-pki-...zip, redhat-pki-...zip, suse-pki-...zip, PASSWORD.txt, README.txt.
+   Send the zips and the password by DIFFERENT ways. Windows zips use AES-256; Linux zips use
+   ZipCrypto (python3 / unzip read it everywhere; the content is public anyway).
 
 3. WHAT IS IN EVERY ZIP
    Windows zip     Install-PkiCa.ps1      install the PKI                       Remove-PkiCa.ps1     take a PKI away again
                    New-PkiCsr.ps1         make a key + request step by step     Prepare-Computer.ps1 install PowerShell 7 + .NET SDK 8 and 10 (Windows) + OpenSSL + Python, put them on the PATH      + the .certpacked
    Linux zips      install-pki-ca.sh      remove-pki-ca.sh      new-pki-csr.sh      prepare-computer.sh                                                      + the .certpacked
-   All scripts are standalone: no other file of the project, no OpenSSL needed for the installers. The certificate request tools are described in NewPkiCsr-MANUAL.txt and
+   All scripts are standalone: no other file of the project, no OpenSSL needed for the installers.
+   The certificate request tools are described in NewPkiCsr-MANUAL.txt and
    PrepareComputer-MANUAL.txt. They work whether or not the PKI is installed on the computer.
 
 4. WHAT THE PEOPLE DO
    Windows (Windows 11 24H2+, Windows Server 2022 / 2025; Windows PowerShell 5.1 or PowerShell 7)
       unzip, open PowerShell in the folder:   powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1     then type the password.
-      Administrator window -> Local Machine stores (all users).   Normal window -> Current User stores (Windows asks to confirm each root: click Yes).
-      Roots -> Trusted Root Certification Authorities. Intermediates -> Intermediate Certification Authorities. An older version of the same organization is replaced; other
-      organizations are never touched. Windows Server 2022 gets the classic CAs only (the post-quantum ones are skipped with a warning).
-      At the end only the install script and the package are deleted (the zip stays; the other scripts of the zip stay). -Keep keeps them. -Firefox, -Check, -Scope Machine|User|Auto.
+      Administrator window -> Local Machine stores (all users).   Normal window -> Current User
+                                                                  stores (Windows asks to confirm
+                                                                  each root: click Yes).
+      Roots -> Trusted Root Certification Authorities. Intermediates -> Intermediate Certification
+      Authorities. An older version of the same organization is replaced; other organizations are
+      never touched. Windows Server 2022 gets the classic CAs only (the post-quantum ones are
+      skipped with a warning). At the end only the install script and the package are deleted (the
+      zip stays; the other scripts of the zip stay). -Keep keeps them. -Firefox, -Check, -Scope
+      Machine|User|Auto.
    Linux (Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle Linux 10+, SLES / openSUSE 15+)
       unzip, then:   bash install-pki-ca.sh     type the password (sudo is called by the script).
-      The roots go to the system store (ubuntu /usr/local/share/ca-certificates + update-ca-certificates; redhat /etc/pki/ca-trust/source/anchors + update-ca-trust;
-      suse /etc/pki/trust/anchors + update-ca-certificates), named pki-<company>-<release>-<root>.crt. The opened package stays in pki/. --firefox, --check, --password-file.
-   Several PKIs in one kit: the installer installs every PKI of the .certpacked (one line per PKI) and writes a list of what it installed:
+      The roots go to the system store (ubuntu /usr/local/share/ca-certificates +
+      update-ca-certificates; redhat /etc/pki/ca-trust/source/anchors + update-ca-trust; suse
+      /etc/pki/trust/anchors + update-ca-certificates), named pki-<company>-<release>-<root>.crt.
+      The opened package stays in pki/. --firefox, --check, --password-file.
+   Several PKIs in one kit: the installer installs every PKI of the .certpacked (one line per PKI)
+   and writes a list of what it installed:
       Windows %ProgramData%\PkiTrustKit\installed.tsv (Local Machine) or %LOCALAPPDATA%\PkiTrustKit\installed.tsv      Linux /var/lib/pki-trust-kit/installed.tsv
-   Then (optional): Prepare-Computer, then New-PkiCsr / new-pki-csr.sh to ask for your own certificate.
+   Then (optional): Prepare-Computer, then New-PkiCsr / new-pki-csr.sh to ask for your own
+   certificate.
 
 5. TAKING A PKI AWAY AGAIN
-   Remove-PkiCa.ps1 / remove-pki-ca.sh are standalone (no password) and work like RemoveTrust / RemoveAllTrust of the PKI machine:
+   Remove-PkiCa.ps1 / remove-pki-ca.sh are standalone (no password) and work like RemoveTrust /
+   RemoveAllTrust of the PKI machine:
       .\Remove-PkiCa.ps1 -List | -Pki raksaka | -Pki agantra,raksaka | -All | -Org "Raksaka"        add -Check to only show        (Linux: --list --pki --all --org --check)
-   With the list file they remove exactly what the installer put there; -Org / --org works without it (certificates whose organization contains the text).
+   With the list file they remove exactly what the installer put there; -Org / --org works without
+   it (certificates whose organization contains the text).
 
 6. WHY THESE CHOICES
-   One standalone file per job, readable by the people who run it. Roots only to Linux (that is its trust model); intermediates to the Windows intermediate store. Replacement is
-   by organization name: the old and new generation of a PKI share it. A kit with all PKIs replaces older certificates of those organizations, so install a kit of ALL PKIs when
-   people must trust everything. -AllReleases is not combined with -Release, -NoCaRevocationInfo or -PkiRoot. A kit with several PKIs is about 0.8 MB bigger per PKI and encryption type.
+   One standalone file per job, readable by the people who run it. Roots only to Linux (that is its
+   trust model); intermediates to the Windows intermediate store. Replacement is by organization
+   name: the old and new generation of a PKI share it. A kit with all PKIs replaces older
+   certificates of those organizations, so install a kit of ALL PKIs when people must trust
+   everything. -AllReleases is not combined with -Release, -NoCaRevocationInfo or -PkiRoot. A kit
+   with several PKIs is about 0.8 MB bigger per PKI and encryption type.
 
 7. SUPPORTED SYSTEMS  (checked first; anything else: exit 5, nothing changed)
    Windows 11 24H2+ and Windows Server 2025: everything.   Windows Server 2022: classic only.   Refused: Windows 10 and earlier, Windows 11 before 24H2, Server before 2022,
-   Chinese / Government / IoT / SE / Embedded editions.   Linux: the list above. Debian, AlmaLinux, Fedora, Mint, older releases and macOS are refused.
-   Test variables: PKI_FAKE_OS=Client:19045 (Windows), PKI_OS_RELEASE_FILE=<file> (Linux), PKI_ANCHOR_DIR / PKI_UPDATE_CMD / PKI_BUNDLE_FILE, PKI_KIT_STATE_DIR.
+   Chinese / Government / IoT / SE / Embedded editions.   Linux: the list above. Debian, AlmaLinux,
+                                                          Fedora, Mint, older releases and macOS are
+                                                          refused.
+   Test variables: PKI_FAKE_OS=Client:19045 (Windows), PKI_OS_RELEASE_FILE=<file> (Linux),
+                   PKI_ANCHOR_DIR / PKI_UPDATE_CMD / PKI_BUNDLE_FILE, PKI_KIT_STATE_DIR.
 
 8. TESTED / NOT TESTED
-   Tested on Ubuntu 24.04 with PowerShell 7: kit build, the Ubuntu install for real (system store, replace, check, remove), the request tools after the install (the returned
-   certificate verifies against the system store), RHEL / SUSE paths with test folders, the Windows script in PowerShell 7 against the .NET store of a Linux user.
-   NOT tested: a real Windows (Local Machine / Current User stores, security questions, Windows PowerShell 5.1, antivirus reaction), real RHEL / SUSE machines, a real Firefox.
-   Try the Windows kit on one laptop and one QA machine first.
+   Tested on Ubuntu 24.04 with PowerShell 7: kit build, the Ubuntu install for real (system store,
+   replace, check, remove), the request tools after the install (the returned certificate verifies
+   against the system store), RHEL / SUSE paths with test folders, the Windows script in PowerShell
+   7 against the .NET store of a Linux user. NOT tested: a real Windows (Local Machine / Current
+   User stores, security questions, Windows PowerShell 5.1, antivirus reaction), real RHEL / SUSE
+   machines, a real Firefox. Try the Windows kit on one laptop and one QA machine first.
 
 9. NOTES
-   The installer needs the password: -Password on the command line shows in a process list; the prompt or PKI_PACKAGE_PASSWORD does not. Downloaded scripts carry the Internet
-   mark: the -ExecutionPolicy Bypass command above avoids "running scripts is disabled". Every text file the scripts generate starts with the Author / Company / Email block.
+   The installer needs the password: -Password on the command line shows in a process list; the
+   prompt or PKI_PACKAGE_PASSWORD does not. Downloaded scripts carry the Internet mark: the
+   -ExecutionPolicy Bypass command above avoids "running scripts is disabled". Every text file the
+   scripts generate starts with the Author / Company / Email block.
 ====================================================================================================
- Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
 ====================================================================================================

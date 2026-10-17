@@ -1,0 +1,182 @@
+====================================================================================================
+ ENGLISH WORDS GLOSSARY - everyday English used in these documents
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+ Version: 6.4.1
+====================================================================================================
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ This list is for readers whose first language is not English. It explains the ordinary English
+ words and short phrases that appear again and again in the manuals and in -Help / --help. For
+ technical words (PKI, CA, TLS, CRL ...) use GLOSSARY.txt.
+
+ WORDS ABOUT DOING THINGS
+----------------------------------------------------------------------------------------------------
+ run
+   Start a program or a script. "Run the script" = type its name and press Enter.
+
+ execute
+   The same as run.
+
+ install
+   Put a program on a computer so that it can be used.
+
+ deploy
+   Put something (a program, a file, a setting) where it will be used for real, for example on a
+   server.
+
+ configure / configuration
+   Choose the settings. A configuration is the set of settings.
+
+ generate
+   Make something new with a program, for example a key or a certificate.
+
+ issue
+   Make a certificate and give it out. "The CA issues a certificate."
+
+ sign
+   Add a digital signature to a file or a request. A signature shows who made it and that nobody
+   changed it.
+
+ verify / validate
+   Check that something is correct.
+
+ renew
+   Make a new certificate before the old one ends.
+
+ expire / expiry date
+   To stop being valid because the end date has passed. The expiry date is that end date.
+
+ revoke
+   Say, before the end date, that a certificate must not be used any more.
+
+ rotate
+   Replace a key or a password with a new one, on a plan.
+
+ export / import
+   Export = take something out of a place into a file. Import = bring a file into a place.
+
+ extract
+   Take out the files from a zip or from a bigger file.
+
+ back up / backup
+   Make a safe copy that you can use if the original is lost.
+
+ restore
+   Put a backup back.
+
+ WORDS ABOUT CHOICES
+----------------------------------------------------------------------------------------------------
+ default
+   What the program does when you do not choose. "The default is TLS 1.3" means: if you say nothing,
+   you get TLS 1.3.
+
+ option / parameter / switch / flag
+   A choice that you add to a command, for example  -Yes  or  --help.
+   A "switch" or "flag" is an option without a value. A "parameter" has a value:  -Domain example.com.
+
+ optional
+   You may use it or leave it out.
+
+ required / mandatory
+   You must give it. The program stops without it.
+
+ recommended
+   Not forced, but it is the better choice.
+
+ override
+   Replace the default with your own choice.
+
+ prefer / preferred
+   Choose this first when there are several.
+
+ WORDS ABOUT PLACES AND FILES
+----------------------------------------------------------------------------------------------------
+ path
+   The address of a file or folder, for example  C:\pki\leafcerts  or  /etc/ssl/private.
+
+ folder / directory
+   The same thing. A place that holds files.
+
+ working directory / current folder
+   The folder your terminal is "in" right now.
+
+ relative path / absolute path
+   Relative: starts from the current folder (.\docs). Absolute: starts from the top (C:\pki\docs).
+
+ environment variable
+   A named value that the system keeps for programs, for example  PATH  or  JSIGN_STOREPASS.
+
+ terminal / console / shell
+   The window where you type commands (PowerShell on Windows, bash on Linux).
+
+ administrator / elevated / root / sudo
+   The account that may change the system. On Windows: "Run as administrator". On Linux: root, or a
+   normal user with  sudo.
+
+ WORDS ABOUT PROBLEMS
+----------------------------------------------------------------------------------------------------
+ error
+   Something went wrong and the program stopped.
+
+ warning
+   Something may be wrong, but the program went on.
+
+ refuse / reject
+   The program says no and does not do it.
+
+ fail / failure
+   It did not work.
+
+ fall back
+   Use a second choice when the first one does not work.
+
+ skip
+   Leave something out and go on.
+
+ exit code
+   A number that a program gives back when it ends. 0 means success; any other number means a
+   problem.
+
+ WORDS ABOUT SAFETY
+----------------------------------------------------------------------------------------------------
+ trust
+   Believe that something is real. A computer "trusts" a certificate when it trusts the CA that
+   signed it.
+
+ secret
+   Something that must stay private: a password, a key, a token.
+
+ least privilege
+   Give only the rights that are needed, no more.
+
+ audit / audit trail
+   A record of who did what, and when, so it can be checked later.
+
+ compliance / compliant
+   Following a rule or a standard. "The certificate is compliant" means it follows the rule.
+
+ hardening / hardened
+   Making a system safer by removing weak choices.
+
+ deprecated
+   Still works, but do not use it for new work; it will go away.
+
+ legacy
+   Old. Kept only so that old things still work.
+
+ SMALL PHRASES YOU WILL SEE
+----------------------------------------------------------------------------------------------------
+ "make sure"            check that it is true, or do it for certain
+ "in case of"           if this happens
+ "on top of"            in addition to
+ "up to date"           has the newest changes
+ "out of date" / stale  old; needs to be made again
+ "by hand" / manually   you do it yourself, not the program
+ "behind the scenes"    the program does it, you do not see it
+ "end to end"           from the first step to the last
+ "step by step"         one small step after another
+ "(untested)"           we wrote it but did not run it in a real environment
+====================================================================================================

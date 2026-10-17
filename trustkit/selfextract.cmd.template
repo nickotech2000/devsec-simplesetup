@@ -21,7 +21,7 @@ echo (administrator window = whole machine, normal window = this user only). The
 pause
 exit /b 0
 :help
-echo Version 5.3.6
+echo Version 6.4.1
 echo Self-extracting zip: unpacks Install-PkiCa.ps1 and the .certpacked file(s) into the folder of this file. Nothing is installed.
 echo Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 exit /b 0

@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 5.3.6      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.4.1      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -14,6 +14,15 @@
 
 
 ====================================================================================================
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : Describes every module of the scripts folder.
+ Who reads it : People who change or extend the scripts.
+ You need     : None.
+ Start with   : Use it as a reference.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
  1  HOW A SCRIPT LOADS THE MODULES
 ====================================================================================================
  ONE loader knows all modules: scripts\PkiModules.ps1. DOT-SOURCE it (a leading dot and a space):
@@ -31,7 +40,8 @@
    Transport 00_Common, 02_OpenSSL, 07_TrustStore,       the DESTINATION scripts (PkiTransport.ps1 -Install,
              09_Administrator, 16_CertPack, 17_Transport   Unpack-PkiTransport.ps1): a small kit
    Trust    00_Common, 07_TrustStore, 09_Administrator   scripts that only install / remove trust in
-                                                        the Windows stores (transport script, Phase C)
+                                                        the Windows stores (transport script, Phase
+                                                        C)
 
  Get-PkiModuleInfo lists the modules. Adding a module = one line in PkiModules.ps1.
 
@@ -94,7 +104,8 @@
                                ZipCrypto, 7-Zip wrappers, archive type detection,
                                Find-PkiCompanionScript, Install-PkiSevenZip
  18_Revocation.ps1            CRL / OCSP responder / time stamping: Update-PkiCrl, Revoke-PkiCertificate,   00, 01, 03, 04, 14
-                               New-PkiServiceCertificate, Invoke-PkiSignServiceCsr, Write-PkiRevocationInfo
+                               New-PkiServiceCertificate, Invoke-PkiSignServiceCsr,
+                               Write-PkiRevocationInfo
  19_ExternalCaSigning.ps1    Sign the CSR of an external private CA (openssl ca, name constraints, chain folder)    00, 01, 02, 03, 04
  20_PersonLeaf.ps1             Person certificates: records (JSON, isGenerate), any ID, DNS from e-mail, DN, key usage, qcStatements   00, 01, 14
  17_Transport.ps1              Phase C: scans (Windows 11 25H2+, OpenSSL 4.0.1+), 00, 02, 07, 09, 16
@@ -103,13 +114,15 @@
                                Install-PkiOpenSsl (via Install-DevEnvironment.*)
  22_CsrSigning.ps1         Read and check a CSR against the PKI spec (colour report), sign it with a DV/OV/EV intermediate (SignCsr.ps1)   00, 01, 02, 03, 04, 19
  21_DevKit.ps1                 The DevKit (PkiTransport.ps1 -DevKit): devkit.env from the live configuration, the kit folder, the zip / 7z    00, 01, 03, 14, 16, 17, 20
-                               (Write-PkiDevKitEnv, Copy-PkiDevKitTree, New-PkiDevKitArchive, New-PkiDevKit). The kit's own files are in devkit\ of the project.
+                               (Write-PkiDevKitEnv, Copy-PkiDevKitTree, New-PkiDevKitArchive,
+                               New-PkiDevKit). The kit's own files are in devkit\ of the project.
 
 
 ====================================================================================================
  3  PATTERNS FOR PHASE B AND PHASE C
 ====================================================================================================
- PHASE B - GenerateLeafCertificate.ps1 (DONE): issue a leaf from an existing intermediate. It is the model:
+ PHASE B - GenerateLeafCertificate.ps1 (DONE): issue a leaf from an existing intermediate. It is the
+ model:
 
      param( ... its own parameters, no [CmdletBinding()] ... )
      $PkiModuleSet = 'Library'
@@ -121,8 +134,10 @@
      [void](Assert-PkiLeafOpenSslReady -NeedFips $fips -NeedPqc $quantum)                     # FIPS + ML-DSA gate
      [void](Import-PkiExisting -SkipProviders)                                                # the PKI on disk
      $leafRoot = Get-PkiLeafRoot                                    # <script folder>\leafcerts
-     $specs = New-PkiLeafSetSpecs -Base $base -Purposes $purposes   # one per purpose, validated before any write
-     $res   = Invoke-PkiLeafSet -Specs $specs -LeafRoot $leafRoot   # folders, issue, validate, guidance; all or nothing
+     $specs = New-PkiLeafSetSpecs -Base $base -Purposes $purposes   # one per purpose, validated
+                                                                    before any write
+     $res   = Invoke-PkiLeafSet -Specs $specs -LeafRoot $leafRoot   # folders, issue, validate,
+                                                                    guidance; all or nothing
      # one certificate:  New-PkiLeafSpec / New-PkiUniqueFolder / New-PkiLeafCertificate / Test-PkiLeafResult
 
  PHASE C - transport / install script on another machine: only trust
@@ -131,30 +146,33 @@
      . (Join-Path $PSScriptRoot 'scripts\PkiModules.ps1')
      Initialize-PkiMinimalContext -PkiRoot $unpackedFolder -Password $pfxPassword
      $manifest = Get-Content (Join-Path $unpackedFolder 'pki-manifest.json') -Raw | ConvertFrom-Json
-     Install-PkiTrust -Manifest $manifest          # roots -> Root, intermediates -> CA, leaves -> My
+     Install-PkiTrust -Manifest $manifest          # roots -> Root, intermediates -> CA, leaves ->
+                                                   My
      Remove-AllTrust                               # or  Remove-CurrentTrust
 
- NOTE: the manifest stores the ABSOLUTE paths of the machine that generated the PKI. The Phase C script
+ NOTE: the manifest stores the ABSOLUTE paths of the machine that generated the PKI. The Phase C
+       script
  rewrites them to the folder it unpacked into before it calls Install-PkiTrust.
  Both patterns need no change in pki_setup.ps1. The manifest (pki-manifest.json) is the contract
- between the generator and the later scripts: certificateAuthorities[] (id, kind, store, sha1, files),
- leaves[], quadrants, mode, enterpriseRoot.
+ between the generator and the later scripts: certificateAuthorities[] (id, kind, store, sha1,
+ files), leaves[], quadrants, mode, enterpriseRoot.
 
 
 ====================================================================================================
  4  SHARED STATE  ($script:Pki)
 ====================================================================================================
- Initialize-PkiConfiguration creates $script:Pki (an ordered dictionary) in the SCRIPT scope. Because the
- loader is dot-sourced, the caller and all modules share it. Important keys:
+ Initialize-PkiConfiguration creates $script:Pki (an ordered dictionary) in the SCRIPT scope.
+ Because the loader is dot-sourced, the caller and all modules share it. Important keys:
      Bound, Ini, PkiRoot, PublishDir, LeafDir, Quadrants, ClassicPki
-     Catalog   list of CA definitions (Id, Kind, Parent, Family, Bits, Curve, PqcAlg, Fips, Years, PathLen,
-               Validation, Gen, Slug, Actual = the key that really exists)
+     Catalog   list of CA definitions (Id, Kind, Parent, Family, Bits, Curve, PqcAlg, Fips, Years,
+               PathLen, Validation, Gen, Slug, Actual = the key that really exists)
      Built     id -> manifest entry of each built CA          Leaves   list of built leaf certificates
      Naming    effective names (01b_CaNaming.ps1)             ExternalRoot   public-CA information or $null
      Password, OpenSslExe, OpenSslVersion, PqcFallbacks, CustomPolicies, IanaPen, ...
  Other script-scope values: $script:PkiPolicyOid (EV / OV / DV OIDs), $script:PkiRootRsaBits,
- $script:PkiRootCurve, $script:PkiRootPqc (the enforced root key policy), $script:PkiGeneratorVersion.
- A script that only needs trust uses Initialize-PkiMinimalContext (PkiRoot, Password, Built, Leaves).
+ $script:PkiRootCurve, $script:PkiRootPqc (the enforced root key policy),
+ $script:PkiGeneratorVersion. A script that only needs trust uses Initialize-PkiMinimalContext
+ (PkiRoot, Password, Built, Leaves).
 
 
 ====================================================================================================
@@ -166,17 +184,18 @@
    lower-numbered modules; call upward only through functions that exist at call time.
  * Functions return objects, they do not exit the script. Errors are thrown with a message that says
    what to do. User-facing text goes through Write-PkiLog.
- * Return a collection that may hold ONE item with a leading comma  (return ,$list)  so PowerShell does
-   not unroll it. Wrap callers in @( ) when they need an array. (A one-pair subject list became the string "CN".)
- * PowerShell variables are case-INSENSITIVE: a parameter $R and a local $r are the same variable. Never reuse a
-   parameter's name, in any case, for a local.
- * EVERY MAIN SCRIPT has the STANDARD BOOTSTRAP (Invoke-PkiBootstrapUnlock, same text in pki_setup.ps1 and
-   GenerateLeafCertificate.ps1) at its top, before any module is loaded, and an -Unblock switch that calls
-   Invoke-PkiUnblockUnlock. Copy it into the Phase C script.
- * Do not use [CmdletBinding()] in an entry script that has -EV or -OV: they are aliases of -ErrorVariable and
-   -OutVariable.
- * 'openssl' arguments go through Invoke-OpenSSL (it sets OPENSSL_CONF, hides passwords, throws with the
-   OpenSSL message). File arguments of  openssl verify  come LAST, after the provider options.
+ * Return a collection that may hold ONE item with a leading comma  (return ,$list)  so PowerShell
+   does not unroll it. Wrap callers in @( ) when they need an array. (A one-pair subject list became
+   the string "CN".)
+ * PowerShell variables are case-INSENSITIVE: a parameter $R and a local $r are the same variable.
+   Never reuse a parameter's name, in any case, for a local.
+ * EVERY MAIN SCRIPT has the STANDARD BOOTSTRAP (Invoke-PkiBootstrapUnlock, same text in
+   pki_setup.ps1 and GenerateLeafCertificate.ps1) at its top, before any module is loaded, and an
+   -Unblock switch that calls Invoke-PkiUnblockUnlock. Copy it into the Phase C script.
+ * Do not use [CmdletBinding()] in an entry script that has -EV or -OV: they are aliases of
+   -ErrorVariable and -OutVariable.
+ * 'openssl' arguments go through Invoke-OpenSSL (it sets OPENSSL_CONF, hides passwords, throws with
+   the OpenSSL message). File arguments of  openssl verify  come LAST, after the provider options.
  * Run  -Check  and a full build with a real OpenSSL 4 after a change; -Verify must stay green.
  * Document every new parameter in pki_setup.ps1 -Help, the manual and the design file.
 
@@ -204,10 +223,26 @@ NoCR / release words, PQC short label                  agantra_pki.cnf [ ca_name
  Conversion script and TLS guidance text                15_LeafGuidance.ps1
 ====================================================================================================
 
-5.0.0 modules: 00a_Platform.ps1 (Get-PkiPlatformInfo, Assert-PkiPlatform: where the scripts run), 00b_Profiles.ps1 (profiles, Get-PkiToolSetting, pki_tools.cnf, Get-PkiFileStem, Get-PkiTransportFolder). Both are in every module set. 01c_Releases.ps1: profile-aware folders, Show-PkiList. 07_TrustStore.ps1: Remove-PkiProfileTrust, Remove-AllTrust (all companies).
+5.0.0 modules: 00a_Platform.ps1 (Get-PkiPlatformInfo, Assert-PkiPlatform: where the scripts run),
+00b_Profiles.ps1 (profiles, Get-PkiToolSetting, pki_tools.cnf, Get-PkiFileStem,
+Get-PkiTransportFolder). Both are in every module set. 01c_Releases.ps1: profile-aware folders,
+Show-PkiList. 07_TrustStore.ps1: Remove-PkiProfileTrust, Remove-AllTrust (all companies).
 
-5.2.2 scripts\22_CsrSigning.ps1: Get-PkiCsrAutoLevel (the level follows the request), the development-SAN marker, PEN policies, serialNumber in OV; trustkit\ also holds New-PkiCsr.ps1 / new-pki-csr.sh and Prepare-Computer.ps1 / prepare-computer.sh (standalone, copied into the trust-kit zips, the DevKit and the transport kit).
+5.2.2 scripts\22_CsrSigning.ps1: Get-PkiCsrAutoLevel (the level follows the request), the
+development-SAN marker, PEN policies, serialNumber in OV; trustkit\ also holds New-PkiCsr.ps1 /
+new-pki-csr.sh and Prepare-Computer.ps1 / prepare-computer.sh (standalone, copied into the trust-kit
+zips, the DevKit and the transport kit).
 
-5.1.0 trustkit\: Install-PkiCa.ps1 / install-pki-ca.sh (install every PKI of the .certpacked, write the list of what was installed), Remove-PkiCa.ps1 / remove-pki-ca.sh (NEW: remove by company, all, or organization), selfextract templates. New-PkiTrustKit.ps1 builds the single multi-PKI .certpacked itself (no PkiTransport.ps1 -Pack call any more).
+5.1.0 trustkit\: Install-PkiCa.ps1 / install-pki-ca.sh (install every PKI of the .certpacked, write
+the list of what was installed), Remove-PkiCa.ps1 / remove-pki-ca.sh (NEW: remove by company, all,
+or organization), selfextract templates. New-PkiTrustKit.ps1 builds the single multi-PKI .certpacked
+itself (no PkiTransport.ps1 -Pack call any more).
 
 5.3.6 scripts\backup\: the SOURCE of Backup-Pki.ps1, Restore-Pki.ps1 and Test-PkiBackup.ps1 (*.src.ps1), PkiBackupCommon.ps1 (gate, password policy, hashes, requirement check, certificate / key inventory, Local Machine store) and Build-BackupScripts.ps1. The builder pastes PkiBackupCommon.ps1 and the zip engine of 16_CertPack.ps1 into each source and writes the three finished, STANDALONE scripts to the project root (they need no other .ps1). Edit the sources, run  pwsh -File .\scripts\backup\Build-BackupScripts.ps1 , never edit the three root scripts by hand. Not in the module catalog (PkiModules.ps1). See PkiBackup-MANUAL.txt
+
+====================================================================================================
+ NEW IN 6.3.6
+====================================================================================================
+ Module 23_CaExport.ps1 is the code behind Export-PkiCa.ps1.
+ Create-WebServerConfig and Sign-Code (.ps1 and .sh) are standalone tools: they use no module.
+ Build-HtmlDocs.ps1 makes the html\ folder from the text documents.

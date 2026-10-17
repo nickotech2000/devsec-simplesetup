@@ -100,7 +100,7 @@ function Copy-PkiDevKitTree {
     param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit)
     Ensure-PkiDirectory -Path $Kit
     # scripts and project files the PowerShell generators and the transport need
-    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'GenerateLeafCertificate.ps1', 'GeneratePersonLeafCertificate.ps1', 'GenerateOffice365LeafCertificate.ps1', 'SignCsr.ps1',
+    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'GenerateLeafCertificate.ps1', 'GeneratePersonLeafCertificate.ps1', 'GenerateOffice365LeafCertificate.ps1', 'SignCsr.ps1', 'Create-WebServerConfig.ps1', 'Sign-Code.ps1',
                    'Install-DevEnvironment.ps1', (Split-Path -Leaf $script:Pki.ConfigPath), '.gitattributes') {
         $src = Join-Path $Root $f
         if (Test-Path -LiteralPath $src -PathType Leaf) { Copy-Item -LiteralPath $src -Destination $Kit -Force }
@@ -111,7 +111,7 @@ function Copy-PkiDevKitTree {
     $tt = if (Test-Path -LiteralPath $tools) { [System.IO.File]::ReadAllText($tools) } else { "[ general ]`nDefaultPki = agantra`n" }
     $tt = if ($tt -match '(?im)^\s*DefaultPki\s*=') { [regex]::Replace($tt, '(?im)^(\s*DefaultPki\s*=).*$', "`$1 $($script:Pki.Profile)") } else { "[ general ]`nDefaultPki = $($script:Pki.Profile)`n" + $tt }
     Write-Utf8NoBom -Path (Join-Path $Kit 'pki_tools.cnf') -Content $tt
-    foreach ($f in 'pki-transport.sh', 'Install-DevEnvironment.sh') {
+    foreach ($f in 'pki-transport.sh', 'Install-DevEnvironment.sh', 'Create-WebServerConfig.sh', 'Sign-Code.sh') {
         $src = Get-PkiDevKitSourceFile -Root $Root -Name $f
         if ($null -eq $src) { throw "DevKit: $f is missing." }
         Copy-Item -LiteralPath $src -Destination $Kit -Force
@@ -132,7 +132,7 @@ function Copy-PkiDevKitTree {
     foreach ($f in Get-ChildItem -LiteralPath (Join-Path $dk 'lib') -File) { Copy-Item -LiteralPath $f.FullName -Destination $lib -Force }
     # manuals
     $docs = Join-Path $Kit 'docs'; Ensure-PkiDirectory -Path $docs
-    foreach ($n in 'DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt') {
+    foreach ($n in 'DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt', 'Sign-Code-MANUAL.txt') {
         $src = Get-PkiDevKitSourceFile -Root $Root -Name $n
         if ($src) { Copy-Item -LiteralPath $src -Destination $docs -Force } else { Write-PkiLog "DevKit: manual $n not found (skipped)." 'WARN' }
     }

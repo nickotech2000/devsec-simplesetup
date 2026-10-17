@@ -28,42 +28,56 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="5.3.6"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="6.4.1"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
-VERSION="5.3.6"
+VERSION="6.4.1"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TAB="$(printf '\t')"
 
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
 usage() {
 cat <<'EOF'
 ============================================================
  Install-PkiTrust.sh - DevKit installer for Linux / Ubuntu
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ============================================================
- Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+, Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
+ Runs on: Linux only (VM, bare metal or WSL): Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+ Oracle Linux 10+, SUSE Linux Enterprise 15+, openSUSE 15+. Other systems: error, exit 5.
  Manual : docs/DevKit-MANUAL.txt     Windows twin: Install-PkiTrust.ps1
 
-USAGE   (run as your normal user: the script asks sudo only for the system store and for missing packages)
-  ./Install-PkiTrust.sh                      or:  bash Install-PkiTrust.sh        (no executable bit needed)
+USAGE   (run as your normal user: the script asks sudo only for the system store and for missing
+        packages)
+  ./Install-PkiTrust.sh                      or:  bash Install-PkiTrust.sh        (no executable \
+        bit needed)
   ./Install-PkiTrust.sh --trust-only         only the CA certificates; no issuing keys are unpacked
-  ./Install-PkiTrust.sh --yes                install what is missing (7-Zip, ca-certificates) without asking
-  ./Install-PkiTrust.sh --reset              unpack pki/ again (your issued certificates in leafcerts/ are kept)
+  ./Install-PkiTrust.sh --yes                install what is missing (7-Zip, ca-certificates) \
+        without asking
+  ./Install-PkiTrust.sh --reset              unpack pki/ again (your issued certificates in \
+        leafcerts/ are kept)
 
 WHAT IT DOES
-  1. Finds the .certpacked of the kit (or --package FILE); the password: prompt, --password-file FILE, or PKI_TRANSPORT_PASSWORD.
-  2. Scans the machine; installs 7-Zip and the certificate-store tools when missing (needs sudo); OpenSSL 3.0+ is enough for the
-     generators, 4.0.1+ is needed for the chain proof of pki-transport.sh (--install-openssl builds it).
-  3. Unpacks the CA certificates (ca/) and the pki/ folder with the ISSUING CA keys into THIS folder, checks every SHA-256.
-  4. Installs the roots in the system store (/usr/local/share/ca-certificates + update-ca-certificates) and proves the chains.
-  5. Gives every intermediate CA a NEW RANDOM serial counter (copies must not issue the same serial numbers).
+  1. Finds the .certpacked of the kit (or --package FILE); the password: prompt, --password-file
+     FILE, or PKI_TRANSPORT_PASSWORD.
+  2. Scans the machine; installs 7-Zip and the certificate-store tools when missing (needs sudo);
+     OpenSSL 3.0+ is enough for the generators, 4.0.1+ is needed for the chain proof of
+     pki-transport.sh (--install-openssl builds it).
+  3. Unpacks the CA certificates (ca/) and the pki/ folder with the ISSUING CA keys into THIS
+     folder, checks every SHA-256.
+  4. Installs the roots in the system store (/usr/local/share/ca-certificates +
+     update-ca-certificates) and proves the chains.
+  5. Gives every intermediate CA a NEW RANDOM serial counter (copies must not issue the same serial
+     numbers).
 
 OPTIONS
-  --package FILE  --password-file FILE  --trust-only  --reset  --yes  --install-openssl  --skip-openssl-check  --openssl FILE
+  --package FILE  --password-file FILE  --trust-only  --reset  --yes  --install-openssl
+  --skip-openssl-check  --openssl FILE
   --7z FILE  --trust roots|enterprise|all-ca|none  --version  --help
 EOF
 }
@@ -76,7 +90,7 @@ while [ $# -gt 0 ]; do
     --yes|-y|--install-openssl|--skip-openssl-check|--no-verify) EXTRA+=("$1") ;;
     --trust) TRUSTMODE="$2"; EXTRA+=("$1" "$2"); shift ;;
     --openssl|--7z|--openssl-prefix) EXTRA+=("$1" "$2"); shift ;;
-    --version) echo "Install-PkiTrust.sh $VERSION"; exit 0 ;; --help|-h) usage; exit 0 ;;
+    --version) echo "Install-PkiTrust.sh $VERSION"; exit 0 ;; --help|-h) usage | help_pager; exit 0 ;;
     *) echo "[ERROR] unknown option '$1'. See ./Install-PkiTrust.sh --help" >&2; exit 1 ;;
   esac; shift
 done

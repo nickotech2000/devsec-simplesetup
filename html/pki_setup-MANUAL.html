@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.1">
+<meta name="description" content="Make the root and intermediate CAs. The owner reads this first.">
+<title>Build the PKI (pki_setup) - PKI DevSecOps Agantra</title>
+<style>
+@font-face{font-family:"Roboto";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/roboto-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-mono-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Material Symbols Outlined";font-style:normal;font-weight:400;font-display:block;src:url("fonts/material-symbols-outlined-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Font Awesome Solid";font-style:normal;font-weight:900;font-display:block;src:url("fonts/fa-solid-900.woff2") format("woff2")}
+:root{color-scheme:light dark;--primary:#0b57d0;--on-primary:#ffffff;--primary-c:#d3e3fd;--on-primary-c:#041e49;--bg:#f8f9fc;--surface:#ffffff;--surface-2:#eef2f9;--surface-3:#e4eaf4;--text:#1a1c1e;--muted:#4a5565;--line:#c9d1de;--code-bg:#f1f4f9;--ok:#146c2e;--warn:#8c4a00;--e1:0 1px 2px rgba(0,0,0,.18),0 1px 3px 1px rgba(0,0,0,.1);--e2:0 1px 2px rgba(0,0,0,.2),0 2px 6px 2px rgba(0,0,0,.12);--bar:64px}
+:root[data-theme="dark"]{--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Roboto","Segoe UI",system-ui,-apple-system,"Noto Sans","PingFang SC","Microsoft YaHei",Arial,sans-serif;font-size:16px;line-height:1.65;min-height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;flex-direction:column}
+a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+code,pre,.mono{font-family:"Roboto Mono",Consolas,"Cascadia Mono",Menlo,"DejaVu Sans Mono","Liberation Mono",monospace}
+.ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:"liga";font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle;user-select:none;-webkit-user-select:none}
+.fa{font-family:"Font Awesome Solid";font-weight:900;font-style:normal;display:inline-block;line-height:1;-webkit-font-smoothing:antialiased}
+.fa-globe::before{content:"\f0ac"}.fa-envelope::before{content:"\f0e0"}.fa-copy::before{content:"\f0c5"}.fa-link::before{content:"\f0c1"}.fa-shield::before{content:"\f132"}.fa-check::before{content:"\f00c"}
+.skip{position:absolute;left:-999px;top:0;background:var(--primary);color:var(--on-primary);padding:8px 14px;z-index:100;border-radius:0 0 8px 0}.skip:focus{left:0}
+.bar{position:fixed;top:0;left:0;right:0;height:var(--bar);background:var(--surface);box-shadow:var(--e1);display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:50}
+.brand{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:10px;color:var(--text);font-weight:500;font-size:1.15rem;white-space:nowrap}.brand:hover{text-decoration:none}
+.brand .ms{color:var(--primary);font-size:30px}.brand small{font-weight:400;font-size:.78rem;color:var(--on-primary-c);background:var(--primary-c);border-radius:999px;padding:2px 10px}
+.grow{-webkit-box-flex:1;-ms-flex:1;flex:1}
+.topnav{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:2px;position:relative}
+.nb{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text);font:inherit;font-size:.95rem;font-weight:500;padding:8px 14px;border-radius:999px;cursor:pointer}
+.nb:hover{background:var(--surface-3);text-decoration:none}.nb[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.nb .ms{font-size:20px}
+.mega{position:absolute;right:0;top:calc(var(--bar) - 8px);width:min(940px,94vw);max-height:calc(100vh - var(--bar) - 20px);overflow:auto;background:var(--surface);border-radius:16px;box-shadow:var(--e2);padding:16px 20px;display:none;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 22px}
+.mega.open{display:grid}.mg{min-width:0}
+.mega h2,.drawer h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 8px 2px;padding:0;border:0;font-weight:700}
+.mega a,.drawer a.dl{display:block;padding:6px 10px;border-radius:8px;color:var(--text);font-size:.92rem;line-height:1.35}
+.mega a:hover,.drawer a.dl:hover{background:var(--surface-3);text-decoration:none}.mega a[aria-current="page"],.drawer a[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.sbox{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;background:var(--surface-2);border-radius:999px;padding:0 6px 0 12px;margin:0 6px}
+.sbox input{border:0;background:transparent;color:var(--text);font:inherit;font-size:.92rem;width:190px;padding:8px 6px}.sbox input:focus{outline:0}.sbox:focus-within{box-shadow:0 0 0 2px var(--primary)}
+.sbox .ms{color:var(--muted);font-size:20px}
+#menubtn{display:none}
+.scrim{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);z-index:55;display:none}.scrim.open{display:block}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(88vw,340px);background:var(--surface);z-index:60;overflow-y:auto;padding:12px 12px 40px;-webkit-transform:translateX(105%);transform:translateX(105%);transition:-webkit-transform .22s ease,transform .22s ease;box-shadow:var(--e2);visibility:hidden}
+.drawer.open{-webkit-transform:none;transform:none;visibility:visible}
+.drawer .dh{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.drawer .sbox{display:-webkit-box;display:-ms-flexbox;display:flex;margin:8px 4px}.drawer .sbox input{width:100%}
+.wrap{-webkit-box-flex:1;-ms-flex:1 0 auto;flex:1 0 auto;padding:calc(var(--bar) + 28px) 20px 40px;width:100%;max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:0 36px}
+.wrap.has-toc{grid-template-columns:minmax(0,1fr) 250px}
+.page{min-width:0;max-width:940px}
+.side{position:sticky;top:calc(var(--bar) + 20px);align-self:start;max-height:calc(100vh - var(--bar) - 40px);overflow:auto;font-size:.88rem;border-left:2px solid var(--line);padding:2px 0 2px 14px;display:none}
+.wrap.has-toc .side{display:block}.side h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;padding:0;border:0}
+.side a{display:block;padding:3px 0;color:var(--muted);line-height:1.35}.side a.l3{padding-left:12px;font-size:.84rem}.side a:hover,.side a.on{color:var(--primary);text-decoration:none}
+.crumb{font-size:.85rem;color:var(--muted);margin:0 0 6px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px;font-weight:500}
+h2{font-size:1.45rem;margin:2.4rem 0 .6rem;padding-top:.7rem;border-top:1px solid var(--line);line-height:1.3;font-weight:500}
+h3{font-size:1.1rem;margin:1.7rem 0 .4rem;line-height:1.35;font-weight:500;color:var(--primary)}
+.anchor{opacity:0;margin-left:8px;font-size:.8em;color:var(--muted)}h2:hover .anchor,h3:hover .anchor,.anchor:focus{opacity:1}
+.lead{color:var(--muted);margin:0 0 14px;font-size:1.05rem}
+.meta{display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:6px 8px;margin:12px 0 18px}
+.chip{display:inline-block;background:var(--surface-2);color:var(--muted);border-radius:8px;padding:3px 12px;font-size:.84rem}
+p{margin:.6em 0}ul,ol{margin:.5em 0 .9em;padding-left:1.5em}li{margin:.25em 0}
+.decision{background:var(--surface);border-radius:12px;box-shadow:var(--e1);border-left:4px solid var(--primary);padding:10px 14px;margin:12px 0}
+.dnum{font-weight:700;margin-right:6px}.dstate{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;padding:1px 9px;border-radius:999px;background:var(--primary-c);color:var(--on-primary-c);margin-right:6px}
+.code{position:relative;margin:.8em 0;background:var(--code-bg);border:1px solid var(--line);border-radius:12px}
+.code pre{margin:0;padding:14px 16px;overflow-x:auto;font-size:.84rem;line-height:1.55;tab-size:4;-moz-tab-size:4;white-space:pre}
+.code .copy{position:absolute;top:8px;right:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:.78rem;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);cursor:pointer}
+.code .copy:hover{color:var(--text);background:var(--surface-3)}
+ul.check{list-style:none;padding-left:0}ul.check li{background:var(--surface);border-radius:12px;box-shadow:var(--e1);margin:8px 0;padding:10px 14px}
+ul.check label{display:block;cursor:pointer}ul.check input{margin-right:10px;width:18px;height:18px;vertical-align:-3px;accent-color:var(--primary)}ul.check input:checked + span{color:var(--muted);text-decoration:line-through}
+.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:.8em 0}th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top;font-size:.92rem}th{background:var(--surface-2)}
+.toc{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 18px;margin:16px 0 24px}
+.toc summary{cursor:pointer;font-weight:500}.toc ol{list-style:none;padding-left:0;margin:8px 0 2px;-webkit-columns:2 300px;columns:2 300px;-webkit-column-gap:28px;column-gap:28px}
+.toc li{margin:2px 0;-webkit-column-break-inside:avoid;break-inside:avoid;font-size:.92rem}.toc li.l3{padding-left:16px;font-size:.86rem}
+.pn{display:-webkit-box;display:-ms-flexbox;display:flex;justify-content:space-between;gap:12px;margin:44px 0 0;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.pn a{display:block;border-radius:16px;background:var(--surface);box-shadow:var(--e1);padding:12px 18px;min-width:220px;max-width:48%;color:var(--text)}.pn a:hover{box-shadow:var(--e2);text-decoration:none}.pn small{display:block;color:var(--muted)}.pn .nx{text-align:right;margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin:12px 0 28px}
+.card{display:block;background:var(--surface);border-radius:16px;box-shadow:var(--e1);padding:16px 18px;color:var(--text)}
+.card:hover{box-shadow:var(--e2);text-decoration:none;background:var(--surface-2)}.card b{display:block;margin-bottom:4px;font-weight:500;color:var(--primary)}.card span{color:var(--muted);font-size:.92rem}
+.hero{background:var(--primary-c);color:var(--on-primary-c);border-radius:28px;padding:28px 32px;margin:0 0 26px}.hero h1{color:inherit}.hero p{max-width:70ch}.hero a{color:inherit;text-decoration:underline}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:999px;background:var(--primary);color:var(--on-primary);font:inherit;font-weight:500;padding:9px 20px;cursor:pointer}.btn:hover{text-decoration:none;box-shadow:var(--e2)}
+#totop{position:fixed;right:20px;bottom:20px;display:none;z-index:40;border-radius:16px;padding:12px}
+mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
+.hit{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 16px;margin:10px 0}.hit small{color:var(--muted)}
+.foot{background:var(--surface-2);border-top:1px solid var(--line);padding:22px 20px 26px;color:var(--muted);font-size:.9rem}
+.foot .in{max-width:1180px;margin:0 auto;display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+.foot a{color:var(--primary)}.foot .fa{margin-right:6px}.foot p{margin:.2em 0}
+@media (max-width:1180px){.wrap.has-toc{grid-template-columns:minmax(0,1fr)}.wrap.has-toc .side{display:none}}
+@media (max-width:900px){.topnav{display:none}#menubtn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex}.brand small{display:none}.wrap{padding:calc(var(--bar) + 18px) 14px 30px}}
+@media (max-width:520px){html{font-size:15px}h1{font-size:1.55rem}.pn a{max-width:100%;width:100%}.code pre{font-size:.78rem}.hero{padding:20px;border-radius:20px}}
+@media (min-width:1700px){html{font-size:17px}.wrap{max-width:1320px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.drawer{transition:none}}
+.a11y{position:fixed;top:calc(var(--bar) + 8px);right:12px;width:min(340px,calc(100vw - 24px));max-height:calc(100vh - var(--bar) - 24px);overflow:auto;background:var(--surface);color:var(--text);border-radius:16px;box-shadow:var(--e2);padding:14px 18px 16px;z-index:70}
+.a11y[hidden]{display:none}.a11y h2{font-size:1.1rem;margin:0 0 8px;padding:0;border:0}
+.a11y fieldset{border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:6px 12px 8px}.a11y legend{font-size:.8rem;font-weight:700;color:var(--muted);padding:0 6px}
+.a11y label{display:block;padding:4px 0;cursor:pointer}.a11y input{margin-right:8px;width:17px;height:17px;vertical-align:-3px;accent-color:var(--primary)}
+.a11y .row{display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.btn.alt{background:var(--surface-3);color:var(--text)}
+:root[data-cb="deut"]{--primary:#0072b2;--on-primary:#fff;--primary-c:#cfe6f5;--on-primary-c:#00263f;--ok:#005a8c;--warn:#a84300}
+:root[data-cb="deut"][data-theme="dark"]{--primary:#56b4e9;--on-primary:#00263f;--primary-c:#0b4468;--on-primary-c:#d6ecfa;--ok:#56b4e9;--warn:#f0a35e}
+:root[data-cb="trit"]{--primary:#a3153f;--on-primary:#fff;--primary-c:#f7d9e1;--on-primary-c:#4a0a1c;--ok:#00706f;--warn:#a3153f}
+:root[data-cb="trit"][data-theme="dark"]{--primary:#ff9db5;--on-primary:#4a0a1c;--primary-c:#6b1230;--on-primary-c:#ffe0e8;--ok:#5fd0cf;--warn:#ff9db5}
+:root[data-cb="mono"] body{-webkit-filter:grayscale(1);filter:grayscale(1)}
+:root[data-contrast="high"]{--bg:#fff;--surface:#fff;--surface-2:#f2f2f2;--surface-3:#e0e0e0;--text:#000;--muted:#111;--line:#000;--code-bg:#fff;--primary:#0000b8;--on-primary:#fff;--primary-c:#dfe3ff;--on-primary-c:#000}
+:root[data-contrast="high"][data-theme="dark"]{--bg:#000;--surface:#000;--surface-2:#141414;--surface-3:#2a2a2a;--text:#fff;--muted:#f0f0f0;--line:#fff;--code-bg:#000;--primary:#ffe94d;--on-primary:#000;--primary-c:#333300;--on-primary-c:#fff}
+:root[data-contrast="high"] .card,:root[data-contrast="high"] .decision,:root[data-contrast="high"] .code,:root[data-contrast="high"] ul.check li{border:2px solid var(--line);box-shadow:none}
+:root[data-links="u"] a,:root[data-cb] a{text-decoration:underline}
+:root[data-size="l"]{font-size:18px}:root[data-size="xl"]{font-size:20px}
+:root[data-motion="off"]{scroll-behavior:auto}:root[data-motion="off"] *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+@media print{.bar,.drawer,.scrim,.side,.pn,#totop,.copy,.toc,.skip{display:none!important}.wrap{padding:0;max-width:none;display:block}body{background:#fff;color:#000}.code{border-color:#999;background:#fff}.code pre{white-space:pre-wrap;color:#000}a{color:#000}h2{page-break-after:avoid}.code,.decision{page-break-inside:avoid}.foot{background:#fff;border:0}}
+@media (min-width:1181px){.wrap.has-toc .toc{display:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="bar">
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.1</small></a>
+<span class="grow"></span>
+<nav class="topnav" aria-label="Main">
+<a class="nb" href="index.html">Home</a>
+<a class="nb" href="START-HERE.html">Start here</a>
+<a class="nb" href="GLOSSARY.html">Glossary</a>
+<button type="button" class="nb" id="docsbtn" aria-haspopup="true" aria-expanded="false" aria-controls="mega">Documents<span class="ms" aria-hidden="true">expand_more</span></button>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button>
+<button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button>
+<div class="mega" id="mega"><div class="mg"><h2>Start</h2><a href="README.html">README</a><a href="START-HERE.html">Start here</a><a href="GLOSSARY.html">Glossary (technical terms)</a><a href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a href="pki_setup-MANUAL.html" aria-current="page">Build the PKI (pki_setup)</a><a href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a href="PkiTrustKit-MANUAL.html">Trust kit</a><a href="DevKit-MANUAL.html">DevKit</a><a href="PkiTransport-MANUAL.html">Transport package</a><a href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a href="PrepareComputer-MANUAL.html">Prepare a computer</a><a href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a href="scripts-README.html">Modules (scripts folder)</a><a href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a href="PKI-ChangeLog.html">Change log</a><a href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div></div>
+</nav>
+<button type="button" class="nb" id="menubtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><span class="ms" aria-hidden="true">menu</span></button>
+</header>
+<div class="a11y" id="a11y" role="dialog" aria-labelledby="a11yt" hidden>
+<h2 id="a11yt">Accessibility</h2>
+<fieldset><legend>Colors</legend>
+<label><input type="radio" name="a-cb" value="off" checked> Normal colors</label>
+<label><input type="radio" name="a-cb" value="deut"> Red-green safe (protanopia, deuteranopia)</label>
+<label><input type="radio" name="a-cb" value="trit"> Blue-yellow safe (tritanopia)</label>
+<label><input type="radio" name="a-cb" value="mono"> Grayscale (no color at all)</label>
+</fieldset>
+<fieldset><legend>Contrast and links</legend>
+<label><input type="checkbox" id="a-hc"> High contrast</label>
+<label><input type="checkbox" id="a-links"> Underline every link</label>
+</fieldset>
+<fieldset><legend>Text size</legend>
+<label><input type="radio" name="a-size" value="n" checked> Normal</label>
+<label><input type="radio" name="a-size" value="l"> Large</label>
+<label><input type="radio" name="a-size" value="xl"> Extra large</label>
+</fieldset>
+<label><input type="checkbox" id="a-motion"> Reduce motion</label>
+<div class="row"><button type="button" class="btn alt" data-a11y-reset="1">Reset</button><button type="button" class="btn" data-a11y-close="1">Close</button></div>
+</div>
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+<div class="dh"><strong>Menu</strong><button type="button" class="nb" data-close="1" aria-label="Close menu"><span class="ms" aria-hidden="true">close</span></button></div>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<a class="dl" href="index.html">Home</a>
+<div class="mg"><h2>Start</h2><a class="dl" href="README.html">README</a><a class="dl" href="START-HERE.html">Start here</a><a class="dl" href="GLOSSARY.html">Glossary (technical terms)</a><a class="dl" href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a class="dl" href="pki_setup-MANUAL.html" aria-current="page">Build the PKI (pki_setup)</a><a class="dl" href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a class="dl" href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a class="dl" href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a class="dl" href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a class="dl" href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a class="dl" href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a class="dl" href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a class="dl" href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a class="dl" href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a class="dl" href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a class="dl" href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a class="dl" href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a class="dl" href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a class="dl" href="PkiTrustKit-MANUAL.html">Trust kit</a><a class="dl" href="DevKit-MANUAL.html">DevKit</a><a class="dl" href="PkiTransport-MANUAL.html">Transport package</a><a class="dl" href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a class="dl" href="PrepareComputer-MANUAL.html">Prepare a computer</a><a class="dl" href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a class="dl" href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a class="dl" href="scripts-README.html">Modules (scripts folder)</a><a class="dl" href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a class="dl" href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a class="dl" href="PKI-ChangeLog.html">Change log</a><a class="dl" href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div>
+<p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
+<p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
+</nav>
+<main class="wrap has-toc" id="content">
+<div class="page">
+<p class="crumb"><a href="index.html">Home</a> &rsaquo; Build and run the PKI</p>
+<h1>Build the PKI (pki_setup)</h1>
+<p class="lead">Make the root and intermediate CAs. The owner reads this first.</p>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#5-which-quadrant-do-i-use">5  WHICH QUADRANT DO I USE?</a></li><li class="l2"><a href="#6-what-is-created">6  WHAT IS CREATED</a></li><li class="l2"><a href="#7-trust-the-root-on-every-device">7  TRUST THE ROOT ON EVERY DEVICE</a></li><li class="l2"><a href="#8-use-the-certificates-in-your-servers">8  USE THE CERTIFICATES IN YOUR SERVERS</a></li><li class="l2"><a href="#9-many-pkis-releases-and-the-nocr-variant">9  MANY PKIs, RELEASES AND THE NoCR VARIANT</a></li><li class="l2"><a href="#10-names-of-the-cas">10  NAMES OF THE CAs</a></li><li class="l2"><a href="#11-classic-pki-only-and-a-public-ca-root">11  CLASSIC PKI ONLY, AND A PUBLIC CA ROOT</a></li><li class="l2"><a href="#12-maintenance">12  MAINTENANCE</a></li><li class="l2"><a href="#13-removing-a-pki">13  REMOVING A PKI</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI generator          Version 6.4.1           2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
+<h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> What it is   : A script. It builds your own private PKI: the root CAs, the intermediate CAs and
+                one test certificate for each quadrant.
+ Who reads it : The person who owns the PKI. IT, infrastructure or developer. No PKI knowledge
+                is needed. Every new word is explained in <a href="GLOSSARY.html">GLOSSARY.txt</a>.
+ Time needed  : 30 minutes to read sections 1 to 4. The first run takes a few minutes.
+ You need     : A Windows 11 or Windows Server computer, PowerShell 7 and OpenSSL 4.
+ Start with   : Section 3 (Before you start), then section 4 (First run, step by step).
+ Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical words), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
+<div class="code"><pre> Related manuals:
+   <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>   make more certificates after the PKI exists
+   <a href="Create-WebServerConfig-MANUAL.html">Create-WebServerConfig-MANUAL.txt</a>    use a certificate in nginx or Apache
+   <a href="PkiTrustKit-MANUAL.html">PkiTrustKit-MANUAL.txt</a>               let other computers trust the PKI
+   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>                    give developers a zip to make their own certificates
+   <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>             revoke a certificate, CRL, OCSP, time stamping
+   <a href="PUBLIC-CA-ENTERPRISE-ROOT.html">PUBLIC-CA-ENTERPRISE-ROOT.txt</a>        let DigiCert, GlobalSign or Sectigo sign your root
+   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>     why it is built this way (for senior staff)
+ Help in the terminal:   .\pki_setup.ps1 -Help      (every option, one page at a time)</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What the script does                       10  Names of the CAs
+    2  The words you need                         11  Classic PKI only, and a public CA root
+    3  Before you start                           12  Maintenance
+    4  First run, step by step                    13  Removing a PKI
+    5  Which quadrant do I use?                   14  Problems and answers
+    6  What is created                            15  Limits you must know
+    7  Trust the root on every device             16  All options
+    8  Use the certificates in your servers       17  What was tested, what was not
+    9  Many PKIs, releases and the NoCR variant   18  Other documents</pre></div>
+<h2 id="1-what-the-script-does">1  WHAT THE SCRIPT DOES<a class="anchor" href="#1-what-the-script-does" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> pki_setup.ps1 builds a private PKI in the folder .\pki. &quot;Private&quot; means: only computers that you
+ set up will trust it. A normal browser does not trust it until you install the root.</pre></div>
+<p>The script makes these things, from the top to the bottom:</p>
+<div class="code"><pre>     Enterprise Root CA
+       |-- Classic Track Root CA       (RSA and ECDSA, works everywhere)
+       |     |-- Quadrant 1 Root CA  --&gt; DV, OV and EV intermediate CAs --&gt; one test certificate
+       |     `-- Quadrant 2 Root CA  --&gt; DV, OV and EV intermediate CAs --&gt; one test certificate
+       `-- Quantum Track Root CA       (ML-DSA, safe against quantum computers)
+             |-- Quadrant 3 Root CA  --&gt; DV, OV and EV intermediate CAs --&gt; one test certificate
+             `-- Quadrant 4 Root CA  --&gt; DV, OV and EV intermediate CAs --&gt; one test certificate</pre></div>
+<p>It also writes the CRL files and the CA files that a web server must publish (folder publish), a manifest (what was made), and it can install the CA certificates into Windows.</p>
+<div class="code"><pre> What the script does NOT do:
+   * It does not make the many certificates that your servers and people need.
+     Use GenerateLeafCertificate.ps1 for that (<a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>).
+   * It does not publish the CRL files. You copy them to a web server (section 12).
+   * It does not change your computer, except when you use -InstallTrust or the remove options.</pre></div>
+<p>Rules of thumb: * Run  .\pki_setup.ps1 -Check  first. It changes nothing. * Read the last page of the output. It lists every CA with key, validity and expiry date. * Never copy the .key files of the root CAs to other computers.</p>
+<h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<p>Only the words used in this manual. More words: <a href="GLOSSARY.html">GLOSSARY.txt</a>.</p>
+<div class="code"><pre>   CA            Certificate Authority. A program or a person that signs certificates.
+   Root CA       The top CA. It signs the CAs below it. Every computer must trust it.
+   Intermediate  A CA below the root. It signs the certificates that servers and people use.
+   Leaf          The last certificate in the chain: the one a server or a person uses.
+   Chain         Leaf, then intermediate, then root. A client checks the whole chain.
+   Track         A group of CAs with the same kind of key. This PKI has two tracks:
+                 Classic (RSA and ECDSA) and Quantum (ML-DSA).
+   Quadrant      One of four CA families. Number 1 to 4. See section 5.
+   FIPS          A US standard for approved cryptography. A FIPS quadrant uses the OpenSSL FIPS
+                 module. A non-FIPS quadrant does not.
+   ML-DSA        A signature type that quantum computers cannot break. Also called &quot;quantum safe&quot;.
+   DV, OV, EV    Three levels of certificate. DV = domain checked. OV = organization checked.
+                 EV = extended checks. Here the level only decides the policy and the validity.
+   CRL           A list of certificates that are no longer good.
+   PFX           One file with a certificate and its private key, protected by a password.
+   Trust         &quot;My computer believes certificates signed by this root.&quot;</pre></div>
+<h2 id="3-before-you-start">3  BEFORE YOU START<a class="anchor" href="#3-before-you-start" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> 3.1  Your computer
+        Works: Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education,
+               Enterprise).
+               Windows Server 2025.
+               Linux with PowerShell: Ubuntu 24+, CentOS Stream 10+, RHEL 10+, Rocky 10+,
+               Oracle Linux 10+, SLES 15+, openSUSE.
+        Classic only: Windows Server 2022. Quadrants 3 and 4 are refused there.
+        Refused (error, exit code 5): Windows 10, older Windows, macOS, and the China,
+               Government, IoT and Embedded editions.
+        On Linux you cannot use -InstallTrust. Section 7 shows how to trust the root by hand.</pre></div>
+<div class="code"><pre> 3.2  PowerShell 7 or newer
+        Not Windows PowerShell 5.1. The program name is &quot;pwsh&quot;.
+        Windows :   winget install --id Microsoft.PowerShell
+        Linux   :   use the package instructions of Microsoft for your distribution.
+        Check   :   pwsh -v</pre></div>
+<div class="code"><pre> 3.3  OpenSSL 4
+        Only OpenSSL 4.x works. OpenSSL 3.x is refused.
+        Windows :   run this in an ELEVATED PowerShell (right click, Run as administrator):
+                        .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+                    Then open a NEW PowerShell window. The PATH is read when a window starts.
+        Check   :   openssl version        It must print  OpenSSL 4.x.x
+        If you have several OpenSSL programs, the script takes the newest 4.x by itself.
+        To choose one:   .\pki_setup.ps1 -OpenSslPath &quot;C:\path\to\openssl.exe&quot;
+        Before it makes any key, the script tests that OpenSSL can make ML-DSA keys and can load
+        the FIPS module. If not, it stops at once and says why.</pre></div>
+<div class="code"><pre> 3.4  The FIPS module (only for quadrants 2 and 4)
+        Install-DevEnvironment.ps1 makes the file fipsmodule.cnf for you.
+        Without it, build only the non-FIPS quadrants:   .\pki_setup.ps1 -Quadrant 1,3
+        With another file:   .\pki_setup.ps1 -FipsModuleConfig C:\openssl\ssl\fipsmodule.cnf</pre></div>
+<div class="code"><pre> 3.5  Administrator rights
+        Needed only for  -InstallTrust  -ReinstallTrust  -RemoveTrust  -RemoveAllTrust  -Clean.
+        The other commands run as a normal user.</pre></div>
+<div class="code"><pre> 3.6  The files
+        Keep these together in one project folder:
+            pki_setup.ps1    agantra_pki.cnf    the folder scripts\
+        agantra_pki.cnf holds your company data, URLs and policy names. Read section 4, step 4.</pre></div>
+<h2 id="4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP<a class="anchor" href="#4-first-run-step-by-step" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Step 1. Unblock the files. Do this once, only if the project came from a zip or a download.
+             Get-ChildItem -Path . -Recurse -File | Unblock-File
+         If Windows says &quot;running scripts is disabled&quot;:
+             Set-ExecutionPolicy RemoteSigned -Scope CurrentUser</pre></div>
+<p>Step 2. Open PowerShell 7 as Administrator in the project folder.</p>
+<div class="code"><pre> Step 3. Check the computer. This changes nothing.
+             .\pki_setup.ps1 -Check
+         Expected: every line says PASS or INFO. The last line says READY.
+         If the last line says NOT READY: read the FAIL line. It names the step and the reason.
+         Section 14 lists the common reasons.</pre></div>
+<div class="code"><pre> Step 4. Edit agantra_pki.cnf if you need to. You can skip this for a test.
+         The important lines:
+             company name, country, city          (who you are)
+             [ crl_urls ] and [ ca_issuer_urls ]  (where clients will find the CRL and CA files)
+             IanaPen                              (your IANA number; it may stay empty)
+         For another company, do not edit this file. Make a new profile (section 9).</pre></div>
+<div class="code"><pre> Step 5. Build the PKI and install the trust in Windows.
+             .\pki_setup.ps1 -InstallTrust
+         This takes a few minutes. RSA 8192 keys are slow. The script prints one line per CA.
+         Result: 4 quadrants on Windows 11, 2 quadrants (1 and 2) on Windows Server 2022.</pre></div>
+<div class="code"><pre> Step 6. Read the table at the end of the output. For each CA it shows the validity, the key,
+         the digest, the expiry date and the common name. Save it if you must report it.</pre></div>
+<div class="code"><pre> Step 7. Check what was written. This changes nothing.
+             .\pki_setup.ps1 -Verify
+         Expected:  PKI is valid
+         On Windows it also tells you whether each CA is in the certificate store.</pre></div>
+<div class="code"><pre> Step 8. Test it. Open Edge, Chrome or Brave. They use the Windows store.
+         Use one of the test certificates on a test server (section 8).
+         Firefox has its own store. Install the root there too (section 7).</pre></div>
+<div class="code"><pre> You are done. Next:   <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>   to make real certificates.</pre></div>
+<h2 id="5-which-quadrant-do-i-use">5  WHICH QUADRANT DO I USE?<a class="anchor" href="#5-which-quadrant-do-i-use" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre>   No.  Track    FIPS      Root key (digest)         Intermediate key         Test certificate
+   ---  -------  --------  ------------------------  -----------------------  ----------------
+    1   Classic  no        RSA 4096 (SHA-384)        RSA 4096 (SHA-256)       RSA 2048
+    2   Classic  yes       ECDSA P-384 (SHA-384)     ECDSA P-384 (SHA-384)    ECDSA P-256
+    3   Quantum  no        ML-DSA-87                 ML-DSA-87                ML-DSA-65
+    4   Quantum  yes       ML-DSA-87                 ML-DSA-87                ML-DSA-65</pre></div>
+<p>The text in brackets is the digest that this CA uses when it signs. The Enterprise Root and the two Track Roots are RSA 8192 and sign with SHA-512.</p>
+<div class="code"><pre> Which one for which job:
+   Web sites that browsers open, IIS, Kestrel on Windows, Java 25
+        --&gt; quadrant 1 (RSA) or quadrant 2 (FIPS, ECDSA).
+   Services on OpenSSL 3.5 or newer (nginx, Apache, Node.js, Python, curl, Kestrel on Linux),
+   mutual TLS between your own systems, post-quantum tests
+        --&gt; quadrant 3 (no FIPS) or quadrant 4 (FIPS).</pre></div>
+<p>Why: Windows Schannel, Java 25 and all browsers do not accept ML-DSA certificates for HTTPS today. Windows 11 24H2 and Windows Server 2025 can hold them in the certificate store. The hybrid key exchange (ML-KEM) is a different thing. It works with every certificate (section 8.3).</p>
+<p>If OpenSSL cannot make an ML-DSA key, the script STOPS. It does not quietly use a weaker key. To allow RSA instead, use -PqcFallback. Those certificates are NOT quantum safe.</p>
+<p>This script makes EV test certificates (397 days). Use GenerateLeafCertificate.ps1 for DV and OV.</p>
+<h2 id="6-what-is-created">6  WHAT IS CREATED<a class="anchor" href="#6-what-is-created" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> 6.1  The folders
+      Every PKI has its own folder inside .\pki. The first PKI of Agantra is pki\pki-default-01.</pre></div>
+<div class="code"><pre>          pki\pki-default-01\
+            root\                  Enterprise Root:  root.crt   root.key   root.pfx
+            classical\root\        Classic Track Root
+            quantum\root\          Quantum Track Root
+            classical\q1\{root,dv,ov,ev}\     one folder per CA, for quadrant 1
+            classical\q2\ ...      quantum\q3\ ...      quantum\q4\ ...
+                                   In each CA folder: &lt;id&gt;.crt  &lt;id&gt;.key  &lt;id&gt;.pfx  &lt;id&gt;.cnf
+                                   &lt;id&gt;-chain.crt  and the CA database (index.txt, serial ...)
+            leaf\                  the test certificates
+            publish\               the files for the web server: root.crt, ca-bundle.crt,
+                                   &lt;name&gt;.crt, &lt;name&gt;.crl, README.txt
+            server\                the facts for the PKI server: server-info.json, ca-list.tsv,
+                                   server.env, expected-urls.tsv, DNS-RECORDS.txt  (no keys)
+            pki-manifest.json      every certificate: thumbprint, key, digest, expiry date
+            telemetry.json         what the run did and how long it took</pre></div>
+<div class="code"><pre> 6.2  The test certificate files (folder leaf)
+      The name is &lt;domain&gt;-&lt;tag&gt;. The tag is q1-rsa2048, q2-ecdsa-p256, q3-mldsa65 or q4-mldsa65.</pre></div>
+<div class="code"><pre>          .crt            the certificate only
+          .key            the private key, no password. Protect it. Never send it.
+          -fullchain.crt  leaf + intermediate + quadrant root + track root. Servers send this file.
+          .pfx            certificate + key + chain in one file. Password: see -Password.
+          -fips.pfx       FIPS quadrants only. Windows may refuse to import it. Use the .pfx.
+          .sha256 .sha512 a hash file for each certificate file set. Check it with:
+                          sha256sum -c &lt;name&gt;.sha256
+          .pub, -chain.crt, .cnf   the public key, the chain without the leaf, the OpenSSL file.</pre></div>
+<div class="code"><pre>      The default PFX password is  Abc12345!  . Change it with -Password for real use.</pre></div>
+<div class="code"><pre> 6.3  Which file does each product need?
+      Classic = quadrant 1 or 2.   Quantum = quadrant 3 or 4.</pre></div>
+<div class="code"><pre>          Product                Files                       Classic   Quantum
+          ---------------------  --------------------------  --------  -------
+          Kestrel on Windows     .pfx                        yes       no
+          IIS                    .pfx                        yes       no
+          Kestrel on Linux       .pfx or PEM                 yes       yes
+          nginx, Apache          -fullchain.crt and .key     yes       yes
+          Node.js, Python        -fullchain.crt and .key     yes       yes
+          Go, PHP                -fullchain.crt and .key     yes       not verified
+          Java 25                .pfx                        yes       no
+          Browsers               (the server decides)        yes       no</pre></div>
+<div class="code"><pre>      Every CLIENT must trust  root.crt  (section 7).</pre></div>
+<h2 id="7-trust-the-root-on-every-device">7  TRUST THE ROOT ON EVERY DEVICE<a class="anchor" href="#7-trust-the-root-on-every-device" aria-label="Link to this section">#</a></h2>
+<p>A device trusts your PKI when it has your root. Install ONLY  pki\pki-default-01\root\root.crt. Servers send the intermediates inside the -fullchain.crt file. For many devices use the trust kit:  New-PkiTrustKit.ps1  (<a href="PkiTrustKit-MANUAL.html">PkiTrustKit-MANUAL.txt</a>).</p>
+<div class="code"><pre> The computer that builds the PKI:
+     .\pki_setup.ps1 -InstallTrust          (or -ReinstallTrust for an existing PKI)
+ Result in certlm.msc:
+     Trusted Root Certification Authorities    7 certificates: Enterprise Root, 2 Track Roots,
+                                               4 Quadrant Roots
+     Intermediate Certification Authorities    12 certificates: all DV, OV and EV CAs
+     Personal                                  the test certificate PFX files</pre></div>
+<p>Other devices, by hand:</p>
+<div class="code"><pre>     Windows        certlm.msc  -&gt;  Trusted Root Certification Authorities  -&gt;  Import root.crt
+                    Edge, Chrome and Brave use this store.
+     Firefox        Settings -&gt; Privacy and Security -&gt; Certificates -&gt; View Certificates -&gt;
+                    Authorities -&gt; Import. Tick &quot;Trust this CA to identify websites&quot;.
+                    Or about:config  security.enterprise_roots.enabled = true  (uses the OS store).
+     Ubuntu         sudo cp root.crt /usr/local/share/ca-certificates/agantra-root.crt
+                    sudo update-ca-certificates
+     RHEL family    sudo cp root.crt /etc/pki/ca-trust/source/anchors/agantra-root.crt
+                    sudo update-ca-trust
+     SUSE           sudo cp root.crt /etc/pki/trust/anchors/agantra-root.crt
+                    sudo update-ca-certificates
+     macOS          sudo security add-trusted-cert -d -r trustRoot \
+                        -k /Library/Keychains/System.keychain root.crt
+     Android        Copy root.crt to the phone. Settings -&gt; Security -&gt; Install a certificate -&gt;
+                    CA certificate. Apps for Android 7 and newer ignore user CAs by default.
+     Chrome on Linux   It reads the NSS database:
+                    sudo apt install libnss3-tools
+                    certutil -d sql:$HOME/.pki/nssdb -A -t &quot;C,,&quot; -n AgantraRoot -i root.crt
+     UC Browser, QQ Browser   Not verified. They may use their own store. Test one page first.</pre></div>
+<p>Programs that do not use the OS store:</p>
+<div class="code"><pre>     Node.js    set NODE_EXTRA_CA_CERTS=C:\path\root.crt
+     Python     ssl.create_default_context(cafile=&quot;root.crt&quot;)   or   SSL_CERT_FILE=root.crt
+     PHP        &#39;cafile&#39; =&gt; &#39;root.crt&#39; in the stream context, or openssl.cafile in php.ini
+     Java 25    keytool -importcert -trustcacerts -alias agantra-root -file root.crt -cacerts
+     Go, .NET   use the OS store.</pre></div>
+<h2 id="8-use-the-certificates-in-your-servers">8  USE THE CERTIFICATES IN YOUR SERVERS<a class="anchor" href="#8-use-the-certificates-in-your-servers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> 8.1  nginx and Apache
+      Do not write the configuration by hand. Create-WebServerConfig.ps1 (or .sh) writes it for
+      you from your leaf certificate. See <a href="Create-WebServerConfig-MANUAL.html">Create-WebServerConfig-MANUAL.txt</a>.</pre></div>
+<div class="code"><pre> 8.2  Windows
+      Kestrel (.NET) and IIS use the Classic .pfx.
+          Import-PfxCertificate -FilePath .\nextmantra.com-q1-rsa2048.pfx `
+              -CertStoreLocation Cert:\LocalMachine\My -Password (Read-Host -AsSecureString)
+      In IIS Manager: Site -&gt; Bindings -&gt; https -&gt; choose the certificate.
+      The default certificate names include localhost and 127.0.0.1. So https://localhost:5001
+      is trusted once the root is installed. Keep the PFX password out of source control. In
+      development use:   dotnet user-secrets</pre></div>
+<div class="code"><pre> 8.3  The key exchange rules (all products)
+      The hybrid key exchange X25519MLKEM768 comes from the TLS library, not from the certificate.
+      To keep it working:
+        * Keep TLS 1.3 turned on. It is the only protocol that carries the hybrid group.
+        * Do not write a fixed list of ciphers or groups, unless it contains the hybrid group.
+        * Use OpenSSL 3.5 or newer in nginx, Apache, Node.js and Python.</pre></div>
+<div class="code"><pre> 8.4  Test the key exchange
+      With an OpenSSL 3.5 or newer client:
+          &quot;&quot; | openssl s_client -connect app.example.com:443 -servername app.example.com `
+               -CAfile pki\pki-default-01\root\root.crt -groups X25519MLKEM768
+      (Linux: openssl s_client ... &lt; /dev/null)
+      You should see:
+          Negotiated TLS1.3 group: X25519MLKEM768     hybrid ML-KEM was used
+          Verification: OK                            the chain is trusted
+      For a Quantum certificate you also see:  Peer signature type: ML-DSA-65
+      If the group line shows only X25519: the server or its OpenSSL is too old, TLS 1.3 is off,
+      or the group list was limited.
+      On Windows,  .\pki_setup.ps1 -Verify  asks Windows itself whether it accepts every chain.</pre></div>
+<div class="code"><pre> 8.5  Mutual TLS
+      The test certificates carry both serverAuth and clientAuth. The same certificate can be
+      a server certificate and a client certificate. The other side must trust root.crt.</pre></div>
+<div class="code"><pre> 8.6  Copy a certificate to a Linux server by hand
+      Copy only what the server needs: the leaf files and root.crt. NEVER copy the .key files of
+      the CAs (the folders root, classical and quantum).
+      On Windows (the OpenSSH client is part of Windows 11):
+          $h = &quot;user@server.example.com&quot;
+          scp pki\pki-default-01\root\root.crt                    &quot;${h}:/tmp/agantra-root.crt&quot;
+          scp pki\pki-default-01\leaf\example.com-q1-rsa2048-fullchain.crt   &quot;${h}:/tmp/&quot;
+          scp pki\pki-default-01\leaf\example.com-q1-rsa2048.key             &quot;${h}:/tmp/&quot;
+      On the server (Ubuntu, as root or with sudo):
+          cp /tmp/agantra-root.crt /usr/local/share/ca-certificates/agantra-root.crt
+          update-ca-certificates
+          mkdir -p /etc/pki/agantra
+          mv /tmp/example.com-q1-rsa2048-fullchain.crt /etc/pki/agantra/
+          mv /tmp/example.com-q1-rsa2048.key /etc/pki/agantra/
+          chmod 644 /etc/pki/agantra/*.crt
+          chmod 600 /etc/pki/agantra/*.key
+      Test on the server itself:
+          curl --resolve example.com:443:127.0.0.1 <a href="https://example.com/" target="_blank" rel="noopener noreferrer">https://example.com/</a> -I
+      The host name of the server must be in the certificate (the SAN). If it is not, edit
+      [ leaf_san ] in agantra_pki.cnf, or use -Domain, and build again.
+      For a whole server (CRL, OCSP, time stamping) use New-PkiServerPackage.ps1.</pre></div>
+<h2 id="9-many-pkis-releases-and-the-nocr-variant">9  MANY PKIs, RELEASES AND THE NoCR VARIANT<a class="anchor" href="#9-many-pkis-releases-and-the-nocr-variant" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> 9.1  One PKI for each company  (profiles)
+      A profile is a file  &lt;short&gt;_pki.cnf  next to the scripts. agantra_pki.cnf is the default.
+      For another company:
+          .\New-PkiConfig.ps1                   asks for the company data, writes raksaka_pki.cnf
+          .\pki_setup.ps1 -Pki raksaka -InstallTrust
+          .\pki_setup.ps1 -ListPki              lists all PKIs. These names are the values for -Pki.
+      Every script that works on a PKI has the same -Pki option. Tab completion shows the names.
+      Full text: <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a>.</pre></div>
+<div class="code"><pre> 9.2  Releases
+      Run pki_setup.ps1 again and it builds the NEXT release. It never changes an old one.
+          pki\pki-default-01    release 1
+          pki\pki-default-02    release 2  (a new Enterprise Root and everything below it)
+      Old certificates keep working, because their CAs still exist.
+          .\pki_setup.ps1 -InstallTrust            next free release
+          .\pki_setup.ps1 -Release 3               exactly release 3. If it exists, nothing
+                                                   happens and the script says &quot;R3 already exists&quot;.
+          .\pki_setup.ps1 -Clean -Release 3        replace release 3 on purpose
+      &quot;Exists&quot; means: the folder exists OR the certificates are in the Windows store.
+      Names: release 1 has no suffix. From release 2 every CA name ends with &quot; R2&quot;, &quot; R3&quot; ...
+          Agantra Root CA G1          release 1
+          Agantra Root CA G1 R2       release 2</pre></div>
+<div class="code"><pre> 9.3  The NoCR variant
+      NoCR means &quot;no CA revocation information&quot;. The CA certificates have no CRL, OCSP or CA
+      Issuers address. Some programs wait a long time when such an address is not reachable (for
+      example signatures in Microsoft Office). NoCR avoids that.
+          .\pki_setup.ps1 -NoCaRevocationInfo -InstallTrust
+      Folder:  pki\pki-default-nocr-01.   Names get &quot; (NoCR)&quot;:  Agantra Root CA G1 (NoCR)
+      NoCR is a SEPARATE set of roots with its own keys. Leaves of the normal PKI do not chain to
+      it. To switch: remove the trust of the normal PKI, install the NoCR PKI, issue the leaves
+      again. Leaves keep their own CRL and OCSP addresses. Add -NoRevocationInfo to the leaf
+      generators to remove them too.</pre></div>
+<div class="code"><pre> 9.4  Which release do the other scripts use?
+          (nothing)             the LATEST release of the normal PKI
+          -Release N            release N. If it does not exist, the latest one is used and
+                                a warning says so.
+          -NoCaRevocationInfo   the NoCR PKI
+          -PkiRoot &lt;folder&gt;     exactly that folder
+      -Verify, -ReinstallTrust and -RemoveTrust use exactly the release you name. If several
+      releases are installed, -RemoveTrust needs -Release N, so nothing is removed by accident.</pre></div>
+<div class="code"><pre> 9.5  A kit holds one PKI
+      A DevKit or a server package holds ONE PKI: the latest release, unless you choose another.
+      Make one kit for each release.</pre></div>
+<h2 id="10-names-of-the-cas">10  NAMES OF THE CAs<a class="anchor" href="#10-names-of-the-cas" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> 10.1  The default names
+          Enterprise Root     Agantra Root CA G1
+          Track Roots         Agantra Classic Root CA G1        Agantra PQC Root CA G2
+          Quadrant Roots      Agantra Classic Q1 Root CA G1     (quadrant 1, no FIPS)
+                              Agantra Classic Q2 Root CA G1     (quadrant 2, FIPS)
+                              Agantra PQC Q1 Root CA G2         (quadrant 3, no FIPS)
+                              Agantra PQC Q2 Root CA G2         (quadrant 4, FIPS)
+          Intermediates       Agantra &lt;EV|OV|DV&gt; &lt;algorithm&gt; &lt;G1|G2&gt; CA
+                              Example:  Agantra OV ECDSA-P384 FIPS G1 CA
+      G1 = the Classic track. G2 = the Quantum track.
+      In names, a quadrant is only Q1 (no FIPS) or Q2 (FIPS), in both tracks. The track word and
+      G1 / G2 tell them apart. The numbers 1 to 4 stay in -Quadrant and in the folders.</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> 10.2  See the names before you build
+          .\pki_setup.ps1 -ShowNames</pre></div>
+<div class="code"><pre> 10.3  Change the names
+      The names come from templates. Put your changes in agantra_pki.cnf, section [ ca_names ].
+      Your changes then survive an update of the scripts. Remove the &quot;#&quot; of the lines to change.</pre></div>
+<div class="code"><pre>          [ ca_names ]
+          Prefix              = Agantra Inovatif
+          QuantumLabel        = PQC
+          SlugPrefix          = agantra          (the start of the CRL and CA file names)
+          GenEnterprise = G1   GenClassic = G1   GenQuantum = G2
+          EnterpriseRoot      = {Prefix} Root CA {Gen}
+          ClassicTrackRoot    = {Prefix} Classic Root CA {Gen}
+          QuantumTrackRoot    = {Prefix} {QuantumLabel} Root CA {Gen}
+          ClassicQuadrantRoot = {Prefix} Classic Q{N} Root CA {Gen}
+          QuantumQuadrantRoot = {Prefix} {QuantumLabel} Q{N} Root CA {Gen}
+          Intermediate        = {Prefix} {Level} {Algorithm} {Gen} CA</pre></div>
+<div class="code"><pre>      Allowed tokens: {Prefix} {QuantumLabel} {Gen} {N} {Level} {Algorithm} {Track} {Id}
+      Rules. The script stops and says why when you break one:
+        * A name has at most 64 characters.
+        * Every CA has a different name.
+        * Only the tokens above.
+      A name is fixed when the CA is made. To change it later you must build a new PKI (-Clean).
+      The OU of each layer comes from OU_Root, OU_Track, OU_Quadrant and OU_Intermediate in
+      the section [ pki_settings ].</pre></div>
+<h2 id="11-classic-pki-only-and-a-public-ca-root">11  CLASSIC PKI ONLY, AND A PUBLIC CA ROOT<a class="anchor" href="#11-classic-pki-only-and-a-public-ca-root" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> 11.1  Classic PKI only
+          .\pki_setup.ps1 -ClassicPKI -InstallTrust
+      Builds only: Enterprise Root, Classic Track Root, Quadrant 1 Root, DV, OV and EV
+      intermediates, and the quadrant 1 test certificate. RSA only. No FIPS module. No ML-DSA.
+      It is the smallest PKI and the most compatible one. Use it under a public CA.
+      You cannot combine -ClassicPKI with -Quadrant.</pre></div>
+<div class="code"><pre> 11.2  Let a public CA sign the Enterprise Root
+      DigiCert, GlobalSign or Sectigo can sign your root. Clients that trust the public root then
+      trust your PKI without installing anything. The script makes the files and checks the
+      answer. The public CA does the signing.
+          1.  .\pki_setup.ps1 -ClassicPKI -EnterpriseRootCsr -ExternalCa DigiCert `
+                  -EnterpriseRootKeyBits 4096
+              It writes pki\...\root\root.csr and external-request.txt (what to ask the CA).
+          2.  Send root.csr to the CA. You receive the signed certificate and the chain.
+          3.  .\pki_setup.ps1 -ImportEnterpriseRoot signed.pem -ExternalChain chain.pem `
+                  -InstallTrust
+          4.  .\pki_setup.ps1 -Verify
+      Already have a PKI? Cross-sign it instead:
+          .\pki_setup.ps1 -CrossSignCsr
+          .\pki_setup.ps1 -ImportCrossCert cross.pem -ExternalChain chain.pem
+      Know this before you start:
+        * The public CA decides the key size, the path length (this PKI needs 3 or more), the
+          key usage, name constraints and the validity. It can refuse RSA 8192.
+        * Every CA below the root is shortened so that it ends before the public certificate.
+        * Public TLS certificates are limited to 398 days.
+        * Never use -Clean together with -ImportEnterpriseRoot. It deletes the key.
+      The full text is in <a href="PUBLIC-CA-ENTERPRISE-ROOT.html">PUBLIC-CA-ENTERPRISE-ROOT.txt</a>.</pre></div>
+<h2 id="12-maintenance">12  MAINTENANCE<a class="anchor" href="#12-maintenance" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> CRL         Valid 365 days (-CrlDays). Renew it before it ends:
+                 .\PkiRevocation.ps1 -Action NewCrl
+             Status:  .\PkiRevocation.ps1        Revoke:  -Action Revoke
+             OCSP and time stamping certificates:  -Action NewOcsp   -Action NewTsa
+             Full text: <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>
+ Publish     Copy the files of the folder publish to the hosts named in agantra_pki.cnf
+             ([ crl_urls ] and [ ca_issuer_urls ]). Until one URL answers, Windows says
+             &quot;revocation server offline&quot; for client certificates.
+             For an Ubuntu server use New-PkiServerPackage.ps1 (<a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>).
+ Expiry      Test certificates: 397 days. Intermediates: 250 years. The summary table shows
+             every date.
+ Backup      Back up the whole pki folder to encrypted offline media. Use Backup-Pki.ps1
+             (<a href="PkiBackup-MANUAL.html">PkiBackup-MANUAL.txt</a>). The root keys are plain files protected only by file
+             permissions. After the build, keep a copy offline. If you do not issue from the roots,
+             remove their keys from the working computer.
+ Password    The PFX password is Abc12345! unless you set -Password. Change it for real use.</pre></div>
+<h2 id="13-removing-a-pki">13  REMOVING A PKI<a class="anchor" href="#13-removing-a-pki" aria-label="Link to this section">#</a></h2>
+<p>Windows needs an Administrator PowerShell for the certificate stores. Linux removes only files.</p>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>   .\pki_remove.ps1 -List                    what is installed (release, variant, folder, expiry)
+   .\pki_remove.ps1 -Release 2               take release 2 out of Windows. Files stay.
+   .\pki_remove.ps1 -Release 2 -DeleteFiles  and delete its folder
+   .\pki_remove.ps1 -Release 1 -NoCaRevocationInfo -DeleteFiles     the NoCR release
+   .\pki_remove.ps1 -Pki raksaka -All        one company only
+   .\pki_remove.ps1 -All                     every release and both variants of one company</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>   .\pki_setup.ps1 -RemoveTrust -Release 2   same as pki_remove (by thumbprint and by name)
+   .\pki_setup.ps1 -RemoveAllTrust           EVERY PKI of EVERY company: all certificates from
+                                             Windows, and the whole pki folder is deleted
+   .\pki_setup.ps1 -Clean -InstallTrust      remove the release being built, then build it again</pre></div>
+<p>The script asks &quot;Yes?&quot; before it removes anything. -Yes skips the question. A certificate that is already gone is ignored. If a program holds the folder, the script retries and then names the program. -Clean and -RemoveAllTrust do NOT touch the folder leafcerts: leaf certificates of the old PKI do not chain to a new PKI. The script warns when such leaves exist. On other systems delete the root file you copied (section 7) and run update-ca-certificates, update-ca-trust or the command for your system again.</p>
+<h2 id="14-problems-and-answers">14  PROBLEMS AND ANSWERS<a class="anchor" href="#14-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The message or symptom                     What it means and what to do
+ -----------------------------------------  ----------------------------------------------------
+ -Check says NOT READY                      Read the FAIL line. It names the step and the reason.
+ &quot;OpenSSL 4.0 or newer ... not found&quot;       Only OpenSSL 3.x was found. Run
+                                            .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip as
+                                            administrator. Open a new PowerShell window. Check
+                                            with  openssl version. Or use -OpenSslPath.
+ &quot;ML-DSA key generation failed&quot;             This OpenSSL cannot make ML-DSA keys. For quadrant 4
+                                            the FIPS module must contain ML-DSA. Fix OpenSSL,
+                                            or build with -Quadrant 1,2, or use -PqcFallback
+                                            (not quantum safe).
+ &quot;FIPS ... fipsmodule.cnf not found&quot;        Run  openssl fipsinstall  or use -Quadrant 1,3.
+ &quot;The OpenSSL FIPS provider could not       fips.dll does not match the OpenSSL version, or
+  be loaded&quot;                                fipsmodule.cnf points to a wrong path.
+ &quot;These CA certificates could not be        ML-DSA needs Windows 11 24H2 or Windows Server 2025
+  installed&quot;                                with current updates. Check  winver. Install updates.
+ &quot;could not import ... into My&quot; (warning)   Windows could not import the ML-DSA key from the PFX.
+                                            The files stay in the leaf folder. Use them on Linux.
+ Browser or Kestrel on Windows refuses      Expected. Windows and browsers do not accept ML-DSA
+  the Quantum certificate                   for HTTPS. Use a Classic certificate there.
+ &quot;Invalid CA naming&quot;                        A name template in [ ca_names ] is wrong: unknown
+                                            token, two equal names, or more than 64 characters.
+                                            Use  .\pki_setup.ps1 -ShowNames  to see the result.
+ &quot;-ClassicPKI ... cannot be combined&quot;       Use -ClassicPKI OR -Quadrant, not both.
+ &quot;path length is N, but this PKI needs&quot;     The public CA gave a path length that is too small.
+                                            See <a href="PUBLIC-CA-ENTERPRISE-ROOT.html">PUBLIC-CA-ENTERPRISE-ROOT.txt</a>.
+ &quot;This PKI has no Quadrant N&quot;               The PKI was built with -ClassicPKI or -Quadrant. Use
+                                            a quadrant it has, or build a full PKI.
+ &quot;A PKI already exists in ...&quot;              Use -Clean, or build the next release (section 9).
+ &quot;R3 already exists&quot;                        Release 3 is in a folder or in the Windows store. Use
+                                            another number, or  -Clean -Release 3.
+ &quot;Administrator privileges are required&quot;    Start PowerShell 7 as Administrator.
+ &quot;running scripts is disabled&quot;              Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+                                            and  Get-ChildItem -Recurse -File | Unblock-File
+ &quot;The process cannot access the file ...&quot;   A program holds the pki folder. Run
+                                            .\pki_setup.ps1 -Unblock. It lists the program. Close
+                                            it (Explorer window, editor, shell inside .\pki).
+ Roots under &quot;Intermediate Certification    Run (as administrator)  .\pki_setup.ps1 -ReinstallTrust
+  Authorities&quot;                              It moves them to Trusted Root and reads the stores
+                                            back. It prints &quot;7 of 7 roots in place&quot;.
+ -Verify: &quot;WRONG STORE&quot; / &quot;NOT INSTALLED&quot;   Run  -ReinstallTrust. Lines marked &quot;older generation&quot;
+                                            are certificates of an earlier PKI with the same
+                                            names. They are left alone. Remove them with
+                                            -RemoveAllTrust or certlm.msc.
+ -Verify says &quot;PKI is NOT valid&quot;            A file was changed, or another agantra_pki.cnf is used
+                                            than at build time. Use the same file, or build again
+                                            with -Clean.
+ &quot;The EV policy OID ... is not valid&quot;       Use digits and dots, for example 2.23.140.1.1. EV, OV
+                                            and DV must differ.
+ Browser: ERR_CERT_AUTHORITY_INVALID        root.crt is not in THAT browser&#39;s store (Firefox,
+                                            Chrome on Linux), or the server does not send the
+                                            -fullchain.crt file.
+ Browser: ERR_CERT_COMMON_NAME_INVALID      The host name is not in the certificate. Edit
+                                            [ leaf_san ] in agantra_pki.cnf, or use -Domain.
+ &quot;revocation server offline&quot;                Serve the folder publish at the CRL URLs, or turn off
+                                            revocation checking on that server.
+ The hybrid group is not negotiated         See section 8.4.
+ Old Android or 32 bit device refuses       Dates after the year 2038 fail on 32 bit time. Use a
+  the PKI                                   smaller -RootYears for those devices.</pre></div>
+<h2 id="15-limits-you-must-know">15  LIMITS YOU MUST KNOW<a class="anchor" href="#15-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>Private PKI. Every client must install the root. No browser shows the EV company name for a private root.</li><li>ML-DSA certificates are not accepted for HTTPS by Windows Schannel, Java 25 and the browsers today. They work in the Windows 11 store and with OpenSSL 3.5 or newer. This is the status of mid-2026. Test on your builds.</li><li>ML-DSA signatures are large (about 3.3 KB for ML-DSA-65, 4.6 KB for ML-DSA-87). A full chain is tens of KB. Some proxies and servers limit the header size.</li><li>Dates after 2038 can fail on 32 bit systems.</li><li>RSA 8192 CA keys are slow. Some TLS stacks restrict P-521. Test certificates use P-256.</li><li>UC Browser and QQ Browser are not verified.</li><li>The CRL, OCSP and CA Issuers URLs help only when the files of the folder publish are served there.</li><li>OpenSSL 4.0 has short support (about May 2027). OpenSSL 3.5 LTS runs to 2030. Only this script needs 4.x. The servers that use the certificates can run 3.5 or newer.</li><li>A public CA signs only what it accepts. It may refuse RSA 8192 or P-521, limit the path length, ask for an HSM, add name constraints and limit the validity. Signing is not automated. It was tested with a stand-in CA, not with DigiCert, GlobalSign or Sectigo.</li><li>The full list: <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>, section 9.</li></ul>
+<h2 id="16-all-options">16  ALL OPTIONS<a class="anchor" href="#16-all-options" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The complete text with every detail:   .\pki_setup.ps1 -Help
+ Rule: a command line option wins over agantra_pki.cnf, and the file wins over the built-in default.</pre></div>
+<div class="code"><pre> 16.1  What to run
+      -Check                preflight. Is this computer ready? Writes nothing.
+      -Verify               check an existing PKI against pki-manifest.json. Writes nothing.
+      -ShowNames            show the names of all CAs. Builds nothing.
+      -ListPki              list the PKIs of all companies.
+      -Help                 the help text.
+      -Verbose              show every OpenSSL command.
+      -Unblock              unblock and unlock all files, then list the programs that hold them.</pre></div>
+<div class="code"><pre> 16.2  Which PKI
+      -Pki &lt;name&gt;           the company (default agantra). Same as the file &lt;name&gt;_pki.cnf.
+      -ConfigFile &lt;file&gt;    use this configuration file.
+      -PkiRoot &lt;folder&gt;     write to exactly this folder.
+      -Release N            build, check or remove release N.          -NewRelease  the next one.
+      -NoCaRevocationInfo   the NoCR variant (section 9.3).
+      -ClassicPKI           Classic PKI only (section 11.1).
+      -Quadrant 1,2,3,4     which quadrants. Default: all. Windows Server 2022: 1,2 only.</pre></div>
+<div class="code"><pre> 16.3  OpenSSL
+      -OpenSslPath &lt;exe&gt;    use this openssl. It must be 4.x.
+      -FipsModuleConfig &lt;f&gt; the fipsmodule.cnf for quadrants 2 and 4.</pre></div>
+<div class="code"><pre> 16.4  Keys and algorithms
+      -QuadrantRsaBits 4096|8192        quadrant 1 root key.            Default 4096.
+      -QuadrantCurve P-384|P-521        quadrant 2 root key.            Default P-384.
+      -IntermediateRsaBits 4096|8192    quadrant 1 intermediates.       Default 4096.
+      -IntermediateCurve P-256|P-384|P-521    quadrant 2 intermediates. Default P-384.
+      -PqcAlgorithm mldsa44|65|87       Quantum intermediates.          Default mldsa87.
+      -PqcLeafAlgorithm mldsa44|65|87   Quantum test certificates.      Default mldsa65.
+      -PqcFallback                      use RSA when ML-DSA fails. NOT quantum safe.
+      -FallbackRsaBits 4096|8192        RSA size for -PqcFallback.      Default 8192.
+      -RsaPss                           sign RSA CA certificates with RSASSA-PSS.
+                                        Old chain engines may refuse it. Test first.
+      -IntermediatePathLen 0|1          0 = an intermediate signs end certificates only (default).
+                                        1 = it may sign another private CA (SignExternalCa.ps1).
+      The keys of the Enterprise Root and the Track Roots are fixed: RSA 8192, SHA-512.</pre></div>
+<div class="code"><pre> 16.5  Validity
+      -RootYears 1000   -TrackYears 500   -QuadrantYears 400   -IntYears 250     (defaults)
+      -LeafDays 397     EV test certificate.      -OvLeafYears 3     -DvLeafYears 5</pre></div>
+<div class="code"><pre> 16.6  Policies
+      -IanaPen &lt;number&gt;     your IANA Private Enterprise Number (optional).
+      -EvPolicyOid &lt;oid&gt;    the EV policy. Default 2.23.140.1.1.
+      Defaults for the level policies: EV 2.23.140.1.1, OV 2.23.140.1.2.2, DV 2.23.140.1.2.1.
+      Change them in agantra_pki.cnf, section [ policy_oids ]. They must differ.
+      More policies: section [ custom_policies ].
+      Which CA carries which policy:
+          Enterprise Root, Track Roots   all issuance policies, and EV. Nothing else.
+          Quadrant Roots                 EV, OV, DV, and the PEN and custom policies.
+          Intermediates                  their own level, and the PEN and custom policies.
+          Leaves                         their own level, and the PEN and custom policies.
+      With a PEN the certificates also carry 1.3.6.1.4.1.&lt;PEN&gt;.1 (company), and .1.1 EV,
+      .1.2 OV, .1.3 DV. A PKI built before you set the PEN does not have them. Build again.</pre></div>
+<div class="code"><pre> 16.7  Company data  (for the CAs and the test certificates)
+      -Organization  -OrganizationalUnit  -Country  -State  -Locality  -Street  -PostalCode
+      -Serial  -BusinessCategory  -JurisdictionCountry  -JurisdictionState  -JurisdictionLocality
+      -Domain &lt;name&gt;        the test certificate name and its first DNS name (also adds www.&lt;name&gt;)
+      -CpsUrl &lt;url&gt;         the CPS address on DV and OV policies.
+      -CpsUrlEv &lt;url&gt;       the CPS address on EV policies.
+      -ContactName  -ContactEmail  -ContactPhone</pre></div>
+<div class="code"><pre> 16.8  Test certificates and output
+      -LeafSizes 2048|3072|4096|8192    RSA sizes of the quadrant 1 certificate. Default 2048.
+      -Password &lt;text&gt;      PFX password, 8 or more characters. Default Abc12345!
+      -LegacyPfx            old PFX encryption (3DES, SHA-1) for very old software.
+      -SkipLeaf             build the CAs only.</pre></div>
+<div class="code"><pre> 16.9  CRL, OCSP and time stamping  (made with the PKI unless you use -SkipRevocation)
+      -SkipRevocation       do not make OCSP, time stamp and revocation files.
+      -CrlDays N            CRL validity. Default 365.
+      -OcspDays N           OCSP responder certificate validity. Default 365.
+      -TimestampQuadrant 1|2|3|4    quadrant of the time stamp certificate. Default 1.
+      -TimestampPolicyOid &lt;oid&gt;     its policy.         -TimestampDays N   its validity (1825).
+      Later changes: PkiRevocation.ps1.</pre></div>
+<div class="code"><pre> 16.10  Windows trust  (Administrator)
+      -InstallTrust         roots to Trusted Root, intermediates to Intermediate, the test PFX
+                            to Personal. The script reads the stores back and checks them.
+      -ReinstallTrust       install an existing PKI again. Builds nothing, needs no OpenSSL.
+      -RemoveTrust          remove one release from the stores. Files stay.
+      -RemoveAllTrust       remove everything of every company and delete the pki folder.
+      -Clean                remove the release being built (trust and folder) first.</pre></div>
+<div class="code"><pre> 16.11  Public CA root
+      -EnterpriseRootCsr  -ExternalCa DigiCert|GlobalSign|Sectigo|Other  -EnterpriseRootKeyBits
+      -ImportEnterpriseRoot &lt;file&gt;  -ExternalChain &lt;file&gt;
+      -CrossSignCsr  -ImportCrossCert &lt;file&gt;</pre></div>
+<div class="code"><pre> 16.12  Exit codes
+      0 ok        1 error        5 this operating system is not supported</pre></div>
+<h2 id="17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#17-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
+<p>Tested on Linux with a real OpenSSL 4.0.3 and the real FIPS provider: the whole PKI, ML-DSA, -Check, -Verify, and a live TLS 1.3 handshake with an ML-DSA leaf. NOT tested by the author: Windows (certificate store functions, Kestrel, IIS), browsers, nginx, Apache, Node.js and Python as servers, a real public CA. Please run section 4 and the checklist <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a> on your machines. Report what fails.</p>
+<h2 id="18-other-documents">18  OTHER DOCUMENTS<a class="anchor" href="#18-other-documents" aria-label="Link to this section">#</a></h2>
+<p>This manual is for pki_setup.ps1 only. Every other script has its own manual. All manuals are in the folder docs. The same text is in the folder html (open index.html).</p>
+<div class="code"><pre>   GenerateLeafCertificate.ps1       certificates for every purpose and format
+   GeneratePersonLeafCertificate.ps1 certificates for many people from a JSON list
+   GenerateOffice365LeafCertificate.ps1   certificates for Microsoft Office signing
+   SignCsr.ps1, SignExternalCa.ps1   sign a request from someone else
+   Export-PkiCa.ps1                  CA files for Cloudflare, Azure, CloudFront and other CDNs
+   Create-WebServerConfig.ps1 / .sh  nginx and Apache configuration
+   Sign-Code.ps1 / .sh               sign your software
+   PkiRevocation.ps1                 CRL, revoke, OCSP, time stamping
+   PkiTransport.ps1                  move the PKI to another computer, or make a DevKit
+   New-PkiTrustKit.ps1               a zip that lets a computer trust the PKI
+   New-PkiServerPackage.ps1          a zip for the Ubuntu PKI server
+   Backup-Pki.ps1, Restore-Pki.ps1   backup and restore (Windows)
+   pki_remove.ps1                    list and remove PKIs and releases
+   Install-DevEnvironment.ps1        install OpenSSL, 7-Zip and the other tools</pre></div>
+<div class="code"><pre> The design (the hierarchy, the rules, the limits and every decision):
+   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>        What to run to accept a version:
+   <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a>           What changed:  <a href="PKI-ChangeLog.html">PKI-ChangeLog.txt</a></pre></div>
+<nav class="pn" aria-label="Previous and next document"><a class="pv" href="GLOSSARY-ENGLISH.html"><small>&larr; Previous</small>Glossary (English words)</a><a class="nx" href="PkiProfiles-MANUAL.html"><small>Next &rarr;</small>Profiles: PKI for another company</a></nav>
+<p class="crumb">Made from pki_setup-MANUAL.txt by Build-HtmlDocs.ps1 6.4.1.</p>
+
+</div>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a><a href="#5-which-quadrant-do-i-use">5  WHICH QUADRANT DO I USE?</a><a href="#6-what-is-created">6  WHAT IS CREATED</a><a href="#7-trust-the-root-on-every-device">7  TRUST THE ROOT ON EVERY DEVICE</a><a href="#8-use-the-certificates-in-your-servers">8  USE THE CERTIFICATES IN YOUR SERVERS</a><a href="#9-many-pkis-releases-and-the-nocr-variant">9  MANY PKIs, RELEASES AND THE NoCR VARIANT</a><a href="#10-names-of-the-cas">10  NAMES OF THE CAs</a><a href="#11-classic-pki-only-and-a-public-ca-root">11  CLASSIC PKI ONLY, AND A PUBLIC CA ROOT</a><a href="#12-maintenance">12  MAINTENANCE</a><a href="#13-removing-a-pki">13  REMOVING A PKI</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a></aside>
+</main>
+<footer class="foot"><div class="in">
+<div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
+<p>We are an Estonian company in AI and Web3.</p></div>
+<div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
+<p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.1</p></div>
+</div></footer>
+<button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
+<script>
+(function(){
+  "use strict";
+  var d=document,w=window,root=d.documentElement;
+  function $(s,c){return (c||d).querySelector(s)}
+  function $$(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s))}
+  function store(k,v){try{if(v===undefined){return w.localStorage.getItem(k)}w.localStorage.setItem(k,v)}catch(e){return null}}
+  function dark(){var a=root.getAttribute("data-theme");if(a){return a==="dark"}return !!(w.matchMedia&&w.matchMedia("(prefers-color-scheme: dark)").matches)}
+  var saved=store("pkidocs-theme");if(saved==="dark"||saved==="light"){root.setAttribute("data-theme",saved)}
+  function paintTheme(){$$(".themebtn").forEach(function(b){var ic=$(".ms",b),tx=$(".tx",b);if(ic){ic.textContent=dark()?"light_mode":"dark_mode"}if(tx){tx.textContent=dark()?"Light":"Dark"}b.setAttribute("aria-label",dark()?"Switch to light mode":"Switch to dark mode")})}
+  $$(".themebtn").forEach(function(b){b.addEventListener("click",function(){var n=dark()?"light":"dark";root.setAttribute("data-theme",n);store("pkidocs-theme",n);paintTheme()})});
+  paintTheme();
+  var mega=$("#mega"),mb=$("#docsbtn"),dr=$("#drawer"),sc=$("#scrim"),menu=$("#menubtn");
+  function closeMega(){if(mega){mega.classList.remove("open");if(mb){mb.setAttribute("aria-expanded","false")}}}
+  function setDrawer(o){if(!dr){return}dr.classList[o?"add":"remove"]("open");sc.classList[o?"add":"remove"]("open");menu.setAttribute("aria-expanded",o?"true":"false");if(o){var f=$("a,input,button",dr);if(f){f.focus()}}}
+  if(mb){mb.addEventListener("click",function(e){e.stopPropagation();var o=!mega.classList.contains("open");closeMega();if(o){mega.classList.add("open");mb.setAttribute("aria-expanded","true")}})}
+  if(menu){menu.addEventListener("click",function(){setDrawer(true)})}
+  $$("[data-close]").forEach(function(b){b.addEventListener("click",function(){setDrawer(false);if(menu){menu.focus()}})});
+  if(sc){sc.addEventListener("click",function(){setDrawer(false)})}
+  d.addEventListener("click",function(e){if(mega&&!e.target.closest("#mega")&&e.target!==mb){closeMega()}});
+  d.addEventListener("keydown",function(e){var k=e.key||"";if(k==="Escape"||k==="Esc"){closeMega();setDrawer(false)}
+    if(k==="/"&&!/INPUT|TEXTAREA/.test(e.target.tagName||"")){var q=$(".sbox input");if(q&&q.offsetParent!==null){e.preventDefault();q.focus()}}});
+  $$(".sbox input").forEach(function(q){q.addEventListener("keydown",function(e){if((e.key||"")==="Enter"){var v=q.value.replace(/^\s+|\s+$/g,"");if(v){w.location.href=(w.PKI_INDEX||"index.html")+"#q="+encodeURIComponent(v)}}})});
+  $$(".copy").forEach(function(b){b.addEventListener("click",function(){
+    var pre=b.parentNode.querySelector("pre"),txt=pre?pre.textContent:"",lab=$(".tx",b);
+    function done(){if(lab){var o=lab.textContent;lab.textContent="Copied";w.setTimeout(function(){lab.textContent=o},1300)}}
+    function fb(){var ta=d.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";d.body.appendChild(ta);ta.select();try{d.execCommand("copy");done()}catch(e){}d.body.removeChild(ta)}
+    if(w.navigator.clipboard&&w.navigator.clipboard.writeText){w.navigator.clipboard.writeText(txt).then(done,fb)}else{fb()}})});
+  var page=(w.location.pathname.split("/").pop()||"index.html");
+  $$("ul.check input").forEach(function(c,i){var k="pkidocs-chk-"+page+"-"+i;if(store(k)==="1"){c.checked=true}c.addEventListener("change",function(){store(k,c.checked?"1":"0")})});
+  var tt=$("#totop");if(tt){w.addEventListener("scroll",function(){tt.style.display=(w.pageYOffset>600)?"block":"none"});tt.addEventListener("click",function(){w.scrollTo(0,0)})}
+  var links=$$(".side a");if(links.length&&w.IntersectionObserver){var map={};links.forEach(function(a){map[a.getAttribute("href").slice(1)]=a});
+    var io=new w.IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){links.forEach(function(a){a.classList.remove("on")});var a=map[en.target.id];if(a){a.classList.add("on")}}})},{rootMargin:"-80px 0px -70% 0px"});
+    $$("h2[id],h3[id]").forEach(function(h){io.observe(h)})}
+  var A11Y=$("#a11y"),abtns=$$(".a11ybtn"),st={cb:"off",hc:false,size:"n",links:false,motion:false};
+  try{var raw=store("pkidocs-a11y");if(raw){var o=JSON.parse(raw);for(var key in st){if(o&&o[key]!==undefined){st[key]=o[key]}}}}catch(e){}
+  function applyA11y(){
+    function set(a,v){if(v){root.setAttribute(a,v)}else{root.removeAttribute(a)}}
+    set("data-cb",st.cb==="off"?"":st.cb);set("data-contrast",st.hc?"high":"");set("data-size",st.size==="n"?"":st.size);set("data-links",st.links?"u":"");set("data-motion",st.motion?"off":"");
+    if((st.cb!=="off"||st.hc)&&!root.getAttribute("data-theme")){root.setAttribute("data-theme",dark()?"dark":"light")}
+    if(A11Y){$$("input[name=a-cb]",A11Y).forEach(function(r){r.checked=(r.value===st.cb)});$$("input[name=a-size]",A11Y).forEach(function(r){r.checked=(r.value===st.size)});
+      $("#a-hc").checked=st.hc;$("#a-links").checked=st.links;$("#a-motion").checked=st.motion}
+    paintTheme()}
+  function saveA11y(){store("pkidocs-a11y",JSON.stringify(st))}
+  if(A11Y){
+    var openA=function(o){A11Y.hidden=!o;abtns.forEach(function(b){b.setAttribute("aria-expanded",o?"true":"false")});if(o){setDrawer(false);var f=$("input",A11Y);if(f){f.focus()}}};
+    abtns.forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();openA(A11Y.hidden)})});
+    $$("[data-a11y-close]",A11Y).forEach(function(b){b.addEventListener("click",function(){openA(false);if(abtns[0]){abtns[0].focus()}})});
+    A11Y.addEventListener("change",function(e){var t=e.target;
+      if(t.name==="a-cb"){st.cb=t.value}else if(t.name==="a-size"){st.size=t.value}else if(t.id==="a-hc"){st.hc=t.checked}else if(t.id==="a-links"){st.links=t.checked}else if(t.id==="a-motion"){st.motion=t.checked}
+      saveA11y();applyA11y()});
+    $("[data-a11y-reset]",A11Y).addEventListener("click",function(){st={cb:"off",hc:false,size:"n",links:false,motion:false};saveA11y();applyA11y()});
+    d.addEventListener("click",function(e){if(!A11Y.hidden&&!e.target.closest("#a11y")&&!e.target.closest(".a11ybtn")){openA(false)}});
+    d.addEventListener("keydown",function(e){if((e.key||"")==="Escape"&&!A11Y.hidden){openA(false)}})}
+  applyA11y();
+  var box=$("#results");
+  if(box&&w.PKI_SEARCH){
+    var esc=function(s){return s.replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+    var run=function(){
+      var m=/[#&]q=([^&]*)/.exec(w.location.hash),term="";try{term=m?decodeURIComponent(m[1]):""}catch(e){term=""}
+      var home=$("#home");$$(".sbox input").forEach(function(q){if(term){q.value=term}});
+      if(!term){box.innerHTML="";if(home){home.hidden=false}return}
+      if(home){home.hidden=true}
+      var words=term.toLowerCase().split(/\s+/).filter(Boolean),res=[];
+      w.PKI_SEARCH.forEach(function(s){var low=s.t.toLowerCase(),hay=s.h.toLowerCase()+" "+s.d.toLowerCase()+" "+low,ok=true,score=0;
+        for(var i=0;i<words.length;i++){if(hay.indexOf(words[i])<0){ok=false;break}score+=(s.h.toLowerCase().indexOf(words[i])>=0)?5:1}
+        if(ok){var p0=low.indexOf(words[0]),a=Math.max(0,p0-70);res.push({s:s,score:score,sn:(a>0?"... ":"")+s.t.substr(a,220)+" ..."})}});
+      res.sort(function(a,b){return b.score-a.score});
+      var out="<h1>Search: "+esc(term)+"</h1><p class=\"lead\">"+res.length+" place(s) found.</p>";
+      res.slice(0,60).forEach(function(r){var sn=esc(r.sn);words.forEach(function(wd){sn=sn.replace(new RegExp("("+wd.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"),"<mark>$1</mark>")});
+        out+="<div class=\"hit\"><a href=\""+r.s.p+(r.s.i?"#"+r.s.i:"")+"\"><b>"+esc(r.s.d)+"</b> &rsaquo; "+esc(r.s.h||"start")+"</a><br><small>"+sn+"</small></div>"});
+      if(!res.length){out+="<p>Nothing found. Try fewer or shorter words.</p>"}
+      box.innerHTML=out};
+    w.addEventListener("hashchange",run);run()}
+})();
+</script>
+</body>
+</html>

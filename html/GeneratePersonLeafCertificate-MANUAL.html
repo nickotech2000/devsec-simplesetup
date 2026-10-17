@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.4.1">
+<meta name="description" content="Certificates for people, from a JSON list.">
+<title>Person certificates - PKI DevSecOps Agantra</title>
+<style>
+@font-face{font-family:"Roboto";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/roboto-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-mono-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Material Symbols Outlined";font-style:normal;font-weight:400;font-display:block;src:url("fonts/material-symbols-outlined-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Font Awesome Solid";font-style:normal;font-weight:900;font-display:block;src:url("fonts/fa-solid-900.woff2") format("woff2")}
+:root{color-scheme:light dark;--primary:#0b57d0;--on-primary:#ffffff;--primary-c:#d3e3fd;--on-primary-c:#041e49;--bg:#f8f9fc;--surface:#ffffff;--surface-2:#eef2f9;--surface-3:#e4eaf4;--text:#1a1c1e;--muted:#4a5565;--line:#c9d1de;--code-bg:#f1f4f9;--ok:#146c2e;--warn:#8c4a00;--e1:0 1px 2px rgba(0,0,0,.18),0 1px 3px 1px rgba(0,0,0,.1);--e2:0 1px 2px rgba(0,0,0,.2),0 2px 6px 2px rgba(0,0,0,.12);--bar:64px}
+:root[data-theme="dark"]{--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Roboto","Segoe UI",system-ui,-apple-system,"Noto Sans","PingFang SC","Microsoft YaHei",Arial,sans-serif;font-size:16px;line-height:1.65;min-height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;flex-direction:column}
+a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+code,pre,.mono{font-family:"Roboto Mono",Consolas,"Cascadia Mono",Menlo,"DejaVu Sans Mono","Liberation Mono",monospace}
+.ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:"liga";font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle;user-select:none;-webkit-user-select:none}
+.fa{font-family:"Font Awesome Solid";font-weight:900;font-style:normal;display:inline-block;line-height:1;-webkit-font-smoothing:antialiased}
+.fa-globe::before{content:"\f0ac"}.fa-envelope::before{content:"\f0e0"}.fa-copy::before{content:"\f0c5"}.fa-link::before{content:"\f0c1"}.fa-shield::before{content:"\f132"}.fa-check::before{content:"\f00c"}
+.skip{position:absolute;left:-999px;top:0;background:var(--primary);color:var(--on-primary);padding:8px 14px;z-index:100;border-radius:0 0 8px 0}.skip:focus{left:0}
+.bar{position:fixed;top:0;left:0;right:0;height:var(--bar);background:var(--surface);box-shadow:var(--e1);display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:50}
+.brand{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:10px;color:var(--text);font-weight:500;font-size:1.15rem;white-space:nowrap}.brand:hover{text-decoration:none}
+.brand .ms{color:var(--primary);font-size:30px}.brand small{font-weight:400;font-size:.78rem;color:var(--on-primary-c);background:var(--primary-c);border-radius:999px;padding:2px 10px}
+.grow{-webkit-box-flex:1;-ms-flex:1;flex:1}
+.topnav{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:2px;position:relative}
+.nb{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text);font:inherit;font-size:.95rem;font-weight:500;padding:8px 14px;border-radius:999px;cursor:pointer}
+.nb:hover{background:var(--surface-3);text-decoration:none}.nb[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.nb .ms{font-size:20px}
+.mega{position:absolute;right:0;top:calc(var(--bar) - 8px);width:min(940px,94vw);max-height:calc(100vh - var(--bar) - 20px);overflow:auto;background:var(--surface);border-radius:16px;box-shadow:var(--e2);padding:16px 20px;display:none;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 22px}
+.mega.open{display:grid}.mg{min-width:0}
+.mega h2,.drawer h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 8px 2px;padding:0;border:0;font-weight:700}
+.mega a,.drawer a.dl{display:block;padding:6px 10px;border-radius:8px;color:var(--text);font-size:.92rem;line-height:1.35}
+.mega a:hover,.drawer a.dl:hover{background:var(--surface-3);text-decoration:none}.mega a[aria-current="page"],.drawer a[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.sbox{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;background:var(--surface-2);border-radius:999px;padding:0 6px 0 12px;margin:0 6px}
+.sbox input{border:0;background:transparent;color:var(--text);font:inherit;font-size:.92rem;width:190px;padding:8px 6px}.sbox input:focus{outline:0}.sbox:focus-within{box-shadow:0 0 0 2px var(--primary)}
+.sbox .ms{color:var(--muted);font-size:20px}
+#menubtn{display:none}
+.scrim{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);z-index:55;display:none}.scrim.open{display:block}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(88vw,340px);background:var(--surface);z-index:60;overflow-y:auto;padding:12px 12px 40px;-webkit-transform:translateX(105%);transform:translateX(105%);transition:-webkit-transform .22s ease,transform .22s ease;box-shadow:var(--e2);visibility:hidden}
+.drawer.open{-webkit-transform:none;transform:none;visibility:visible}
+.drawer .dh{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.drawer .sbox{display:-webkit-box;display:-ms-flexbox;display:flex;margin:8px 4px}.drawer .sbox input{width:100%}
+.wrap{-webkit-box-flex:1;-ms-flex:1 0 auto;flex:1 0 auto;padding:calc(var(--bar) + 28px) 20px 40px;width:100%;max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:0 36px}
+.wrap.has-toc{grid-template-columns:minmax(0,1fr) 250px}
+.page{min-width:0;max-width:940px}
+.side{position:sticky;top:calc(var(--bar) + 20px);align-self:start;max-height:calc(100vh - var(--bar) - 40px);overflow:auto;font-size:.88rem;border-left:2px solid var(--line);padding:2px 0 2px 14px;display:none}
+.wrap.has-toc .side{display:block}.side h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;padding:0;border:0}
+.side a{display:block;padding:3px 0;color:var(--muted);line-height:1.35}.side a.l3{padding-left:12px;font-size:.84rem}.side a:hover,.side a.on{color:var(--primary);text-decoration:none}
+.crumb{font-size:.85rem;color:var(--muted);margin:0 0 6px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px;font-weight:500}
+h2{font-size:1.45rem;margin:2.4rem 0 .6rem;padding-top:.7rem;border-top:1px solid var(--line);line-height:1.3;font-weight:500}
+h3{font-size:1.1rem;margin:1.7rem 0 .4rem;line-height:1.35;font-weight:500;color:var(--primary)}
+.anchor{opacity:0;margin-left:8px;font-size:.8em;color:var(--muted)}h2:hover .anchor,h3:hover .anchor,.anchor:focus{opacity:1}
+.lead{color:var(--muted);margin:0 0 14px;font-size:1.05rem}
+.meta{display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:6px 8px;margin:12px 0 18px}
+.chip{display:inline-block;background:var(--surface-2);color:var(--muted);border-radius:8px;padding:3px 12px;font-size:.84rem}
+p{margin:.6em 0}ul,ol{margin:.5em 0 .9em;padding-left:1.5em}li{margin:.25em 0}
+.decision{background:var(--surface);border-radius:12px;box-shadow:var(--e1);border-left:4px solid var(--primary);padding:10px 14px;margin:12px 0}
+.dnum{font-weight:700;margin-right:6px}.dstate{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;padding:1px 9px;border-radius:999px;background:var(--primary-c);color:var(--on-primary-c);margin-right:6px}
+.code{position:relative;margin:.8em 0;background:var(--code-bg);border:1px solid var(--line);border-radius:12px}
+.code pre{margin:0;padding:14px 16px;overflow-x:auto;font-size:.84rem;line-height:1.55;tab-size:4;-moz-tab-size:4;white-space:pre}
+.code .copy{position:absolute;top:8px;right:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:.78rem;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);cursor:pointer}
+.code .copy:hover{color:var(--text);background:var(--surface-3)}
+ul.check{list-style:none;padding-left:0}ul.check li{background:var(--surface);border-radius:12px;box-shadow:var(--e1);margin:8px 0;padding:10px 14px}
+ul.check label{display:block;cursor:pointer}ul.check input{margin-right:10px;width:18px;height:18px;vertical-align:-3px;accent-color:var(--primary)}ul.check input:checked + span{color:var(--muted);text-decoration:line-through}
+.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:.8em 0}th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top;font-size:.92rem}th{background:var(--surface-2)}
+.toc{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 18px;margin:16px 0 24px}
+.toc summary{cursor:pointer;font-weight:500}.toc ol{list-style:none;padding-left:0;margin:8px 0 2px;-webkit-columns:2 300px;columns:2 300px;-webkit-column-gap:28px;column-gap:28px}
+.toc li{margin:2px 0;-webkit-column-break-inside:avoid;break-inside:avoid;font-size:.92rem}.toc li.l3{padding-left:16px;font-size:.86rem}
+.pn{display:-webkit-box;display:-ms-flexbox;display:flex;justify-content:space-between;gap:12px;margin:44px 0 0;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.pn a{display:block;border-radius:16px;background:var(--surface);box-shadow:var(--e1);padding:12px 18px;min-width:220px;max-width:48%;color:var(--text)}.pn a:hover{box-shadow:var(--e2);text-decoration:none}.pn small{display:block;color:var(--muted)}.pn .nx{text-align:right;margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin:12px 0 28px}
+.card{display:block;background:var(--surface);border-radius:16px;box-shadow:var(--e1);padding:16px 18px;color:var(--text)}
+.card:hover{box-shadow:var(--e2);text-decoration:none;background:var(--surface-2)}.card b{display:block;margin-bottom:4px;font-weight:500;color:var(--primary)}.card span{color:var(--muted);font-size:.92rem}
+.hero{background:var(--primary-c);color:var(--on-primary-c);border-radius:28px;padding:28px 32px;margin:0 0 26px}.hero h1{color:inherit}.hero p{max-width:70ch}.hero a{color:inherit;text-decoration:underline}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:999px;background:var(--primary);color:var(--on-primary);font:inherit;font-weight:500;padding:9px 20px;cursor:pointer}.btn:hover{text-decoration:none;box-shadow:var(--e2)}
+#totop{position:fixed;right:20px;bottom:20px;display:none;z-index:40;border-radius:16px;padding:12px}
+mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
+.hit{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 16px;margin:10px 0}.hit small{color:var(--muted)}
+.foot{background:var(--surface-2);border-top:1px solid var(--line);padding:22px 20px 26px;color:var(--muted);font-size:.9rem}
+.foot .in{max-width:1180px;margin:0 auto;display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+.foot a{color:var(--primary)}.foot .fa{margin-right:6px}.foot p{margin:.2em 0}
+@media (max-width:1180px){.wrap.has-toc{grid-template-columns:minmax(0,1fr)}.wrap.has-toc .side{display:none}}
+@media (max-width:900px){.topnav{display:none}#menubtn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex}.brand small{display:none}.wrap{padding:calc(var(--bar) + 18px) 14px 30px}}
+@media (max-width:520px){html{font-size:15px}h1{font-size:1.55rem}.pn a{max-width:100%;width:100%}.code pre{font-size:.78rem}.hero{padding:20px;border-radius:20px}}
+@media (min-width:1700px){html{font-size:17px}.wrap{max-width:1320px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.drawer{transition:none}}
+.a11y{position:fixed;top:calc(var(--bar) + 8px);right:12px;width:min(340px,calc(100vw - 24px));max-height:calc(100vh - var(--bar) - 24px);overflow:auto;background:var(--surface);color:var(--text);border-radius:16px;box-shadow:var(--e2);padding:14px 18px 16px;z-index:70}
+.a11y[hidden]{display:none}.a11y h2{font-size:1.1rem;margin:0 0 8px;padding:0;border:0}
+.a11y fieldset{border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:6px 12px 8px}.a11y legend{font-size:.8rem;font-weight:700;color:var(--muted);padding:0 6px}
+.a11y label{display:block;padding:4px 0;cursor:pointer}.a11y input{margin-right:8px;width:17px;height:17px;vertical-align:-3px;accent-color:var(--primary)}
+.a11y .row{display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.btn.alt{background:var(--surface-3);color:var(--text)}
+:root[data-cb="deut"]{--primary:#0072b2;--on-primary:#fff;--primary-c:#cfe6f5;--on-primary-c:#00263f;--ok:#005a8c;--warn:#a84300}
+:root[data-cb="deut"][data-theme="dark"]{--primary:#56b4e9;--on-primary:#00263f;--primary-c:#0b4468;--on-primary-c:#d6ecfa;--ok:#56b4e9;--warn:#f0a35e}
+:root[data-cb="trit"]{--primary:#a3153f;--on-primary:#fff;--primary-c:#f7d9e1;--on-primary-c:#4a0a1c;--ok:#00706f;--warn:#a3153f}
+:root[data-cb="trit"][data-theme="dark"]{--primary:#ff9db5;--on-primary:#4a0a1c;--primary-c:#6b1230;--on-primary-c:#ffe0e8;--ok:#5fd0cf;--warn:#ff9db5}
+:root[data-cb="mono"] body{-webkit-filter:grayscale(1);filter:grayscale(1)}
+:root[data-contrast="high"]{--bg:#fff;--surface:#fff;--surface-2:#f2f2f2;--surface-3:#e0e0e0;--text:#000;--muted:#111;--line:#000;--code-bg:#fff;--primary:#0000b8;--on-primary:#fff;--primary-c:#dfe3ff;--on-primary-c:#000}
+:root[data-contrast="high"][data-theme="dark"]{--bg:#000;--surface:#000;--surface-2:#141414;--surface-3:#2a2a2a;--text:#fff;--muted:#f0f0f0;--line:#fff;--code-bg:#000;--primary:#ffe94d;--on-primary:#000;--primary-c:#333300;--on-primary-c:#fff}
+:root[data-contrast="high"] .card,:root[data-contrast="high"] .decision,:root[data-contrast="high"] .code,:root[data-contrast="high"] ul.check li{border:2px solid var(--line);box-shadow:none}
+:root[data-links="u"] a,:root[data-cb] a{text-decoration:underline}
+:root[data-size="l"]{font-size:18px}:root[data-size="xl"]{font-size:20px}
+:root[data-motion="off"]{scroll-behavior:auto}:root[data-motion="off"] *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+@media print{.bar,.drawer,.scrim,.side,.pn,#totop,.copy,.toc,.skip{display:none!important}.wrap{padding:0;max-width:none;display:block}body{background:#fff;color:#000}.code{border-color:#999;background:#fff}.code pre{white-space:pre-wrap;color:#000}a{color:#000}h2{page-break-after:avoid}.code,.decision{page-break-inside:avoid}.foot{background:#fff;border:0}}
+@media (min-width:1181px){.wrap.has-toc .toc{display:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="bar">
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.1</small></a>
+<span class="grow"></span>
+<nav class="topnav" aria-label="Main">
+<a class="nb" href="index.html">Home</a>
+<a class="nb" href="START-HERE.html">Start here</a>
+<a class="nb" href="GLOSSARY.html">Glossary</a>
+<button type="button" class="nb" id="docsbtn" aria-haspopup="true" aria-expanded="false" aria-controls="mega">Documents<span class="ms" aria-hidden="true">expand_more</span></button>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button>
+<button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button>
+<div class="mega" id="mega"><div class="mg"><h2>Start</h2><a href="README.html">README</a><a href="START-HERE.html">Start here</a><a href="GLOSSARY.html">Glossary (technical terms)</a><a href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a href="GeneratePersonLeafCertificate-MANUAL.html" aria-current="page">Person certificates</a><a href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a href="PkiTrustKit-MANUAL.html">Trust kit</a><a href="DevKit-MANUAL.html">DevKit</a><a href="PkiTransport-MANUAL.html">Transport package</a><a href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a href="PrepareComputer-MANUAL.html">Prepare a computer</a><a href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a href="scripts-README.html">Modules (scripts folder)</a><a href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a href="PKI-ChangeLog.html">Change log</a><a href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div></div>
+</nav>
+<button type="button" class="nb" id="menubtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><span class="ms" aria-hidden="true">menu</span></button>
+</header>
+<div class="a11y" id="a11y" role="dialog" aria-labelledby="a11yt" hidden>
+<h2 id="a11yt">Accessibility</h2>
+<fieldset><legend>Colors</legend>
+<label><input type="radio" name="a-cb" value="off" checked> Normal colors</label>
+<label><input type="radio" name="a-cb" value="deut"> Red-green safe (protanopia, deuteranopia)</label>
+<label><input type="radio" name="a-cb" value="trit"> Blue-yellow safe (tritanopia)</label>
+<label><input type="radio" name="a-cb" value="mono"> Grayscale (no color at all)</label>
+</fieldset>
+<fieldset><legend>Contrast and links</legend>
+<label><input type="checkbox" id="a-hc"> High contrast</label>
+<label><input type="checkbox" id="a-links"> Underline every link</label>
+</fieldset>
+<fieldset><legend>Text size</legend>
+<label><input type="radio" name="a-size" value="n" checked> Normal</label>
+<label><input type="radio" name="a-size" value="l"> Large</label>
+<label><input type="radio" name="a-size" value="xl"> Extra large</label>
+</fieldset>
+<label><input type="checkbox" id="a-motion"> Reduce motion</label>
+<div class="row"><button type="button" class="btn alt" data-a11y-reset="1">Reset</button><button type="button" class="btn" data-a11y-close="1">Close</button></div>
+</div>
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+<div class="dh"><strong>Menu</strong><button type="button" class="nb" data-close="1" aria-label="Close menu"><span class="ms" aria-hidden="true">close</span></button></div>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<a class="dl" href="index.html">Home</a>
+<div class="mg"><h2>Start</h2><a class="dl" href="README.html">README</a><a class="dl" href="START-HERE.html">Start here</a><a class="dl" href="GLOSSARY.html">Glossary (technical terms)</a><a class="dl" href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a class="dl" href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a class="dl" href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a class="dl" href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a class="dl" href="GeneratePersonLeafCertificate-MANUAL.html" aria-current="page">Person certificates</a><a class="dl" href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a class="dl" href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a class="dl" href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a class="dl" href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a class="dl" href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a class="dl" href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a class="dl" href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a class="dl" href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a class="dl" href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a class="dl" href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a class="dl" href="PkiTrustKit-MANUAL.html">Trust kit</a><a class="dl" href="DevKit-MANUAL.html">DevKit</a><a class="dl" href="PkiTransport-MANUAL.html">Transport package</a><a class="dl" href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a class="dl" href="PrepareComputer-MANUAL.html">Prepare a computer</a><a class="dl" href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a class="dl" href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a class="dl" href="scripts-README.html">Modules (scripts folder)</a><a class="dl" href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a class="dl" href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a class="dl" href="PKI-ChangeLog.html">Change log</a><a class="dl" href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div>
+<p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
+<p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
+</nav>
+<main class="wrap has-toc" id="content">
+<div class="page">
+<p class="crumb"><a href="index.html">Home</a> &rsaquo; Certificates</p>
+<h1>Person certificates</h1>
+<p class="lead">Certificates for people, from a JSON list.</p>
+<div class="meta"><span class="chip">Version 6.4.1</span><span class="chip">Author : Nicko Satria Utama</span><span class="chip">Company: Agantra Inovatif OU (NextMantra)</span><span class="chip">Email : nicko@nextmantra.com</span></div>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l3"><a href="#exit-codes-0-ok-1-an-error-or-a-failed-person">EXIT CODES   0 ok   1 an error or a failed person</a></li><li class="l2"><a href="#hash-files-6-3-6">HASH FILES (6.3.6)</a></li></ol></details>
+<h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> What it is   : Makes certificates for people from a JSON list.
+ Who reads it : The PKI owner or HR/IT staff.
+ You need     : A PKI, OpenSSL 4, a JSON list of people.
+ Start with   : Copy persons.example.json, edit it, run the script.
+ Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
+<div class="code"><pre> Manual : docs\GeneratePersonLeafCertificate-MANUAL.txt  Design :
+          docs\PKI-Design-with-FIPS-and-PQC.txt (10.59)
+ Ubuntu : GeneratePersonLeafCertificate.sh in the DevKit (PkiTransport.ps1 -DevKit): bash + openssl
+          + python3.
+ Needs  : PowerShell 7+, OpenSSL 4.x, a PKI made by pki_setup.ps1.</pre></div>
+<div class="code"><pre>WHAT IT MAKES   (the form of a national ID card certificate; NOT a qualified certificate)
+  Subject      serialNumber = &lt;the ID&gt;   givenName = NICKO SATRIA   surname = UTAMA   CN = UTAMA,NICKO SATRIA,&lt;ID&gt;   C = &lt;country, default EE&gt;
+               (this order; UTF-8, names in capitals unless -KeepCase)
+  The ID       ANY identifier of the person: national ID (KTP/NIK, isikukood ...), passport, driver
+               licence, tax number, staff number. There is no country-specific check
+               (-CheckEstonianId switches the Estonian check digit test on for EE).
+  SAN          rfc822Name = the e-mail address, and the DNS names TAKEN FROM IT:
+               nicko@nextmantra.com  -&gt;  DNS:nextmantra.com  and  DNS:*.nextmantra.com
+               (-NoDnsFromEmail, or &quot;dnsFromEmail&quot;: false for one person, leaves them out). No IP
+               address.
+  EKU          Client Authentication + Secure E-mail (emailProtection)
+  Key usage    critical: digitalSignature + keyAgreement (ECDSA) | keyEncipherment (RSA);
+               -NonRepudiation adds nonRepudiation
+  Key          Classic PKI only: ECDSA P-384 (default, as the ID-card sample) or RSA; signature
+               digest SHA-512 (-Hash).  Quadrant 1 = Classic NON-FIPS (default); -Fips or -Quadrant
+               2 = Classic FIPS.
+  Level        OV (default). EV with -Level EV (valid 397 days then). DV is never used for a person.
+  Validity     730 days (OV) by default, -Days; cut to what the issuing CA has left.
+  Policies     the level policy + PEN + -Policy; CRL / OCSP / CA issuer URLs of the issuing CA
+               (q1-ov by default)
+  Output       leafcerts\persons\&lt;id&gt;-&lt;SURNAME&gt;-&lt;GIVEN&gt;\  every format (PEM DER CER CERT P7B RFC7468
+               PFX), key + public key, chain, leaf-info.json, person-info.json, and one
+               persons-batch-&lt;date&gt;.json summary per run (no passwords in it).</pre></div>
+<div class="code"><pre>ONE PERSON
+  .\GeneratePersonLeafCertificate.ps1 -IdCode 3674010101900001 -GivenName Budi -Surname Santoso -Email budi.santoso@example.co.id -Country ID
+  -IdCode &lt;text&gt;         The ID (any kind).        -IdType &lt;code&gt;   optional short code: PNO PAS IDC
+                                                                    TIN NIK DL ... (only a label,
+                                                                    used by -SerialNumberFormat)
+  -GivenName / -Surname  Several given names are allowed (&quot;NICKO SATRIA&quot;).
+  -Email &lt;address&gt;       REQUIRED. Becomes the rfc822Name; the DNS names come from its domain.
+  -Country &lt;CC&gt;          Two letters, default EE ([ person ] Country).
+  -SerialNumber &lt;text&gt;   The subject serialNumber. Default = the ID.   -SerialNumberFormat
+                                                                       &quot;{IdType}{Country}-{IdCode}&quot;
+                                                                       gives the ETSI form
+                                                                       PNOEE-37605030299
+  -CommonName &lt;text&gt;     Replaces the CN.  -CommonNameFormat &quot;{Surname},{Given},{IdCode}&quot;  tokens
+                         {Surname} {Given} {IdCode} {Country} {SurnameFirst}; max 64 characters.</pre></div>
+<div class="code"><pre>MANY PERSONS - A JSON FILE  (JSON only; CSV is not accepted)
+  .\GeneratePersonLeafCertificate.ps1 -ExampleFile .\persons.json    writes an example with 5 people
+                                                                     (3 of them isGenerate true) and
+                                                                     stops
+  .\GeneratePersonLeafCertificate.ps1 -File .\persons.json -ValidateOnly   checks the file and shows the table, issues nothing
+  .\GeneratePersonLeafCertificate.ps1 -File .\persons.json
+  { &quot;persons&quot;: [ { &quot;isGenerate&quot;: true, &quot;idCode&quot;: &quot;3674010101900001&quot;, &quot;serialNumber&quot;:
+  &quot;3674010101900001&quot;, &quot;givenName&quot;: &quot;Budi&quot;, &quot;surname&quot;: &quot;Santoso&quot;,
+                   &quot;email&quot;: &quot;budi.santoso@example.co.id&quot;, &quot;country&quot;: &quot;ID&quot; }, { ... } ] }
+  Keys (any spelling or case):  idCode  givenName  surname  email   (required)       isGenerate (true | false; default true; false = skipped, not even checked)
+  idType  serialNumber  country  level  quadrant  days  keyType  keyBits  curve  commonName  password  name (folder)  policy  dnsFromEmail  noCrl  noOcsp  noRevocationInfo   (optional)
+  Keys that start with _ are comments. A missing optional key takes the default / the command line
+  value. Every person with isGenerate true is checked BEFORE anything is written: one error =
+  nothing is issued, every error is listed. A person is then issued on its own; a failure removes
+  that person&#39;s folder and the run goes on (-StopOnError stops at the first failure). Exit 1 when
+  one failed.</pre></div>
+<div class="code"><pre>CERTIFICATE OPTIONS
+  -Level OV|EV           OV (default: q1-ov).  EV: issuer q1-ev, limited to 397 days.  There is no
+                         DV.
+  -Quadrant 1|2, -Fips   1 Classic non-FIPS (default), 2 Classic FIPS.  The Quantum quadrants are not used for persons.
+  -KeyType RSA|ECDSA  -KeyBits  -Curve  as in GenerateLeafCertificate.ps1.   -Hash sha256|sha384|sha512   signature digest, default SHA-512 (the ID-card sample).
+                         The sample is ECC P-384 (ECDH_P384) signed ecdsa-with-SHA-512: the leaf
+                         here has exactly that key and digest. The SIGNATURE ALGORITHM follows the
+                         issuing CA: Q2 (ECDSA P-384 CA) gives ecdsa-with-SHA512; Q1 (RSA 4096 CA,
+                         the non-FIPS default) gives sha512WithRSAEncryption.
+  -Days &lt;n&gt;  -Policy &lt;oid|oid=cps&gt;  -NonRepudiation
+  -CpsUrl &lt;url&gt;          CPS pointer on every OV policy (default <a href="https://nextmantra.com/security/certs" target="_blank" rel="noopener noreferrer">https://nextmantra.com/security/certs</a>).   -CpsUrlEv &lt;url&gt;  on every EV policy (default .../security/certs/ev-cps.pdf).
+  POLICIES               level policy (OV 2.23.140.1.2.2), company policy 1.3.6.1.4.1.&lt;PEN&gt;.1 and
+                         1.3.6.1.4.1.&lt;PEN&gt;.1.2, and for OV the HIGH ASSURANCE policy
+                         1.3.6.1.4.1.&lt;PEN&gt;.1.5 - each with the CPS pointer.
+  -QcStatements          Adds the qcStatements extension with QcType eSign (ETSI 0.4.0.1862.1.6.1)
+                         like the ID card. It is NOT QcCompliance: this PKI is private and does not
+                         issue qualified certificates.
+  REVOCATION INFORMATION  (4.9.4)   by default the certificate has the CRL distribution point, the
+                                    OCSP URL and the CA issuer URL of the issuing CA.
+  -NoCrl                 No CRL distribution point (crlDistributionPoints extension) in the
+                         certificate.
+  -NoOcsp                No OCSP URL (the OCSP method of Authority Information Access); the CA
+                         issuer URL stays.
+  -NoRevocationInfo      Both: no CRL and no OCSP. Use it when Word / Excel / Outlook say &quot;cannot
+                         connect to the revocation server&quot; because the URLs of this private PKI
+                         cannot be reached from the machine that checks the signature. Without any
+                         revocation URL a client has nothing to check: it accepts the certificate
+                         until it expires. The certificate is still recorded in the CA database
+                         (PkiRevocation.ps1 can still revoke it and the CRL lists it), but a client
+                         that has no URL will not learn about it. Per signer in the JSON file:
+                         &quot;noCrl&quot;, &quot;noOcsp&quot;, &quot;noRevocationInfo&quot; (true | false). Defaults for all: [
+                         person ] NoCrl / NoOcsp in agantra_pki.cnf.
+  -KeepCase              Do not convert the names to capitals.
+  -Password &lt;text&gt;       Password of the PFX (default Abc12345!; the password key of a person
+                         replaces it). CHANGE IT for real use.
+  -Format &lt;list&gt;         PEM DER CER CERT P7B RFC7468 PFX ALL (default ALL).   -LegacyPfx   -NoGuidance   -InstallPfx (Windows: import into the user store)
+  -OutputRoot &lt;path&gt;     Default leafcerts\persons.
+  -Unblock               UNBLOCK and UNLOCK the script folder, the pki folder and the output, then
+                         stop.
+  -ConfigFile &lt;path&gt; -PkiRoot &lt;path&gt; -OpenSslPath &lt;path&gt; -FipsModuleConfig &lt;path&gt; -Verbose   as in pki_setup.ps1.
+  -Release &lt;n&gt;         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
+                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
+                       release is used and a warning says so.
+  -NoCaRevocationInfo  Use the NoCR family (pki\pki-&lt;name&gt;-nocr-&lt;NN&gt;, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
+                       when it is the only one).   -PkiRoot &lt;folder&gt; names one PKI folder and
+                                                   overrides both.</pre></div>
+<div class="code"><pre>DEFAULTS IN agantra_pki.cnf   [ person ]   Days  Level  CommonNameFormat  SerialNumberFormat
+                                           Country  KeyType  Curve  DnsFromEmail  NoCrl  NoOcsp</pre></div>
+<h3 id="exit-codes-0-ok-1-an-error-or-a-failed-person">EXIT CODES   0 ok   1 an error or a failed person<a class="anchor" href="#exit-codes-0-ok-1-an-error-or-a-failed-person" aria-label="Link to this section">#</a></h3>
+<p>5.0.0: -Pki &lt;name&gt; chooses the company&#39;s PKI (default agantra). Same OS rules as every script: <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a> section 6.</p>
+<h2 id="hash-files-6-3-6">HASH FILES (6.3.6)<a class="anchor" href="#hash-files-6-3-6" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> For every certificate file set, the script writes hash files next to the files:
+   &lt;name&gt;.sha256    &lt;name&gt;.sha512
+ Each line is &quot;&lt;hash&gt;  &lt;file name&gt;&quot;, so you can check them with:   sha256sum -c &lt;name&gt;.sha256
+ Use -HashFile (PowerShell) or --hash-file (shell) to choose other hashes, for example sha384.
+ The hash files only show that a file was not changed or damaged. They do not replace the signature.</pre></div>
+<nav class="pn" aria-label="Previous and next document"><a class="pv" href="GenerateLeafCertificate-MANUAL.html"><small>&larr; Previous</small>Leaf certificates</a><a class="nx" href="GenerateOffice365LeafCertificate-MANUAL.html"><small>Next &rarr;</small>Office 365 certificates</a></nav>
+<p class="crumb">Made from GeneratePersonLeafCertificate-MANUAL.txt by Build-HtmlDocs.ps1 6.4.1.</p>
+
+</div>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a class="l3" href="#exit-codes-0-ok-1-an-error-or-a-failed-person">EXIT CODES   0 ok   1 an error or a failed person</a><a href="#hash-files-6-3-6">HASH FILES (6.3.6)</a></aside>
+</main>
+<footer class="foot"><div class="in">
+<div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
+<p>We are an Estonian company in AI and Web3.</p></div>
+<div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
+<p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.1</p></div>
+</div></footer>
+<button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
+<script>
+(function(){
+  "use strict";
+  var d=document,w=window,root=d.documentElement;
+  function $(s,c){return (c||d).querySelector(s)}
+  function $$(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s))}
+  function store(k,v){try{if(v===undefined){return w.localStorage.getItem(k)}w.localStorage.setItem(k,v)}catch(e){return null}}
+  function dark(){var a=root.getAttribute("data-theme");if(a){return a==="dark"}return !!(w.matchMedia&&w.matchMedia("(prefers-color-scheme: dark)").matches)}
+  var saved=store("pkidocs-theme");if(saved==="dark"||saved==="light"){root.setAttribute("data-theme",saved)}
+  function paintTheme(){$$(".themebtn").forEach(function(b){var ic=$(".ms",b),tx=$(".tx",b);if(ic){ic.textContent=dark()?"light_mode":"dark_mode"}if(tx){tx.textContent=dark()?"Light":"Dark"}b.setAttribute("aria-label",dark()?"Switch to light mode":"Switch to dark mode")})}
+  $$(".themebtn").forEach(function(b){b.addEventListener("click",function(){var n=dark()?"light":"dark";root.setAttribute("data-theme",n);store("pkidocs-theme",n);paintTheme()})});
+  paintTheme();
+  var mega=$("#mega"),mb=$("#docsbtn"),dr=$("#drawer"),sc=$("#scrim"),menu=$("#menubtn");
+  function closeMega(){if(mega){mega.classList.remove("open");if(mb){mb.setAttribute("aria-expanded","false")}}}
+  function setDrawer(o){if(!dr){return}dr.classList[o?"add":"remove"]("open");sc.classList[o?"add":"remove"]("open");menu.setAttribute("aria-expanded",o?"true":"false");if(o){var f=$("a,input,button",dr);if(f){f.focus()}}}
+  if(mb){mb.addEventListener("click",function(e){e.stopPropagation();var o=!mega.classList.contains("open");closeMega();if(o){mega.classList.add("open");mb.setAttribute("aria-expanded","true")}})}
+  if(menu){menu.addEventListener("click",function(){setDrawer(true)})}
+  $$("[data-close]").forEach(function(b){b.addEventListener("click",function(){setDrawer(false);if(menu){menu.focus()}})});
+  if(sc){sc.addEventListener("click",function(){setDrawer(false)})}
+  d.addEventListener("click",function(e){if(mega&&!e.target.closest("#mega")&&e.target!==mb){closeMega()}});
+  d.addEventListener("keydown",function(e){var k=e.key||"";if(k==="Escape"||k==="Esc"){closeMega();setDrawer(false)}
+    if(k==="/"&&!/INPUT|TEXTAREA/.test(e.target.tagName||"")){var q=$(".sbox input");if(q&&q.offsetParent!==null){e.preventDefault();q.focus()}}});
+  $$(".sbox input").forEach(function(q){q.addEventListener("keydown",function(e){if((e.key||"")==="Enter"){var v=q.value.replace(/^\s+|\s+$/g,"");if(v){w.location.href=(w.PKI_INDEX||"index.html")+"#q="+encodeURIComponent(v)}}})});
+  $$(".copy").forEach(function(b){b.addEventListener("click",function(){
+    var pre=b.parentNode.querySelector("pre"),txt=pre?pre.textContent:"",lab=$(".tx",b);
+    function done(){if(lab){var o=lab.textContent;lab.textContent="Copied";w.setTimeout(function(){lab.textContent=o},1300)}}
+    function fb(){var ta=d.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";d.body.appendChild(ta);ta.select();try{d.execCommand("copy");done()}catch(e){}d.body.removeChild(ta)}
+    if(w.navigator.clipboard&&w.navigator.clipboard.writeText){w.navigator.clipboard.writeText(txt).then(done,fb)}else{fb()}})});
+  var page=(w.location.pathname.split("/").pop()||"index.html");
+  $$("ul.check input").forEach(function(c,i){var k="pkidocs-chk-"+page+"-"+i;if(store(k)==="1"){c.checked=true}c.addEventListener("change",function(){store(k,c.checked?"1":"0")})});
+  var tt=$("#totop");if(tt){w.addEventListener("scroll",function(){tt.style.display=(w.pageYOffset>600)?"block":"none"});tt.addEventListener("click",function(){w.scrollTo(0,0)})}
+  var links=$$(".side a");if(links.length&&w.IntersectionObserver){var map={};links.forEach(function(a){map[a.getAttribute("href").slice(1)]=a});
+    var io=new w.IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){links.forEach(function(a){a.classList.remove("on")});var a=map[en.target.id];if(a){a.classList.add("on")}}})},{rootMargin:"-80px 0px -70% 0px"});
+    $$("h2[id],h3[id]").forEach(function(h){io.observe(h)})}
+  var A11Y=$("#a11y"),abtns=$$(".a11ybtn"),st={cb:"off",hc:false,size:"n",links:false,motion:false};
+  try{var raw=store("pkidocs-a11y");if(raw){var o=JSON.parse(raw);for(var key in st){if(o&&o[key]!==undefined){st[key]=o[key]}}}}catch(e){}
+  function applyA11y(){
+    function set(a,v){if(v){root.setAttribute(a,v)}else{root.removeAttribute(a)}}
+    set("data-cb",st.cb==="off"?"":st.cb);set("data-contrast",st.hc?"high":"");set("data-size",st.size==="n"?"":st.size);set("data-links",st.links?"u":"");set("data-motion",st.motion?"off":"");
+    if((st.cb!=="off"||st.hc)&&!root.getAttribute("data-theme")){root.setAttribute("data-theme",dark()?"dark":"light")}
+    if(A11Y){$$("input[name=a-cb]",A11Y).forEach(function(r){r.checked=(r.value===st.cb)});$$("input[name=a-size]",A11Y).forEach(function(r){r.checked=(r.value===st.size)});
+      $("#a-hc").checked=st.hc;$("#a-links").checked=st.links;$("#a-motion").checked=st.motion}
+    paintTheme()}
+  function saveA11y(){store("pkidocs-a11y",JSON.stringify(st))}
+  if(A11Y){
+    var openA=function(o){A11Y.hidden=!o;abtns.forEach(function(b){b.setAttribute("aria-expanded",o?"true":"false")});if(o){setDrawer(false);var f=$("input",A11Y);if(f){f.focus()}}};
+    abtns.forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();openA(A11Y.hidden)})});
+    $$("[data-a11y-close]",A11Y).forEach(function(b){b.addEventListener("click",function(){openA(false);if(abtns[0]){abtns[0].focus()}})});
+    A11Y.addEventListener("change",function(e){var t=e.target;
+      if(t.name==="a-cb"){st.cb=t.value}else if(t.name==="a-size"){st.size=t.value}else if(t.id==="a-hc"){st.hc=t.checked}else if(t.id==="a-links"){st.links=t.checked}else if(t.id==="a-motion"){st.motion=t.checked}
+      saveA11y();applyA11y()});
+    $("[data-a11y-reset]",A11Y).addEventListener("click",function(){st={cb:"off",hc:false,size:"n",links:false,motion:false};saveA11y();applyA11y()});
+    d.addEventListener("click",function(e){if(!A11Y.hidden&&!e.target.closest("#a11y")&&!e.target.closest(".a11ybtn")){openA(false)}});
+    d.addEventListener("keydown",function(e){if((e.key||"")==="Escape"&&!A11Y.hidden){openA(false)}})}
+  applyA11y();
+  var box=$("#results");
+  if(box&&w.PKI_SEARCH){
+    var esc=function(s){return s.replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+    var run=function(){
+      var m=/[#&]q=([^&]*)/.exec(w.location.hash),term="";try{term=m?decodeURIComponent(m[1]):""}catch(e){term=""}
+      var home=$("#home");$$(".sbox input").forEach(function(q){if(term){q.value=term}});
+      if(!term){box.innerHTML="";if(home){home.hidden=false}return}
+      if(home){home.hidden=true}
+      var words=term.toLowerCase().split(/\s+/).filter(Boolean),res=[];
+      w.PKI_SEARCH.forEach(function(s){var low=s.t.toLowerCase(),hay=s.h.toLowerCase()+" "+s.d.toLowerCase()+" "+low,ok=true,score=0;
+        for(var i=0;i<words.length;i++){if(hay.indexOf(words[i])<0){ok=false;break}score+=(s.h.toLowerCase().indexOf(words[i])>=0)?5:1}
+        if(ok){var p0=low.indexOf(words[0]),a=Math.max(0,p0-70);res.push({s:s,score:score,sn:(a>0?"... ":"")+s.t.substr(a,220)+" ..."})}});
+      res.sort(function(a,b){return b.score-a.score});
+      var out="<h1>Search: "+esc(term)+"</h1><p class=\"lead\">"+res.length+" place(s) found.</p>";
+      res.slice(0,60).forEach(function(r){var sn=esc(r.sn);words.forEach(function(wd){sn=sn.replace(new RegExp("("+wd.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"),"<mark>$1</mark>")});
+        out+="<div class=\"hit\"><a href=\""+r.s.p+(r.s.i?"#"+r.s.i:"")+"\"><b>"+esc(r.s.d)+"</b> &rsaquo; "+esc(r.s.h||"start")+"</a><br><small>"+sn+"</small></div>"});
+      if(!res.length){out+="<p>Nothing found. Try fewer or shorter words.</p>"}
+      box.innerHTML=out};
+    w.addEventListener("hashchange",run);run()}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,645 @@
+#!/usr/bin/env bash
+# ============================================================
+# PKI Script
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OÜ (NextMantra)
+# Email  : nicko@nextmantra.com
+# Version: 6.4.1
+# ============================================================
+# Create-WebServerConfig.sh - nginx and Apache configuration for a leaf certificate (HTTPS only).
+# Bash twin of Create-WebServerConfig.ps1. Needs bash 4+ and OpenSSL. Manual: docs/Create-WebServerConfig-MANUAL.txt
+set -u
+if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ]; then echo "[ERROR] bash 4 or newer is needed (macOS: brew install bash)." >&2; exit 1; fi
+VERSION=6.4.1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+help_pager() {  # help text: one screen at a time on a terminal (Space = next page, q = quit); everything when piped
+  if [ -t 1 ] && command -v less >/dev/null 2>&1; then less -FRXK; elif [ -t 1 ] && command -v more >/dev/null 2>&1; then more; else cat; fi
+}
+show_help() {
+cat <<'HELP_EOF'
+====================================================================================================
+ Create-WebServerConfig.sh - nginx and Apache configuration for a leaf certificate (HTTPS only)
+ Version 6.4.1
+ Author : Nicko Satria Utama
+ Company: Agantra Inovatif OU (NextMantra)
+ Email  : nicko@nextmantra.com
+====================================================================================================
+ Manual : docs/Create-WebServerConfig-MANUAL.txt     PowerShell version: Create-WebServerConfig.ps1
+ Needs  : bash 4+ and OpenSSL (4.x best). Runs on Linux (Ubuntu 24.04+, CentOS Stream 10, RHEL 10,
+ Rocky 10,
+          Oracle Linux 10) and macOS. It does not need the PKI folder.
+
+WHAT IT DOES (in plain words)
+  You give it a certificate (made by GenerateLeafCertificate.ps1, or any other). It reads the
+  certificate and writes a configuration for nginx and for Apache that:
+    - listens on HTTPS only (there is NO port 80 server in it),
+    - answers for the names inside the certificate (server_name / ServerName),
+    - passes the traffic to your application behind it; by default a Kestrel (ASP.NET Core) app
+      on http://127.0.0.1:5000 (change it with --upstream),
+    - uses TLS 1.3 only (add TLS 1.2 with --tls12; TLS 1.1 and older are always refused),
+    - picks ciphers and key-exchange groups that fit the certificate (RSA, ECDSA or ML-DSA,
+      FIPS or not, DV / OV / EV), unless you set them yourself,
+    - uses QUIC / HTTP/3 (nginx), Brotli and gzip.
+  You can print the configuration on the screen and copy it, or write it to a folder.
+
+WHICH LINUX (--distro)
+  --distro ubuntu    Ubuntu 24.04+ / Debian style: nginx user www-data, Apache = apache2
+                    (/etc/apache2/sites-available, a2ensite, a2enmod), tools: ufw.
+  --distro rhel      CentOS Stream 10, RHEL 10, Rocky Linux 10, Oracle Linux 10: nginx user nginx,
+                    Apache = httpd (/etc/httpd/conf.d), certificates in /etc/pki/tls, SELinux and
+                    firewalld commands in the README.
+  --distro auto      (default) read /etc/os-release on Linux; on macOS: Ubuntu style.
+  The generated folder always has a README.txt with the exact commands for that Linux.
+
+WHAT YOU GIVE
+  --certificate <file>   The certificate (PEM). A -fullchain.crt (leaf + intermediates) is best.
+                        Not given: you are asked, step by step (the same as --wizard).
+  --key <file>           Optional. If given it is checked that the key belongs to the certificate.
+                        The key is NEVER copied. The config points to the path on the server.
+  --server nginx|apache|both   Which web server to write. Default both.
+  --server-name <list>    Names for the server. Default: the DNS names (SAN) of the certificate.
+  --upstream <url>       Where your application listens. Default http://127.0.0.1:5000 (Kestrel).
+                        https://... is allowed (then the proxy talks TLS to the application).
+  --port <n>             The HTTPS port. Default 443.
+  --wizard               Ask every question one by one (Enter keeps the default in [brackets]).
+
+WHAT IT DOES FOR TLS
+  --tls12                Also allow TLS 1.2 (default is TLS 1.3 only). QUIC stays TLS 1.3.
+  --fips                 Use only FIPS-approved ciphers and groups (no ChaCha20, no X25519).
+                        Switched on by itself when leaf-info.json next to the certificate says FIPS.
+  --tls-ciphers <list>    TLS 1.3 cipher suites     (default by certificate, see the manual)
+  --tls12-ciphers <list>  TLS 1.2 cipher suites     (only used with --tls12)
+  --groups <text>        Key-exchange groups, colon separated (default by certificate)
+  --signature-algorithms <text>   (default: set for ML-DSA only)
+  --no-hsts / --hsts-max-age <seconds>   HSTS header (default on; EV / OV 2 years, DV 1 year)
+  Defaults by certificate:
+    Classic RSA / ECDSA   groups X25519:secp384r1:secp256r1       (FIPS: secp384r1:secp256r1)
+    Quantum (ML-DSA)      groups X25519MLKEM768:SecP384r1MLKEM1024:secp384r1 (FIPS:
+                          SecP384r1MLKEM1024: SecP256r1MLKEM768:secp384r1) and signature algorithms
+                          mldsa87:mldsa65
+    TLS 1.3 suites        TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
+                          (FIPS: the two AES-GCM suites only)
+
+WEB FEATURES
+  --no-quic               No QUIC / HTTP/3 listener (nginx).  Apache has no QUIC: nothing is
+                          written.
+  --compression <list>   brotli,gzip (default both) or none. nginx needs the ngx_brotli module for
+                         Brotli:
+                        the README says how to get it; without it use --compression Gzip.
+  --tcp-stream <list>     TLS-terminated TCP stream (nginx only):  "8443=127.0.0.1:9000"
+                        = listen on 8443 with TLS, send plain TCP to 127.0.0.1:9000. Several
+                        allowed.
+  --udp-stream <list>     UDP stream (nginx only):  "5353=127.0.0.1:5300"  = relay UDP 5353 to 5300.
+                        UDP is relayed as it is (nginx does not terminate DTLS).
+  --ech                  Encrypted Client Hello. Makes an ECH key with OpenSSL 4 (openssl ech) and a
+                        separate include file. --ech-public-name <name> = the outer name (default:
+                        the parent domain of the first server name). Needs an nginx build with ECH.
+                        Apache has no ECH: nothing is written.
+
+OUTPUT
+  --output file|screen|both   File (default) writes the folder; Screen prints every
+                             file on the screen
+                             between "===== FILE: name =====" lines so you can copy and paste.
+  --out-folder <path>          Where the folder goes. Default: <script folder>/transport.
+  The folder name tells what is inside, for example
+      webconfig_www-example-com_ubuntu_nginx-apache_tls13_quic_20261017-113000
+  --nginx-version <x.y>        Lowest nginx version you run. Only 1.30 and newer are supported.
+  --resolver <text>           DNS resolver for OCSP stapling (nginx).  --openssl <file>   --help
+
+EXAMPLES
+  ./Create-WebServerConfig.sh --certificate ./www-fullchain.crt
+  ./Create-WebServerConfig.sh --certificate ./www-fullchain.crt --server nginx --distro rhel --tls12
+  ./Create-WebServerConfig.sh --certificate ./www-fullchain.crt --output screen --server nginx
+  ./Create-WebServerConfig.sh --certificate ./api-fullchain.crt --upstream http://127.0.0.1:5010 \
+        --tcp-stream "8883=127.0.0.1:1883" --udp-stream "5353=127.0.0.1:5300" --ech
+  ./Create-WebServerConfig.sh --wizard
+EXIT CODES   0 ok   1 error (the message says why)   2 the certificate does not fit
+====================================================================================================
+HELP_EOF
+}
+
+# ---------------------------------------------------------------- helpers
+say() { local l="$1"; shift; printf '[%s] %s\n' "$l" "$*"; }
+die() { say ERROR "$*" >&2; exit "${2:-1}"; }
+safe_name() { local t; t=$(printf '%s' "$1" | sed 's/[^A-Za-z0-9]\+/-/g; s/^-//; s/-$//' | tr 'A-Z' 'a-z' | cut -c1-40 | sed 's/-$//'); printf '%s' "${t:-site}"; }
+join_by() { local sep="$1" first=1 x; shift; for x in "$@"; do if [ $first = 1 ]; then printf '%s' "$x"; first=0; else printf '%s%s' "$sep" "$x"; fi; done; }
+ask() { local q="$1" d="${2:-}" a; if [ -n "$d" ]; then read -r -p "$q [$d]: " a; else read -r -p "$q: " a; fi; printf '%s' "${a:-$d}"; }
+ask_yn() { local q="$1" d="$2" a hint="y/N"; [ "$d" = 1 ] && hint="Y/n"; read -r -p "$q [$hint]: " a; if [ -z "$a" ]; then return $((1-d)); fi; case "$a" in y*|Y*) return 0;; *) return 1;; esac; }
+
+find_openssl() {
+  local c
+  for c in "$OPENSSL_ARG" /opt/openssl4/bin/openssl /opt/openssl/bin/openssl "$(command -v openssl 2>/dev/null)"; do
+    [ -n "$c" ] && [ -x "$c" ] || continue
+    OSSL="$c"; OSSL_TEXT=$("$c" version 2>/dev/null) || continue
+    OSSL_MAJOR=$(printf '%s' "$OSSL_TEXT" | sed -n 's/^OpenSSL \([0-9]\+\)\..*/\1/p'); [ -n "$OSSL_MAJOR" ] && return 0
+  done
+  die "OpenSSL was not found. Install OpenSSL 4 (or give --openssl <file>)."
+}
+
+# ---------------------------------------------------------------- certificate facts
+read_cert() {
+  local f="$1" tmp t pub fam alg bits curve
+  [ -f "$f" ] || die "Certificate file not found: $f"
+  CERT_BLOCKS=()
+  if grep -q 'BEGIN CERTIFICATE' "$f"; then
+    local cur="" line inb=0
+    while IFS= read -r line || [ -n "$line" ]; do
+      case "$line" in
+        *'-----BEGIN CERTIFICATE-----'*) inb=1; cur="$line";;
+        *'-----END CERTIFICATE-----'*) cur="$cur"$'\n'"$line"; CERT_BLOCKS+=("$cur"); inb=0; cur="";;
+        *) [ $inb = 1 ] && cur="$cur"$'\n'"$line";;
+      esac
+    done < "$f"
+  else
+    CERT_BLOCKS+=("$("$OSSL" x509 -inform DER -in "$f" 2>/dev/null)")
+  fi
+  [ ${#CERT_BLOCKS[@]} -gt 0 ] || die "No certificate could be read from $f"
+  tmp=$(mktemp); printf '%s\n' "${CERT_BLOCKS[0]}" > "$tmp"
+  CERT_TEXT=$("$OSSL" x509 -in "$tmp" -noout -text -nameopt RFC2253) || { rm -f "$tmp"; die "OpenSSL could not read the certificate."; }
+  CERT_PUB=$("$OSSL" x509 -in "$tmp" -noout -pubkey | tr -d ' \n\r'); rm -f "$tmp"
+  CERT_SUBJECT=$(printf '%s\n' "$CERT_TEXT" | sed -n 's/^ *Subject: *//p' | head -1)
+  CERT_CN=$(printf '%s' "$CERT_SUBJECT" | sed -n 's/.*\(^\|,\)CN=\(\(\\,\|[^,]\)*\).*/\2/p' | sed 's/\\,/,/g')
+  CERT_DNS=()
+  local d; while read -r d; do [ -n "$d" ] && CERT_DNS+=("$d"); done < <(printf '%s' "$CERT_TEXT" | grep -o 'DNS:[^,[:space:]]*' | sed 's/^DNS://' | awk '!s[$0]++')
+  alg=$(printf '%s\n' "$CERT_TEXT" | sed -n 's/^ *Public Key Algorithm: *//p' | head -1)
+  bits=$(printf '%s\n' "$CERT_TEXT" | sed -n 's/^ *Public-Key: *(\([0-9]*\) bit).*/\1/p' | head -1)
+  curve=$(printf '%s\n' "$CERT_TEXT" | sed -n 's/^ *ASN1 OID: *//p' | head -1)
+  if printf '%s' "$alg" | grep -qiE 'ML-DSA|mldsa'; then CERT_FAMILY=mldsa; CERT_LABEL=$(printf '%s' "$alg" | tr 'a-z' 'A-Z')
+  elif printf '%s' "$alg" | grep -qi rsa; then CERT_FAMILY=rsa; CERT_LABEL="RSA-$bits"
+  else CERT_FAMILY=ecdsa; CERT_LABEL="ECDSA-$curve"; fi
+  if printf '%s' "$CERT_TEXT" | grep -q '2\.23\.140\.1\.1\b'; then CERT_LEVEL=EV
+  elif printf '%s' "$CERT_TEXT" | grep -q '2\.23\.140\.1\.2\.2'; then CERT_LEVEL=OV
+  elif printf '%s' "$CERT_TEXT" | grep -q '2\.23\.140\.1\.2\.1'; then CERT_LEVEL=DV
+  else CERT_LEVEL=OV; fi
+  CERT_OCSP=0; printf '%s' "$CERT_TEXT" | grep -q 'OCSP - URI:' && CERT_OCSP=1
+  CERT_EKU_SERVER=0; printf '%s' "$CERT_TEXT" | grep -q 'TLS Web Server Authentication' && CERT_EKU_SERVER=1
+}
+
+leaf_info_fips() {   # 0 when leaf-info.json next to the certificate says fips true
+  local j; j="$(dirname "$1")/leaf-info.json"
+  [ -f "$j" ] || return 1
+  tr -d ' \n\r' < "$j" | grep -qi '"fips":true'
+}
+
+# ---------------------------------------------------------------- TLS profile
+tls_profile() {
+  QUANTUM=0; [ "$CERT_FAMILY" = mldsa ] && QUANTUM=1
+  if [ $FIPS = 1 ]; then S13='TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256'; else S13='TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256'; fi
+  case "$CERT_FAMILY" in
+    rsa)   if [ $FIPS = 1 ]; then S12='ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256'; else S12='ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-RSA-AES128-GCM-SHA256'; fi;;
+    ecdsa) if [ $FIPS = 1 ]; then S12='ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256'; else S12='ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256'; fi;;
+    *) S12='';;
+  esac
+  if [ $QUANTUM = 1 ]; then
+    if [ $FIPS = 1 ]; then T_GROUPS='SecP384r1MLKEM1024:SecP256r1MLKEM768:secp384r1'; else T_GROUPS='X25519MLKEM768:SecP384r1MLKEM1024:secp384r1'; fi
+    T_SIG='mldsa87:mldsa65'
+  else
+    if [ $FIPS = 1 ]; then T_GROUPS='secp384r1:secp256r1'; else T_GROUPS='X25519:secp384r1:secp256r1'; fi
+    T_SIG=''
+  fi
+  if [ "$CERT_LEVEL" = DV ]; then T_HSTS_AGE=31536000; T_HSTS_SUB=0; else T_HSTS_AGE=63072000; T_HSTS_SUB=1; fi
+  T_TLS12=0; [ $TLS12 = 1 ] && [ $QUANTUM = 0 ] && T_TLS12=1
+}
+
+distro_info() {
+  local n="$1"
+  if [ "$n" = auto ]; then
+    n=ubuntu
+    if [ -r /etc/os-release ] && grep -E '^(ID|ID_LIKE)=' /etc/os-release | grep -qiE 'rhel|centos|rocky|"ol"|=ol|fedora|almalinux'; then n=rhel; fi
+  fi
+  if [ "$n" = rhel ]; then
+    D_NAME=RHEL; D_LABEL='RHEL style (CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10)'; D_NGUSER=nginx; D_NGDIR=/etc/nginx
+    D_TLSDIR=/etc/pki/tls; D_APNAME=httpd; D_APLOG=/var/log/httpd
+  else
+    D_NAME=Ubuntu; D_LABEL='Ubuntu / Debian style (Ubuntu 24.04+)'; D_NGUSER=www-data; D_NGDIR=/etc/nginx
+    D_TLSDIR=/etc/ssl; D_APNAME=apache2; D_APLOG=/var/log/apache2
+  fi
+}
+
+# ---------------------------------------------------------------- file writer (collects into an array)
+FILE_NAMES=(); declare -A FILE_BODY
+put() { FILE_NAMES+=("$1"); FILE_BODY["$1"]="$2"; }
+
+hdr_line() { printf '# Made by Create-WebServerConfig.sh %s for %s - %s, %s, %s\n' "$VERSION" "$(join_by ', ' "${NAMES[@]}")" "$CERT_LABEL" "$CERT_LEVEL" "$PROFILE_TEXT"; }
+
+# ---------------------------------------------------------------- nginx
+make_nginx() {
+  local H1 H2 mods="" up="$UP_HOSTPORT" t="" types
+  H1=$(hdr_line); H2="# nginx $NGINX_MIN or newer. HTTPS only: there is no listener on port 80."
+  local HDR="$H1"$'\n'"$H2"
+  if [ $BROTLI = 1 ]; then mods=$'# Brotli is not inside nginx: it needs the ngx_brotli module (see README.txt). Remove these two lines and use --compression gzip if you do not have it.\nload_module modules/ngx_http_brotli_filter_module.so;\nload_module modules/ngx_http_brotli_static_module.so;\n'; fi
+  local streamblk=""
+  [ $STREAM = 1 ] && streamblk=$'\n# TCP / UDP streams (not HTTP)\nstream {\n    include '"$D_NGDIR"$'/stream.d/*.conf;\n}'
+  put nginx/nginx.conf "$HDR
+
+user $D_NGUSER;
+worker_processes auto;
+pid /run/nginx.pid;
+error_log /var/log/nginx/error.log warn;
+${mods}
+events { worker_connections 4096; }
+
+http {
+    include       $D_NGDIR/mime.types;
+    default_type  application/octet-stream;
+    server_tokens off;
+    sendfile      on;
+    keepalive_timeout 65;
+    log_format main '\$remote_addr - \$remote_user [\$time_local] \"\$request\" \$status \$body_bytes_sent \"\$http_referer\" \"\$http_user_agent\" \$ssl_protocol \$ssl_cipher';
+    access_log /var/log/nginx/access.log main;
+
+    # a WebSocket / SignalR connection (Kestrel) asks for an upgrade
+    map \$http_upgrade \$connection_upgrade { default upgrade; '' close; }
+
+    include $D_NGDIR/conf.d/*.conf;
+}
+$streamblk"
+  # tls snippet
+  t="$HDR"$'\n'
+  t+="# TLS settings. Protocols: $([ $P_TLS12 = 1 ] && echo 'TLS 1.3 and TLS 1.2' || echo 'TLS 1.3 only') (TLS 1.1 and older are refused)."$'\n'
+  t+="ssl_protocols $([ $P_TLS12 = 1 ] && echo 'TLSv1.2 TLSv1.3' || echo 'TLSv1.3');"$'\n'
+  t+="ssl_conf_command Ciphersuites $P_S13;"$'\n'
+  if [ $P_TLS12 = 1 ]; then t+="ssl_ciphers $P_S12;"$'\n'"ssl_prefer_server_ciphers off;"$'\n'; fi
+  t+="ssl_ecdh_curve $P_GROUPS;"$'\n'
+  [ -n "$P_SIG" ] && t+="ssl_conf_command SignatureAlgorithms $P_SIG;"$'\n'
+  t+=$'ssl_session_cache shared:SSL:10m;\nssl_session_timeout 1d;\nssl_session_tickets off;\n'
+  put nginx/snippets/tls.conf "$t"
+  # compression
+  types='text/plain text/css text/xml text/javascript application/javascript application/json application/xml application/wasm image/svg+xml font/ttf font/otf'
+  t="$HDR"$'\n'
+  [ $BROTLI = 1 ] && t+="brotli on;"$'\n'"brotli_comp_level 5;"$'\n'"brotli_types $types;"$'\n'
+  [ $GZIP = 1 ] && t+="gzip on;"$'\n'"gzip_comp_level 5;"$'\n'"gzip_min_length 256;"$'\n'"gzip_proxied any;"$'\n'"gzip_vary on;"$'\n'"gzip_types $types;"$'\n'
+  [ $BROTLI = 0 ] && [ $GZIP = 0 ] && t+="# compression is off (--compression none)"$'\n'
+  put nginx/snippets/compression.conf "$t"
+  # proxy
+  t="$HDR
+# Reverse proxy to the application (Kestrel). In ASP.NET Core call app.UseForwardedHeaders() to trust these headers.
+proxy_http_version 1.1;
+proxy_set_header Host              \$host;
+proxy_set_header X-Real-IP         \$remote_addr;
+proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto \$scheme;
+proxy_set_header X-Forwarded-Host  \$host;
+proxy_set_header Upgrade           \$http_upgrade;
+proxy_set_header Connection        \$connection_upgrade;
+proxy_read_timeout 100s;
+proxy_send_timeout 100s;"
+  [ "$UP_SCHEME" = https ] && t+=$'\n'"proxy_ssl_server_name on;"$'\n'"# proxy_ssl_trusted_certificate $TLSDIR_SERVER/ca.crt;"$'\n'"# proxy_ssl_verify on;"
+  put nginx/snippets/proxy-kestrel.conf "$t"
+  # server
+  local listen quic="" hsts="" stap="" ech=""
+  listen="    listen $PORT ssl;"$'\n'"    listen [::]:$PORT ssl;"
+  if [ $QUIC = 1 ]; then
+    listen+=$'\n'"    listen $PORT quic reuseport;          # QUIC / HTTP/3 (UDP). 'reuseport' only once per address:port in the whole nginx"$'\n'"    listen [::]:$PORT quic reuseport;"
+    quic="    http3 on;"$'\n'"    quic_retry on;"$'\n'"    add_header Alt-Svc 'h3=\":$PORT\"; ma=86400' always;"$'\n'
+  fi
+  if [ $HSTS = 1 ]; then local sub=""; [ $P_HSTS_SUB = 1 ] && sub='; includeSubDomains'; hsts="    add_header Strict-Transport-Security \"max-age=$P_HSTS_AGE$sub\" always;"$'\n'; fi
+  if [ $CERT_OCSP = 1 ]; then stap=$'\n'"    # OCSP stapling (the certificate has an OCSP address)"$'\n'"    ssl_stapling on;"$'\n'"    ssl_stapling_verify on;"$'\n'"    ssl_trusted_certificate $TLSDIR_SERVER/$BASE-chain.crt;"$'\n'"    resolver $RESOLVER;"$'\n'; fi
+  [ $P_ECH = 1 ] && ech="    include $D_NGDIR/snippets/ech.conf;       # Encrypted Client Hello (needs an nginx build with ECH)"$'\n'
+  put "nginx/conf.d/$BASE.conf" "$HDR
+upstream kestrel {
+    server $up;
+    keepalive 32;
+}
+
+server {
+$listen
+    http2 on;
+${quic}    server_name ${NAMES[*]};
+
+    ssl_certificate     $TLSDIR_SERVER/$BASE-fullchain.crt;
+    ssl_certificate_key $TLSDIR_SERVER/$BASE.key;
+    include $D_NGDIR/snippets/tls.conf;
+$stap$ech
+${hsts}    add_header X-Content-Type-Options nosniff always;
+    include $D_NGDIR/snippets/compression.conf;
+    client_max_body_size 50m;
+
+    location / {
+        include $D_NGDIR/snippets/proxy-kestrel.conf;
+        proxy_pass $UP_SCHEME://kestrel;
+    }
+}"
+  if [ $STREAM = 1 ]; then
+    t="$HDR"$'\n'"# Included inside the stream { } block of nginx.conf."$'\n'
+    local e
+    for e in "${TCP[@]}"; do
+      t+=$'\n'"# TCP with TLS: clients connect to port ${e%%=*} with TLS, the plain TCP goes to ${e#*=}"$'\n'
+      t+="server {
+    listen ${e%%=*} ssl;
+    ssl_certificate     $TLSDIR_SERVER/$BASE-fullchain.crt;
+    ssl_certificate_key $TLSDIR_SERVER/$BASE.key;
+    include $D_NGDIR/snippets/tls.conf;
+    proxy_pass ${e#*=};
+    proxy_timeout 10m;
+}"$'\n'
+    done
+    for e in "${UDP[@]}"; do
+      t+=$'\n'"# UDP relay (no DTLS termination): port ${e%%=*} -> ${e#*=}"$'\n'
+      t+="server {
+    listen ${e%%=*} udp;
+    proxy_pass ${e#*=};
+    proxy_responses 1;
+    proxy_timeout 20s;
+}"$'\n'
+    done
+    put "nginx/stream.d/$BASE-stream.conf" "$t"
+  fi
+  if [ $P_ECH = 1 ]; then
+    put nginx/snippets/ech.conf "$HDR
+# Encrypted Client Hello. The directive names depend on the nginx build that has ECH (OpenSSL 4 with ECH): check
+#   nginx -V   and the documentation of your build. If nginx says 'unknown directive', remove the include line in the server file.
+# The key file was made with:  openssl ech -public_name $ECH_NAME -out $ECH_NAME.pem.ech
+ssl_echkeydir $D_NGDIR/ech;"
+  fi
+}
+
+# ---------------------------------------------------------------- Apache
+make_apache() {
+  local HDR proto alias="" types cmp="" hsts="" stap="" cn conf site gname sname
+  HDR="$(hdr_line)"$'\n'"# Apache HTTP Server 2.4.58 or newer with OpenSSL 3.x / 4.x. HTTPS only: there is no VirtualHost on port 80."
+  proto='-all +TLSv1.3'; [ $P_TLS12 = 1 ] && proto='-all +TLSv1.2 +TLSv1.3'
+  [ ${#NAMES[@]} -gt 1 ] && alias="    ServerAlias ${NAMES[*]:1}"$'\n'
+  types='text/html text/plain text/css text/xml text/javascript application/javascript application/json application/xml application/wasm image/svg+xml'
+  [ $BROTLI = 1 ] && cmp+="    <IfModule mod_brotli.c>"$'\n'"        AddOutputFilterByType BROTLI_COMPRESS $types"$'\n'"    </IfModule>"$'\n'
+  [ $GZIP = 1 ] && cmp+="    <IfModule mod_deflate.c>"$'\n'"        AddOutputFilterByType DEFLATE $types"$'\n'"    </IfModule>"$'\n'
+  if [ $HSTS = 1 ]; then local sub=""; [ $P_HSTS_SUB = 1 ] && sub='; includeSubDomains'; hsts="    Header always set Strict-Transport-Security \"max-age=$P_HSTS_AGE$sub\""$'\n'; fi
+  [ $CERT_OCSP = 1 ] && stap="    SSLUseStapling on"$'\n'"    SSLStaplingReturnResponderErrors off"$'\n'
+  cn="    SSLCipherSuite TLSv1.3 $P_S13"$'\n'
+  [ $P_TLS12 = 1 ] && cn+="    SSLCipherSuite $P_S12"$'\n'"    SSLHonorCipherOrder off"$'\n'
+  conf="    SSLOpenSSLConfCmd Curves $P_GROUPS"$'\n'
+  [ -n "$P_SIG" ] && conf+="    SSLOpenSSLConfCmd SignatureAlgorithms $P_SIG"$'\n'
+  local ws=ws; [ "$UP_SCHEME" = https ] && ws=wss
+  site="$HDR
+
+<VirtualHost *:$PORT>
+    ServerName ${NAMES[0]}
+${alias}    Protocols h2 http/1.1
+    ErrorLog  $D_APLOG/$BASE-error.log
+    CustomLog $D_APLOG/$BASE-access.log combined
+
+    SSLEngine on
+    SSLCertificateFile    $TLSDIR_SERVER/$BASE-fullchain.crt
+    SSLCertificateKeyFile $TLSDIR_SERVER/$BASE.key
+    SSLProtocol $proto
+${cn}${conf}    SSLSessionTickets off
+$stap
+${hsts}    Header always set X-Content-Type-Options nosniff
+$cmp
+    # reverse proxy to the application (Kestrel)
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto \"https\"
+    RequestHeader set X-Forwarded-Port \"$PORT\"
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule ^/(.*)\$ $ws://$UP_HOSTPORT/\$1 [P,L]
+    ProxyPass        / $UP_SCHEME://$UP_HOSTPORT/
+    ProxyPassReverse / $UP_SCHEME://$UP_HOSTPORT/
+</VirtualHost>"
+  if [ "$D_NAME" = RHEL ]; then gname=apache/conf.d/00-ssl-global.conf; sname="apache/conf.d/$BASE.conf"; else gname=apache/conf-available/00-ssl-global.conf; sname="apache/sites-available/$BASE.conf"; fi
+  put "$gname" "$HDR
+# Global TLS settings (outside any VirtualHost)
+SSLStaplingCache \"shmcb:logs/ssl_stapling(32768)\"
+SSLSessionCache  \"shmcb:logs/ssl_scache(512000)\"
+SSLSessionCacheTimeout 300
+# (the Listen 443 line already exists: Ubuntu ports.conf, RHEL ssl.conf)"
+  put "$sname" "$site"
+}
+
+# ---------------------------------------------------------------- README
+make_readme() {
+  local t="$TLSDIR_SERVER" b="$BASE" r="" x e
+  r+="Web server configuration for: $(join_by ', ' "${NAMES[@]}")"$'\n'
+  r+="Made by Create-WebServerConfig.sh $VERSION on $(date '+%Y-%m-%d %H:%M') for $D_LABEL"$'\n'
+  r+="Certificate: $CERT_LABEL, level $CERT_LEVEL. TLS: $([ $P_TLS12 = 1 ] && echo '1.3 and 1.2' || echo '1.3 only'). Groups: $P_GROUPS. QUIC: $([ $QUIC = 1 ] && echo 'yes (nginx)' || echo no)"$'\n\n'
+  r+="FILES"$'\n'
+  for x in "${FILE_NAMES[@]}"; do r+="  $x"$'\n'; done
+  r+=$'\n'"1. COPY THE CERTIFICATE AND THE KEY TO THE SERVER  (the key is NOT in this folder; copy it yourself, safely)"$'\n'
+  r+="     sudo mkdir -p $t"$'\n'
+  r+="     sudo cp $b-fullchain.crt $t/$b-fullchain.crt          (the certificate + the intermediate CA)"$'\n'
+  r+="     sudo cp <your key file> $t/$b.key"$'\n'
+  r+="     sudo chown root:root $t/$b.key && sudo chmod 600 $t/$b.key"$'\n'
+  [ $CERT_OCSP = 1 ] && r+="     sudo cp $b-chain.crt $t/$b-chain.crt                  (the CA chain, for OCSP stapling)"$'\n'
+  [ "$D_NAME" = RHEL ] && r+="     sudo restorecon -Rv $t                                  (SELinux: the right label for the files)"$'\n'
+  r+=$'\n'
+  if [ $WANT_NGINX = 1 ]; then
+    r+="2. NGINX $NGINX_MIN+   (folder nginx/)"$'\n'
+    r+="     sudo cp nginx/snippets/* $D_NGDIR/snippets/        (make the folder first: sudo mkdir -p $D_NGDIR/snippets)"$'\n'
+    r+="     sudo cp nginx/conf.d/$b.conf $D_NGDIR/conf.d/"$'\n'
+    [ $STREAM = 1 ] && r+="     sudo mkdir -p $D_NGDIR/stream.d && sudo cp nginx/stream.d/* $D_NGDIR/stream.d/"$'\n'
+    r+="     nginx.conf is a COMPLETE main file. If your nginx.conf already works, keep it and only add:"$'\n'
+    r+="         the map \$http_upgrade \$connection_upgrade { ... } block in http { }$([ $STREAM = 1 ] && echo ', and the stream { include ...; } block')"$'\n'
+    r+="     sudo nginx -t && sudo systemctl reload nginx"$'\n'
+    if [ $BROTLI = 1 ]; then
+      if [ "$D_NAME" = Ubuntu ]; then e='sudo apt install libnginx-mod-http-brotli-filter libnginx-mod-http-brotli-static'; else e='build ngx_brotli for your nginx (github.com/google/ngx_brotli) or use a repository that has it'; fi
+      r+="     Brotli: nginx has no Brotli inside. Install the module: $e. No module? Run again with --compression gzip."$'\n'
+    fi
+    [ $QUIC = 1 ] && r+="     QUIC needs nginx built with QUIC (nginx -V shows --with-http_v3_module) and OpenSSL 3.5+ / 4. UDP port $PORT must be open (step 4)."$'\n'
+    [ $P_ECH = 1 ] && r+="     ECH: copy ech/*.pem.ech to $D_NGDIR/ech/ (readable by the nginx user only). Publish the ECHConfig (see ech/ech-config.txt) in the HTTPS/SVCB DNS record of ${NAMES[0]}."$'\n'
+    r+=$'\n'
+  fi
+  if [ $WANT_APACHE = 1 ]; then
+    r+="3. APACHE ($D_APNAME)   (folder apache/)"$'\n'
+    if [ "$D_NAME" = Ubuntu ]; then
+      r+="     sudo a2enmod ssl http2 proxy proxy_http proxy_wstunnel rewrite headers deflate brotli socache_shmcb"$'\n'
+      r+="     sudo cp apache/conf-available/00-ssl-global.conf /etc/apache2/conf-available/ && sudo a2enconf 00-ssl-global"$'\n'
+      r+="     sudo cp apache/sites-available/$b.conf /etc/apache2/sites-available/ && sudo a2ensite $b"$'\n'
+      r+="     sudo apache2ctl configtest && sudo systemctl reload apache2"$'\n'
+    else
+      r+="     sudo dnf install httpd mod_ssl"$'\n'
+      r+="     sudo cp apache/conf.d/00-ssl-global.conf apache/conf.d/$b.conf /etc/httpd/conf.d/"$'\n'
+      r+="     sudo httpd -t && sudo systemctl enable --now httpd"$'\n'
+      r+="     (mod_proxy, mod_proxy_http, mod_proxy_wstunnel, mod_rewrite, mod_headers, mod_deflate, mod_brotli are loaded by /etc/httpd/conf.modules.d)"$'\n'
+    fi
+    r+="     Apache has no QUIC / HTTP/3, no TCP / UDP stream and no ECH: nothing for them is written."$'\n\n'
+  fi
+  r+="4. FIREWALL AND SELINUX"$'\n'
+  if [ "$D_NAME" = RHEL ]; then
+    local fp="--add-port=$PORT/tcp"; [ $QUIC = 1 ] && fp+=" --add-port=$PORT/udp"
+    for e in "${TCP[@]}"; do fp+=" --add-port=${e%%=*}/tcp"; done; for e in "${UDP[@]}"; do fp+=" --add-port=${e%%=*}/udp"; done
+    r+="     sudo firewall-cmd --permanent $fp"$'\n'"     sudo firewall-cmd --reload"$'\n'
+    r+="     sudo setsebool -P httpd_can_network_connect 1                    (nginx / Apache may connect to Kestrel)"$'\n'
+    [ $STREAM = 1 ] && r+="     for the stream ports:  sudo semanage port -a -t http_port_t -p tcp <port>   (and udp)"$'\n'
+  else
+    r+="     sudo ufw allow $PORT/tcp"$'\n'
+    [ $QUIC = 1 ] && r+="     sudo ufw allow $PORT/udp"$'\n'
+    for e in "${TCP[@]}"; do r+="     sudo ufw allow ${e%%=*}/tcp"$'\n'; done
+    for e in "${UDP[@]}"; do r+="     sudo ufw allow ${e%%=*}/udp"$'\n'; done
+    r+="     (no port 80 is opened: this configuration is HTTPS only)"$'\n'
+  fi
+  r+=$'\n'"5. TEST"$'\n'
+  r+="     openssl s_client -connect ${NAMES[0]}:$PORT -servername ${NAMES[0]} -tls1_3 </dev/null | head -20"$'\n'
+  r+="     curl -v --http2 https://${NAMES[0]}/        $([ $QUIC = 1 ] && echo "curl --http3 https://${NAMES[0]}/   (a curl with HTTP/3)")"$'\n'
+  r+="     Your private CA must be trusted by the client (Install-PkiTrust / Install-PkiCa), or use  curl --cacert ca-bundle.pem"$'\n\n'
+  r+="NOT TESTED HERE: this folder was made by a script and checked by reading the certificate. Run the test commands above on your server."$'\n'
+  FILE_NAMES+=(README.txt); FILE_BODY[README.txt]="$r"
+}
+
+parse_streams() {  # kind, then entries ; result in array named by kind
+  local kind="$1"; shift; local e item
+  for item in "$@"; do
+    for e in $(printf '%s' "$item" | tr ',;' '  '); do
+      printf '%s' "$e" | grep -Eq '^[0-9]{1,5}=[^[:space:]]+:[0-9]{1,5}$' || die "--${kind}-stream '$e' is not in the form  port=host:port  (example 8443=127.0.0.1:9000)."
+      if [ "$kind" = tcp ]; then TCP+=("$e"); else UDP+=("$e"); fi
+    done
+  done
+}
+
+# ---------------------------------------------------------------- main
+CERT=""; KEY=""; SERVER=both; DISTRO=auto; SERVER_NAMES=(); UPSTREAM='http://127.0.0.1:5000'; PORT=443
+TLS12=0; QUIC=1; COMPRESSION='brotli,gzip'; TCP_IN=(); UDP_IN=(); ECH=0; ECH_PUBLIC=""; FIPS=0; TLS_CIPHERS=""; TLS12_CIPHERS=""
+GROUPS_ARG=""; SIG_ARG=""; HSTS=1; HSTS_MAX=0; TLSDIR_ARG=""; RESOLVER='1.1.1.1 9.9.9.9 valid=300s'; NGINX_VER=1.30
+OUTPUT=file; OUTFOLDER=""; WIZARD=0; OPENSSL_ARG=""; GIVEN=" "
+need() { [ $# -ge 2 ] || die "Option $1 needs a value."; }
+while [ $# -gt 0 ]; do
+  o="$1"; GIVEN+="${o#--} "
+  case "$o" in
+    -h|--help) show_help | help_pager; exit 0;;
+    --certificate) need "$@"; CERT="$2"; shift;;
+    --key) need "$@"; KEY="$2"; shift;;
+    --server) need "$@"; SERVER=$(printf '%s' "$2" | tr 'A-Z' 'a-z'); shift;;
+    --distro) need "$@"; DISTRO=$(printf '%s' "$2" | tr 'A-Z' 'a-z'); shift;;
+    --server-name) need "$@"; for n in $(printf '%s' "$2" | tr ',;' '  '); do SERVER_NAMES+=("$n"); done; shift;;
+    --upstream) need "$@"; UPSTREAM="$2"; shift;;
+    --port) need "$@"; PORT="$2"; shift;;
+    --tls12) TLS12=1;;
+    --no-quic) QUIC=0;;
+    --compression) need "$@"; COMPRESSION=$(printf '%s' "$2" | tr 'A-Z' 'a-z'); shift;;
+    --tcp-stream) need "$@"; TCP_IN+=("$2"); shift;;
+    --udp-stream) need "$@"; UDP_IN+=("$2"); shift;;
+    --ech) ECH=1;;
+    --ech-public-name) need "$@"; ECH_PUBLIC="$2"; shift;;
+    --fips) FIPS=1;;
+    --tls-ciphers) need "$@"; TLS_CIPHERS=$(printf '%s' "$2" | tr ',; ' ':::'); shift;;
+    --tls12-ciphers) need "$@"; TLS12_CIPHERS=$(printf '%s' "$2" | tr ',; ' ':::'); shift;;
+    --groups) need "$@"; GROUPS_ARG="$2"; shift;;
+    --signature-algorithms) need "$@"; SIG_ARG="$2"; shift;;
+    --no-hsts) HSTS=0;;
+    --hsts-max-age) need "$@"; HSTS_MAX="$2"; shift;;
+    --tls-dir) need "$@"; TLSDIR_ARG="$2"; shift;;
+    --resolver) need "$@"; RESOLVER="$2"; shift;;
+    --nginx-version) need "$@"; NGINX_VER="$2"; shift;;
+    --output) need "$@"; OUTPUT=$(printf '%s' "$2" | tr 'A-Z' 'a-z'); shift;;
+    --out-folder) need "$@"; OUTFOLDER="$2"; shift;;
+    --wizard) WIZARD=1;;
+    --openssl) need "$@"; OPENSSL_ARG="$2"; shift;;
+    *) die "Unknown option: $o   (see --help)";;
+  esac
+  shift
+done
+given() { case "$GIVEN" in *" $1 "*) return 0;; *) return 1;; esac; }
+
+find_openssl
+printf '%s\n' '============================================================' 'Author : Nicko Satria Utama' 'Company: Agantra Inovatif OÜ (NextMantra)' 'Email  : nicko@nextmantra.com' '============================================================' ''
+say INFO "Create-WebServerConfig.sh version $VERSION   ($OSSL_TEXT)"
+
+printf '%s' "$NGINX_VER" | grep -Eq '^[0-9]+\.[0-9]+' || die "--nginx-version '$NGINX_VER' is not a version (example 1.30)."
+nmaj=${NGINX_VER%%.*}; nmin=${NGINX_VER#*.}; nmin=${nmin%%.*}
+[ $((nmaj*1000+nmin)) -ge 1030 ] || die "nginx $NGINX_VER is not supported. This script writes configuration for nginx 1.30.x, 1.31.x and newer only (older versions have no 'http2 on', no stable QUIC). Update nginx."
+if command -v nginx >/dev/null 2>&1; then
+  nv=$(nginx -v 2>&1 || true)
+  if [[ "$nv" =~ nginx/([0-9]+)\.([0-9]+) ]] && [ $((BASH_REMATCH[1]*1000+BASH_REMATCH[2])) -lt 1030 ]; then say WARN "nginx on THIS computer is ${nv}: too old for these files (1.30+ is needed on the server)."; fi
+fi
+
+if [ $WIZARD = 1 ] || [ -z "$CERT" ]; then
+  [ -t 0 ] || die "--certificate <file> is required (the wizard needs a terminal)."
+  echo 'Step by step. Press Enter to keep the value in [brackets].'
+  given certificate || CERT=$(ask '1. Certificate file (PEM, a -fullchain.crt is best)')
+  given key || KEY=$(ask '2. Private key file (optional, only to check it belongs to the certificate)')
+  given server || SERVER=$(ask '3. Web server: nginx, apache or both' both | tr 'A-Z' 'a-z')
+  given distro || DISTRO=$(ask '4. Linux of the server: ubuntu or rhel (CentOS Stream / Rocky / Oracle / RHEL)' ubuntu | tr 'A-Z' 'a-z')
+  given upstream || UPSTREAM=$(ask '5. Where your application (Kestrel) listens' "$UPSTREAM")
+  given tls12 || { ask_yn '6. Also allow TLS 1.2 (default: TLS 1.3 only)' 0 && TLS12=1 || TLS12=0; }
+  given no-quic || { ask_yn '7. QUIC / HTTP/3 (nginx)' 1 && QUIC=1 || QUIC=0; }
+  given compression || COMPRESSION=$(ask '8. Compression: brotli,gzip / gzip / none' 'brotli,gzip' | tr 'A-Z' 'a-z')
+  given tcp-stream || { x=$(ask '9. TCP stream with TLS, port=host:port (empty = none; several separated by comma)'); [ -n "$x" ] && TCP_IN+=("$x"); }
+  given udp-stream || { x=$(ask '10. UDP stream, port=host:port (empty = none)'); [ -n "$x" ] && UDP_IN+=("$x"); }
+  given ech || { ask_yn '11. Encrypted Client Hello (ECH)' 0 && ECH=1 || ECH=0; }
+  given output || OUTPUT=$(ask '12. Output: file, screen or both' both | tr 'A-Z' 'a-z')
+fi
+[ -n "$CERT" ] || die "--certificate <file> is required."
+case "$SERVER" in nginx|apache|both) ;; *) die "Web server '$SERVER' is not nginx, apache or both.";; esac
+case "$OUTPUT" in file|screen|both) ;; *) die "Output '$OUTPUT' is not file, screen or both.";; esac
+case "$DISTRO" in auto|ubuntu|rhel) ;; *) die "--distro '$DISTRO' is not auto, ubuntu or rhel.";; esac
+printf '%s' "$PORT" | grep -Eq '^[0-9]+$' && [ "$PORT" -ge 1 ] && [ "$PORT" -le 65535 ] || die "--port '$PORT' is not 1 to 65535."
+distro_info "$DISTRO"
+
+read_cert "$CERT"
+[ $CERT_EKU_SERVER = 1 ] || say WARN 'The certificate has no "TLS Web Server Authentication" purpose: browsers will refuse it for a web site.'
+if [ -n "$KEY" ]; then
+  [ -f "$KEY" ] || die "Key file not found: $KEY"
+  kp=$("$OSSL" pkey -in "$KEY" -pubout -passin pass: 2>/dev/null | tr -d ' \n\r') || true
+  case "$kp" in *BEGINPUBLICKEY*) ;; *) die 'The key could not be read (is it encrypted? remove the password first, or leave out --key).';; esac
+  [ "$kp" = "$CERT_PUB" ] || die "The key $KEY does NOT belong to the certificate $CERT. Nothing was written."
+  say OK 'The private key belongs to the certificate.'
+fi
+NAMES=()
+if [ ${#SERVER_NAMES[@]} -gt 0 ]; then NAMES=("${SERVER_NAMES[@]}")
+elif [ ${#CERT_DNS[@]} -gt 0 ]; then NAMES=("${CERT_DNS[@]}")
+elif printf '%s' "$CERT_CN" | grep -Eq '^[A-Za-z0-9*.-]+\.[A-Za-z]{2,}$'; then NAMES=("$CERT_CN"); say WARN 'The certificate has no DNS names (SAN): the common name is used. Browsers need a SAN.'; fi
+[ ${#NAMES[@]} -gt 0 ] || die 'No server name: the certificate has no DNS name. Give --server-name.'
+if [ $FIPS = 0 ] && leaf_info_fips "$CERT"; then FIPS=1; say INFO 'leaf-info.json says this is a FIPS certificate: FIPS-approved ciphers and groups only.'; fi
+tls_profile
+[ $QUANTUM = 1 ] && [ $TLS12 = 1 ] && say WARN 'An ML-DSA (quantum) certificate works in TLS 1.3 only: --tls12 is ignored.'
+[ $QUANTUM = 1 ] && [ "$SERVER" != nginx ] && say WARN 'ML-DSA certificates need OpenSSL 3.5+ / 4 in Apache too (mod_ssl built with it).'
+BASE=$(safe_name "${NAMES[0]}")
+[[ "$UPSTREAM" =~ ^(https?)://([^/:]+)(:([0-9]+))? ]] || die "--upstream '$UPSTREAM' is not http://host:port or https://host:port."
+UP_SCHEME="${BASH_REMATCH[1]}"; up_host="${BASH_REMATCH[2]}"; up_port="${BASH_REMATCH[4]}"
+[ -n "$up_port" ] || { [ "$UP_SCHEME" = https ] && up_port=443 || up_port=80; }
+UP_HOSTPORT="$up_host:$up_port"
+TCP=(); UDP=(); parse_streams tcp "${TCP_IN[@]}"; parse_streams udp "${UDP_IN[@]}"
+WANT_NGINX=0; WANT_APACHE=0
+case "$SERVER" in nginx) WANT_NGINX=1;; apache) WANT_APACHE=1;; both) WANT_NGINX=1; WANT_APACHE=1;; esac
+STREAM=0; [ $((${#TCP[@]}+${#UDP[@]})) -gt 0 ] && STREAM=1
+[ $STREAM = 1 ] && [ $WANT_NGINX = 0 ] && say WARN 'TCP / UDP streams are an nginx feature: nothing is written for them (Apache has none).'
+[ $STREAM = 1 ] && [ $WANT_NGINX = 0 ] && STREAM=0
+[ $ECH = 1 ] && [ $WANT_NGINX = 0 ] && say WARN 'ECH is not available in Apache: nothing is written for it.'
+P_ECH=0; [ $ECH = 1 ] && [ $WANT_NGINX = 1 ] && P_ECH=1
+ECH_NAME=""
+if [ $ECH = 1 ]; then
+  if [ -n "$ECH_PUBLIC" ]; then ECH_NAME="$ECH_PUBLIC"; else n0="${NAMES[0]#\*.}"; IFS=. read -ra lab <<<"$n0"; if [ ${#lab[@]} -ge 3 ]; then ECH_NAME=$(join_by . "${lab[@]:1}"); else ECH_NAME="$n0"; fi; fi
+fi
+BROTLI=0; GZIP=0
+case ",$COMPRESSION," in *,none,*) ;; *) case ",$COMPRESSION," in *,brotli,*) BROTLI=1;; esac; case ",$COMPRESSION," in *,gzip,*) GZIP=1;; esac;; esac
+P_HSTS_AGE=$T_HSTS_AGE; [ "$HSTS_MAX" -gt 0 ] 2>/dev/null && P_HSTS_AGE=$HSTS_MAX
+P_HSTS_SUB=$T_HSTS_SUB
+PROFILE_TEXT=$([ $QUANTUM = 1 ] && echo Quantum || echo Classic); [ $FIPS = 1 ] && PROFILE_TEXT+=" FIPS"
+if [ -n "$TLSDIR_ARG" ]; then TLSDIR_SERVER="${TLSDIR_ARG%/}"; else TLSDIR_SERVER="$D_TLSDIR/$BASE"; fi
+P_S13=${TLS_CIPHERS:-$S13}; P_S12=${TLS12_CIPHERS:-$S12}; P_GROUPS=${GROUPS_ARG:-$T_GROUPS}; P_SIG=${SIG_ARG:-$T_SIG}; P_TLS12=$T_TLS12
+NGINX_MIN=$NGINX_VER
+say INFO "Certificate : $CERT_LABEL, level $CERT_LEVEL, $PROFILE_TEXT"
+say INFO "Server names: $(join_by ', ' "${NAMES[@]}")"
+say INFO "TLS         : $([ $P_TLS12 = 1 ] && echo '1.3 + 1.2' || echo '1.3 only'); groups $P_GROUPS$([ -n "$P_SIG" ] && echo "; signature algorithms $P_SIG")"
+say INFO "Linux style : $D_LABEL    Upstream: $UPSTREAM"
+
+[ $WANT_NGINX = 1 ] && make_nginx
+[ $WANT_APACHE = 1 ] && make_apache
+make_readme
+
+if [ "$OUTPUT" = screen ] || [ "$OUTPUT" = both ]; then
+  for k in "${FILE_NAMES[@]}"; do printf '\n===== FILE: %s =====\n' "$k"; printf '%s\n' "${FILE_BODY[$k]}" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}'; done
+  echo
+fi
+if [ "$OUTPUT" = file ] || [ "$OUTPUT" = both ]; then
+  root="${OUTFOLDER:-$SCRIPT_DIR/transport}"
+  if [ $WANT_NGINX = 1 ] && [ $WANT_APACHE = 1 ]; then srv=nginx-apache; elif [ $WANT_NGINX = 1 ]; then srv=nginx; else srv=apache; fi
+  tag="${BASE}_$(echo "$D_NAME" | tr 'A-Z' 'a-z')_${srv}_$([ $P_TLS12 = 1 ] && echo tls12-13 || echo tls13)_$([ $QUIC = 1 ] && [ $WANT_NGINX = 1 ] && echo quic || echo noquic)"
+  [ $STREAM = 1 ] && tag+=_stream; [ $P_ECH = 1 ] && tag+=_ech; tag+="_$(date +%Y%m%d-%H%M%S)"
+  out="$root/webconfig_$tag"; n=2; while [ -e "$out" ]; do out="$root/webconfig_$tag-$n"; n=$((n+1)); done
+  for k in "${FILE_NAMES[@]}"; do mkdir -p "$(dirname "$out/$k")"; printf '%s\n' "${FILE_BODY[$k]}" | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "$out/$k"; done
+  : > "$out/$BASE-fullchain.crt"; for b in "${CERT_BLOCKS[@]}"; do printf '%s\n' "$b" >> "$out/$BASE-fullchain.crt"; done
+  if [ ${#CERT_BLOCKS[@]} -gt 1 ]; then : > "$out/$BASE-chain.crt"; for b in "${CERT_BLOCKS[@]:1}"; do printf '%s\n' "$b" >> "$out/$BASE-chain.crt"; done; fi
+  if [ $P_ECH = 1 ]; then
+    mkdir -p "$out/ech"; ef="$out/ech/$ECH_NAME.pem.ech"
+    if [ "$OSSL_MAJOR" -ge 4 ]; then
+      r=$("$OSSL" ech -public_name "$ECH_NAME" -out "$ef" 2>&1) || true
+      if [ -f "$ef" ]; then
+        printf 'ECH key for the outer name %s.\nThe file %s.pem.ech holds the PRIVATE ECH key and the public ECHConfig. Keep it on the server only.\nThe ECHConfig (base64) goes into the HTTPS DNS record of the site (ech=...).\n' "$ECH_NAME" "$ECH_NAME" > "$out/ech/ech-config.txt"
+        chmod 600 "$ef"; say OK "ECH key made: ech/$ECH_NAME.pem.ech"
+      else say WARN "openssl ech did not make a key: $r"; fi
+    else say WARN 'ECH key files need OpenSSL 4 (openssl ech). The configuration was written; make the key later with: openssl ech -public_name <name> -out <name>.pem.ech'; fi
+  fi
+  say OK "Written: $out"
+fi
+exit 0

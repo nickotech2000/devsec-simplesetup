@@ -45,7 +45,7 @@ function Show-PkiUnpackHelp {
     @'
 ============================================================
  Unpack-PkiTransport.ps1 - DESTINATION, UNPACK ONLY
- Version 5.3.6
+ Version 6.4.1
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OÜ (NextMantra)
  Email  : nicko@nextmantra.com
@@ -53,62 +53,112 @@ function Show-PkiUnpackHelp {
  Manual : docs\PkiTransport-MANUAL.txt   Needs: PowerShell 7+ (Windows, Linux or macOS)
 
 WHAT IT DOES
-  Opens a .certpacked (a password-protected zip or 7z made by PkiTransport.ps1), checks the SHA-256 of every file
-  against the list inside, and writes what you select to a folder. NOTHING is installed and no certificate store is
-  touched. There is no operating-system restriction: install the trust with PkiTransport.ps1 -Install (Windows 11
+  Opens a .certpacked (a password-protected zip or 7z made by PkiTransport.ps1), checks the SHA-256
+  of every file against the list inside, and writes what you select to a folder. NOTHING is
+  installed and no certificate store is touched. There is no operating-system restriction: install
+  the trust with PkiTransport.ps1 -Install (Windows 11
   25H2+) or pki-transport.sh (Linux, macOS).
 
 USAGE
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked                          CA certificates (default)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract roots           only the roots (+ ca-bundle-roots.crt)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract intermediates   only the DV / OV / EV CAs
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract ca,leafcerts    CAs and the leaf certificates
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract all             everything in the package (fullchain)
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract leafcerts -LeafName www.example.com,api*
-  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -List                    what is inside, nothing written
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked                          CA certificates `
+        (default)
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract roots           only the roots (+ `
+        ca-bundle-roots.crt)
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract intermediates   only the DV / OV / `
+        EV CAs
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract ca,leafcerts    CAs and the leaf `
+        certificates
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract all             everything in the `
+        package (fullchain)
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -Extract leafcerts -LeafName `
+        www.example.com,api*
+  .\Unpack-PkiTransport.ps1 -Package .\dev.certpacked -List                    what is inside, `
+        nothing written
 
 PARAMETERS
   -Package <file>          The .certpacked.
-  -PackagePassword <text>  (alias -Password). Not given: environment variable PKI_TRANSPORT_PASSWORD, else you are asked.
+  -PackagePassword <text>  (alias -Password). Not given: environment variable
+                           PKI_TRANSPORT_PASSWORD, else you are asked.
   -Destination <folder>    Default .\certpacked-received\<package name>.
-  -Extract <list>          roots         ca\roots\*.crt (Enterprise, Track and Quadrant roots), ca-bundle-roots.crt
-                           intermediates ca\intermediates\*.crt (DV / OV / EV CAs)
-                           chains        ca\chains\*-fullchain.crt (each intermediate + its parents) and the bundles
-                           ca            roots + intermediates + chains + bundles + CRLs + public-CA files (default)
-                           leafcerts     the leafcerts folders (leaf certificates AND their private keys), if packed
-                           pki           the whole PKI folder with the CA private keys, if packed (paths in its
-                                         manifest are rewritten to the new place)
+  -Extract <list>          roots         ca\roots\*.crt (Enterprise, Track and Quadrant roots),
+                           ca-bundle-roots.crt intermediates ca\intermediates\*.crt (DV / OV / EV
+                           CAs)
+                           chains        ca\chains\*-fullchain.crt (each intermediate + its parents)
+                                         and the bundles
+                           ca            roots + intermediates + chains + bundles + CRLs + public-CA
+                                         files (default)
+                           leafcerts     the leafcerts folders (leaf certificates AND their private
+                                         keys), if packed
+                           pki           the whole PKI folder with the CA private keys, if packed
+                                         (paths in its manifest are rewritten to the new place)
                            all           everything the package holds (same as fullchain)
                            certpack.json and README.txt are always written.
   -LeafName <wildcards>    With leafcerts: only these leaf sets (the top-level folder names).
   -List                    Show scope, CAs, leaves and files; write nothing.
   -Force                   Overwrite files that exist and differ (identical files are left alone).
   -SevenZipPath <exe>      7-Zip, for a 7z package (zip packages need nothing).
-  -InstallMissing          A 7z package and no 7-Zip: install 7-Zip (Install-DevEnvironment.ps1 -Only 7Zip, or WinGet; Linux / macOS:
-                           Install-DevEnvironment.sh --only 7zip) instead of stopping. Without it you are asked when a person is there.
-  -Unblock                 UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and -Destination, children
-                           and recursive, list the programs that hold files open, and stop. Done at every start too.
+  -InstallMissing          A 7z package and no 7-Zip: install 7-Zip (Install-DevEnvironment.ps1
+                           -Only 7Zip, or WinGet; Linux / macOS: Install-DevEnvironment.sh --only
+                           7zip) instead of stopping. Without it you are asked when a person is
+                           there.
+  -Unblock                 UNBLOCK (Internet mark) and UNLOCK (Read-only) the script folder and
+                           -Destination, children and recursive, list the programs that hold files
+                           open, and stop. Done at every start too.
   -Verbose                 Show detail.      -Help   This text.
 
 WRONG PASSWORD, DAMAGED OR CHANGED FILE
-  The script says so and writes nothing. The AES-256 zip authenticates every file: one changed byte is found.
+  The script says so and writes nothing. The AES-256 zip authenticates every file: one changed byte
+  is found.
 
 EXIT CODES   0 ok   1 error (including a wrong password)
 
 LIMITATIONS
-  * A package with leafcerts or pki contains PRIVATE KEYS: delete the extracted files and the package when done.
+  * A package with leafcerts or pki contains PRIVATE KEYS: delete the extracted files and the
+    package when done.
   * Tested on Linux with OpenSSL 4.0.3 and the real 7-Zip; not tested here on Windows or macOS.
 
 WHERE IT RUNS  (5.0.0)
-  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise), Windows Server 2025 and Windows Server 2022
-  (Essentials, Standard, Datacenter; RTM or newer). On Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
-  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done): Windows 10 and earlier, Windows 11 before 24H2,
-  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded editions. Linux (pwsh): the distributions of the
+  Windows 11 24H2 or newer (Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise),
+  Windows Server 2025 and Windows Server 2022 (Essentials, Standard, Datacenter; RTM or newer). On
+  Windows Server 2022 only the CLASSIC track is generated or issued (no Quantum / ML-DSA);
+  FIPS and non-FIPS, DV / OV / EV are available. REFUSED with an error (exit 5, nothing is done):
+  Windows 10 and earlier, Windows 11 before 24H2,
+  Windows Server before 2022, and the Chinese, Government, IoT / IoT Enterprise, SE and Embedded
+  editions. Linux (pwsh): the distributions of the
   .sh scripts. Settings shared by all scripts (optional): pki_tools.cnf.
 '@
 }
 
-if ($Help) { Show-PkiUnpackHelp; exit 0 }
+function Out-PagedHelp {
+    # Shows help one screen at a time on a terminal (Space = next page, Enter = next line, q = quit).
+    # When the output is redirected (a file, a pipe, a pipeline) it prints everything.
+    param([Parameter(ValueFromPipeline = $true)][AllowEmptyString()][AllowNull()][string[]]$InputObject)
+    begin { $all = [System.Collections.Generic.List[string]]::new() }
+    process { foreach ($x in $InputObject) { foreach ($l in ([string]$x -split "\r?\n")) { [void]$all.Add($l) } } }
+    end {
+        $page = 0; $width = 120
+        try { if (-not ([Console]::IsOutputRedirected -or [Console]::IsInputRedirected)) { $page = [Console]::WindowHeight - 2; $width = [Console]::WindowWidth } } catch { $page = 0 }
+        if ($page -lt 8) { foreach ($l in $all) { Write-Host $l }; return }
+        $rows = 0
+        foreach ($l in $all) {
+            Write-Host $l
+            $rows += [Math]::Max(1, [Math]::Ceiling($l.Length / [Math]::Max(20, $width)))
+            if ($rows -ge $page) {
+                Write-Host ' -- more --  Space = next page   Enter = next line   q = quit ' -NoNewline -ForegroundColor Yellow
+                $k = [Console]::ReadKey($true)
+                Write-Host ("`r" + (' ' * 64) + "`r") -NoNewline
+                if ($k.KeyChar -eq 'q' -or $k.KeyChar -eq 'Q' -or $k.Key -eq 'Escape') { return }
+                $rows = if ($k.Key -eq 'Enter') { $page - 1 } else { 0 }
+            }
+        }
+    }
+}
+function Invoke-PagedHelp {
+    param([scriptblock]$Block)
+    & $Block 6>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.InformationRecord]) { [string]$_.MessageData } else { [string]$_ } } | Out-PagedHelp
+}
+
+if ($Help) { Invoke-PagedHelp { Show-PkiUnpackHelp }; exit 0 }
 
 # Where may this script run? Windows 11 24H2+ / Server 2025 / Server 2022 (classic only), supported Linux. Error and exit 5 otherwise.
 $__pf = Join-Path $PSScriptRoot 'scripts/00a_Platform.ps1'

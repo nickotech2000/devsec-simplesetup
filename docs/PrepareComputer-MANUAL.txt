@@ -1,14 +1,28 @@
 ====================================================================================================
  Prepare-Computer.ps1 / prepare-computer.sh  -  (PowerShell 7 and .NET SDK 8 + 10 on Windows) + OpenSSL + the latest Python, on the PATH
- Version 5.3.6          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.4.1          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 ====================================================================================================
 
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : Installs PowerShell 7, .NET, OpenSSL 4 and Python on a computer.
+ Who reads it : Anyone who sets up a machine.
+ You need     : Internet access (package registries); Administrator or sudo.
+ Start with   : Run Install-DevEnvironment.ps1.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+
 1. WHAT IT IS FOR
-   The certificate request maker needs OpenSSL; the project's helper scripts need Python 3; the backup and restore scripts (PkiBackup-MANUAL.txt) need PowerShell 7 as well.
-   Run this once on a new computer. Since 5.3.0 the Windows script installs the latest PowerShell 7 too (winget Microsoft.PowerShell, Chocolatey powershell-core); since 5.3.5 also the .NET SDK 8 and the .NET SDK 10 (latest of each).
-   It does not install what is already the LATEST: for every program it reads the latest version from the package manager and compares (see section 3b). It looks for the programs, installs what is
-   missing with the standard package manager of the system, and makes sure `openssl` and `python` work in a NEW shell (it adds them to the PATH when they are installed
-   but not found). It never touches certificates: if the PKI is already installed on the computer (Local Machine store, ca-certificates) nothing changes.
+   The certificate request maker needs OpenSSL; the project's helper scripts need Python 3; the
+   backup and restore scripts (PkiBackup-MANUAL.txt) need PowerShell 7 as well. Run this once on a
+   new computer. Since 5.3.0 the Windows script installs the latest PowerShell 7 too (winget
+   Microsoft.PowerShell, Chocolatey powershell-core); since 5.3.5 also the .NET SDK 8 and the .NET
+   SDK 10 (latest of each). It does not install what is already the LATEST: for every program it
+   reads the latest version from the package manager and compares (see section 3b). It looks for the
+   programs, installs what is missing with the standard package manager of the system, and makes
+   sure `openssl` and `python` work in a NEW shell (it adds them to the PATH when they are installed
+   but not found). It never touches certificates: if the PKI is already installed on the computer
+   (Local Machine store, ca-certificates) nothing changes.
 
 2. RUN IT
       Windows (right-click PowerShell, Run as administrator)       .\Prepare-Computer.ps1 -Check        only look
@@ -16,45 +30,62 @@
       Linux (sudo is used by itself)                               ./prepare-computer.sh --check
                                                                     ./prepare-computer.sh
    Then open a NEW shell and try:  pwsh --version (Windows)   openssl version   python --version (python3 --version on Linux).
-   Run it in Windows PowerShell 5.1 or PowerShell 7. Restore-Pki.ps1 refuses to run until PowerShell 7, OpenSSL 4 and Python 3 are found on the PATH.
+   Run it in Windows PowerShell 5.1 or PowerShell 7. Restore-Pki.ps1 refuses to run until PowerShell
+   7, OpenSSL 4 and Python 3 are found on the PATH.
 
 3. WHAT IT USES
-   Windows   winget first:  Microsoft.PowerShell (the latest PowerShell 7), FireDaemon.OpenSSL (OpenSSL 4.x), Python.Python.3.x (the highest version "winget search" lists).
-             Chocolatey second (or -Manager Chocolatey):  powershell-core, openssl, python. If the package gives OpenSSL below 4 the script says so (exit 4); RSA and ECDSA still work.
+   Windows   winget first:  Microsoft.PowerShell (the latest PowerShell 7), FireDaemon.OpenSSL
+             (OpenSSL 4.x), Python.Python.3.x (the highest version "winget search" lists).
+             Chocolatey second (or -Manager Chocolatey):  powershell-core, openssl, python. If the
+             package gives OpenSSL below 4 the script says so (exit 4); RSA and ECDSA still work.
    Linux     Ubuntu 24 / 26: apt (openssl, ca-certificates, python3, python3-pip, python3-venv).   CentOS Stream 10, RHEL 10, Rocky 10, Oracle Linux 10: dnf.
-             SLES 15 / 16, openSUSE Leap 15 / 16, Tumbleweed: zypper (openssl-3; the newest of python313 / 312 / 311, else python3).
-             Whatever OpenSSL the distribution ships (3.x or 4.x) is accepted: RSA / ECDSA need 3.0, ML-DSA (quantum) needs 3.5 or 4. OpenSSL 4 on Linux:
-             linux/Install-DevEnvironment.sh --openssl-source ppa|build (full project).
-   "Latest Python" means the newest the package manager offers. A Python 3.10 or newer that already works is kept; -Force / --force installs or upgrades anyway.
+             SLES 15 / 16, openSUSE Leap 15 / 16, Tumbleweed: zypper (openssl-3; the newest of
+             python313 / 312 / 311, else python3). Whatever OpenSSL the distribution ships (3.x or
+             4.x) is accepted: RSA / ECDSA need 3.0, ML-DSA (quantum) needs 3.5 or 4. OpenSSL 4 on
+             Linux: linux/Install-DevEnvironment.sh --openssl-source ppa|build (full project).
+   "Latest Python" means the newest the package manager offers. A Python 3.10 or newer that already
+   works is kept; -Force / --force installs or upgrades anyway.
 
 3b. IS THE LATEST ALREADY THERE?  (Windows, 5.3.6)
-   For PowerShell, each .NET SDK, OpenSSL and Python the script asks the package manager for the latest version (winget show --id <id> --exact; Chocolatey: choco search <name> --exact;
-   Python: the highest Python.Python.3.x) and compares it with the installed version (three numbers, for example 4.0.3 against 4.0.2).
+   For PowerShell, each .NET SDK, OpenSSL and Python the script asks the package manager for the
+   latest version (winget show --id <id> --exact; Chocolatey: choco search <name> --exact; Python:
+   the highest Python.Python.3.x) and compares it with the installed version (three numbers, for
+   example 4.0.3 against 4.0.2).
       installed >= latest      "... is the latest version: nothing to install."          nothing is done (only the PATH is checked)
       installed <  latest      "... the latest version is x: it will be updated."        installed / updated (with -Check: listed only)
       not installed            installed
-      latest cannot be read    an installed version that meets the minimum (PowerShell 7, SDK 8 / 10, OpenSSL 4, Python 3.10) is kept
+      latest cannot be read    an installed version that meets the minimum (PowerShell 7, SDK 8 /
+                               10, OpenSSL 4, Python 3.10) is kept
    -Force installs anyway.  .NET: winget Microsoft.DotNet.SDK.8 / .10, Chocolatey dotnet-8.0-sdk / dotnet-10.0-sdk; the folder of dotnet.exe is added to the PATH when it is not there.
 
 4. THE PATH
-   Windows   Looks for pwsh.exe (7 or newer; added to the PATH when installed but not found), openssl.exe in the usual folders (FireDaemon OpenSSL, OpenSSL-Win64, Chocolatey) and python.exe (Program Files\Python3xx, %LOCALAPPDATA%\Programs\Python).
-             Found but not on the PATH: its folder is added - for all users when you are Administrator (HKLM), else for you (HKCU). An OLDER openssl first on the PATH is overtaken:
-             the new folder goes in front. The Microsoft Store "python" stub is not a Python and is overtaken too. This window is updated; other windows must be restarted.
-   Linux     A newer openssl in a folder that is not on the PATH (for example /opt/openssl4/bin): the folder is put in front in /etc/profile.d/pki-openssl.sh (root) or ~/.profile.
+   Windows   Looks for pwsh.exe (7 or newer; added to the PATH when installed but not found),
+             openssl.exe in the usual folders (FireDaemon OpenSSL, OpenSSL-Win64, Chocolatey) and
+             python.exe (Program Files\Python3xx, %LOCALAPPDATA%\Programs\Python). Found but not on
+             the PATH: its folder is added - for all users when you are Administrator (HKLM), else
+             for you (HKCU). An OLDER openssl first on the PATH is overtaken: the new folder goes in
+             front. The Microsoft Store "python" stub is not a Python and is overtaken too. This
+             window is updated; other windows must be restarted.
+   Linux     A newer openssl in a folder that is not on the PATH (for example /opt/openssl4/bin):
+             the folder is put in front in /etc/profile.d/pki-openssl.sh (root) or ~/.profile.
    -NoPath / --no-path leaves the PATH alone. -Check / --check shows what would be added.
 
 5. OPTIONS
    -Only All|PowerShell|DotNet|OpenSsl|Python   -Manager Auto|Winget|Chocolatey   -Check   -Yes   -Force   -NoPath   -Help          (Windows)
    --only all|openssl|python                                   --check  --yes  --force  --no-path  --help      (Linux)
-   Exit codes: 0 ok, 1 error, 4 something is still missing (OpenSSL below 3.0 / 4, Python not found, no package manager), 5 system not supported.
+   Exit codes: 0 ok, 1 error, 4 something is still missing (OpenSSL below 3.0 / 4, Python not found,
+               no package manager), 5 system not supported.
 
 6. WHERE IT RUNS
-   Windows 11 24H2+, Windows Server 2025 / 2022 (Windows PowerShell 5.1 or 7). Linux: Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle Linux 10+, SLES / openSUSE 15+.
-   Needs Internet access to the package source. It replaces Install-OpenSsl.ps1 / install-openssl.sh of 5.2.2.
+   Windows 11 24H2+, Windows Server 2025 / 2022 (Windows PowerShell 5.1 or 7). Linux: Ubuntu 24+,
+   CentOS Stream / RHEL / Rocky / Oracle Linux 10+, SLES / openSUSE 15+. Needs Internet access to
+   the package source. It replaces Install-OpenSsl.ps1 / install-openssl.sh of 5.2.2.
 
 7. NOT TESTED HERE
-   Run on Linux only (Ubuntu 24.04: --check, a real --force --yes, a PATH test with a stripped PATH; the other distributions with --check and a fake os-release). Windows was run with a fake
-   winget and PKI_FAKE_OS: the real winget / Chocolatey installs and the registry PATH change are untested. What to run on your machines: PKI-Acceptance-Checklists.txt, E32.
+   Run on Linux only (Ubuntu 24.04: --check, a real --force --yes, a PATH test with a stripped PATH;
+   the other distributions with --check and a fake os-release). Windows was run with a fake winget
+   and PKI_FAKE_OS: the real winget / Chocolatey installs and the registry PATH change are untested.
+   What to run on your machines: PKI-Acceptance-Checklists.txt, E32.
 ====================================================================================================
- Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
 ====================================================================================================
