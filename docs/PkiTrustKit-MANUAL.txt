@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTrustKit  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - let other computers trust your PKI     Version 6.4.7   2026-10-17
+ Agantra Inovatif Enterprise PKI - let other computers trust your PKI   Version 6.6.18   2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: New-PkiTrustKit.ps1 (builds the kits)   Install-PkiCa.ps1 / install-pki-ca.sh (install)
           Remove-PkiCa.ps1 / remove-pki-ca.sh (remove)
@@ -101,7 +101,7 @@
      .\New-PkiTrustKit.ps1 -All -Pki agantra,raksaka   several companies in ONE .certpacked
      .\New-PkiTrustKit.ps1 -All -AllReleases           every release of the company
      .\New-PkiTrustKit.ps1 -All -AllProfiles           every company, every release
-     .\New-PkiTrustKit.ps1 -All -SelfExtract           also .cmd / .sh files that only EXTRACT
+     .\New-PkiTrustKit.ps1 -All -SelfExtract           also .sh files (Linux) that only EXTRACT
      .\New-PkiTrustKit.ps1 -All -Release 2             a given release
      .\New-PkiTrustKit.ps1 -All -NoCaRevocationInfo    the NoCR family
 
@@ -119,8 +119,9 @@
  The content is public anyway: the password guards against a wrong or changed package, it is not a
  secret keeper.
 
- -SelfExtract: a Windows .cmd (double click) or a Linux .sh (bash file.sh, or --dir F) that only
- EXTRACTS the zip. The installer stays a script you can read.
+ -SelfExtract: a Linux .sh (bash file.sh, or --dir F) that only EXTRACTS the zip. There is none
+ for Windows since 6.4.16 (security products block a .cmd that carries a payload): right-click the
+ zip, Extract All. The installer stays a script you can read.
 
 ====================================================================================================
  6  SEND THE KIT
@@ -135,7 +136,7 @@
 ====================================================================================================
  WINDOWS (Windows 11 24H2 or newer, Windows Server 2022 or 2025)
    1. Unzip. Open PowerShell in that folder.
-   2. powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
+   2. powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\Install-PkiCa.ps1
    3. Type the password.
    Administrator window = Local Machine stores (all users). Normal window = Current User stores;
    Windows then asks about each root: click Yes. Roots go to "Trusted Root Certification
@@ -237,7 +238,7 @@
  With your own password:             .\New-PkiTrustKit.ps1 -All -PackagePassword "..."
  A different output folder:          .\New-PkiTrustKit.ps1 -All -OutDirectory D:\kits
  Receiver, Windows (all users):      (Administrator PowerShell)
-     powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiCa.ps1
+     powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\Install-PkiCa.ps1
  Receiver, test only:                .\Install-PkiCa.ps1 -Check
  Receiver, Linux:                    bash install-pki-ca.sh
  Receiver, Linux with Firefox:       bash install-pki-ca.sh --firefox
@@ -299,6 +300,11 @@
  (Windows), 3 wrong password. Remove: 0 ok, 1 error, 2 admin needed (Windows). All: 5 system
  refused.
 
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
 ====================================================================================================
  17  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
@@ -313,6 +319,7 @@
 ====================================================================================================
  18  OTHER DOCUMENTS
 ====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
  NewPkiCsr-MANUAL.txt   PrepareComputer-MANUAL.txt   DevKit-MANUAL.txt   PkiTransport-MANUAL.txt
  PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
 ====================================================================================================

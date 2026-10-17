@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 6.4.7      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.6.18      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -108,7 +108,7 @@
                                Write-PkiRevocationInfo
  19_ExternalCaSigning.ps1    Sign the CSR of an external private CA (openssl ca, name constraints, chain folder)    00, 01, 02, 03, 04
  20_PersonLeaf.ps1             Person certificates: records (JSON, isGenerate), any ID, DNS from e-mail, DN, key usage, qcStatements   00, 01, 14
- 17_Transport.ps1              Phase C: scans (Windows 11 25H2+, OpenSSL 4.0.1+), 00, 02, 07, 09, 16
+ 17_Transport.ps1              Phase C: scans (Windows 11 24H2+, OpenSSL 4.0.1+), 00, 02, 07, 09, 16
                                password policy, package plan / pack / open /
                                export, Windows trust install, chain proof, kit,
                                Install-PkiOpenSsl (via Install-DevEnvironment.*)
@@ -197,6 +197,9 @@
  * 'openssl' arguments go through Invoke-OpenSSL (it sets OPENSSL_CONF, hides passwords, throws with
    the OpenSSL message). File arguments of  openssl verify  come LAST, after the provider options.
  * Run  -Check  and a full build with a real OpenSSL 4 after a change; -Verify must stay green.
+ * Every script starts with the marked PKI-VERSION-INFO block (tools\version-block.ps1 / .sh).
+   Change the block there, then run tools\Update-VersionBlock.ps1 / tools\update_version_block.py.
+   Never edit one copy by hand.
  * Document every new parameter in pki_setup.ps1 -Help, the manual and the design file.
 
 
@@ -235,7 +238,7 @@ zips, the DevKit and the transport kit).
 
 5.1.0 trustkit\: Install-PkiCa.ps1 / install-pki-ca.sh (install every PKI of the .certpacked, write
 the list of what was installed), Remove-PkiCa.ps1 / remove-pki-ca.sh (NEW: remove by company, all,
-or organization), selfextract templates. New-PkiTrustKit.ps1 builds the single multi-PKI .certpacked
+or organization), selfextract.sh template. New-PkiTrustKit.ps1 builds the single multi-PKI .certpacked
 itself (no PkiTransport.ps1 -Pack call any more).
 
 5.3.6 scripts\backup\: the SOURCE of Backup-Pki.ps1, Restore-Pki.ps1 and Test-PkiBackup.ps1 (*.src.ps1), PkiBackupCommon.ps1 (gate, password policy, hashes, requirement check, certificate / key inventory, Local Machine store) and Build-BackupScripts.ps1. The builder pastes PkiBackupCommon.ps1 and the zip engine of 16_CertPack.ps1 into each source and writes the three finished, STANDALONE scripts to the project root (they need no other .ps1). Edit the sources, run  pwsh -File .\scripts\backup\Build-BackupScripts.ps1 , never edit the three root scripts by hand. Not in the module catalog (PkiModules.ps1). See PkiBackup-MANUAL.txt

@@ -1,7 +1,7 @@
 ====================================================================================================
  GeneratePersonLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - person certificates          Version 6.4.7           2026-10-17
+ Agantra Inovatif Enterprise PKI - person certificates          Version 6.6.18           2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -320,6 +320,11 @@
  Other             -Unblock -OpenSslPath -FipsModuleConfig -Verbose -Help
 
  Exit codes: 0 = done. 1 = an error or a failed person. 5 = this system is refused.
+
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
 
 ====================================================================================================
  15  WHAT WAS TESTED, WHAT WAS NOT

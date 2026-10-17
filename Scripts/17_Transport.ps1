@@ -694,7 +694,7 @@ function Install-PkiOpenSsl {
         if (-not $ide) { Write-PkiLog 'Install-DevEnvironment.ps1 was not found next to the scripts. Copy it here (the -Kit has it) and run it:  .\Install-DevEnvironment.ps1 -Only OpenSSL' 'WARN'; return $false }
         Assert-Administrator
         Write-PkiLog "Installing OpenSSL 4 with $ide (FireDaemon OpenSSL: FIPS + quantum-safe, then proven)" 'INFO'
-        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy Bypass -File $ide -Only OpenSSL | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        & (Get-Process -Id $PID).Path -NoProfile -ExecutionPolicy RemoteSigned -File $ide -Only OpenSSL | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
         return ($LASTEXITCODE -eq 0)
     }
     $sh = Find-PkiCompanionScript -Name 'Install-DevEnvironment.sh'

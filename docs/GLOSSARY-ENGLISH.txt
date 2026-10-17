@@ -3,7 +3,7 @@
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
- Version: 6.4.7
+ Version: 6.6.18
 ====================================================================================================
 
  READ THIS FIRST
@@ -75,7 +75,8 @@
 
  option / parameter / switch / flag
    A choice that you add to a command, for example  -Yes  or  --help.
-   A "switch" or "flag" is an option without a value. A "parameter" has a value:  -Domain example.com.
+   A "switch" or "flag" is an option without a value. A "parameter" has a value:
+   -Domain example.com.
 
  optional
    You may use it or leave it out.

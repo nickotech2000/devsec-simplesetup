@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines             Version 6.4.7      2026-10-17
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines           Version 6.6.18      2026-10-17
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt  Manuals: pki_setup-MANUAL.txt,
@@ -489,6 +489,69 @@
  Signature Details no longer say "Recoverable"; the server window shows the 200 lines. [ ] Ctrl+C
  stops the server; delete the lines from the hosts file. The script itself never writes to the hosts
  file.
+
+====================================================================================================
+ E49  Version 6.6.18: Enable-DevMachine.cmd / .ps1 (Windows laptop, your own)
+====================================================================================================
+ [ ] New laptop, policy Restricted: from Command Prompt run Enable-DevMachine.cmd /status, then
+ Enable-DevMachine.cmd (Y). Open a NEW PowerShell 5.1 and a NEW pwsh 7: Get-ExecutionPolicy = Bypass.
+ [ ] Run an unsigned, downloaded .ps1 of the project: no question, no error.
+ [ ] As Administrator: LocalMachine = Bypass too; as normal user: only CurrentUser, with the INFO line.
+ [ ] .\Enable-DevMachine.ps1 -Status and -Undo (Y): policy back to the Windows default.
+ [ ] With a Group Policy that sets the policy: the [WARN] lines and exit code 1 appear.
+ [ ] /?, /version, -Help, -Version print and change nothing.
+
+====================================================================================================
+ E48  Version 6.4.16: clean scripts, SHA256SUMS, -VerifyAll
+====================================================================================================
+ [ ] .\pki_setup.ps1 -VerifyAll with two PKIs built: both outputs shown, summary PASSED / FAILED,
+ exit code 0; damage one file of one PKI: that one FAILED and the exit code is 1.
+ [ ] Windows with Bitdefender (or your antivirus): copy the whole folder; no file is quarantined.
+ trustkit\Remove-PkiCa.ps1 -List runs. If a file is flagged, send it to the vendor as a false
+ positive and note the product and signature name.
+ [ ] sha256sum -c SHA256SUMS (Linux) or the PowerShell line in SECURITY-AUDIT.txt: all OK.
+ [ ] python3 tools/audit_scripts.py: nothing new in encoded-command, invoke-expression,
+ hidden-window, exec-policy, persistence, defender-off, credential-theft, shadow-delete.
+ [ ] New-PkiTrustKit.ps1 -SelfExtract: no .cmd is made; the Linux .sh still is.
+
+====================================================================================================
+ E47  Version 6.4.13: -Version / --version in every script
+====================================================================================================
+ [ ] On each machine type: run  .\SignCsr.ps1 -Version  and  ./devkit/SignCsr.sh --version.
+ [ ] The two reports have the same labels and layout; the version is 6.4.13 and the build date
+ is the same in every script (try three more scripts).
+ [ ] Operating system: name, version (Windows 11: 24H2 / 25H2 ...), patch or kernel, architecture.
+ [ ] .NET SDK / runtimes, Node.js, Python 3, Java, PowerShell, Bash show what is installed;
+ a missing tool shows "not found" (no error text).
+ [ ] Windows only: Schannel version, .NET Framework, cmd, Git bash; PowerShell lists 5.1 and 7.x.
+ [ ] Each OpenSSL shows Default or Side, its path and its vendor; OpenSSL 4.x line is correct.
+ [ ] macOS (or PKI_FAKE_UNAME=Darwin): REJECTED, exit code 5.
+ [ ] -Help and --help of every script list the option; lines are 100 columns or less.
+
+====================================================================================================
+ E46  Version 6.4.8: SignExternalCa, Export-PkiCa, Create-WebServerConfig, Sign-Code, PKI server,
+      PkiProfiles manuals and -Help
+====================================================================================================
+ [ ] -Help / --help of SignExternalCa.ps1, Export-PkiCa.ps1, Create-WebServerConfig.ps1 and .sh,
+ Sign-Code.ps1 and .sh, pki-server.sh, New-PkiServerPackage.ps1, Start-PkiCrlServer.ps1,
+ pki_remove.ps1, New-PkiConfig.ps1, Serve-Docs.ps1, Setup-GitRepo.ps1, Build-HtmlDocs.ps1,
+ fix-permissions.sh, setup-git.sh: one page at a time (space bar) on a terminal; everything when
+ piped. No line longer than 100 columns.
+ [ ] SignExternalCa: follow section 4 of docs\SignExternalCa-MANUAL.txt. -Check, a real signing,
+ openssl verify of the chain, name constraints (section 12). A leaf request is refused with exit 2.
+ -Fips on a PKI without Quadrant 2 says that 'q2-root' does not exist.
+ [ ] Export-PkiCa: -List; -Ca q1-ov -WithPath; upload the .cloudflare.pem to a Cloudflare test zone
+ and the .azure.cer to an Azure test resource (not tested by the author).
+ [ ] Create-WebServerConfig: make the files, copy them to an Ubuntu and a RHEL-family server, run
+ nginx -t (1.30+) and apachectl configtest, open the site with curl --http2 and with a QUIC client.
+ [ ] Sign-Code: -CheckOnly on Windows 11 / Server 2025 and on Linux; sign an exe and a ps1 on Windows
+ (signtool), a jar on Linux; Windows shows the publisher after the root is trusted.
+ [ ] PKI server: on a clean Ubuntu 24.04 follow section 4 of docs\PKI-SERVER-MANUAL.txt:
+ pki-server.sh check, csr, SignCsr, import-cert, install, test, dns. Then Word with
+ Start-PkiCrlServer.ps1 (section 11). A RHEL-family machine: install nginx, python3 and OpenSSL 4
+ by hand and use --no-packages.
+ [ ] PkiProfiles: New-PkiConfig.ps1 -NonInteractive, pki_setup.ps1 -Pki <name> -InstallTrust,
+ pki_remove.ps1 -Pki <name> -All.
 
 ====================================================================================================
  E45  Version 6.4.7: PkiBackup, PrepareComputer and Install-DevEnvironment manuals and -Help

@@ -1,39 +1,42 @@
 ====================================================================================================
- PKI PROFILES, PLATFORMS AND THE TOOLS CONFIGURATION  -  USER MANUAL              Version 6.4.7      2026-10-17
+ PkiProfiles  -  USER MANUAL
 ====================================================================================================
- Author : Nicko Satria Utama
- Company: Agantra Inovatif OÜ (NextMantra)
- Email  : nicko@nextmantra.com
- Scripts: New-PkiConfig.ps1  pki_setup.ps1 -ListPki / -Pki  pki_tools.cnf  scripts\00a_Platform.ps1
-          scripts\00b_Profiles.ps1
- Help   : .\New-PkiConfig.ps1 -Help  .\pki_setup.ps1 -Help  (every script: -Help, every .sh: --help)
- Other manuals: pki_setup-MANUAL.txt  PKI-Design-with-FIPS-and-PQC.txt (decisions 10.107 - 10.115)
-                PKI-Acceptance-Checklists.txt (E28)
-
- 5.0.0 is a MAJOR update. It makes the PKI scripts work for more than one company (a "PKI profile"),
- limits where they run, and adds one optional configuration file for the owner of the scripts.
-
- CONTENTS
-   1  PKI profiles: one PKI per company
-   2  New-PkiConfig.ps1: make the configuration of another company
-   3  Folders: pki-default-01, pki-raksaka-01 ...
-   4  Choosing the PKI in every script: -Pki, -ListPki
-   5  Building, installing and removing PKIs
-   6  Where the scripts run (Windows, Windows Server 2022 = classic only, Linux)
-   7  pki_tools.cnf: the tools configuration (optional)
-   8  Upgrading from 4.9.x
-
-====================================================================================================
+ Agantra Inovatif Enterprise PKI - one PKI per company, platforms and pki_tools.cnf
+ Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Script : New-PkiConfig.ps1, pki_setup.ps1 (-ListPki, -Pki), pki_tools.cnf,
+          scripts\00a_Platform.ps1, scripts\00b_Profiles.ps1
 
  READ THIS FIRST
 ----------------------------------------------------------------------------------------------------
- What it is   : Makes a separate PKI for another company or team, with its own settings file.
- Who reads it : The owner of the PKI.
- You need     : pki_setup works (see pki_setup-MANUAL.txt).
- Start with   : Read the first section, then copy the example.
- Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+ What it is   : How to make a separate PKI for another company or team, each with its own
+                settings file, and which computers may run the scripts.
+ Who reads it : The owner of the PKI. No PKI knowledge is needed. Every new word is explained in
+                GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+ Time needed  : 10 minutes.
+ You need     : A working pki_setup.ps1 (see pki_setup-MANUAL.txt) and the data of the company.
+ Start with   : Section 4 (Quick start).
 ----------------------------------------------------------------------------------------------------
- 1  PKI PROFILES: ONE PKI PER COMPANY
+ Related manuals:
+   pki_setup-MANUAL.txt   build the PKI
+   PkiTrustKit-MANUAL.txt   let other computers trust the PKI
+   PkiTransport-MANUAL.txt   move a PKI to another computer
+   PKI-Design-with-FIPS-and-PQC.txt   why it is built this way (senior staff)
+ Help in the terminal:   .\New-PkiConfig.ps1 -Help      .\pki_setup.ps1 -Help
+
+ CONTENTS
+    1  PKI profiles: one PKI per company       10 pki_tools.cnf
+    2  The words you need                      11 Git and trust kits
+    3  Before you start                        12 Upgrading from 4.9.x
+    4  Quick start                             13 Recipes, copy and paste
+    5  New-PkiConfig.ps1                       14 Problems and answers
+    6  Folders                                 15 Limits you must know
+    7  Choosing the PKI: -Pki, -ListPki        16 All options
+    8  Build, install, remove PKIs             17 What was tested, what was not
+    9  Where the scripts run                   18 Other documents
+
+====================================================================================================
+ 1   PKI PROFILES: ONE PKI PER COMPANY
 ====================================================================================================
  A PROFILE is a configuration file  <short>_pki.cnf  that lies next to the scripts.
      agantra_pki.cnf     the DEFAULT profile ("agantra"): Agantra Inovatif OÜ (NextMantra). It is
@@ -44,65 +47,117 @@
  and Quantum Track Root, Quadrant Roots (Q1 non-FIPS, Q2 FIPS), DV / OV / EV intermediates, the same
  algorithms, policies, CRL / OCSP / time stamping. Only the company data change: the names of the
  CAs ("Raksaka Root CA G1" instead of "Agantra Root CA G1"), the subject (O, address, EV fields),
- the policy URLs and the host names. SHORT NAME = the first real word of the company name, plain
- ASCII, small letters. It is the value of -Pki and the word in the folder names.
-     Raksaka Teknologi Indonesia -> raksaka      PT Raksaka Teknologi Indonesia -> raksaka      PT Bumi Daya Sakti -> bumi
-     Tecooli Service OU -> tecooli               ArgÜwilis -> arguwilis (accents, umlauts and
-                                                 special letters are made plain ASCII)
-     Legal-form words in front are skipped: PT, CV, UD, Tbk, SDN, BHD, Pte, Ltd, LLC, Inc, Corp,
-     GmbH, AG, OÜ, OY, AB, SA, SRL, BV, NV, PLC ... Another company with the same short name gets a
-     number: Tecooli Service SDN BHD -> tecooli002, then tecooli003 ... (the number is written
-     without a hyphen, so the folder is pki-tecooli002-01; the CA names then start with
-     "Tecooli002", so the two never mix in the Windows store). -ShortName chooses the name yourself
-     (an existing file is then an error, or replaced with -Force).
+ the policy URLs and the host names.
+
+ SHORT NAME = the first real word of the company name, plain ASCII, small letters. It is the value
+ of -Pki and the word in the folder names.
+     Raksaka Teknologi Indonesia     -> raksaka
+     PT Raksaka Teknologi Indonesia  -> raksaka
+     PT Bumi Daya Sakti              -> bumi
+     Tecooli Service OU              -> tecooli
+     ArgÜwilis                       -> arguwilis   (accents and special letters become plain ASCII)
+ Legal-form words in front are skipped: PT, CV, UD, Tbk, SDN, BHD, Pte, Ltd, LLC, Inc, Corp, GmbH,
+ AG, OÜ, OY, AB, SA, SRL, BV, NV, PLC ... Another company with the same short name gets a number:
+ Tecooli Service SDN BHD -> tecooli002, then tecooli003 ... The number is written without a hyphen,
+ so the folder is pki-tecooli002-01, and the CA names start with "Tecooli002". The two never mix in
+ the Windows store. -ShortName chooses the name yourself (an existing file is then an error, or
+ replaced with -Force).
 
 ====================================================================================================
- 2  NEW-PKICONFIG.PS1: MAKE THE CONFIGURATION OF ANOTHER COMPANY
+ 2   THE WORDS YOU NEED
+====================================================================================================
+ Profile      A settings file <short>_pki.cnf. One for each company. It makes one PKI.
+ Short name   The one word that names a company's PKI. It is the value of -Pki.
+ Release      The number of a build of a PKI: R1, R2 ... The folder ends in -01, -02 ...
+ NoCR         A family of the PKI whose CA certificates have no CRL / OCSP address inside.
+ Track        Classic (RSA, ECDSA) or Quantum (ML-DSA, post-quantum).
+ Quadrant     Q1 Classic non-FIPS, Q2 Classic FIPS, Q3 Quantum non-FIPS, Q4 Quantum FIPS.
+ PEN          IANA Private Enterprise Number: your own number in the OID tree.
+ More words: GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+
+====================================================================================================
+ 3   BEFORE YOU START
+====================================================================================================
+ 1. pki_setup.ps1 works for the default company (see pki_setup-MANUAL.txt).
+ 2. You have the data of the NEW company: full legal name, a contact person and e-mail, the company
+    registration number, address, city, province, country (two letters) and the web domain.
+ 3. You decide if the company needs EV data (business category, jurisdiction, DUNS). The defaults
+    are fine for DV and OV.
+ 4. Think: a second company means a second, SEPARATE PKI with its own root keys. Keep its backup
+    separate (Backup-Pki.ps1 -Pki <name>).
+
+====================================================================================================
+ 4   QUICK START
+====================================================================================================
+     .\New-PkiConfig.ps1                                        answer the questions
+     .\pki_setup.ps1 -ListPki                                   see the new profile in the list
+     .\pki_setup.ps1 -Pki raksaka -Check                        is this computer ready?
+     .\pki_setup.ps1 -Pki raksaka -InstallTrust                 build the PKI and trust it
+     .\GenerateLeafCertificate.ps1 -Pki raksaka -DnsName app.raksaka.co.id
+
+ The file raksaka_pki.cnf appears next to the scripts. The PKI is built in pki\pki-raksaka-01.
+
+====================================================================================================
+ 5   NEW-PKICONFIG.PS1: MAKE THE CONFIGURATION OF ANOTHER COMPANY
 ====================================================================================================
    .\New-PkiConfig.ps1                       asks for each value (Enter keeps the shown default;
                                              optional values may stay empty)
-   .\New-PkiConfig.ps1 -CompanyName 'Raksaka Teknologi Indonesia' -ContactName 'Budi Santoso' -ContactEmail budi@raksaka.co.id `
-        -CompanyId 1234567890 -Address 'Jl. Sudirman 1' -City Jakarta -Province 'DKI Jakarta'
-        -Country ID -Website https://www.raksaka.co.id ` -Phone '+62 21 5551234' -PostalCode 10220
-        -IanaPen 12345 -NonInteractive
+   .\New-PkiConfig.ps1 -CompanyName 'Raksaka Teknologi Indonesia' -ContactName 'Budi Santoso' `
+        -ContactEmail budi@raksaka.co.id -CompanyId 1234567890 -Address 'Jl. Sudirman 1' `
+        -City Jakarta -Province 'DKI Jakarta' -Country ID -Website https://www.raksaka.co.id `
+        -Phone '+62 21 5551234' -PostalCode 10220 -IanaPen 12345 -NonInteractive
 
- Values:
-     Company name *           full legal name                                   -CompanyName     (also the subject O of every certificate)
-     Person in charge *       full name                                         -ContactName
-     Contact e-mail *                                                           -ContactEmail
-     Company number / ID *    registration number (subject serialNumber of the EV certificates)   -CompanyId
-     Address * , City *, Province *, Country *  (country = two letters, ISO 3166)   -Address -City -Province -Country  (and optional -PostalCode)
-     Website *                domain only: "https://" and "http://" and the path are removed; the sub-domain stays (www.raksaka.co.id)   -Website
-     IANA PEN                 optional: your IANA Private Enterprise Number -> company policy OIDs 1.3.6.1.4.1.<PEN>.1 ...         -IanaPen
-     Phone number             optional                                                                                          -Phone
-     EV data                  business category (default Private Organization), jurisdiction country
-                              / state / locality (default: country,
-                              province, city), DUNS (optional)       -BusinessCategory -JurisdictionCountry -JurisdictionState -JurisdictionLocality -Duns
-     Internal domain          base of the CRL / OCSP / CA-issuer host names (crl.<it>, ocsp.<it>, crt.<it>); default <short>.internal   -InternalDomain
-     Short name               default: the first word, small letters (2-24 letters / digits, starts with a letter)                  -ShortName
- The file is written as  <short>_pki.cnf  next to the scripts (-OutDirectory changes it). An existing file is never replaced unless -Force.
- The file is the copy of the template agantra_pki.cnf with the company data filled in: the header, [
- pki_settings ] (organization, address, contact, CPS URLs), [ ca_names ] (Prefix = Raksaka), [
- iana_pen ], the URL sections, the SAN lists (the company domain, localhost, the development list
- with the same IP ranges) and [ subject_ov ] / [ subject_ev ]. Open it, read the comments, change
- what you want. Reserved names: agantra, default, nocr, all.
+ Values (* = required):
+   Company name *      Full legal name. Also the subject O of every certificate.   -CompanyName
+   Person in charge *  Full name.                                                   -ContactName
+   Contact e-mail *                                                                -ContactEmail
+   Company number *    Registration number (serialNumber of EV certificates).      -CompanyId
+   Address *, City *, Province *, Country *    Country = two letters (ISO 3166).
+                                               -Address -City -Province -Country
+   Postal code         Optional.                                                   -PostalCode
+   Website *           Domain only. "https://", "http://" and the path are removed. The
+                       sub-domain stays (www.raksaka.co.id).                       -Website
+   IANA PEN            Optional. Your IANA Private Enterprise Number. It makes the company policy
+                       OIDs 1.3.6.1.4.1.<PEN>.1 ...                                -IanaPen
+   Phone number        Optional.                                                   -Phone
+   EV data             Business category (default Private Organization), jurisdiction country /
+                       state / locality (default: country, province, city), DUNS (optional).
+                       -BusinessCategory -JurisdictionCountry -JurisdictionState
+                       -JurisdictionLocality -Duns
+   Internal domain     Base of the CRL / OCSP / CA-issuer host names (crl.<it>, ocsp.<it>,
+                       crt.<it>). Default <short>.internal.                        -InternalDomain
+   Short name          Default: the first word, small letters (2-24 letters or digits, starts
+                       with a letter).                                             -ShortName
+
+ The file is written as  <short>_pki.cnf  next to the scripts (-OutDirectory changes the place). An
+ existing file is never replaced unless you use -Force. The file is a copy of the template
+ agantra_pki.cnf with the company data filled in: the header, [ pki_settings ] (organization,
+ address, contact, CPS URLs), [ ca_names ] (Prefix = Raksaka), [ iana_pen ], the URL sections, the
+ SAN lists (the company domain, localhost, the development list with the same IP ranges) and
+ [ subject_ov ] / [ subject_ev ]. Open it, read the comments, change what you want.
+ Reserved names: agantra, default, nocr, all.
 
 ====================================================================================================
- 3  FOLDERS: pki-default-01, pki-raksaka-01 ...
+ 6   FOLDERS: PKI-DEFAULT-01, PKI-RAKSAKA-01 ...
 ====================================================================================================
- Inside the folder  pki  every PKI has its own folder. The word after "pki-" says whose PKI it is; the two digits are the release:
-     pki\pki-default-01          the default PKI (agantra), release 1       pki\pki-default-02    release 2 ...
+ Inside the folder  pki  every PKI has its own folder. The word after "pki-" says whose PKI it is.
+ The two digits are the release:
+     pki\pki-default-01          the default PKI (agantra), release 1
+     pki\pki-default-02          release 2 ...
      pki\pki-default-nocr-01     the same family WITHOUT revocation information in the CA
                                  certificates (-NoCaRevocationInfo)
-     pki\pki-raksaka-01          the PKI of "raksaka", release 1            pki\pki-raksaka-nocr-01 ...
- Every run of  pki_setup.ps1 -Pki <name> -InstallTrust  builds the NEXT release of that PKI (R2, R3 ...): the first run pki-raksaka-01, the next
- pki-raksaka-02. The CA names end in " R2", " R3" from release 2, " (NoCR)" for the NoCR family, as
- before. PKIs of 4.9.x (pki\R1, pki\R2, pki\NoCR-R1, or directly in pki\) belong to the default PKI
- and keep working; new releases get the new names. pki-manifest.json has the key "profile". The file
- name of packages follows the PKI: agantra-pki-<date>.certpacked, raksaka-pki-<date>.certpacked ...
+     pki\pki-raksaka-01          the PKI of "raksaka", release 1
+     pki\pki-raksaka-nocr-01 ...
+
+ Every run of  pki_setup.ps1 -Pki <name> -InstallTrust  builds the NEXT release of that PKI (R2,
+ R3 ...): the first run makes pki-raksaka-01, the next pki-raksaka-02. The CA names end in " R2",
+ " R3" from release 2, and in " (NoCR)" for the NoCR family. PKIs of 4.9.x (pki\R1, pki\R2,
+ pki\NoCR-R1, or directly in pki\) belong to the default PKI and keep working. New releases get the
+ new names. pki-manifest.json has the key "profile". The file name of packages follows the PKI:
+ agantra-pki-<date>.certpacked, raksaka-pki-<date>.certpacked ...
 
 ====================================================================================================
- 4  CHOOSING THE PKI IN EVERY SCRIPT: -Pki AND -ListPki
+ 7   CHOOSING THE PKI: -PKI, -LISTPKI
 ====================================================================================================
    .\pki_setup.ps1 -ListPki           the PKIs: name, company, configuration file, folders and
                                       releases. The name is the value of -Pki.
@@ -119,7 +174,7 @@
    .\GenerateLeafCertificate.ps1 -Pki raksaka -OV -DnsName app.raksaka.co.id
    .\SignCsr.ps1 -Pki raksaka -Csr .\request.csr
    .\PkiTransport.ps1 -Pack -Pki raksaka -GeneratePassword
-   .\New-PkiTrustKit.ps1 -Pki raksaka -All -AllReleases         trust kit with every release of raksaka
+   .\New-PkiTrustKit.ps1 -Pki raksaka -All -AllReleases         trust kit, every release of raksaka
    .\New-PkiTrustKit.ps1 -All -AllProfiles                       trust kit with EVERY release of
                                                                  EVERY company
  The DevKit (PkiTransport.ps1 -DevKit -Pki raksaka) carries the PKI of that company: its
@@ -128,76 +183,101 @@
  do not collide).
 
 ====================================================================================================
- 5  BUILDING, INSTALLING AND REMOVING PKIs
+ 8   BUILDING, INSTALLING AND REMOVING PKIS
 ====================================================================================================
-   .\pki_setup.ps1 -InstallTrust                       default PKI (agantra), next release,
-                                                       installed in Windows (elevated)
-   .\pki_setup.ps1 -Pki raksaka -InstallTrust          the PKI of raksaka, the same mechanism:
-                                                       release 1, then 2, 3 ...
-   .\pki_setup.ps1 -Pki raksaka -RemoveTrust -Release 2      remove the trust of one release
-   .\pki_setup.ps1 -RemoveAllTrust                     EVERY PKI of EVERY company: all releases and
-                                                       variants are removed from the files (the
-                                                       folder pki) AND from the Windows Local
-                                                       Machine certificate stores (Trusted Root,
-                                                       Intermediate, Personal)
-   .\pki_remove.ps1 -List                              all PKIs (add -Pki <name> for one company)
-   .\pki_remove.ps1 -Pki raksaka -Release 2 [-NoCaRevocationInfo] [-DeleteFiles]     one release of one PKI (default PKI: agantra)
-   .\pki_remove.ps1 -Pki raksaka -All                  every release and variant of ONE PKI (trust
-                                                       and folders); the other companies stay
-   .\pki_remove.ps1 -AllPki                            everything of every company (the same as
-                                                       pki_setup.ps1 -RemoveAllTrust)
+   .\pki_setup.ps1 -InstallTrust                  default PKI (agantra), next release, installed in
+                                                  Windows (elevated)
+   .\pki_setup.ps1 -Pki raksaka -InstallTrust     the PKI of raksaka: release 1, then 2 ...
+   .\pki_setup.ps1 -Pki raksaka -RemoveTrust -Release 2     remove the trust of one release
+   .\pki_setup.ps1 -RemoveAllTrust                EVERY PKI of EVERY company: all releases and
+                                                  variants, from the files (the folder pki) AND
+                                                  from the Windows Local Machine stores (Trusted
+                                                  Root, Intermediate, Personal)
+   .\pki_remove.ps1 -List                         all PKIs (add -Pki <name> for one company)
+   .\pki_remove.ps1 -Pki raksaka -Release 2 [-NoCaRevocationInfo] [-DeleteFiles]
+                                                  one release of one PKI (default PKI: agantra)
+   .\pki_remove.ps1 -Pki raksaka -All             every release and variant of ONE PKI (trust and
+                                                  folders). The other companies stay.
+   .\pki_remove.ps1 -AllPki                       everything of every company (the same as
+                                                  pki_setup.ps1 -RemoveAllTrust)
  The trust of a PKI is found by the files of its folders (thumbprints) and by the CA names (the
  prefix of the profile). -RemoveAllTrust also uses the company names of all profiles, so
- certificates of a deleted folder are found too. Linux / macOS have no certificate store here: only
- the files are removed.
+ certificates of a deleted folder are found too. Linux has no certificate store here: only the
+ files are removed.
 
 ====================================================================================================
- 6  WHERE THE SCRIPTS RUN
+ 9   WHERE THE SCRIPTS RUN
 ====================================================================================================
  Every .ps1 checks the operating system FIRST (scripts\00a_Platform.ps1; -Help works everywhere) and
- stops with an error, exit code 5, nothing done. WINDOWS
-   Windows 11 24H2 or newer (build 26100 and later: 25H2, 26H2, Windows 12 / 13 preview, RC and
-   release)
-        Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise                              everything (classic + quantum)
-   Windows Server 2025 (RTM or newer): Essentials, Standard, Datacenter                                   everything
-   Windows Server 2022 (RTM, build 20348 or newer in 2022): Essentials, Standard, Datacenter             CLASSIC TRACK ONLY:
-        the Enterprise Root, Classic Track Root and the Q1 / Q2 Quadrant Roots with DV / OV / EV
-        intermediates; FIPS and non-FIPS; levels DV, OV, EV. The Quantum track (ML-DSA, quadrants 3
-        and 4) is not generated; -Quadrant 3 / 4 and -Quantum are refused with an error; trust
-        installation (-InstallTrust, Install-PkiCa.ps1, PkiTransport -Install) leaves post-quantum
-        certificates out.
+ stops with an error, exit code 5, and nothing is done.
+
+ WINDOWS
+   Windows 11 24H2 or newer (build 26100 and later: 25H2, 26H2, and newer)
+        Home, Pro, Pro for Workstations, Education, Pro Education, Enterprise
+        -> everything (Classic and Quantum)
+   Windows Server 2025 (RTM or newer): Essentials, Standard, Datacenter
+        -> everything
+   Windows Server 2022 (build 20348 or newer): Essentials, Standard, Datacenter
+        -> CLASSIC TRACK ONLY: the Enterprise Root, the Classic Track Root and the Q1 / Q2 Quadrant
+        Roots with DV / OV / EV intermediates; FIPS and non-FIPS. The Quantum track (ML-DSA,
+        quadrants 3 and 4) is not generated; -Quadrant 3 / 4 and -Quantum are refused with an
+        error. Trust installation (-InstallTrust, Install-PkiCa.ps1, PkiTransport -Install) leaves
+        post-quantum certificates out.
    REFUSED: Windows 10 and earlier; Windows 11 before 24H2; Windows Server before 2022; any other
-            Windows Server build (for example the 23H2 channel);
-        and the specialised editions of every version: Chinese editions (Windows 11 / Server 2025),
-        Government editions, IoT and IoT Enterprise (also LTSC), Windows 11 SE, Embedded. Any
-        edition that is not in the lists above (for example Enterprise LTSC) is refused too.
+        Windows Server build (for example the 23H2 channel); and the specialised editions of every
+        version: Chinese editions, Government editions, IoT and IoT Enterprise (also LTSC),
+        Windows 11 SE, Embedded. Any edition not in the lists above (for example Enterprise LTSC)
+        is refused too.
    The edition comes from the registry (EditionID, InstallationType, build number).
+
  LINUX  (pwsh and every .sh; a VM, bare metal or WSL)
-   Ubuntu 24.04 / 26.04 or newer;  CentOS Stream 10 or newer;  RHEL 10 or newer;  Rocky Linux 10 or newer;  Oracle Linux 10 or newer;
-   SUSE Linux Enterprise (SLES, SLED) 15 or newer (15, 16 ...);  openSUSE 15 or newer (Leap 15, 16 ..., Tumbleweed).
+   Ubuntu 24.04 / 26.04 or newer;  CentOS Stream 10 or newer;  RHEL 10 or newer;
+   Rocky Linux 10 or newer;  Oracle Linux 10 or newer;
+   SUSE Linux Enterprise (SLES, SLED) 15 or newer;  openSUSE 15 or newer (Leap, Tumbleweed).
    Anything else (Debian, Fedora, Alma, older versions, macOS) stops with an error, exit 5. The
    trust-kit installers have their own copy of the rules.
+
  Test hooks (not for daily use): PKI_FAKE_OS='Kind:Build:EditionID' (Client or Server),
  PKI_OS_RELEASE_FILE=<os-release file>.
 
 ====================================================================================================
- 7  PKI_TOOLS.CNF: THE TOOLS CONFIGURATION (OPTIONAL, FOR THE OWNER)
+ 10  PKI_TOOLS.CNF: THE TOOLS CONFIGURATION (OPTIONAL)
 ====================================================================================================
  pki_tools.cnf is NOT a company profile. It holds settings that all scripts share. If the file or a
- key is missing, the value that was hard-coded before 5.0.0 is used (so the scripts work without the
- file). Precedence: command line > pki_tools.cnf > built-in default.
-     [ general ]    DefaultPki = agantra        the PKI used when -Pki is not given
-                    PkiFolder = pki             TransportFolder = transport       (a folder name next to the scripts, or a full path)
-     [ openssl ]    Path =                      OpenSSL 4 to use (empty: search PATH and the usual
-                                                folders)
-                    FipsModuleConfig =          fipsmodule.cnf (empty: search next to OpenSSL)
-     [ transport ]  ArchiveFormat = zip         zip | 7z          ZipEncryption = Aes256      Aes256 | ZipCrypto
-     [ trustkit ]   SelfExtract = false         make self-extracting files too          Targets =   (Windows,Ubuntu,Redhat,SUSE; empty = say it on the command line)
- The file is meant for the person who builds the PKIs; it is not part of the trust kits, the DevKit
+ key is missing, the built-in value is used, so the scripts work without the file. Precedence:
+ command line > pki_tools.cnf > built-in default.
+
+     [ general ]    DefaultPki = agantra      the PKI used when -Pki is not given
+                    PkiFolder = pki           TransportFolder = transport
+                                              (a folder name next to the scripts, or a full path)
+     [ openssl ]    Path =                    OpenSSL 4 to use (empty: search PATH and the usual
+                                              folders)
+                    FipsModuleConfig =        fipsmodule.cnf (empty: search next to OpenSSL)
+     [ transport ]  ArchiveFormat = zip       zip | 7z
+                    ZipEncryption = Aes256    Aes256 | ZipCrypto
+     [ trustkit ]   SelfExtract = false       make the Linux self-extracting .sh too
+                    Targets =                 Windows,Ubuntu,Redhat,SUSE (empty: say it on the
+                                              command line)
+
+ The file is meant for the person who builds the PKIs. It is not part of the trust kits. The DevKit
  gets its own tiny copy (DefaultPki = its PKI).
 
 ====================================================================================================
- 8  UPGRADING FROM 4.9.x
+ 11  GIT AND TRUST KITS
+====================================================================================================
+GIT (5.0.2)
+  .gitignore ignores every *_pki.cnf except agantra_pki.cnf: your raksaka_pki.cnf stays on your
+  machine and is not committed. Remove the lines from .gitignore to commit one.
+
+TRUST KIT WITH SEVERAL COMPANIES (5.1.0)
+  New-PkiTrustKit.ps1 -All -Pki agantra,raksaka   packs both PKIs into ONE .certpacked; -AllProfiles
+                                                  packs every company. Install-PkiCa.ps1 /
+                                                  install-pki-ca.sh install them all;
+  Remove-PkiCa.ps1 -Pki raksaka / remove-pki-ca.sh --pki raksaka take one company away again.
+  Manual: PkiTrustKit-MANUAL.txt.
+
+====================================================================================================
+ 12  UPGRADING FROM 4.9.X
 ====================================================================================================
  * Nothing has to be converted. agantra_pki.cnf is the default PKI; old folders pki\R1 ... work. New
    releases are named pki-default-02 ...
@@ -209,15 +289,83 @@
  * Windows 10, Windows 11 before 24H2, specialised editions and macOS are no longer accepted by any
    script.
 
+====================================================================================================
+ 13  RECIPES, COPY AND PASTE
+====================================================================================================
+ New company, no questions:
+     .\New-PkiConfig.ps1 -CompanyName 'Raksaka Teknologi Indonesia' -ContactName 'Budi Santoso' `
+          -ContactEmail budi@raksaka.co.id -CompanyId 1234567890 -Address 'Jl. Sudirman 1' `
+          -City Jakarta -Province 'DKI Jakarta' -Country ID -Website https://www.raksaka.co.id `
+          -NonInteractive
+ Leaf for that company:
+     .\GenerateLeafCertificate.ps1 -Pki raksaka -OV -DnsName app.raksaka.co.id
+ Sign a request:            .\SignCsr.ps1 -Pki raksaka -Csr .\request.csr
+ Trust kit, all releases:   .\New-PkiTrustKit.ps1 -Pki raksaka -All -AllReleases
+ Trust kit, every company:  .\New-PkiTrustKit.ps1 -All -AllProfiles
+ DevKit of that company:    .\PkiTransport.ps1 -DevKit -Pki raksaka
+ Remove one company:        .\pki_remove.ps1 -Pki raksaka -All
+ Change the default PKI:    in pki_tools.cnf set  DefaultPki = raksaka
 
-GIT (5.0.2)
-  .gitignore ignores every *_pki.cnf except agantra_pki.cnf: your raksaka_pki.cnf stays on your
-  machine and is not committed. Remove the lines from .gitignore to commit one.
+====================================================================================================
+ 14  PROBLEMS AND ANSWERS
+====================================================================================================
+ "The PKI 'x' is unknown"           The name is wrong. The error lists the known ones. Run
+                                    .\pki_setup.ps1 -ListPki. Tab completes the name after -Pki.
+ New-PkiConfig stops: file exists   Use -Force to replace it, or -ShortName to choose another name.
+ "Short name is reserved"           agantra, default, nocr and all cannot be used.
+ A script uses the wrong company    You did not give -Pki. The default is agantra, or DefaultPki of
+                                    pki_tools.cnf.
+ raksaka_pki.cnf is not in Git      Intended: .gitignore ignores every *_pki.cnf except
+                                    agantra_pki.cnf. Remove the lines from .gitignore to commit one.
+ Exit 5 on a Windows computer       The system is refused (section 9). Nothing was done.
 
+====================================================================================================
+ 15  LIMITS YOU MUST KNOW
+====================================================================================================
+ - A profile changes company data only. The structure, algorithms and policies are the same for
+   every company. Change them in the profile file by hand, at your own risk.
+ - Two companies on one computer have two separate sets of root keys. Trusting both in Windows
+   needs both installed.
+ - New-PkiConfig.ps1 writes the file. It does not check that your data are true. EV data must match
+   your official registration.
+ - Linux has no certificate store here. Only the files of a PKI are removed there.
 
-TRUST KIT WITH SEVERAL COMPANIES (5.1.0)
-  New-PkiTrustKit.ps1 -All -Pki agantra,raksaka   packs both PKIs into ONE .certpacked; -AllProfiles
-                                                  packs every company. Install-PkiCa.ps1 /
-                                                  install-pki-ca.sh install them all;
-  Remove-PkiCa.ps1 -Pki raksaka / remove-pki-ca.sh --pki raksaka take one company away again.
-  Manual: PkiTrustKit-MANUAL.txt.
+====================================================================================================
+ 16  ALL OPTIONS
+====================================================================================================
+ New-PkiConfig.ps1
+   -CompanyName *  -ContactName *  -ContactEmail *  -CompanyId *  -Address *  -City *  -Province *
+   -Country *  -Website *            required (asked when missing; an error with -NonInteractive)
+   -ShortName  -PostalCode  -Phone  -IanaPen  -InternalDomain
+   -BusinessCategory  -JurisdictionCountry  -JurisdictionState  -JurisdictionLocality  -Duns
+   -OutDirectory <path>    where to write the file (default: next to the scripts)
+   -Force                  replace an existing file
+   -NonInteractive         never ask
+   -Help
+ Other scripts: -Pki <name> (all scripts that build or use a PKI), pki_setup.ps1 -ListPki.
+ Exit codes: 0 ok, 1 error, 5 this system is refused.
+
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
+====================================================================================================
+ 17  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested on Ubuntu 24.04 with PowerShell 7: New-PkiConfig.ps1 (interactive off, with all values),
+ -ListPki, building and using a second company, the platform gate with test hooks. NOT tested: a
+ real Windows Server 2022 / 2025 or Windows 11, RHEL and SUSE machines, the trust steps in the
+ Windows store for two companies together. Run PKI-Acceptance-Checklists.txt (E28, E46).
+
+====================================================================================================
+ 18  OTHER DOCUMENTS
+====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
+ pki_setup-MANUAL.txt   PkiTrustKit-MANUAL.txt   PkiTransport-MANUAL.txt
+ PKI-Design-with-FIPS-and-PQC.txt (10.107 - 10.115)   PKI-Acceptance-Checklists.txt
+ GLOSSARY.txt   GLOSSARY-ENGLISH.txt
+
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

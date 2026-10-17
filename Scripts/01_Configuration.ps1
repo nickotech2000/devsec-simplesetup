@@ -29,7 +29,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PkiGeneratorVersion = '6.4.7'
+$script:PkiGeneratorVersion = '6.6.18'
 
 # ROOT KEY POLICY (enforced, not configurable)
 #   Every root-level CA (Enterprise Root, Track Roots, Quadrant Roots) is RSA 8192 with

@@ -3,7 +3,7 @@
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
- Version: 6.4.7
+ Version: 6.6.18
 ====================================================================================================
 
  READ THIS FIRST
@@ -112,6 +112,60 @@
    An OpenSSL built without the FIPS module, or a "light" package. It says 4.x but cannot do what
    the PKI needs, so the scripts refuse it.
 
+ Name constraints
+   A rule inside a CA certificate that limits which names the CA may issue certificates for, for
+   example only *.sales.example.com. A client that checks it refuses any other name. SignExternalCa
+   can write them (-PermitDns, -PermitEmail).
+
+ Origin (CDN)
+   Your own web server that sits behind a CDN. The CDN opens a connection to it. Export-PkiCa gives
+   the CDN the CA certificate it needs to trust the origin.
+
+ OCSP stapling
+   The web server fetches a fresh OCSP answer for its own certificate and hands it to the visitor
+   with the certificate. The visitor does not have to ask the CA. Faster and more private.
+
+ HSTS
+   A web header that tells a browser: use only HTTPS for this site, for this long.
+
+ AIA (CA Issuers)
+   The address inside a certificate where the certificate of its CA can be downloaded.
+   Export-PkiCa -FetchAia uses it.
+
+ Execution policy (Bypass)
+   The PowerShell rule about which scripts may run. Bypass blocks and warns about nothing.
+   Enable-DevMachine.cmd / .ps1 set it for a development computer. See its manual.
+
+ Unblock (Zone.Identifier)
+   Windows marks files from the Internet as "downloaded" and may refuse to run them. Unblock-File
+   removes that mark.
+
+ SHA256SUMS
+   A list of the fingerprints (SHA-256 hashes) of every file in the release. Compare it with your
+   copy to see that no file was changed after it was built. See SECURITY-AUDIT.txt.
+
+ False positive
+   A warning of an antivirus program about a file that is really harmless. Security programs
+   judge by behaviour patterns ("heuristics"), so a script that starts programs and changes
+   certificate stores can look suspicious. See SECURITY-AUDIT.txt.
+
+ -VerifyAll
+   Option of pki_setup.ps1: runs -Verify for every PKI that was built (all companies, all
+   releases) and shows every result.
+
+ -Version / --version
+   An option of every script. It prints the version of the script, the author, the operating
+   system and the versions of .NET, Node.js, Python, Java, the shells, Schannel and OpenSSL, and
+   changes nothing. Send its output to support. See VERSION-INFO.txt.
+
+ Kernel
+   The core of Linux. Its version (for example 6.18) is the "patch level" of a Linux computer, as
+   the build number is on Windows.
+
+ Vendor (of OpenSSL)
+   The maker of one copy of OpenSSL: your Linux distribution (a package), FireDaemon, Shining
+   Light, Git for Windows, or you (built from source code). Two copies can be the same version and
+   come from different makers.
  Hash (SHA-256, SHA-512)
    A short fingerprint of a file. If one byte changes, the hash changes. The .sha256 and .sha512
    files next to your certificates let you check that a file was not damaged or changed.

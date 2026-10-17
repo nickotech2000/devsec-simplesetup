@@ -1,0 +1,176 @@
+====================================================================================================
+ Enable-DevMachine  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - a Windows laptop as development machine
+ Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : Two files, a .cmd and a .ps1, that switch the PowerShell script protection to
+                Bypass for every session and unblock the files, so all unsigned scripts run.
+ Who reads it : The owner of a development laptop. Fresh junior technicians can follow it.
+ You need     : Windows 11 (or 10), Command Prompt or PowerShell, Administrator for all users.
+ Start with   : Section 3 (warning), then section 4.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+
+====================================================================================================
+ 1   WHAT IT DOES
+====================================================================================================
+ Two files do the same job for a Windows computer that you use for development:
+   Enable-DevMachine.cmd   for Command Prompt. It needs no PowerShell policy at all.
+   Enable-DevMachine.ps1   for PowerShell (Windows PowerShell 5.1 or PowerShell 7).
+ They set the PowerShell execution policy to Bypass, so unsigned .ps1 files (all scripts of this
+ project are unsigned) run without a question, and they unblock the files of the folder. The
+ setting is stored on the computer: it holds in every present and future PowerShell session, in
+ Windows PowerShell 5.1 (64 and 32 bit) and in PowerShell 7 (pwsh).
+ They change ONLY the execution policy and the "downloaded from the Internet" mark of your files.
+
+====================================================================================================
+ 2   WORDS YOU WILL MEET
+====================================================================================================
+ Execution policy   The rule of PowerShell about which scripts may run: Restricted (none),
+                    AllSigned, RemoteSigned, Unrestricted, Bypass (everything, no warning).
+ Bypass             The policy that blocks nothing and asks nothing.
+ Scope              Where the policy is stored: Process (this window only), CurrentUser,
+                    LocalMachine (all users, needs Administrator).
+ Unblock            Remove the Zone.Identifier mark Windows puts on downloaded files.
+ Group Policy       A company rule that overrides the policy. Then this script cannot win.
+ More words         GLOSSARY.txt, GLOSSARY-ENGLISH.txt
+
+====================================================================================================
+ 3   BEFORE YOU START
+====================================================================================================
+ - Use it ONLY on your own development computer. Bypass lets ANY script run, also a bad one, in
+   every PowerShell window. Do not use it on a server or on a computer of other people.
+ - Copy the two files (or the whole project) to the laptop. Copy from a source you trust and
+   compare the files with SHA256SUMS (SECURITY-AUDIT.txt section 5).
+ - For all users of the computer: start the window with "Run as administrator". Without it only
+   the current user changes.
+ - Antivirus programs may warn about a file that changes the execution policy. See
+   SECURITY-AUDIT.txt section 3.
+
+====================================================================================================
+ 4   QUICK START
+====================================================================================================
+ From Command Prompt (best on a new laptop where PowerShell blocks scripts):
+     cd C:\path\to\the\folder
+     Enable-DevMachine.cmd
+ From PowerShell that blocks scripts (the first line frees only this window):
+     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+     .\Enable-DevMachine.ps1
+ Answer Y. Then open a NEW PowerShell window. Expected last lines: EFFECTIVE Bypass.
+
+====================================================================================================
+ 5   STEP BY STEP
+====================================================================================================
+ 1. The file asks "Continue? (Y/N)". Answer Y. (-Yes / /yes skips the question.)
+ 2. For every PowerShell it finds, it runs Set-ExecutionPolicy Bypass for CurrentUser, and for
+    LocalMachine when it runs as Administrator. Each line says [OK] or [WARN].
+ 3. It unblocks every file below its folder (-Path chooses other folders) and clears read-only.
+ 4. It prints the policy table of every PowerShell. EFFECTIVE must be Bypass (green).
+ 5. Open a new PowerShell window and run any script of the project.
+
+====================================================================================================
+ 6   COMMANDS AND RECIPES
+====================================================================================================
+ Check only, change nothing
+      Enable-DevMachine.cmd /status        or   .\Enable-DevMachine.ps1 -Status
+ No question
+      Enable-DevMachine.cmd /yes        or   .\Enable-DevMachine.ps1 -Yes
+ Policy only, files untouched
+      Enable-DevMachine.cmd /nounblock        or   .\Enable-DevMachine.ps1 -NoUnblock
+ Back to the Windows default
+      Enable-DevMachine.cmd /undo        or   .\Enable-DevMachine.ps1 -Undo
+ Version and system report
+      Enable-DevMachine.cmd /version        or   .\Enable-DevMachine.ps1 -Version
+ Help
+      Enable-DevMachine.cmd /?        or   .\Enable-DevMachine.ps1 -Help
+ Unblock another folder
+      .\Enable-DevMachine.ps1 -Path D:\work,E:\ProjectCommons
+
+====================================================================================================
+ 7   WHAT YOU SEE
+====================================================================================================
+ [OK]    Windows PowerShell 5.1 (64 bit): CurrentUser = Bypass       the setting was written
+ [WARN]  ... LocalMachine: ...                                  not Administrator, or Group Policy
+ EFFECTIVE Bypass (green)  everything runs.     EFFECTIVE anything else (yellow)  something wins.
+
+====================================================================================================
+ 8   FILES IT WRITES
+====================================================================================================
+ No file. It writes the execution policy to the registry / powershell.config.json of each
+ PowerShell, and removes the Zone.Identifier stream from your files. Nothing is sent anywhere.
+
+====================================================================================================
+ 9   EXIT CODES
+====================================================================================================
+ 0 done    1 a setting could not be changed (Group Policy?)    2 you answered No    5 not Windows
+
+====================================================================================================
+ 10  FUTURE FILES
+====================================================================================================
+ The policy holds for all future sessions. A script you download LATER still carries the
+ "downloaded" mark. With Bypass it runs anyway, but run Enable-DevMachine again (or Unblock-File
+ <file>) to clear the mark, for example before you copy it to another computer.
+
+====================================================================================================
+ 11  SAFETY
+====================================================================================================
+ Bypass removes the protection that stops a bad script from running by accident. Keep the rest:
+ antivirus, SmartScreen, the habit of reading a script before you run it, and SHA256SUMS.
+ If you stop developing on the laptop, run the /undo command.
+
+====================================================================================================
+ 12  PROBLEMS
+====================================================================================================
+ Cannot run the .ps1 ("running scripts is disabled")   Use the .cmd, or the first PowerShell line
+                                                         of section 4 (Process scope).
+ [WARN] ... overridden by a more specific scope            A Group Policy (MachinePolicy or
+                                                         UserPolicy in the table) wins. Ask IT.
+ LocalMachine fails                                        Start the window as Administrator.
+ The antivirus quarantines the file                        Restore it after the SHA256SUMS check and
+                                                         report a false positive (SECURITY-AUDIT).
+ Other PowerShell windows still block                      Close and open them again.
+
+====================================================================================================
+ 13  LIMITS
+====================================================================================================
+ Windows only (exit 5 elsewhere). It cannot beat Group Policy. It does not touch Windows Defender,
+ SmartScreen or the firewall. It does not sign scripts (Sign-Code.ps1 does).
+
+====================================================================================================
+ 14  THE .CMD AND THE .PS1 COMPARED
+====================================================================================================
+ The .cmd calls powershell.exe / pwsh.exe with Set-ExecutionPolicy and Unblock-File only. It does
+ not need a policy, because policy affects script files, not commands. The .ps1 does the same
+ and also prints the status table with more detail. Both are plain text; read them first.
+
+====================================================================================================
+ 15  ALL OPTIONS
+====================================================================================================
+ .ps1  -Path <folder,...>  -Status  -Undo  -NoUnblock  -Yes  -Help  -Version
+ .cmd  /status  /undo  /nounblock  /yes  /?  /version  (-h, --help, --version also work)
+
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
+====================================================================================================
+ 16  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested on Ubuntu 24.04 with PowerShell 7 and a stand-in for pwsh.exe: help, version, status, the
+ Y/N question, the Windows check (exit 5), the order of the steps, parse of the .ps1. NOT tested:
+ anything on a real Windows (real policy change, Group Policy, 32-bit PowerShell, pwsh 7 policy
+ store, Unblock-File), and the .cmd file was only read, not run (no cmd.exe here).
+
+====================================================================================================
+ 17  OTHER DOCUMENTS
+====================================================================================================
+ SECURITY-AUDIT.txt   VERSION-INFO.txt   START-HERE.txt   Sign-Code-MANUAL.txt   GLOSSARY.txt
+
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

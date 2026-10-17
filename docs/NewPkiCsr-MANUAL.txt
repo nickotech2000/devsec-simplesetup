@@ -1,7 +1,7 @@
 ====================================================================================================
  NewPkiCsr  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - ask for a certificate     Version 6.4.7   2026-10-17
+ Agantra Inovatif Enterprise PKI - ask for a certificate     Version 6.6.18   2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: New-PkiCsr.ps1 (Windows, Linux with PowerShell)   new-pki-csr.sh (Linux)
 
@@ -260,7 +260,7 @@
      Make a new request. The old certificate is useless without the key. Ask the owner to revoke
      it.
  Windows: "running scripts is disabled"
-     powershell -NoProfile -ExecutionPolicy Bypass -File .\New-PkiCsr.ps1
+     powershell -NoProfile -ExecutionPolicy RemoteSigned -File .\New-PkiCsr.ps1
 
 ====================================================================================================
  15  LIMITS YOU MUST KNOW
@@ -300,6 +300,11 @@
  -Help                                                --help, -h
  Exit codes: 0 ok, 1 error (nothing is made), 4 OpenSSL not found, 5 system not supported.
 
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
 ====================================================================================================
  17  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
@@ -312,6 +317,7 @@
 ====================================================================================================
  18  OTHER DOCUMENTS
 ====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
  PrepareComputer-MANUAL.txt   PkiTrustKit-MANUAL.txt   SignCsr-MANUAL.txt
  SignExternalCa-MANUAL.txt   DevKit-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
 ====================================================================================================

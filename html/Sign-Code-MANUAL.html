@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 6.4.7">
+<meta name="generator" content="Build-HtmlDocs.ps1 6.6.18">
 <meta name="description" content="Sign your software; set up a build pipeline.">
 <title>Code signing - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.4.7</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>6.6.18</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -130,7 +130,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
 <button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button>
 <button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button>
-<div class="mega" id="mega"><div class="mg"><h2>Start</h2><a href="README.html">README</a><a href="START-HERE.html">Start here</a><a href="GLOSSARY.html">Glossary (technical terms)</a><a href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a href="Sign-Code-MANUAL.html" aria-current="page">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a href="PkiTrustKit-MANUAL.html">Trust kit</a><a href="DevKit-MANUAL.html">DevKit</a><a href="PkiTransport-MANUAL.html">Transport package</a><a href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a href="PrepareComputer-MANUAL.html">Prepare a computer</a><a href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a href="scripts-README.html">Modules (scripts folder)</a><a href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a href="PKI-ChangeLog.html">Change log</a><a href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div></div>
+<div class="mega" id="mega"><div class="mg"><h2>Start</h2><a href="README.html">README</a><a href="START-HERE.html">Start here</a><a href="Enable-DevMachine-MANUAL.html">Development laptop (Bypass)</a><a href="SECURITY-AUDIT.html">Security audit of the scripts</a><a href="VERSION-INFO.html">Version and system report</a><a href="GLOSSARY.html">Glossary (technical terms)</a><a href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a href="Sign-Code-MANUAL.html" aria-current="page">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a href="PkiTrustKit-MANUAL.html">Trust kit</a><a href="DevKit-MANUAL.html">DevKit</a><a href="PkiTransport-MANUAL.html">Transport package</a><a href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a href="PrepareComputer-MANUAL.html">Prepare a computer</a><a href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a href="scripts-README.html">Modules (scripts folder)</a><a href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a href="PKI-ChangeLog.html">Change log</a><a href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div></div>
 </nav>
 <button type="button" class="nb" id="menubtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><span class="ms" aria-hidden="true">menu</span></button>
 </header>
@@ -159,7 +159,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <div class="dh"><strong>Menu</strong><button type="button" class="nb" data-close="1" aria-label="Close menu"><span class="ms" aria-hidden="true">close</span></button></div>
 <span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
 <a class="dl" href="index.html">Home</a>
-<div class="mg"><h2>Start</h2><a class="dl" href="README.html">README</a><a class="dl" href="START-HERE.html">Start here</a><a class="dl" href="GLOSSARY.html">Glossary (technical terms)</a><a class="dl" href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a class="dl" href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a class="dl" href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a class="dl" href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a class="dl" href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a class="dl" href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a class="dl" href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a class="dl" href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a class="dl" href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a class="dl" href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a class="dl" href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a class="dl" href="Sign-Code-MANUAL.html" aria-current="page">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a class="dl" href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a class="dl" href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a class="dl" href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a class="dl" href="PkiTrustKit-MANUAL.html">Trust kit</a><a class="dl" href="DevKit-MANUAL.html">DevKit</a><a class="dl" href="PkiTransport-MANUAL.html">Transport package</a><a class="dl" href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a class="dl" href="PrepareComputer-MANUAL.html">Prepare a computer</a><a class="dl" href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a class="dl" href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a class="dl" href="scripts-README.html">Modules (scripts folder)</a><a class="dl" href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a class="dl" href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a class="dl" href="PKI-ChangeLog.html">Change log</a><a class="dl" href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div>
+<div class="mg"><h2>Start</h2><a class="dl" href="README.html">README</a><a class="dl" href="START-HERE.html">Start here</a><a class="dl" href="Enable-DevMachine-MANUAL.html">Development laptop (Bypass)</a><a class="dl" href="SECURITY-AUDIT.html">Security audit of the scripts</a><a class="dl" href="VERSION-INFO.html">Version and system report</a><a class="dl" href="GLOSSARY.html">Glossary (technical terms)</a><a class="dl" href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a class="dl" href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a class="dl" href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a class="dl" href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a class="dl" href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a class="dl" href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a class="dl" href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a class="dl" href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a class="dl" href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a class="dl" href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a class="dl" href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a class="dl" href="Sign-Code-MANUAL.html" aria-current="page">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a class="dl" href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a class="dl" href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a class="dl" href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a class="dl" href="PkiTrustKit-MANUAL.html">Trust kit</a><a class="dl" href="DevKit-MANUAL.html">DevKit</a><a class="dl" href="PkiTransport-MANUAL.html">Transport package</a><a class="dl" href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a class="dl" href="PrepareComputer-MANUAL.html">Prepare a computer</a><a class="dl" href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a class="dl" href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a class="dl" href="scripts-README.html">Modules (scripts folder)</a><a class="dl" href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a class="dl" href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a class="dl" href="PKI-ChangeLog.html">Change log</a><a class="dl" href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div>
 <p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
 <p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
 </nav>
@@ -168,42 +168,37 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Tools for CDN, web and signing</p>
 <h1>Code signing</h1>
 <p class="lead">Sign your software; set up a build pipeline.</p>
-<div class="meta"><span class="chip">Author : Nicko Satria Utama</span><span class="chip">Company: Agantra Inovatif O&#220; (NextMantra)</span><span class="chip">Email : nicko@nextmantra.com</span><span class="chip">Version: 6.4.7</span></div>
-<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-is-code-signing-in-plain-words">1. WHAT IS CODE SIGNING, IN PLAIN WORDS</a></li><li class="l2"><a href="#2-quick-start-5-minutes">2. QUICK START (5 MINUTES)</a></li><li class="l2"><a href="#3-what-the-script-checks-before-it-signs">3. WHAT THE SCRIPT CHECKS BEFORE IT SIGNS</a></li><li class="l2"><a href="#4-which-files-can-be-signed">4. WHICH FILES CAN BE SIGNED</a></li><li class="l2"><a href="#5-which-certificate-can-be-used">5. WHICH CERTIFICATE CAN BE USED</a></li><li class="l2"><a href="#6-timestamp-servers">6. TIMESTAMP SERVERS</a></li><li class="l2"><a href="#7-tools-what-is-installed-and-how">7. TOOLS: WHAT IS INSTALLED, AND HOW</a></li><li class="l2"><a href="#8-what-you-get-after-signing">8. WHAT YOU GET AFTER SIGNING</a></li><li class="l2"><a href="#9-all-options">9. ALL OPTIONS</a></li><li class="l2"><a href="#10-setting-up-a-build-environment-for-devsecops">10. SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)</a></li><li class="l2"><a href="#11-exit-codes">11. EXIT CODES</a></li><li class="l2"><a href="#12-problems-and-answers">12. PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#13-what-was-not-tested">13. WHAT WAS NOT TESTED</a></li></ol></details>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-is-code-signing-in-plain-words">1   WHAT IS CODE SIGNING, IN PLAIN WORDS</a></li><li class="l2"><a href="#2-the-words-you-need">2   THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3   BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start-5-minutes">4   QUICK START (5 MINUTES)</a></li><li class="l2"><a href="#5-what-the-script-checks-before-it-signs">5   WHAT THE SCRIPT CHECKS BEFORE IT SIGNS</a></li><li class="l2"><a href="#6-which-files-can-be-signed">6   WHICH FILES CAN BE SIGNED</a></li><li class="l2"><a href="#7-which-certificate-can-be-used">7   WHICH CERTIFICATE CAN BE USED</a></li><li class="l2"><a href="#8-timestamp-servers">8   TIMESTAMP SERVERS</a></li><li class="l2"><a href="#9-tools-what-is-installed-and-how">9   TOOLS: WHAT IS INSTALLED, AND HOW</a></li><li class="l2"><a href="#10-what-you-get-after-signing">10  WHAT YOU GET AFTER SIGNING</a></li><li class="l2"><a href="#11-setting-up-a-build-environment-for-devsecops">11  SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)</a></li><li class="l2"><a href="#12-exit-codes">12  EXIT CODES</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l2"><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
+ Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
+ Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> What it is   : Signs your software (Windows, .NET, Java, APK, Office) and checks the certificate
-                and time server first.
- Who reads it : Developers and DevSecOps staff.
- You need     : A code-signing certificate (private PKI or public OV/EV).
- Start with   : Read section 2 (Quick start); DevSecOps: section 10.
- Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
-<div class="code"><pre>Files : Sign-Code.ps1   (Windows 11, Windows Server 2022 / 2025)
-        Sign-Code.sh    (Ubuntu 24 / 25, CentOS Stream 10, RHEL 10, Rocky Linux 10, Oracle Linux 10)
-Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
-<div class="code"><pre>CONTENTS
-  1. What is code signing, in plain words
-  2. Quick start (5 minutes)
-  3. What the script checks BEFORE it signs
-  4. Which files can be signed
-  5. Which certificate can be used
-  6. Timestamp servers
-  7. Tools: what is installed, and how
-  8. What you get after signing
-  9. All options (PowerShell and shell names side by side)
- 10. Setting up a BUILD ENVIRONMENT (for DevSecOps)
-       10.1  Rules that are the same everywhere
-       10.2  GitHub Actions
-       10.3  Azure DevOps Services and Azure DevOps Server
-       10.4  AWS CodeBuild
-       10.5  Google Cloud Build
-       10.6  Alibaba Cloud Yunxiao (Flow)
-       10.7  A build VM in Azure, AWS, Alibaba or Google Cloud
-       10.8  Visual Studio 2026 and MSBuild
-       10.9  Keeping the key safe: PFX secret or cloud key?
- 11. Exit codes
- 12. Problems and answers
- 13. What was NOT tested</pre></div>
-<h2 id="1-what-is-code-signing-in-plain-words">1. WHAT IS CODE SIGNING, IN PLAIN WORDS<a class="anchor" href="#1-what-is-code-signing-in-plain-words" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> What it is   : A script that signs your software (Windows files, PowerShell, .NET, Java, Android,
+                Office macros). It checks the certificate and the time server FIRST.
+ Who reads it : Developers and DevSecOps staff. No PKI knowledge is needed. Every new word is
+                explained in <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.
+ Time needed  : 10 minutes to read sections 1 to 4. Pipeline set-up: section 11.
+ You need     : A code-signing certificate (private PKI or public OV / EV) and the files to sign.
+ Start with   : Section 4 (Quick start). DevSecOps: section 11.</pre></div>
+<div class="code"><pre> Related manuals:
+   <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>   make a code-signing certificate (-Purpose CodeSigning)
+   <a href="PkiTrustKit-MANUAL.html">PkiTrustKit-MANUAL.txt</a>   make Windows trust your private root
+   <a href="PkiTransport-MANUAL.html">PkiTransport-MANUAL.txt</a>   move files to a build machine
+   <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>   revoke a code-signing certificate
+   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>   why it is built this way (senior staff)
+ Help in the terminal:   .\Sign-Code.ps1 -Help      ./Sign-Code.sh --help</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What code signing is                    10 What you get
+    2  The words you need                      11 Build environment (DevSecOps)
+    3  Before you start                        12 Exit codes
+    4  Quick start (5 minutes)                 13 Recipes, copy and paste
+    5  What it checks first                    14 Problems and answers
+    6  Which files can be signed               15 Limits you must know
+    7  Which certificate                       16 All options
+    8  Timestamp servers                       17 What was tested, what was not
+    9  Tools                                   18 Other documents</pre></div>
+<h2 id="1-what-is-code-signing-in-plain-words">1   WHAT IS CODE SIGNING, IN PLAIN WORDS<a class="anchor" href="#1-what-is-code-signing-in-plain-words" aria-label="Link to this section">#</a></h2>
 <p>When you download a program, how do you know who made it, and that nobody changed it on the way? A code signature answers both questions. The maker adds a small block of data to the file. The block is made with the maker&#39;s PRIVATE KEY. Anyone can check it with the matching CERTIFICATE.</p>
 <ul><li>If the file is changed later, even by one byte, the check fails.</li><li>The certificate says who the maker is (your company name).</li><li>A TIMESTAMP from an independent server proves WHEN the file was signed. Without it, the signature stops being trusted the day the certificate expires. With it, the signature stays good for years.</li></ul>
 <p>Your certificate comes from one of two places:</p>
@@ -216,7 +211,21 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
                 to customers. By industry rule the private key lives in hardware (a USB token or a
                 cloud HSM), so you cannot simply export it to a file.</pre></div>
 <p>Sign-Code works with both.</p>
-<h2 id="2-quick-start-5-minutes">2. QUICK START (5 MINUTES)<a class="anchor" href="#2-quick-start-5-minutes" aria-label="Link to this section">#</a></h2>
+<h2 id="2-the-words-you-need">2   THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Signature     A block of data added to a file. It proves who made it and that it is unchanged.
+ Private key   The secret that makes the signature. Keep it in a safe place.
+ Certificate   The public part. It says who you are. Anyone can check a signature with it.
+ Timestamp     A proof of WHEN you signed. Without it, the signature dies on the day the certificate
+               expires.
+ RFC 3161      The standard for timestamp servers.
+ PFX / P12     One file that holds a certificate and its private key, protected by a password.
+ HSM / KMS     A device or a cloud service that holds a key and never gives it out.
+ Digest        The hash of the file, for example sha256.
+ Pipeline      An automatic build on a server (GitHub Actions, Azure DevOps and so on).
+ More words: <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.</pre></div>
+<h2 id="3-before-you-start">3   BEFORE YOU START<a class="anchor" href="#3-before-you-start" aria-label="Link to this section">#</a></h2>
+<ol><li>You have a code-signing certificate. If you have none, make one: GenerateLeafCertificate.ps1 -Purpose CodeSigning</li><li>You have the files you want to sign, and you built them already. Sign LAST. Do not change a file after you signed it.</li><li>The computer can reach a timestamp server (port 80 outbound). Check with -CheckOnly.</li><li>The password is in an environment variable, never on the command line.</li><li>Windows runs the .ps1 and needs PowerShell 7. Linux runs the .sh and needs bash 4.</li></ol>
+<h2 id="4-quick-start-5-minutes">4   QUICK START (5 MINUTES)<a class="anchor" href="#4-quick-start-5-minutes" aria-label="Link to this section">#</a></h2>
 <p>Step 1. Make the certificate (you do this once; skip it if you have a public certificate).</p>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>    .\GenerateLeafCertificate.ps1 -Cn &quot;My Company Code Signing&quot; -Purpose CodeSigning</pre></div>
 <p>You get a folder with the certificate (.crt), the key (.key), the chain and a .pfx file.</p>
@@ -233,7 +242,7 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
     ./Sign-Code.sh  --pfx codesign.pfx --folder ./publish --exclude &#39;*.Tests.dll&#39;</pre></div>
 <div class="code"><pre>Step 5. Look at the result. Next to every signed file you find two small files, for example
         app.exe-signed.sha256 and app.exe-signed.sha512. Keep them with the release.</pre></div>
-<h2 id="3-what-the-script-checks-before-it-signs">3. WHAT THE SCRIPT CHECKS BEFORE IT SIGNS<a class="anchor" href="#3-what-the-script-checks-before-it-signs" aria-label="Link to this section">#</a></h2>
+<h2 id="5-what-the-script-checks-before-it-signs">5   WHAT THE SCRIPT CHECKS BEFORE IT SIGNS<a class="anchor" href="#5-what-the-script-checks-before-it-signs" aria-label="Link to this section">#</a></h2>
 <p>The script is strict on purpose. If a check fails, NOTHING is signed and the script ends.</p>
 <p>A. THE CERTIFICATE  (a failure here ends the script with exit code 2)</p>
 <div class="code"><pre>    Check                                     Why
@@ -257,8 +266,8 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
       * the certificate of the timestamp server is still valid, and has the &quot;Time Stamping&quot; purpose,
       * (PowerShell) the clock of this computer differs by less than 5 minutes.
     A warning appears if the timestamp certificate ends in less than 30 days.</pre></div>
-<p>C. THE TOOLS: see chapter 7.</p>
-<h2 id="4-which-files-can-be-signed">4. WHICH FILES CAN BE SIGNED<a class="anchor" href="#4-which-files-can-be-signed" aria-label="Link to this section">#</a></h2>
+<p>C. THE TOOLS: see section 9.</p>
+<h2 id="6-which-files-can-be-signed">6   WHICH FILES CAN BE SIGNED<a class="anchor" href="#6-which-files-can-be-signed" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre>  Type               Extensions                                  Signed with
   -----------------  ------------------------------------------  --------------------------------
   Windows programs   exe dll sys ocx scr cpl efi ax drv winmd    Windows : signtool
@@ -280,7 +289,7 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
     * An APK has no timestamp: the Android format does not have one.
     * On Linux the VBA files and vbs / js / wsf are skipped (they need Windows).
     * msix / appx: the &quot;Publisher&quot; inside the package must equal the subject of the certificate.</pre></div>
-<h2 id="5-which-certificate-can-be-used">5. WHICH CERTIFICATE CAN BE USED<a class="anchor" href="#5-which-certificate-can-be-used" aria-label="Link to this section">#</a></h2>
+<h2 id="7-which-certificate-can-be-used">7   WHICH CERTIFICATE CAN BE USED<a class="anchor" href="#7-which-certificate-can-be-used" aria-label="Link to this section">#</a></h2>
 <p>Choose ONE way:</p>
 <div class="code"><pre>  -Pfx file.pfx               A PFX / P12 file. Password in the environment variable named by
   --pfx file.pfx              -PfxPasswordEnv (default SIGN_PFX_PASSWORD). If the variable is empty
@@ -303,9 +312,9 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
         Pkcs11                 any HSM with a PKCS#11 library, through Jsign
         DigiCertKeyLocker      DigiCert KeyLocker, through the smctl client
       -ProviderArg &quot;a|b|c&quot;     The settings of the provider separated by &quot;|&quot; (see -Help).
-      -CertFile file.cer       The PUBLIC certificate. Needed so that chapter 3 can run its checks.</pre></div>
+      -CertFile file.cer       The PUBLIC certificate. Needed so that section 5 can run its checks.</pre></div>
 <p>How the password is protected. The script never puts your PFX password on a command line. On Windows the certificate is imported into a temporary store of the current user and removed in the end; the tools get the thumbprint. On Linux the key is copied into a temporary key store with a random password; the temporary files are deleted when the script ends (also on errors).</p>
-<h2 id="6-timestamp-servers">6. TIMESTAMP SERVERS<a class="anchor" href="#6-timestamp-servers" aria-label="Link to this section">#</a></h2>
+<h2 id="8-timestamp-servers">8   TIMESTAMP SERVERS<a class="anchor" href="#8-timestamp-servers" aria-label="Link to this section">#</a></h2>
 <p>Default is DigiCert. Change it with -Timestamp NAME (--timestamp NAME), or with -TimestampUrl URL (--timestamp-url URL) for any other RFC 3161 server.</p>
 <div class="code"><pre>  NAME         Address
   -----------  ------------------------------------------------
@@ -317,7 +326,7 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
   Entrust      <a href="http://timestamp.entrust.net/TSS/RFC3161sha2TS" target="_blank" rel="noopener noreferrer">http://timestamp.entrust.net/TSS/RFC3161sha2TS</a></pre></div>
 <p>The addresses are the ones the companies publish. If one changes, use -TimestampUrl.</p>
 <p>Your own timestamp server. This project can run an RFC 3161 time-stamping service (linux/pki-server, see <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>). For internal builds you can point to it: -TimestampUrl <a href="https://tsa.mycompany.internal/tsr" target="_blank" rel="noopener noreferrer">https://tsa.mycompany.internal/tsr</a> For software that customers will install, use a public timestamp server: their computers trust it.</p>
-<h2 id="7-tools-what-is-installed-and-how">7. TOOLS: WHAT IS INSTALLED, AND HOW<a class="anchor" href="#7-tools-what-is-installed-and-how" aria-label="Link to this section">#</a></h2>
+<h2 id="9-tools-what-is-installed-and-how">9   TOOLS: WHAT IS INSTALLED, AND HOW<a class="anchor" href="#9-tools-what-is-installed-and-how" aria-label="Link to this section">#</a></h2>
 <p>The script looks for the tools it needs for the kinds of files you gave. If a tool is missing it installs it. Nothing is installed when you only run the checks.</p>
 <p>WINDOWS  (-Installer Winget, the default, or -Installer Chocolatey; -Installer None = never)</p>
 <div class="code"><pre>  Tool                         Used for                     winget id                    choco id
@@ -350,7 +359,7 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
   install the Android command-line tools, run  sdkmanager &quot;build-tools;35.0.0&quot;  and set
   ANDROID_HOME, or use a COPR that has a package.
   If you are not root the script uses sudo.</pre></div>
-<h2 id="8-what-you-get-after-signing">8. WHAT YOU GET AFTER SIGNING<a class="anchor" href="#8-what-you-get-after-signing" aria-label="Link to this section">#</a></h2>
+<h2 id="10-what-you-get-after-signing">10  WHAT YOU GET AFTER SIGNING<a class="anchor" href="#10-what-you-get-after-signing" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre>  * Each file is signed in place (or a copy in -OutFolder, and the original stays untouched).
   * The signature is verified. For a private PKI that this computer does not trust, the script
     says &quot;signature written; the root is not trusted by this machine&quot; (this is normal). For a
@@ -364,7 +373,148 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
   * The certificate is printed: subject, issuer, serial, validity, key, thumbprints, purposes.
   * sign-report_&lt;date-time&gt;.json lists every file, the result and the timestamp server.
   * In a pipeline (-Ci): a short summary for GitHub Actions and a variable for Azure DevOps.</pre></div>
-<h2 id="9-all-options">9. ALL OPTIONS<a class="anchor" href="#9-all-options" aria-label="Link to this section">#</a></h2>
+<h2 id="11-setting-up-a-build-environment-for-devsecops">11  SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)<a class="anchor" href="#11-setting-up-a-build-environment-for-devsecops" aria-label="Link to this section">#</a></h2>
+<p>Goal: the build server builds your software, signs it and publishes it, with nobody typing passwords. The same two scripts do the work everywhere. Only the way you hand over the secret is different.</p>
+<div class="code"><pre>Ready-made starting files:   .\Sign-Code.ps1 -Template all      ./Sign-Code.sh --template all
+They are written to  transport\signing-ci_&lt;date-time&gt;\  : github-actions.yml, azure-pipelines.yml,
+aws-codebuild-buildspec.yml, google-cloudbuild.yaml, alibaba-yunxiao-flow.yml, Sign-Code.targets.
+Edit names and paths. They were written from the public documentation of each service and have
+NOT been run on a real pipeline (see section 17).</pre></div>
+<p>11.1  RULES THAT ARE THE SAME EVERYWHERE</p>
+<div class="code"><pre>  1. The scripts must be in the repository (or on the agent): Sign-Code.ps1 for Windows agents,
+     Sign-Code.sh for Linux agents. Both are also inside the DevKit.
+  2. Use the pipeline mode:  -Ci  /  --ci. It never asks a question, it writes annotations
+     (GitHub Actions, Azure DevOps), and it removes temporary secret files at the end.
+  3. Secrets go through environment variables mapped from the secret store of the service.
+     Never print them, never put them in the YAML text, never pass them as command-line text.
+  4. First run the checks alone (-CheckOnly) in a test pipeline. It proves: the secret decodes, the
+     password is right, the certificate passes, the agent can reach the timestamp server.
+  5. Sign AFTER the build and the tests, and BEFORE the package is published or hashed.
+  6. Do not sign test projects or obj folders. Use -Folder on the publish folder and -Exclude.
+  7. A non-zero exit code fails the step. Do not hide it with &quot;continue on error&quot;.
+  8. Keep these as pipeline artifacts: sign-report_*.json and the *-signed.sha256 / *-signed.sha512
+     files. They are your evidence for auditors.
+  9. Network: outbound port 80 to the timestamp server, outbound HTTPS to the package sources.
+     Offline agent? Bake the tools into the image, add -Installer None / --installer none, and use
+     your own timestamp server with -TimestampUrl.
+ 10. Clock: the agent clock must be right (NTP). A clock that is wrong makes timestamp checks warn.
+ 11. Make the base64 text of a PFX:
+        PowerShell :  [Convert]::ToBase64String([IO.File]::ReadAllBytes(&quot;codesign.pfx&quot;))
+        Linux      :  base64 -w0 codesign.pfx
+     Store the text in the secret store, and the PFX password in a second secret.</pre></div>
+<p>11.2  GITHUB ACTIONS</p>
+<p>Secrets (repository or environment): SIGN_PFX_B64 and SIGN_PFX_PASSWORD. Hosted runner windows-latest (Windows Server 2025 image) has PowerShell 7, .NET and the Windows SDK, so signtool is already there. ubuntu-latest has bash, openssl, curl, a JDK, and .NET.</p>
+<ul><li>name: Sign shell: pwsh env: SIGN_PFX_B64: ${{ secrets.SIGN_PFX_B64 }} SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }} run: ./Sign-Code.ps1 -Ci -PfxBase64Env SIGN_PFX_B64 -Folder out -Timestamp DigiCert</li></ul>
+<div class="code"><pre>  Linux runner: replace the last line with
+    bash ./Sign-Code.sh --ci --pfx-base64-env SIGN_PFX_B64 --folder out
+  Good to know: the script prints a ::add-mask:: line for its temporary passwords, writes errors
+  and warnings as annotations, and adds a summary to the job page.
+  For a public EV / OV certificate in a cloud key service use OIDC (no stored cloud password):
+  give the job  permissions: id-token: write  and log in with the cloud&#39;s official login action,
+  then call Sign-Code with -Provider.</pre></div>
+<p>11.3  AZURE DEVOPS SERVICES AND AZURE DEVOPS SERVER</p>
+<p>Put SIGN_PFX_B64 and SIGN_PFX_PASSWORD in a variable group (mark both as SECRET), or in Azure Key Vault linked to the variable group. A secret variable is NOT visible to a script by itself: map it with env: as in the template.</p>
+<ul><li>pwsh: &gt; ./Sign-Code.ps1 -Ci -PfxBase64Env SIGN_PFX_B64 -Folder &quot;$(Build.ArtifactStagingDirectory)\out&quot; displayName: Sign code env: SIGN_PFX_B64: $(SIGN_PFX_B64) SIGN_PFX_PASSWORD: $(SIGN_PFX_PASSWORD)</li></ul>
+<ul><li>Microsoft-hosted agents: windows-latest has PowerShell 7 and the Windows SDK; ubuntu-latest can use Sign-Code.sh.</li><li>Self-hosted agents (also the only choice for Azure DevOps Server, the on-premises product): install PowerShell 7 (Windows) or bash, openssl, curl (Linux). Run the agent service under a normal account, not under SYSTEM or root if you can avoid it. A hardware token needs an interactive session; for that use a cloud key service instead.</li><li>The script writes ##vso[task.logissue] lines, so errors and warnings show in the run summary, and sets the pipeline variable SignCode.Signed (number of signed files).</li><li>Azure Key Vault or Artifact Signing: use an Azure Resource Manager service connection with workload identity (federation) or a managed identity of the agent VM; then -Provider AzureKeyVault -ProviderArg &quot;https://myvault.vault.azure.net|certname&quot; -CertFile x.cer. The identity needs the Key Vault roles &quot;Key Vault Crypto User&quot; (sign) and &quot;Key Vault Certificate User&quot; (read certificate).</li></ul>
+<p>11.4  AWS CODEBUILD</p>
+<div class="code"><pre>  Store the two secrets in AWS Secrets Manager (or Parameter Store) and read them in buildspec.yml
+  with  env: secrets-manager:  (see the template).
+  * Linux image (Amazon Linux 2023 or Ubuntu): use Sign-Code.sh. Amazon Linux is not in the
+    supported list of the script; it works with a warning if dnf is there.
+  * Windows image: use Sign-Code.ps1; install PowerShell 7 in the image if it is missing.
+  * Key in AWS KMS: the CodeBuild service role needs kms:Sign and kms:DescribeKey for that key.
+    Then:  --provider awskms --provider-arg &quot;eu-central-1|alias/codesign&quot; --cert-file codesign.cer
+    (the signing needs Jsign and Java; the script installs Jsign). Note that a KMS key signs, but
+    a certificate for it still comes from a CA that you ask (a CSR made from the KMS key).
+  * Public certificates from AWS Signer are a different service (not covered).</pre></div>
+<p>11.5  GOOGLE CLOUD BUILD</p>
+<div class="code"><pre>  Put the secrets in Secret Manager and map them with  availableSecrets / secretEnv  (see the
+  template). The Cloud Build service account needs &quot;Secret Manager Secret Accessor&quot;.
+  * Use a Linux builder image with bash, openssl, curl and Java. Run  Sign-Code.sh.
+  * Key in Cloud KMS: give the service account roles/cloudkms.signerVerifier on that key, then
+    --provider gcpkms --provider-arg &quot;projects/P/locations/L/keyRings/R|keyname&quot; --cert-file x.crt
+    The script reads a short-lived access token with  gcloud auth print-access-token.
+  * Windows workers exist in Cloud Build; use Sign-Code.ps1 there.</pre></div>
+<p>11.6  ALIBABA CLOUD YUNXIAO (FLOW)</p>
+<div class="code"><pre>  Alibaba Cloud KMS has no code-signing service. Two safe options:
+   a) PRIVATE PKI certificate: keep the PFX (base64) and its password as secret variables in the
+      Yunxiao pipeline (or in KMS &quot;Secrets Manager&quot; and fetch them at build time into the two
+      variables). Then  bash Sign-Code.sh --ci --pfx-base64-env SIGN_PFX_B64 --folder ./out
+   b) Public certificate on a hardware module: use --provider pkcs11 with the library of your HSM.
+  The template alibaba-yunxiao-flow.yml is a generic starting point: the exact YAML of Flow
+  changes between versions, so copy the two commands into a &quot;Run shell&quot; (Linux) or &quot;Run
+  PowerShell&quot; (Windows) step of your own pipeline.</pre></div>
+<p>11.7  A BUILD VM IN AZURE, AWS, ALIBABA OR GOOGLE CLOUD</p>
+<div class="code"><pre>  A self-managed VM is the simplest case, and the best for hardware tokens or an HSM client.
+  1. Create the VM: Windows 11 / Server 2022 / Server 2025, or Ubuntu 24.04, or Rocky Linux 10.
+  2. Install PowerShell 7 (Windows) or nothing more than bash, openssl and curl (Linux).
+  3. Give the VM an identity instead of a password: managed identity (Azure), instance role (AWS),
+     RAM role (Alibaba), service account (Google). Give that identity only the right to use the key
+     or to read the secret.
+  4. Open outbound port 80 and 443 to the internet or to your internal mirrors.
+  5. Install the PKI trust: .\Install-PkiTrust.ps1 / ./Install-PkiTrust.sh (from the DevKit), so
+     the VM trusts your private root.
+  6. Run  Sign-Code -CheckOnly  once by hand.
+  7. Call Sign-Code from your build system (Jenkins, TeamCity, GitLab runner, a scheduled task).</pre></div>
+<p>11.8  VISUAL STUDIO 2026 AND MSBUILD</p>
+<p>On a developer PC, signing is normally OFF. On the build server it is switched on with a property. Use the template file Sign-Code.targets:</p>
+<div class="code"><pre>    1. Copy Sign-Code.ps1 and Sign-Code.targets into the repository, for example into  build\ .
+    2. In Directory.Build.targets add:   &lt;Import Project=&quot;build\Sign-Code.targets&quot; /&gt;
+    3. On the build server:   dotnet build -c Release -p:SignCode=true
+       or  msbuild MyApp.sln /p:Configuration=Release /p:SignCode=true
+       with SIGN_PFX_B64 and SIGN_PFX_PASSWORD in the environment.
+    4. Change the timestamp server with  -p:SignTimestamp=GlobalSign .</pre></div>
+<p>The target runs after the output is copied and signs the main assembly of each project. To sign everything you publish (installer, all dlls), add one more step AFTER publish that runs Sign-Code.ps1 -Folder on the publish folder. Visual Studio 2026 itself needs nothing special: the command line above is what Visual Studio calls too. For an installer made with WiX or MSIX packaging, sign the .msi / .msix file as the last step.</p>
+<p>11.9  KEEPING THE KEY SAFE: PFX SECRET OR CLOUD KEY?</p>
+<div class="code"><pre>  Private PKI, internal software   A PFX secret in the secret store is acceptable. Use a leaf
+                                   with a short life (one year), a separate certificate per
+                                   product line, and rotate the secret.
+  Public OV / EV certificate       The CA/Browser Forum requires the key in a FIPS 140-2 level 2 /
+                                   Common Criteria EAL4+ device. You cannot export it to a PFX.
+                                   Use a cloud key service of the CA or of your cloud (Azure Key
+                                   Vault Premium or Managed HSM, Artifact Signing, DigiCert
+                                   KeyLocker, SSL.com eSigner, AWS CloudHSM, Google Cloud HSM).
+  Anywhere                         Limit who can edit the pipeline file: whoever can edit it can
+                                   sign anything. Use protected branches and approvals on the
+                                   &quot;signing&quot; environment or stage.</pre></div>
+<h2 id="12-exit-codes">12  EXIT CODES<a class="anchor" href="#12-exit-codes" aria-label="Link to this section">#</a></h2>
+<p>0  All files were signed. 1  Error (the message says why): file not found, wrong password, bad option ... 2  The certificate was refused (section 5 A). Nothing was signed. 3  The timestamp server cannot be reached, or its answer or certificate is bad. 4  A needed tool is missing and could not be installed. 5  Wrong platform (the .ps1 is for Windows, the .sh for Linux). 6  At least one file failed to sign, or -Strict / --strict and a file was skipped. 7  There was no file to sign.</p>
+<h2 id="13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE<a class="anchor" href="#13-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Check only:            .\Sign-Code.ps1 -Pfx .\codesign.pfx -CheckOnly
+ Sign a folder:         .\Sign-Code.ps1 -Pfx .\codesign.pfx -Folder .\bin\Release `
+                          -Exclude &quot;*.Tests.dll&quot;
+ Private PKI, PEM pair: .\Sign-Code.ps1 -CertPem .\cs.crt -KeyPem .\cs.key `
+                          -ChainFile .\ca-bundle.pem -File .\app.exe
+ Key in Azure Key Vault: .\Sign-Code.ps1 -Ci -Provider AzureKeyVault `
+                          -ProviderArg &quot;https://myvault.vault.azure.net|codesign&quot; `
+                          -CertFile .\codesign.cer -Folder .\out
+ Other time server:     add  -Timestamp GlobalSign  or  -TimestampUrl <a href="http://ts.example.com" target="_blank" rel="noopener noreferrer">http://ts.example.com</a>
+ Make pipeline files:   .\Sign-Code.ps1 -Template all
+ On Linux:              ./Sign-Code.sh --pfx codesign.pfx --file app.dll --file tool.jar</pre></div>
+<h2 id="14-problems-and-answers">14  PROBLEMS AND ANSWERS<a class="anchor" href="#14-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> &quot;The PFX could not be opened&quot;            Wrong password, or the variable is not mapped into the
+                                          step. Print only its LENGTH to test, never its value.
+ &quot;The certificate is not for Code Signing&quot; You used a web-server certificate. Make a new one with
+                                          -Purpose CodeSigning.
+ &quot;RSA-2048 ... PublicCa&quot;                  A public code-signing certificate needs RSA 3072+. Ask
+                                          your CA for a newer one.
+ &quot;The timestamp server ... cannot be reached&quot;
+                                          Firewall, proxy or DNS. Test:
+                                          curl -I <a href="http://timestamp.digicert.com" target="_blank" rel="noopener noreferrer">http://timestamp.digicert.com</a>
+                                          or choose another with -Timestamp.
+ &quot;signtool was not found&quot; on a server     winget is missing on Windows Server. Install Chocolatey,
+                                          or install the Windows SDK by hand (&quot;Windows SDK Signing
+                                          Tools for Desktop Apps&quot; is enough).
+ Windows still says &quot;Unknown publisher&quot;   Your private root is not trusted on that PC. Run
+                                          Install-PkiTrust on it, or use a public certificate.
+ Signature invalid after copying          Something changed the file after signing (antivirus,
+                                          an installer builder, Git line-end conversion). Sign
+                                          last, and mark binaries as binary in .gitattributes.
+ apksigner not found on Rocky / Oracle    See section 9: install the Android build-tools.
+ Java files: &quot;unable to sign jar&quot;         The key must be RSA or EC. jarsigner cannot use ML-DSA.</pre></div>
+<h2 id="15-limits-you-must-know">15  LIMITS YOU MUST KNOW<a class="anchor" href="#15-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>Linux cannot sign VBA macros, vbs, js or wsf. Use the Windows script for them.</li><li>Linux native packages (rpm, deb, ELF) are not signed by this script. Use GPG / rpm --addsign.</li><li>Java tools cannot sign with ML-DSA. A post-quantum code-signing certificate is not accepted by Windows, Java or Android today. Use a Classic certificate.</li><li>A private PKI certificate is trusted only on computers that trust your root.</li><li>A public OV / EV code-signing key must be in hardware. Use -Provider.</li><li>The pipeline templates were written from public documentation.</li></ul>
+<h2 id="16-all-options">16  ALL OPTIONS<a class="anchor" href="#16-all-options" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre>  PowerShell                   Shell                      Meaning
   ---------------------------  -------------------------  -------------------------------------
   -File &lt;path&gt;  (repeat)       --file &lt;path&gt;              One file to sign
@@ -393,151 +543,31 @@ Help  : .\Sign-Code.ps1 -Help          ./Sign-Code.sh --help</pre></div>
   -CheckOnly                   --check-only               Checks only, sign nothing
   -ShowCertificate             --show-certificate         Print the certificate
   -Strict                      --strict                   Skipped file = failed run
-  -Ci                          --ci                       Pipeline mode (chapter 10)
+  -Ci                          --ci                       Pipeline mode (section 11)
   -Template &lt;name&gt;             --template &lt;name&gt;          Write pipeline files and stop
   -Help                        --help                     The help text</pre></div>
-<h2 id="10-setting-up-a-build-environment-for-devsecops">10. SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)<a class="anchor" href="#10-setting-up-a-build-environment-for-devsecops" aria-label="Link to this section">#</a></h2>
-<p>Goal: the build server builds your software, signs it and publishes it, with nobody typing passwords. The same two scripts do the work everywhere. Only the way you hand over the secret is different.</p>
-<div class="code"><pre>Ready-made starting files:   .\Sign-Code.ps1 -Template all      ./Sign-Code.sh --template all
-They are written to  transport\signing-ci_&lt;date-time&gt;\  : github-actions.yml, azure-pipelines.yml,
-aws-codebuild-buildspec.yml, google-cloudbuild.yaml, alibaba-yunxiao-flow.yml, Sign-Code.targets.
-Edit names and paths. They were written from the public documentation of each service and have
-NOT been run on a real pipeline (see chapter 13).</pre></div>
-<p>10.1  RULES THAT ARE THE SAME EVERYWHERE</p>
-<div class="code"><pre>  1. The scripts must be in the repository (or on the agent): Sign-Code.ps1 for Windows agents,
-     Sign-Code.sh for Linux agents. Both are also inside the DevKit.
-  2. Use the pipeline mode:  -Ci  /  --ci. It never asks a question, it writes annotations
-     (GitHub Actions, Azure DevOps), and it removes temporary secret files at the end.
-  3. Secrets go through environment variables mapped from the secret store of the service.
-     Never print them, never put them in the YAML text, never pass them as command-line text.
-  4. First run the checks alone (-CheckOnly) in a test pipeline. It proves: the secret decodes, the
-     password is right, the certificate passes, the agent can reach the timestamp server.
-  5. Sign AFTER the build and the tests, and BEFORE the package is published or hashed.
-  6. Do not sign test projects or obj folders. Use -Folder on the publish folder and -Exclude.
-  7. A non-zero exit code fails the step. Do not hide it with &quot;continue on error&quot;.
-  8. Keep these as pipeline artifacts: sign-report_*.json and the *-signed.sha256 / *-signed.sha512
-     files. They are your evidence for auditors.
-  9. Network: outbound port 80 to the timestamp server, outbound HTTPS to the package sources.
-     Offline agent? Bake the tools into the image, add -Installer None / --installer none, and use
-     your own timestamp server with -TimestampUrl.
- 10. Clock: the agent clock must be right (NTP). A clock that is wrong makes timestamp checks warn.
- 11. Make the base64 text of a PFX:
-        PowerShell :  [Convert]::ToBase64String([IO.File]::ReadAllBytes(&quot;codesign.pfx&quot;))
-        Linux      :  base64 -w0 codesign.pfx
-     Store the text in the secret store, and the PFX password in a second secret.</pre></div>
-<p>10.2  GITHUB ACTIONS</p>
-<p>Secrets (repository or environment): SIGN_PFX_B64 and SIGN_PFX_PASSWORD. Hosted runner windows-latest (Windows Server 2025 image) has PowerShell 7, .NET and the Windows SDK, so signtool is already there. ubuntu-latest has bash, openssl, curl, a JDK, and .NET.</p>
-<ul><li>name: Sign shell: pwsh env: SIGN_PFX_B64: ${{ secrets.SIGN_PFX_B64 }} SIGN_PFX_PASSWORD: ${{ secrets.SIGN_PFX_PASSWORD }} run: ./Sign-Code.ps1 -Ci -PfxBase64Env SIGN_PFX_B64 -Folder out -Timestamp DigiCert</li></ul>
-<div class="code"><pre>  Linux runner: replace the last line with
-    bash ./Sign-Code.sh --ci --pfx-base64-env SIGN_PFX_B64 --folder out
-  Good to know: the script prints a ::add-mask:: line for its temporary passwords, writes errors
-  and warnings as annotations, and adds a summary to the job page.
-  For a public EV / OV certificate in a cloud key service use OIDC (no stored cloud password):
-  give the job  permissions: id-token: write  and log in with the cloud&#39;s official login action,
-  then call Sign-Code with -Provider.</pre></div>
-<p>10.3  AZURE DEVOPS SERVICES AND AZURE DEVOPS SERVER</p>
-<p>Put SIGN_PFX_B64 and SIGN_PFX_PASSWORD in a variable group (mark both as SECRET), or in Azure Key Vault linked to the variable group. A secret variable is NOT visible to a script by itself: map it with env: as in the template.</p>
-<ul><li>pwsh: &gt; ./Sign-Code.ps1 -Ci -PfxBase64Env SIGN_PFX_B64 -Folder &quot;$(Build.ArtifactStagingDirectory)\out&quot; displayName: Sign code env: SIGN_PFX_B64: $(SIGN_PFX_B64) SIGN_PFX_PASSWORD: $(SIGN_PFX_PASSWORD)</li></ul>
-<ul><li>Microsoft-hosted agents: windows-latest has PowerShell 7 and the Windows SDK; ubuntu-latest can use Sign-Code.sh.</li><li>Self-hosted agents (also the only choice for Azure DevOps Server, the on-premises product): install PowerShell 7 (Windows) or bash, openssl, curl (Linux). Run the agent service under a normal account, not under SYSTEM or root if you can avoid it. A hardware token needs an interactive session; for that use a cloud key service instead.</li><li>The script writes ##vso[task.logissue] lines, so errors and warnings show in the run summary, and sets the pipeline variable SignCode.Signed (number of signed files).</li><li>Azure Key Vault or Artifact Signing: use an Azure Resource Manager service connection with workload identity (federation) or a managed identity of the agent VM; then -Provider AzureKeyVault -ProviderArg &quot;https://myvault.vault.azure.net|certname&quot; -CertFile x.cer. The identity needs the Key Vault roles &quot;Key Vault Crypto User&quot; (sign) and &quot;Key Vault Certificate User&quot; (read certificate).</li></ul>
-<p>10.4  AWS CODEBUILD</p>
-<div class="code"><pre>  Store the two secrets in AWS Secrets Manager (or Parameter Store) and read them in buildspec.yml
-  with  env: secrets-manager:  (see the template).
-  * Linux image (Amazon Linux 2023 or Ubuntu): use Sign-Code.sh. Amazon Linux is not in the
-    supported list of the script; it works with a warning if dnf is there.
-  * Windows image: use Sign-Code.ps1; install PowerShell 7 in the image if it is missing.
-  * Key in AWS KMS: the CodeBuild service role needs kms:Sign and kms:DescribeKey for that key.
-    Then:  --provider awskms --provider-arg &quot;eu-central-1|alias/codesign&quot; --cert-file codesign.cer
-    (the signing needs Jsign and Java; the script installs Jsign). Note that a KMS key signs, but
-    a certificate for it still comes from a CA that you ask (a CSR made from the KMS key).
-  * Public certificates from AWS Signer are a different service (not covered).</pre></div>
-<p>10.5  GOOGLE CLOUD BUILD</p>
-<div class="code"><pre>  Put the secrets in Secret Manager and map them with  availableSecrets / secretEnv  (see the
-  template). The Cloud Build service account needs &quot;Secret Manager Secret Accessor&quot;.
-  * Use a Linux builder image with bash, openssl, curl and Java. Run  Sign-Code.sh.
-  * Key in Cloud KMS: give the service account roles/cloudkms.signerVerifier on that key, then
-    --provider gcpkms --provider-arg &quot;projects/P/locations/L/keyRings/R|keyname&quot; --cert-file x.crt
-    The script reads a short-lived access token with  gcloud auth print-access-token.
-  * Windows workers exist in Cloud Build; use Sign-Code.ps1 there.</pre></div>
-<p>10.6  ALIBABA CLOUD YUNXIAO (FLOW)</p>
-<div class="code"><pre>  Alibaba Cloud KMS has no code-signing service. Two safe options:
-   a) PRIVATE PKI certificate: keep the PFX (base64) and its password as secret variables in the
-      Yunxiao pipeline (or in KMS &quot;Secrets Manager&quot; and fetch them at build time into the two
-      variables). Then  bash Sign-Code.sh --ci --pfx-base64-env SIGN_PFX_B64 --folder ./out
-   b) Public certificate on a hardware module: use --provider pkcs11 with the library of your HSM.
-  The template alibaba-yunxiao-flow.yml is a generic starting point: the exact YAML of Flow
-  changes between versions, so copy the two commands into a &quot;Run shell&quot; (Linux) or &quot;Run
-  PowerShell&quot; (Windows) step of your own pipeline.</pre></div>
-<p>10.7  A BUILD VM IN AZURE, AWS, ALIBABA OR GOOGLE CLOUD</p>
-<div class="code"><pre>  A self-managed VM is the simplest case, and the best for hardware tokens or an HSM client.
-  1. Create the VM: Windows 11 / Server 2022 / Server 2025, or Ubuntu 24.04, or Rocky Linux 10.
-  2. Install PowerShell 7 (Windows) or nothing more than bash, openssl and curl (Linux).
-  3. Give the VM an identity instead of a password: managed identity (Azure), instance role (AWS),
-     RAM role (Alibaba), service account (Google). Give that identity only the right to use the key
-     or to read the secret.
-  4. Open outbound port 80 and 443 to the internet or to your internal mirrors.
-  5. Install the PKI trust: .\Install-PkiTrust.ps1 / ./Install-PkiTrust.sh (from the DevKit), so
-     the VM trusts your private root.
-  6. Run  Sign-Code -CheckOnly  once by hand.
-  7. Call Sign-Code from your build system (Jenkins, TeamCity, GitLab runner, a scheduled task).</pre></div>
-<p>10.8  VISUAL STUDIO 2026 AND MSBUILD</p>
-<p>On a developer PC, signing is normally OFF. On the build server it is switched on with a property. Use the template file Sign-Code.targets:</p>
-<div class="code"><pre>    1. Copy Sign-Code.ps1 and Sign-Code.targets into the repository, for example into  build\ .
-    2. In Directory.Build.targets add:   &lt;Import Project=&quot;build\Sign-Code.targets&quot; /&gt;
-    3. On the build server:   dotnet build -c Release -p:SignCode=true
-       or  msbuild MyApp.sln /p:Configuration=Release /p:SignCode=true
-       with SIGN_PFX_B64 and SIGN_PFX_PASSWORD in the environment.
-    4. Change the timestamp server with  -p:SignTimestamp=GlobalSign .</pre></div>
-<p>The target runs after the output is copied and signs the main assembly of each project. To sign everything you publish (installer, all dlls), add one more step AFTER publish that runs Sign-Code.ps1 -Folder on the publish folder. Visual Studio 2026 itself needs nothing special: the command line above is what Visual Studio calls too. For an installer made with WiX or MSIX packaging, sign the .msi / .msix file as the last step.</p>
-<p>10.9  KEEPING THE KEY SAFE: PFX SECRET OR CLOUD KEY?</p>
-<div class="code"><pre>  Private PKI, internal software   A PFX secret in the secret store is acceptable. Use a leaf
-                                   with a short life (one year), a separate certificate per
-                                   product line, and rotate the secret.
-  Public OV / EV certificate       The CA/Browser Forum requires the key in a FIPS 140-2 level 2 /
-                                   Common Criteria EAL4+ device. You cannot export it to a PFX.
-                                   Use a cloud key service of the CA or of your cloud (Azure Key
-                                   Vault Premium or Managed HSM, Artifact Signing, DigiCert
-                                   KeyLocker, SSL.com eSigner, AWS CloudHSM, Google Cloud HSM).
-  Anywhere                         Limit who can edit the pipeline file: whoever can edit it can
-                                   sign anything. Use protected branches and approvals on the
-                                   &quot;signing&quot; environment or stage.</pre></div>
-<h2 id="11-exit-codes">11. EXIT CODES<a class="anchor" href="#11-exit-codes" aria-label="Link to this section">#</a></h2>
-<p>0  All files were signed. 1  Error (the message says why): file not found, wrong password, bad option ... 2  The certificate was refused (chapter 3 A). Nothing was signed. 3  The timestamp server cannot be reached, or its answer or certificate is bad. 4  A needed tool is missing and could not be installed. 5  Wrong platform (the .ps1 is for Windows, the .sh for Linux). 6  At least one file failed to sign, or -Strict / --strict and a file was skipped. 7  There was no file to sign.</p>
-<h2 id="12-problems-and-answers">12. PROBLEMS AND ANSWERS<a class="anchor" href="#12-problems-and-answers" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> &quot;The PFX could not be opened&quot;            Wrong password, or the variable is not mapped into the
-                                          step. Print only its LENGTH to test, never its value.
- &quot;The certificate is not for Code Signing&quot; You used a web-server certificate. Make a new one with
-                                          -Purpose CodeSigning.
- &quot;RSA-2048 ... PublicCa&quot;                  A public code-signing certificate needs RSA 3072+. Ask
-                                          your CA for a newer one.
- &quot;The timestamp server ... cannot be reached&quot;
-                                          Firewall, proxy or DNS. Test:
-                                          curl -I <a href="http://timestamp.digicert.com" target="_blank" rel="noopener noreferrer">http://timestamp.digicert.com</a>
-                                          or choose another with -Timestamp.
- &quot;signtool was not found&quot; on a server     winget is missing on Windows Server. Install Chocolatey,
-                                          or install the Windows SDK by hand (&quot;Windows SDK Signing
-                                          Tools for Desktop Apps&quot; is enough).
- Windows still says &quot;Unknown publisher&quot;   Your private root is not trusted on that PC. Run
-                                          Install-PkiTrust on it, or use a public certificate.
- Signature invalid after copying          Something changed the file after signing (antivirus,
-                                          an installer builder, Git line-end conversion). Sign
-                                          last, and mark binaries as binary in .gitattributes.
- apksigner not found on Rocky / Oracle    See chapter 7: install the Android build-tools.
- Java files: &quot;unable to sign jar&quot;         The key must be RSA or EC. jarsigner cannot use ML-DSA.</pre></div>
-<h2 id="13-what-was-not-tested">13. WHAT WAS NOT TESTED<a class="anchor" href="#13-what-was-not-tested" aria-label="Link to this section">#</a></h2>
+<p>VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash). It prints the script version, author, company, e-mail, the operating system with its version and patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL found, with the vendor of each OpenSSL. It changes nothing. Details: <a href="VERSION-INFO.html">VERSION-INFO.txt</a>.</p>
+<h2 id="17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#17-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
 <p>Tested on Ubuntu 24.04 (the author&#39;s build machine): the certificate checks (good and bad certificates), the timestamp check (against a local RFC 3161 test server), signing of PowerShell scripts and a JAR with osslsigncode / jarsigner, the hash files, and the pipeline templates being written. The PowerShell script was tested up to and including the checks (-CheckOnly) on Linux.</p>
 <p>NOT tested (no such machine was available): signtool on Windows 11 / Server 2022 / 2025, winget and Chocolatey installs, signing of exe / dll / msi / VBA files on Windows, apksigner, NuGet signing, any cloud provider (Azure Key Vault, Artifact Signing, AWS KMS, Google Cloud KMS, PKCS#11, KeyLocker), the dnf / EPEL / COPR install path on CentOS Stream, Rocky and Oracle Linux, and the pipeline files on the real services (GitHub, Azure DevOps, AWS, Google, Alibaba). Run -CheckOnly first, then one small file, before you rely on a pipeline.</p>
+<h2 id="18-other-documents">18  OTHER DOCUMENTS<a class="anchor" href="#18-other-documents" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> <a href="VERSION-INFO.html">VERSION-INFO.txt</a>   (what -Version / --version prints)
+ <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>   <a href="PkiTrustKit-MANUAL.html">PkiTrustKit-MANUAL.txt</a>   <a href="PkiTransport-MANUAL.html">PkiTransport-MANUAL.txt</a>
+ <a href="PkiRevocation-MANUAL.html">PkiRevocation-MANUAL.txt</a>   <a href="GLOSSARY.html">GLOSSARY.txt</a>   <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a></pre></div>
+<h2 id="author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com<a class="anchor" href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma" aria-label="Link to this section">#</a></h2>
+
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="Create-WebServerConfig-MANUAL.html"><small>&larr; Previous</small>Web server configuration</a><a class="nx" href="PkiRevocation-MANUAL.html"><small>Next &rarr;</small>Revocation, CRL, OCSP, time stamp</a></nav>
-<p class="crumb">Made from Sign-Code-MANUAL.txt by Build-HtmlDocs.ps1 6.4.7.</p>
+<p class="crumb">Made from Sign-Code-MANUAL.txt by Build-HtmlDocs.ps1 6.6.18.</p>
 
 </div>
-<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-is-code-signing-in-plain-words">1. WHAT IS CODE SIGNING, IN PLAIN WORDS</a><a href="#2-quick-start-5-minutes">2. QUICK START (5 MINUTES)</a><a href="#3-what-the-script-checks-before-it-signs">3. WHAT THE SCRIPT CHECKS BEFORE IT SIGNS</a><a href="#4-which-files-can-be-signed">4. WHICH FILES CAN BE SIGNED</a><a href="#5-which-certificate-can-be-used">5. WHICH CERTIFICATE CAN BE USED</a><a href="#6-timestamp-servers">6. TIMESTAMP SERVERS</a><a href="#7-tools-what-is-installed-and-how">7. TOOLS: WHAT IS INSTALLED, AND HOW</a><a href="#8-what-you-get-after-signing">8. WHAT YOU GET AFTER SIGNING</a><a href="#9-all-options">9. ALL OPTIONS</a><a href="#10-setting-up-a-build-environment-for-devsecops">10. SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)</a><a href="#11-exit-codes">11. EXIT CODES</a><a href="#12-problems-and-answers">12. PROBLEMS AND ANSWERS</a><a href="#13-what-was-not-tested">13. WHAT WAS NOT TESTED</a></aside>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-is-code-signing-in-plain-words">1   WHAT IS CODE SIGNING, IN PLAIN WORDS</a><a href="#2-the-words-you-need">2   THE WORDS YOU NEED</a><a href="#3-before-you-start">3   BEFORE YOU START</a><a href="#4-quick-start-5-minutes">4   QUICK START (5 MINUTES)</a><a href="#5-what-the-script-checks-before-it-signs">5   WHAT THE SCRIPT CHECKS BEFORE IT SIGNS</a><a href="#6-which-files-can-be-signed">6   WHICH FILES CAN BE SIGNED</a><a href="#7-which-certificate-can-be-used">7   WHICH CERTIFICATE CAN BE USED</a><a href="#8-timestamp-servers">8   TIMESTAMP SERVERS</a><a href="#9-tools-what-is-installed-and-how">9   TOOLS: WHAT IS INSTALLED, AND HOW</a><a href="#10-what-you-get-after-signing">10  WHAT YOU GET AFTER SIGNING</a><a href="#11-setting-up-a-build-environment-for-devsecops">11  SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)</a><a href="#12-exit-codes">12  EXIT CODES</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.4.7</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 6.6.18</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

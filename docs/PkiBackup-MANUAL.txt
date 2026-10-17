@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiBackup  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - back up and restore the PKI     Version 6.4.7   2026-10-17
+ Agantra Inovatif Enterprise PKI - back up and restore the PKI     Version 6.6.18   2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Backup-Pki.ps1   Restore-Pki.ps1   Test-PkiBackup.ps1   (and Prepare-Computer.ps1)
 
@@ -337,6 +337,11 @@
    5   system not supported (Windows version, edition, ARM, not Windows)
    6   a checksum does not match (damaged or changed)
 
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
 ====================================================================================================
  17  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
@@ -352,6 +357,7 @@
 ====================================================================================================
  18  OTHER DOCUMENTS (AND FOR THE MAINTAINER)
 ====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
  PrepareComputer-MANUAL.txt   pki_setup-MANUAL.txt   PkiTransport-MANUAL.txt   GLOSSARY.txt
  GLOSSARY-ENGLISH.txt
 

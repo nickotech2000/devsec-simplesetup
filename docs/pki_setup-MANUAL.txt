@@ -1,7 +1,7 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 6.4.7           2026-10-17
+ Agantra Inovatif Enterprise PKI generator          Version 6.6.18           2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -167,6 +167,8 @@
  Step 7. Check what was written. This changes nothing.
              .\pki_setup.ps1 -Verify
          Expected:  PKI is valid
+         Several PKIs (companies, releases)?  .\pki_setup.ps1 -VerifyAll  checks every one, shows
+         each output and ends with a PASSED / FAILED list. Exit code 0 = all passed.
          On Windows it also tells you whether each CA is in the certificate store.
 
  Step 8. Test it. Open Edge, Chrome or Brave. They use the Windows store.
@@ -628,6 +630,7 @@
  16.1  What to run
       -Check                preflight. Is this computer ready? Writes nothing.
       -Verify               check an existing PKI against pki-manifest.json. Writes nothing.
+      -VerifyAll            -Verify for EVERY built PKI (all companies, releases, NoCR). Shows all.
       -ShowNames            show the names of all CAs. Builds nothing.
       -ListPki              list the PKIs of all companies.
       -Help                 the help text.
@@ -718,6 +721,11 @@
  16.12  Exit codes
       0 ok        1 error        5 this operating system is not supported
 
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
 ====================================================================================================
  17  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
@@ -731,6 +739,7 @@
 ====================================================================================================
  18  OTHER DOCUMENTS
 ====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
  This manual is for pki_setup.ps1 only. Every other script has its own manual.
  All manuals are in the folder docs. The same text is in the folder html (open index.html).
 

@@ -17,7 +17,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:BkVersion = '6.4.7'
+$script:BkVersion = '6.6.18'
 $script:BkAssumeYes = $false
 $script:BkFormat = 'agantra-pki-backup'
 $script:BkFormatVersion = 1

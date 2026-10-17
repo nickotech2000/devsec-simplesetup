@@ -1,248 +1,293 @@
 ====================================================================================================
- Export-PkiCa - take CA certificates out of the PKI for a CDN, a proxy or a load balancer
- Author : Nicko Satria Utama
- Company: Agantra Inovatif OÜ (NextMantra)
- Email  : nicko@nextmantra.com
- Version: 6.4.7
+ Export-PkiCa  -  USER MANUAL
 ====================================================================================================
+ Agantra Inovatif Enterprise PKI - CA files for CDNs, proxies and load balancers
+ Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Script : Export-PkiCa.ps1
 
  READ THIS FIRST
 ----------------------------------------------------------------------------------------------------
- What it is   : Takes CA certificates out of the PKI as files, with names for Cloudflare, Azure,
-                CloudFront and other CDNs.
- Who reads it : Web and infrastructure staff.
- You need     : A PKI. A leaf certificate if you want its chain.
- Start with   : Read the QUICK START.
- Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+ What it is   : A script that takes the CA certificates out of the PKI and writes them as files,
+                with names that Cloudflare, Azure, CloudFront and other services ask for.
+ Who reads it : Web, infrastructure and support staff. No PKI knowledge is needed. Every new word
+                is explained in GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+ Time needed  : 5 minutes to read sections 1 to 4. A run takes a few seconds.
+ You need     : A PKI from pki_setup.ps1 (or a customer certificate with -Leaf), PowerShell 7,
+                OpenSSL 4.
+ Start with   : Section 4 (Quick start).
 ----------------------------------------------------------------------------------------------------
+ Related manuals:
+   pki_setup-MANUAL.txt      how the PKI is made
+   PkiTransport-MANUAL.txt   move the files to another computer
+   Create-WebServerConfig-MANUAL.txt   the web server side
+   PkiProfiles-MANUAL.txt    the -Pki option
+   PKI-Design-with-FIPS-and-PQC.txt   why it is built this way (senior staff, 10.150 - 10.152)
+ Help in the terminal:   .\Export-PkiCa.ps1 -Help      (one page at a time)
 
-File : Export-PkiCa.ps1   (PowerShell 7+, OpenSSL 4.x; Windows 11 24H2+, Windows Server 2022 /
-                           2025, Linux)
-Help : .\Export-PkiCa.ps1 -Help
+ CONTENTS
+    1  What Export-PkiCa does                  10  Where does each service want the file?
+    2  The words you need                      11  Warnings on the screen
+    3  Before you start                        12  Hash files
+    4  Quick start                             13  Recipes, copy and paste
+    5  Choosing the CAs (-Ca)                  14  Problems and answers
+    6  Formats (-Format)                       15  Limits you must know
+    7  CDN and cloud names (-Target)           16  All options
+    8  Keys (-IncludeKey)                      17  What was tested, what was not
+    9  Start from a leaf certificate (-Leaf)   18  Other documents
 
-CONTENTS
-  1. Why this script exists
-  2. Quick start
-  3. Choosing the CAs (-Ca)
-  4. Formats and hash files (-Format, -Hash)
-  5. CDN and cloud names (-Target)
-  6. Keys (-IncludeKey)
-  7. Starting from a leaf certificate (-Leaf)
-  8. The output folder
-  9. Where does each service want the file?
- 10. Problems and answers
+====================================================================================================
+ 1  WHAT EXPORT-PKICA DOES
+====================================================================================================
+ A CDN (Cloudflare, Azure Front Door / CDN, CloudFront, Alibaba CDN, Google Cloud CDN, Akamai), a
+ reverse proxy or a load balancer stands between the visitor and your server. It opens its own
+ connection to your server (the "origin") and checks the certificate it finds there. It knows the
+ public CAs. It does NOT know your private PKI, so it refuses your certificate until you give it
+ your CA certificate. Cloudflare calls this "Bring Your Own CA". The others have similar forms.
 
-----------------------------------------------------------------------------------------------------
-1. WHY THIS SCRIPT EXISTS
-----------------------------------------------------------------------------------------------------
+ Export-PkiCa writes the CA certificates in the formats and with the names those forms accept. It
+ writes PUBLIC certificates. A private key goes out only if you ask (-IncludeKey).
 
-A CDN (Cloudflare, Azure Front Door / CDN, CloudFront, Alibaba CDN, Google Cloud CDN, Akamai), a
-reverse proxy or a load balancer stands between the visitor and your server. It opens its own
-connection to your server ("origin") and checks the certificate it finds there. A public service
-knows public CAs. It does NOT know your private PKI, so it refuses your certificate, unless you
-give it your CA certificate to trust. Cloudflare calls this feature "Bring Your Own CA"; the
-others have similar upload forms.
+ It also works the other way. A customer has a certificate (from your PKI or a public CA) and asks
+ "which CA files do I give the CDN?". Give the script the certificate with -Leaf. It follows the
+ chain and writes the intermediates and the root.
 
-This script takes the CA certificates out of your PKI and writes them as the files these services
-ask for, in many formats, with hash files, one folder for each CA. It writes PUBLIC certificates.
-Private keys are only written when you ask for them with -IncludeKey.
+====================================================================================================
+ 2  THE WORDS YOU NEED
+====================================================================================================
+ CA            Certificate authority. The part of the PKI that signs certificates.
+ Root          The top CA. Everything below it is trusted because the root is trusted.
+ Intermediate  A CA between the root and your server certificate (DV, OV, EV).
+ Leaf          The certificate of your server. It is at the bottom of the chain.
+ Chain         Leaf, then intermediate(s), then root.
+ CDN           A service that sits in front of your site and serves it from many places.
+ Origin        Your own server behind the CDN.
+ PEM / DER     Two ways to write the same certificate: text, or binary.
+ Quadrant      Q1 = Classic, not FIPS. Q2 = Classic, FIPS. Q3 = Quantum, not FIPS.
+               Q4 = Quantum, FIPS.
+ NoCR          A PKI whose CA certificates have no CRL / OCSP address inside.
+ More words: GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
 
-It also helps in the other direction: a customer already has a certificate (from your PKI or from
-a public CA) and asks "which CA files do I give the CDN?". Give the script the leaf certificate
-(with -Leaf), it follows the chain and writes the intermediate and root certificates.
+====================================================================================================
+ 3  BEFORE YOU START
+====================================================================================================
+ 1. You have the PKI folder (made by pki_setup.ps1), or a certificate file from a customer.
+ 2. PowerShell 7 and OpenSSL 4 are installed. Run .\Prepare-Computer.ps1 -Check if unsure.
+ 3. You know what the service wants: only the root, or the root and every intermediate. When you
+    are not sure, give all of them (-WithPath).
+ 4. Decide: do you need a key? Almost always NO. A CDN needs only the certificate.
 
-----------------------------------------------------------------------------------------------------
-2. QUICK START
-----------------------------------------------------------------------------------------------------
+====================================================================================================
+ 4  QUICK START
+====================================================================================================
+     .\Export-PkiCa.ps1 -List                       what can I choose?
+     .\Export-PkiCa.ps1                             all roots, all formats, Cloudflare names
+     .\Export-PkiCa.ps1 -Ca q1-ov -WithPath         Q1 OV CA and all parents to the Enterprise Root
+     .\Export-PkiCa.ps1 -Leaf .\www-fullchain.crt -Target All
 
-    .\Export-PkiCa.ps1 -List                       what can I choose?
-    .\Export-PkiCa.ps1                             all roots, all formats, Cloudflare names
-    .\Export-PkiCa.ps1 -Ca q1-ov -WithPath         the Q1 OV CA and all its parents up to the
-                                                   Enterprise Root
-    .\Export-PkiCa.ps1 -Leaf .\www-fullchain.crt -Target All
+ The result is in a new folder under  transport\ . Open its README.txt first. A folder is never
+ overwritten. Every run makes a new one. Use -OutFolder to choose another place.
 
-The result is in a new folder under  transport\ . Open its README.txt first.
+====================================================================================================
+ 5  CHOOSING THE CAs (-Ca)
+====================================================================================================
+ Default is -Ca Roots. You can give several values with commas, for example -Ca q1-root,q1-ov.
 
-----------------------------------------------------------------------------------------------------
-3. CHOOSING THE CAs (-Ca)
-----------------------------------------------------------------------------------------------------
+   Value                What you get
+   -------------------  ---------------------------------------------------------------------
+   Roots                every root: the Enterprise Root, the track roots, the quadrant roots
+   EnterpriseRoot       only the Enterprise Root
+   TrackRoots           the Classic root and the Quantum root
+   QuadrantRoots        the Q1 .. Q4 roots
+   Intermediates        every DV, OV and EV issuing CA
+   Classic | Quantum    every CA of that track
+   Q1 | Q2 | Q3 | Q4    the quadrant root and its DV / OV / EV CAs
+   DV | OV | EV         that kind of intermediate in every quadrant
+   All                  every CA
+   q1-ov, q3-root ...   one CA by its id (the ids are shown by -List)
 
-Default is  -Ca Roots. You can give several values with commas, for example -Ca q1-root,q1-ov.
+ -WithPath      Also add every parent CA up to the Enterprise Root. Each CA keeps its own files.
+                Example: -Ca q1-ov -WithPath = Enterprise Root + Classic Root + Q1 Root + Q1 OV.
+ -BothVariants  Do it for the normal PKI (CRL / OCSP addresses inside) AND the NoCR PKI. Without
+                it, one PKI is used: the newest release, or the NoCR one with -NoCaRevocationInfo.
+                -Release <n> picks an older release.
+ -List          Print the CAs you can pick (id, kind, key, validity) and stop.
+ CA ids: root, classic-root, quantum-root, q1-root, q1-dv, q1-ov, q1-ev, q2-.. q3-.. q4-..
 
-  Value                What you get
-  -------------------  -------------------------------------------------------------------------
-  Roots                every root: the Enterprise Root, the track roots, the quadrant roots
-  EnterpriseRoot       only the Enterprise Root
-  TrackRoots           the Classic root and the Quantum root
-  QuadrantRoots        the Q1 .. Q4 roots
-  Intermediates        every DV, OV and EV issuing CA
-  Classic | Quantum    every CA of that track
-  Q1 | Q2 | Q3 | Q4    the quadrant root and its DV / OV / EV CAs
-  DV | OV | EV         that kind of intermediate in every quadrant
-  All                  every CA
-  q1-ov, q3-root ...   one CA by its id (the ids are shown by -List)
+====================================================================================================
+ 6  FORMATS (-Format)
+====================================================================================================
+ -Format takes a list of PEM CRT CER DER P7B TXT, or ALL (default).
+   PEM, CRT   Text with -----BEGIN CERTIFICATE-----. Linux, nginx, Apache, most clouds.
+   CER, DER   Binary form of the same certificate. Windows, Azure, Java.
+   P7B        PKCS#7 container (certificates only). Windows, IIS.
+   TXT        The certificate as readable text (openssl x509 -text).
 
-  -WithPath     Also add every parent CA up to the Enterprise Root. Each CA still has its own
-                files. Example: -Ca q1-ov -WithPath = Enterprise Root + Classic Root + Q1 Root +
-                Q1 OV. This is what you need when a CDN wants the whole chain.
-  -BothVariants Do it for the normal PKI (CA certificates with CRL / OCSP addresses) AND for the
-                NoCR PKI (without them). Without it one PKI is used (the newest release, or the
-                NoCR one with -NoCaRevocationInfo). -Release <n> picks an older release.
-  -List         Print the CAs you can pick (id, kind, key, validity) and stop.
+====================================================================================================
+ 7  CDN AND CLOUD NAMES (-Target)
+====================================================================================================
+ -Target (default Cloudflare): Cloudflare AzureCdn CloudFront AlibabaCdn GoogleCdn Akamai All None.
+ For each target a copy of every certificate is written with the service in the name:
 
-Some PKI facts: CA ids are root, classic-root, quantum-root, q1-root, q1-dv, q1-ov, q1-ev, q2-..,
-q3-.., q4-.. (Quadrant 1 = Classic non-FIPS, 2 = Classic FIPS, 3 = Quantum non-FIPS, 4 = Quantum
-FIPS). "NoCR" means CA certificates without revocation (CRL / OCSP) addresses; some appliances
-want them that way.
+   Target       Files (for a CA called agantra-root-g1)
+   -----------  -------------------------------------------------------------------------------
+   Cloudflare   agantra-root-g1.cloudflare.pem   .cloudflare.crt
+   AzureCdn     agantra-root-g1.azure.pem   .azure.crt   .azure.cer
+   CloudFront   agantra-root-g1.cloudfront.pem   .cloudfront.crt
+   AlibabaCdn   agantra-root-g1.alibaba.pem   .alibaba.crt
+   GoogleCdn    agantra-root-g1.google.pem   .google.crt
+   Akamai       agantra-root-g1.akamai.pem   .akamai.crt
 
-----------------------------------------------------------------------------------------------------
-4. FORMATS AND HASH FILES (-Format, -Hash)
-----------------------------------------------------------------------------------------------------
+ Each file holds ONE certificate in PEM text, with LF line ends and nothing before the BEGIN line.
+ This is what the upload forms accept. Files with all selected CAs are also written:
+ ca-bundle.pem and ca-bundle.<target>.pem.
 
--Format (default ALL) takes a list of: PEM  CRT  CER  DER  P7B  TXT.
+====================================================================================================
+ 8  KEYS (-IncludeKey)
+====================================================================================================
+ The default is NO key. With -IncludeKey, every CA whose key is on this computer also gets
+   <name>.key.pem    the private key, ENCRYPTED (PKCS#8, AES-256)
+   <name>.pfx        key + certificate + chain, same password
+ -KeyPassword <text> sets the password. Without it a random one is made and shown ONCE on the
+ screen. Write it down. The Enterprise Root key also needs -Force. A DevKit has no root keys, so
+ they are skipped.
 
-  PEM, CRT   Text file with -----BEGIN CERTIFICATE-----. Linux, nginx, Apache, most clouds.
-  CER, DER   Binary form of the same certificate. Windows, Azure, Java.
-  P7B        PKCS#7 container (certificates only). Windows, IIS.
-  TXT        The certificate as readable text (openssl x509 -text).
+ Think before you use it. A CA key is the master key of a part of your PKI. A CDN needs only the
+ CA CERTIFICATE. Use keys only to move a CA to another system you control. Do not e-mail the
+ folder. Do not copy a CA .key to other machines for convenience. Keep the folder like a safe.
 
--Hash (default All) writes a hash file for every file, in the format of sha256sum:
+====================================================================================================
+ 9  START FROM A LEAF CERTIFICATE (-Leaf)
+====================================================================================================
+     .\Export-PkiCa.ps1 -Leaf .\www.example.com-fullchain.crt -Target All
+     .\Export-PkiCa.ps1 -Leaf .\shop.pfx -LeafPassword 'Abc12345!' -FetchAia -NoPki
+     .\Export-PkiCa.ps1 -Leaf .\www.crt -LeafKey .\www.key -IncludeKey
 
-    <hash>  <file name>          check with:  sha256sum -c agantra-root-g1.sha256
+   -Leaf <file>       .pem .crt .cer .der, a file that already has the chain, .p7b, .pfx / .p12.
+   -LeafKey <file>    Optional private key of the leaf. The script proves it belongs to the leaf.
+   -LeafPassword      Password of the .pfx and / or of an encrypted key.
+   -ChainFile <list>  Extra files with intermediate or root certificates.
+   -FetchAia          Download a missing intermediate from the "CA Issuers" address in the
+                      certificate. Needs the network. Off by default.
+   -NoPki             Do not look for issuers in this project's own PKI.
 
-  All = SHA-256, SHA-384 and SHA-512  ->  name.sha256, name.sha384, name.sha512
-  Auto = ONE hash that matches the key: SHA-512 for RSA-8192, ECDSA P-521 and ML-DSA-87;
-         SHA-384 for RSA-4096, ECDSA P-384 and ML-DSA-65; SHA-256 for the rest.
-  Also possible: sha3-256, sha3-384, sha3-512, or None.
-  Besides the files of each CA, a SHA256SUMS, SHA384SUMS and SHA512SUMS file at the top covers
-  the whole export.
+ How it finds the chain: it looks for the certificate whose subject equals the issuer of the leaf
+ (and whose key identifier matches), then does the same for that one, up to a root. It looks in
+ the leaf file, in -ChainFile files, in this PKI, and (with -FetchAia) on the internet. If a link
+ is missing, it names it. The leaf is written too (certificate only). With -IncludeKey and
+ -LeafKey you also get an encrypted .pfx of the leaf.
 
-----------------------------------------------------------------------------------------------------
-5. CDN AND CLOUD NAMES (-Target)
-----------------------------------------------------------------------------------------------------
+ The output folder name tells you where it came from:
+   ca-export_pki-default-01_roots_nokey_cloudflare_20261017-113000
+   ca-export_leaf-www-example-com_chain_nokey_all_20261017-113500
 
--Target (default Cloudflare) takes: Cloudflare  AzureCdn  CloudFront  AlibabaCdn  GoogleCdn
-Akamai  All  None. For each target the script writes a copy of every CA certificate with the
-service in the name:
+====================================================================================================
+ 10  WHERE DOES EACH SERVICE WANT THE FILE?
+====================================================================================================
+ The README.txt of each export repeats this. Menus change. Check the current documentation of the
+ service.
+   Cloudflare   Origin authentication with your own CA ("Bring Your Own CA", Authenticated Origin
+                Pulls, client certificates in API Shield / mTLS): upload the .cloudflare.pem.
+   Azure        Front Door / Application Gateway / CDN origin or client trust: the .azure.cer (or
+                .pem) of the root and each intermediate.
+   CloudFront   Origin mutual TLS and the trust store: the .cloudfront.pem files, or one bundle
+                (ca-bundle.cloudfront.pem).
+   Alibaba CDN  Origin and client certificate trust in the console: the .alibaba.pem.
+   Google       Certificate Manager trust configs (TrustConfig) for mTLS: the .google.pem of the
+                root and the intermediates.
+   Akamai       Property Manager "Custom Certificate Authority Set": the .akamai.pem files.
+ Give the service the ROOT and every INTERMEDIATE between the root and your server certificate
+ (use -WithPath), unless the service says it wants the root only.
 
-  Target       Files (for a CA called agantra-root-g1)
-  -----------  ---------------------------------------------------------------------------------
-  Cloudflare   agantra-root-g1.cloudflare.pem        agantra-root-g1.cloudflare.crt
-  AzureCdn     agantra-root-g1.azure.pem   .azure.crt   .azure.cer
-  CloudFront   agantra-root-g1.cloudfront.pem        agantra-root-g1.cloudfront.crt
-  AlibabaCdn   agantra-root-g1.alibaba.pem           agantra-root-g1.alibaba.crt
-  GoogleCdn    agantra-root-g1.google.pem            agantra-root-g1.google.crt
-  Akamai       agantra-root-g1.akamai.pem            agantra-root-g1.akamai.crt
+====================================================================================================
+ 11  WARNINGS ON THE SCREEN
+====================================================================================================
+ The files are still written when you see these.
+   ML-DSA (post-quantum) CA   CDNs and public clouds take RSA and ECDSA only. Use Classic CAs.
+   RSA-8192 CA                Many services limit RSA to 4096. Use the Q1 Root or an intermediate.
+   Expired CA                 The date has passed. Issue a new CA first.
+   Not a CA certificate       The file is a leaf. A CDN refuses it as a trust anchor.
 
-Each file holds ONE certificate in PEM text, with LF line ends and nothing before the BEGIN line.
-This is what the upload forms accept. A combined file with all selected CAs is also written:
-ca-bundle.pem and ca-bundle.<target>.pem.
+====================================================================================================
+ 12  HASH FILES
+====================================================================================================
+ -Hash (default All) writes a hash file for every file, in the format of sha256sum:
 
-Warnings you may see on the screen (the files are still written):
-  * A post-quantum (ML-DSA) CA is not accepted by CDNs and public clouds today. They take RSA
-    and ECDSA. Use the Classic CAs for them.
-  * An RSA-8192 CA may be too large (many services limit RSA to 4096). Use the Q1 root or an
-    intermediate instead.
-  * The CA is expired, or the file is not a CA certificate.
+     <hash>  <file name>          check with:  sha256sum -c agantra-root-g1.sha256
 
-----------------------------------------------------------------------------------------------------
-6. KEYS (-IncludeKey)
-----------------------------------------------------------------------------------------------------
+   All   SHA-256, SHA-384, SHA-512 (name.sha256, name.sha384, name.sha512).
+   Auto  ONE hash that fits the key: SHA-512 for RSA-8192, ECDSA P-521, ML-DSA-87; SHA-384 for
+         RSA-4096, P-384, ML-DSA-65; SHA-256 for the rest.
+   Also  sha3-256, sha3-384, sha3-512, or None.
+ SHA256SUMS, SHA384SUMS and SHA512SUMS at the top of the folder cover the whole export.
 
-The default is NO key. With -IncludeKey, every CA whose key is on this computer also gets
-  <name>.key.pem    the private key, ENCRYPTED (PKCS#8, AES-256)
-  <name>.pfx        key + certificate + chain, protected with the same password
--KeyPassword <text> sets the password. Without it a random password is made and shown ONCE on the
-screen. Write it down. The Enterprise Root key also needs -Force. A DevKit has no root keys; they
-are skipped.
+====================================================================================================
+ 13  RECIPES, COPY AND PASTE
+====================================================================================================
+ Cloudflare, Q1 OV chain:   .\Export-PkiCa.ps1 -Ca q1-ov -WithPath -Target Cloudflare
+ Azure and CloudFront:      .\Export-PkiCa.ps1 -Ca q1-ov -WithPath -Target AzureCdn,CloudFront
+ Only the root, all names:  .\Export-PkiCa.ps1 -Ca EnterpriseRoot -Target All
+ Normal and NoCR PKI:       .\Export-PkiCa.ps1 -Ca Roots -BothVariants
+ Customer certificate:      .\Export-PkiCa.ps1 -Leaf .\www-fullchain.crt -Target All
+ Public CA, no PKI here:    .\Export-PkiCa.ps1 -Leaf .\www.crt -NoPki -FetchAia
+ Move a CA with its key:    .\Export-PkiCa.ps1 -Ca q1-ov -WithPath -IncludeKey -KeyPassword 'xxx'
+ Another folder:            .\Export-PkiCa.ps1 -OutFolder D:\export
 
-Think before you use it: a CA key is the master key of a part of your PKI. A CDN needs only the
-CA CERTIFICATE. Use keys only to move a CA to another system you control. Keep such a folder
-like a safe.
+====================================================================================================
+ 14  PROBLEMS AND ANSWERS
+====================================================================================================
+ "Nothing to export" (exit 2)      The selection is empty. Use -List to see the ids.
+ "No PKI found"                    Give -PkiRoot, or -Leaf together with -NoPki.
+ "The key ... is not on this       The key of that CA is not here (a DevKit or a transported
+  computer"                        PKI). The certificate is still written.
+ "issuer not found"                Add the file with -ChainFile, or use -FetchAia.
+ The CDN says "invalid CA"         Check: a CA certificate (a leaf is refused), one certificate
+                                   per file, PEM text. For ML-DSA see section 11.
+ The key file asks for a password  It is encrypted. The password was shown once. Export again with
+                                   your own -KeyPassword.
+ The Enterprise Root key is        It needs -Force on purpose.
+  refused
 
-----------------------------------------------------------------------------------------------------
-7. STARTING FROM A LEAF CERTIFICATE (-Leaf)
-----------------------------------------------------------------------------------------------------
+====================================================================================================
+ 15  LIMITS YOU MUST KNOW
+====================================================================================================
+ - It does not talk to any CDN. You upload the files yourself.
+ - It cannot make a certificate. For that see SignCsr-MANUAL.txt.
+ - A post-quantum CA is not accepted by public CDNs today.
+ - -FetchAia needs the network and trusts the address inside the certificate. Check what it
+   downloaded.
 
-    .\Export-PkiCa.ps1 -Leaf .\www.example.com-fullchain.crt -Target All
-    .\Export-PkiCa.ps1 -Leaf .\shop.pfx -LeafPassword 'Abc12345!' -FetchAia -NoPki
-    .\Export-PkiCa.ps1 -Leaf .\www.crt -LeafKey .\www.key -IncludeKey
+====================================================================================================
+ 16  ALL OPTIONS
+====================================================================================================
+ -Ca <list>            Which CAs. Default Roots.      -WithPath   -BothVariants   -List
+ -Format <list>        PEM CRT CER DER P7B TXT ALL.   -Hash <list>   -Target <list>
+ -IncludeKey  -KeyPassword <text>  -Force
+ -Leaf <file>  -LeafKey <file>  -LeafPassword <text>  -ChainFile <list>  -FetchAia  -NoPki
+ -OutFolder <path>     Default transport\ next to the script.
+ -Pki <name>  -Release <n>  -NoCaRevocationInfo  -PkiRoot <folder>  -ConfigFile
+ -OpenSslPath  -FipsModuleConfig  -Unblock  -Verbose  -Help
+ Exit codes: 0 ok, 1 error, 2 nothing to export.
 
-  -Leaf <file>       The leaf: .pem .crt .cer .der, a file that already has the chain, .p7b,
-                     or .pfx / .p12.
-  -LeafKey <file>    Optional private key of the leaf. The script proves it belongs to the leaf.
-  -LeafPassword      Password of the .pfx and / or of an encrypted key.
-  -ChainFile <list>  Extra files that contain intermediate or root certificates.
-  -FetchAia          Download a missing intermediate from the "CA Issuers" address inside the
-                     certificate. Needs the network. Off by default.
-  -NoPki             Do not look for issuers in this project's own PKI.
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
 
-How it finds the chain: it looks for the certificate whose subject equals the issuer of the leaf
-(and whose key identifier matches), then does the same for that certificate, up to a root. It
-looks in the leaf file itself, in -ChainFile files, in this PKI, and (with -FetchAia) on the
-internet. If a link is missing it tells you which one.
+====================================================================================================
+ 17  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested on Ubuntu 24.04 with OpenSSL 4.0.3 and PowerShell 7 on a fresh PKI: all modes of the
+ script (roots, intermediates, paths, both variants, all formats and targets, hash files, keys with
+ an encrypted PFX, leaf chains from PEM, PFX and P7B). NOT tested: the upload forms of the real CDN
+ and cloud services, a real Windows, RHEL / SUSE machines. Run PKI-Acceptance-Checklists.txt (E46).
 
-The leaf is written too (certificate only). With -IncludeKey and -LeafKey you also get an
-encrypted .pfx of the leaf. This works for your private PKI and for a public CA.
-
-----------------------------------------------------------------------------------------------------
-8. THE OUTPUT FOLDER
-----------------------------------------------------------------------------------------------------
-
-Name:  transport\ca-export_<where>_<what>_<key|nokey>_<targets>_<date-time>
-Example: ca-export_pki-default-01_roots_nokey_cloudflare_20261017-113000
-         ca-export_leaf-www-example-com_chain_nokey_all_20261017-113500
-A folder is never overwritten; every run makes a new one. Use -OutFolder to choose another place.
-
-    ca-export_...\
-        README.txt              what is inside, and a table of where to upload each file
-        export-info.json        the same facts for machines (CA ids, subjects, dates, hashes)
-        ca-bundle.pem           all CAs in one file;  ca-bundle.<target>.pem  per target
-        SHA256SUMS  SHA384SUMS  SHA512SUMS
-        01_enterprise-root_agantra-root-g1\
-            agantra-root-g1.pem .crt .cer .der .p7b .txt
-            agantra-root-g1.sha256 .sha384 .sha512
-            agantra-root-g1.cloudflare.pem .cloudflare.crt
-        02_...
-
-----------------------------------------------------------------------------------------------------
-9. WHERE DOES EACH SERVICE WANT THE FILE?
-----------------------------------------------------------------------------------------------------
-
-The README.txt of each export repeats this. Menus change; check the current documentation of the
-service.
-
-  Cloudflare   Origin authentication with your own CA ("Bring Your Own CA", for Authenticated
-               Origin Pulls and for client certificates in API Shield / mTLS): upload the
-               .cloudflare.pem. Cloudflare takes one certificate in PEM.
-  Azure        Front Door / Application Gateway / CDN origin or client-certificate trust: upload
-               the .azure.cer (or .pem) of the root and each intermediate.
-  CloudFront   Origin mutual TLS and the trust store: the .cloudfront.pem files, often bundled
-               into one PEM (use ca-bundle.cloudfront.pem).
-  Alibaba CDN  Origin and client certificate trust in the console: the .alibaba.pem.
-  Google       Certificate Manager trust configs (TrustConfig) for mTLS: the .google.pem of the
-               root and intermediates.
-  Akamai       Property Manager "Custom Certificate Authority Set": the .akamai.pem files.
-
-Always give the service the ROOT and every INTERMEDIATE between the root and your server
-certificate (use -WithPath), unless the service says it wants the root only.
-
-----------------------------------------------------------------------------------------------------
-10. PROBLEMS AND ANSWERS
-----------------------------------------------------------------------------------------------------
-
- "Nothing to export" (exit 2)       The selection is empty. Use -List to see the ids.
- "No PKI found"                     Give -PkiRoot, or -Leaf together with -NoPki.
- "The key ... is not on this        The key of that CA is not here (a DevKit or a transported PKI).
- computer"                          The certificate is still written.
- "issuer not found"                 Add the file with -ChainFile, or use -FetchAia.
- The CDN says "invalid CA"          Check that you uploaded a CA certificate (a leaf is refused),
-                                    one certificate per file, and PEM text. For ML-DSA see chapter
-                                    5.
- The key file asks for a password   It is encrypted. The password was shown once when it was made;
-                                    export again with your own -KeyPassword if you lost it.
-
-Tested: all modes of the script on Ubuntu 24.04 with a test PKI (roots, intermediates, paths, both
-variants, all formats and targets, hash files, keys with an encrypted PFX, leaf chains from PEM,
-PFX and P7B). The upload forms of the CDN and cloud services were NOT tested against the real
-services.
+====================================================================================================
+ 18  OTHER DOCUMENTS
+====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
+ pki_setup-MANUAL.txt   PkiTransport-MANUAL.txt   Create-WebServerConfig-MANUAL.txt
+ PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

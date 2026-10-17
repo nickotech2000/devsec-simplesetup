@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 6.4.7                      Updated: 2026-10-17
+ Version : 6.6.18                      Updated: 2026-10-17
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,50 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.182 DECIDED   (6.6.18) A development laptop may switch the execution policy to Bypass, by the
+                 owner's explicit wish, with two small readable files and nothing hidden. Decisions:
+                 (a) two twins, because a laptop that blocks scripts cannot run the .ps1 first:
+                 the .cmd is the bootstrap and calls only commands, which no policy blocks; (b) the
+                 setting is written per PowerShell (5.1 64/32 bit, 7) and per scope (CurrentUser,
+                 and LocalMachine as Administrator), because each PowerShell keeps its own copy;
+                 (c) ask Y/N first, print a warning, and offer -Undo and -Status; (d) only the
+                 policy and the Zone.Identifier mark change, never Defender, SmartScreen or firewall;
+                 (e) not used by any other script, and the 6.4.16 rule "no Bypass in the scripts"
+                 stays: these two files are the only exception, listed in SECURITY-AUDIT.txt.
+10.181 DECIDED   (6.4.16) Scripts that need Administrator / root must look and be clean. (a) No
+                 pattern that a dropper uses: no Base64 payload inside a .cmd, no Bypass of the
+                 execution policy, no hidden download, no cmd.exe started only to read a version.
+                 The Windows self-extracting .cmd (10.105) is removed; Windows has Extract All.
+                 (b) tools\audit_scripts.py lists every suspicious pattern and every host a script
+                 may contact; the result and its explanation are in SECURITY-AUDIT.txt. (c) SHA256SUMS
+                 lets the receiver check every file. (d) A heuristic antivirus warning is treated
+                 as a bug report: reduce the pattern, then ask the vendor to clear the file.
+                 -VerifyAll runs the existing -Verify per built PKI in a child process, so one
+                 failure cannot stop the next check.
+10.180 DECIDED   (6.4.13) One version report for every script. -Version / --version is checked
+                 first, before the platform gate and before any PKI folder is touched, so it works
+                 on a broken machine, and prints the same 100-column text from .ps1 and .sh. The
+                 version is one number per build, set by the release bump, in a marked block that
+                 a tool puts into every script (not copied by hand). Tools are asked with an
+                 8-second limit and nothing is written. The OpenSSL vendor is a guess from path
+                 and package manager and is labelled "built from source code" when no package
+                 owns the file. macOS is rejected like everywhere else. Not tested on Windows.
+10.179 DECIDED   (6.4.8) Documents of the remaining tools. SignExternalCa, Export-PkiCa,
+                 Create-WebServerConfig, Sign-Code, PKI-SERVER and PkiProfiles follow the rules of
+                 10.171 to 10.178: 18 sections, the command first, no copy of -Help. Four of them
+                 (Create-WebServerConfig, Sign-Code, PKI-SERVER, PkiProfiles) already had good
+                 content, so it was kept and moved into the 18 sections; a small script
+                 did the move and changed the cross-references from "chapter n" to "section m". New
+                 text: the words, before you start, recipes, limits, the wizard, the other
+                 documents. The PKI-SERVER
+                 manual is a full rewrite: it is the only one that was still at 5.3.7 and 130
+                 columns. It now says plainly that pki-server.sh installs packages with apt only
+                 (Ubuntu / Debian); other systems pass the platform check but need --no-packages and
+                 hand-installed nginx, python3 and OpenSSL 4 (not tested). The help of
+                 Start-PkiCrlServer.ps1 points to sections 11 and 12 of that manual. SignExternalCa
+                 got a fix: with -Fips and no q2-root in the PKI the signer lookup returned an empty
+                 array and threw an IndexOutOfRangeException; the lookup now uses Select-Object
+                 -First 1 and the script reports the missing CA by name.
 10.178 DECIDED   (6.4.7) Documents of the backup, computer-preparation and developer-bootstrap
                  tools. PkiBackup, PrepareComputer and Install-DevEnvironment follow the rules of
                  10.171, 10.173, 10.175, 10.176 and 10.177: 18 sections, the command first, tables

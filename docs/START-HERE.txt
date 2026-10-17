@@ -1,6 +1,7 @@
 ====================================================================================================
  START HERE  -  which file for which job
- Version 6.4.7          Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 6.6.18
+ Author : Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
 ====================================================================================================
 
  READ THIS FIRST
@@ -12,53 +13,61 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
 
- Every script has a short help:  -Help (PowerShell)  or  --help (shell). The manuals below say the same with more examples. README.md in the project root is the front page.
+ Every script has a help:  -Help (PowerShell)  or  --help (shell). On a terminal it shows one page
+ at a time: SPACE = next page, ENTER = next line, Q = quit. The manuals say the same with more
+ examples, in the same layout (READ THIS FIRST, contents, numbered sections).
+ README.md in the project root is the front page. html\index.html shows all documents as web pages.
 
  I AM THE OWNER OF THE PKI
-   Build it, issue certificates ........ pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt (+
-   Person, Office365), PkiProfiles-MANUAL.txt (another company)
-   Sign what others send me ............ SignCsr-MANUAL.txt (servers, people, code: LEAF requests)   SignExternalCa-MANUAL.txt (a CA of a department: CA requests)
-   Revoke, CRL, OCSP, time stamping .... PkiRevocation-MANUAL.txt, PKI-SERVER-MANUAL.txt
-   Give it to other people ............. PkiTrustKit-MANUAL.txt (trust only)   DevKit-MANUAL.txt (also issue)   PkiTransport-MANUAL.txt (the .certpacked)
-   Back up / restore the whole PKI ..... PkiBackup-MANUAL.txt   (Backup-Pki.ps1, Restore-Pki.ps1,
-                                                                Test-PkiBackup.ps1; Windows only,
-                                                                Administrator PowerShell 7; each
-                                                                script standalone)
-                                                (5.3.6: only YOUR PKI is backed up and restored; the
-                                                password is asked first; a restore asks "Replace?
-                                                [Y/n]", Enter = Y, or -Yes)
+   Build it, issue certificates ... pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt
+                                    (+ Person, Office365), PkiProfiles-MANUAL.txt (another company)
+   Sign what others send me ....... SignCsr-MANUAL.txt (servers, people, code: LEAF requests)
+                                    SignExternalCa-MANUAL.txt (a CA of a department: CA requests)
+   Revoke, CRL, OCSP, time stamps . PkiRevocation-MANUAL.txt, PKI-SERVER-MANUAL.txt
+   Give it to other people ........ PkiTrustKit-MANUAL.txt (trust only)
+                                    DevKit-MANUAL.txt (also issue)
+                                    PkiTransport-MANUAL.txt (the .certpacked)
+   Back up / restore the PKI ...... PkiBackup-MANUAL.txt (Backup-Pki.ps1, Restore-Pki.ps1,
+                                    Test-PkiBackup.ps1; Windows, administrator, PowerShell 7)
 
  I RECEIVED A TRUST KIT OR A DEVKIT
-   Trust the PKI on my computer ........ PkiTrustKit-MANUAL.txt   (DevKit: DevKit-MANUAL.txt)
-   Get PowerShell 7, OpenSSL, Python ... PrepareComputer-MANUAL.txt
-   Ask for my own certificate .......... NewPkiCsr-MANUAL.txt   (a server / person certificate, or
-                                                                the certificate of a new
-                                                                intermediate CA)
+   Trust the PKI on my computer ... PkiTrustKit-MANUAL.txt   (DevKit: DevKit-MANUAL.txt)
+   Get PowerShell 7, OpenSSL ...... PrepareComputer-MANUAL.txt
+   Ask for my own certificate ..... NewPkiCsr-MANUAL.txt (a server or person certificate, or the
+                                    certificate of a new intermediate CA)
 
- I WANT TO USE A CERTIFICATE (NEW IN 6.3.6)
-   Get the CA files for Cloudflare, Azure, ... Export-PkiCa-MANUAL.txt        (Export-PkiCa.ps1)
-   Set up nginx or Apache with my certificate . Create-WebServerConfig-MANUAL.txt  (Create-WebServerConfig.ps1 / .sh)
-   Sign my software, or set up a build pipeline  Sign-Code-MANUAL.txt         (Sign-Code.ps1 / .sh)
-   A word I do not know ................ GLOSSARY.txt
-   All documents as web pages .......... open html\index.html with a double click (made by
-   Build-HtmlDocs.ps1; .\Build-HtmlDocs.ps1 -Watch makes them again on every save; .\Serve-Docs.ps1 shows them on http://localhost:1434)
+ I WANT TO USE A CERTIFICATE
+   CA files for Cloudflare, Azure . Export-PkiCa-MANUAL.txt
+   nginx or Apache with my cert ... Create-WebServerConfig-MANUAL.txt
+   Sign my software, build pipeline Sign-Code-MANUAL.txt
+   Install the developer tools .... Install-DevEnvironment-MANUAL.txt
+   A word I do not know ........... GLOSSARY.txt, GLOSSARY-ENGLISH.txt
+   All documents as web pages ..... open html\index.html with a double click. Build-HtmlDocs.ps1
+                                    makes them again (-Watch: on every save). Serve-Docs.ps1 shows
+                                    them on http://localhost:1434
 
  I WANT TO KNOW WHY, OR WHAT CHANGED
-   Design and every decision ........... PKI-Design-with-FIPS-and-PQC.txt
-   What changed in each version ........ PKI-ChangeLog.txt
-   What to run to accept a version ..... PKI-Acceptance-Checklists.txt
-   Modules and shell scripts ........... scripts-README.txt, linux-README.txt,
-   PKI-Server-Design.txt, PUBLIC-CA-ENTERPRISE-ROOT.txt, Install-DevEnvironment-MANUAL.txt
+   Design and every decision ...... PKI-Design-with-FIPS-and-PQC.txt
+   What changed in each version ... PKI-ChangeLog.txt
+   What to run to accept a version  PKI-Acceptance-Checklists.txt
+   Modules and shell scripts ...... scripts-README.txt, linux-README.txt
+   Make my laptop a dev machine ... Enable-DevMachine-MANUAL.txt (unsigned .ps1 run in every session)
+   Scripts clean? Checksums ....... SECURITY-AUDIT.txt  (what the scripts do, how to check them)
+   Version and system report ...... VERSION-INFO.txt  (-Version / --version of any script)
+   Other ........................... PKI-Server-Design.txt, PUBLIC-CA-ENTERPRISE-ROOT.txt
 
  THE REQUEST FLOW IN ONE PICTURE
    destination                                        owner of the PKI
    Prepare-Computer      (once)
-   New-PkiCsr  -> .key (stays) + .csr  ---- .csr -->  SignCsr (leaf)  or  SignExternalCa (CA)   the kind of request is recognised; the level follows the request
-   use the -fullchain.crt with the .key  <-- folder --  csr-signed\<name>_<time>\  or  external-ca\<name>_<time>
+   New-PkiCsr  -> .key (stays) + .csr  ---- .csr -->  SignCsr (leaf)  or  SignExternalCa (CA)
+                                                      (the kind of request is recognised)
+   use the -fullchain.crt with the .key  <-- folder -- csr-signed\<name>_<time>\
+                                                      or external-ca\<name>_<time>
+
  VERSION RULE   major.minor.revision. Major = new architecture, minor = new feature, revision = fix
                 or any update not called major / minor. The zip is
-                PKI-DevSecOps-<yyyymmdd>-<version>.zip. Every script prints its version at the start
-                and in -Help / --help.
+                PKI-DevSecOps-<yyyymmdd>-<version>.zip. Every script prints its version at the
+                start and in -Help / --help.
 ====================================================================================================
  Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
 ====================================================================================================

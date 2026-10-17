@@ -1,0 +1,157 @@
+====================================================================================================
+ VERSION-INFO  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - the version and system report of every script
+ Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : One option, -Version (PowerShell) or --version (bash), in every script. It prints
+                who made the script, which version it is, and what the computer has installed.
+ Who reads it : Everyone who must tell support "what do you run?". No PKI knowledge is needed.
+ You need     : Nothing. It changes nothing, needs no administrator rights and no PKI folder.
+ Start with   : Section 3, then run the command in section 4 and send the output to support.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+
+ CONTENTS
+   1 What it does     2 Commands     3 The report, block by block     4 Where each value comes from
+   5 Vendors of OpenSSL     6 Platforms and refusal     7 Problems     8 Limits
+   9 What was tested, what was not     10 Other documents
+
+====================================================================================================
+ 1  WHAT IT DOES
+====================================================================================================
+ Every .ps1 and every .sh script of the project answers -Version / --version before it does
+ anything else. The report has the same layout in PowerShell and in bash: 100 columns, the same
+ labels, the same order. The script version is the version of the build you hold: all scripts of
+ one build show the same number (now 6.4.13) and the same build date.
+
+====================================================================================================
+ 2  COMMANDS
+====================================================================================================
+   Windows (PowerShell 7)     .\SignCsr.ps1 -Version
+   Linux (bash)               ./devkit/SignCsr.sh --version
+ Any script works the same. Exit code 0. On macOS the report says REJECTED and the exit code is 5.
+ The older one-line --version of some shell scripts is replaced by this report.
+
+====================================================================================================
+ 3  THE REPORT, BLOCK BY BLOCK
+====================================================================================================
+ SCRIPT            Name of the script, its version and build date, author, company, e-mail.
+ OPERATING SYSTEM  Name (for example Windows 11 Pro or Ubuntu 24.04.5 LTS), version (Windows:
+                   feature release such as 24H2 or 25H2; Linux: VERSION_ID), patch (Windows: build
+                   and update number such as 26100.4349; Linux: the kernel such as 6.18.44),
+                   architecture, and whether the PKI scripts accept this system.
+ .NET              SDK (newest, others in brackets), runtime of every framework (the newest of
+                   each), .NET Framework (Windows only, from the registry).
+ NODE.JS, PYTHON 3, JAVA   Node.js, Python 3 (python3, python or py -3), Java runtime with its
+                   vendor, and the JDK compiler (javac).
+ SHELLS            PowerShell: every version found (2.0, 5.1, 7.x). Windows: Windows PowerShell,
+                   cmd, Git bash, WSL. Linux: Bash and the other shells (zsh, fish, tcsh, ksh,
+                   dash, csh) that are installed.
+ TLS               Schannel (Windows: version of schannel.dll). OpenSSL: every one found, marked
+                   Default (the one your PATH reaches first) or Side (the others), with its path
+                   and its vendor. The last line says whether an OpenSSL 4.x is present.
+
+ A value that is not installed is printed as "not found". That is normal, not an error.
+
+ Example (Linux, shortened):
+    SCRIPT
+    Name           : SignCsr.ps1
+    Version        : 6.4.13   (build of 2026-10-17)
+    Author         : Nicko Satria Utama
+    Company        : Agantra Inovatif OÜ (NextMantra)
+    Email          : nicko@nextmantra.com
+   -------------------------------------------------------------------------------------------------
+    OPERATING SYSTEM
+    Name           : Ubuntu 24.04.5 LTS
+    Version        : 24.04
+    Patch/kernel   : kernel 6.18.44-fc-v139
+    Architecture   : X64
+    Platform       : supported: full (Classic and Quantum)
+   -------------------------------------------------------------------------------------------------
+    .NET
+    SDK (latest)   : not found
+    Runtime        : not found
+    Framework      : n/a (Windows only)
+   -------------------------------------------------------------------------------------------------
+    NODE.JS, PYTHON 3, JAVA
+    Node.js        : 22.22.0   /opt/node22/bin/node
+    Python 3       : 3.13.16   /usr/bin/python3
+    Java runtime   : 21.0.12.1   Ubuntu
+    JDK (javac)    : 21.0.12.1
+   -------------------------------------------------------------------------------------------------
+    SHELLS
+    PowerShell     : 7.5.4
+    Bash           : 5.2.21(1)-release   /usr/bin/bash
+    Other shells   : dash (present)
+   -------------------------------------------------------------------------------------------------
+    TLS: SCHANNEL AND OPENSSL
+    Schannel       : n/a (Windows only)
+    Default OpenSSL: 4.0.3   /opt/openssl4/bin/openssl
+                     from: built from source code (openssl.org), not a package
+    Side OpenSSL   : 3.0.13   /usr/bin/openssl
+                     from: package openssl (dpkg)
+    PKI needs      : OpenSSL 4.x: found
+   =================================================================================================
+
+====================================================================================================
+ 4  WHERE EACH VALUE COMES FROM
+====================================================================================================
+ The scripts only ask the tools themselves (dotnet --list-sdks, node --version, python --version,
+ java -XshowSettings:properties, javac -version, openssl version, pwsh -Command ...) and, on
+ Windows, the registry (ProductName, DisplayVersion, CurrentBuild, UBR, NET Framework Release).
+ Each tool gets 8 seconds; a tool that hangs is skipped. Nothing is installed, written or sent.
+
+====================================================================================================
+ 5  VENDORS OF OPENSSL
+====================================================================================================
+ The line "from:" under each OpenSSL names who made that copy. The scripts guess it from the path
+ and from the package manager:
+   Linux package   "package openssl (dpkg)" or "(rpm)" = made by your distribution.
+   Built from source code (openssl.org)  = nobody's package: someone compiled it (for example in
+                   /opt/openssl4 or /usr/local). Source code comes from the OpenSSL project.
+   FireDaemon      path contains FireDaemon.          Shining Light   path contains Win32OpenSSL.
+   Git for Windows, Chocolatey, Scoop, MSYS2, Conda, Strawberry Perl, vcpkg  = by the path.
+   LibreSSL        the output says LibreSSL (a different project; the PKI scripts need OpenSSL 4).
+ It is a guess from the path. If the path is unusual the line says so instead of guessing wrong.
+
+====================================================================================================
+ 6  PLATFORMS AND REFUSAL
+====================================================================================================
+ Same rule as every script: Windows 11 24H2+, Server 2025 (full), Server 2022 (Classic only),
+ Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle 10+, SLES / SLED / openSUSE Leap 15+ and
+ Tumbleweed. macOS and Windows 10 are refused. On macOS the report stops after the system block.
+
+====================================================================================================
+ 7  PROBLEMS
+====================================================================================================
+ Everything shows "not found"      The tools are not on PATH. Open a NEW terminal and try again.
+ OpenSSL 4.x: NOT found            Run Install-DevEnvironment (-Help / --help).
+ Report is slow (many seconds)     Antivirus scanning java or dotnet. Wait; each tool has 8 s.
+ Vendor line looks wrong           It is a guess. Check the path above it.
+
+====================================================================================================
+ 8  LIMITS
+====================================================================================================
+ The report shows what is installed, not what a script will pick. Scripts choose their OpenSSL by
+ pki_tools.cnf [openssl] Path or by PATH. Windows PowerShell 2.0 / 5.1 are listed but cannot run
+ these scripts (PowerShell 7 is required).
+
+====================================================================================================
+ 9  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested on Ubuntu 24.04 (PowerShell 7.5 and bash): identical layout from .ps1 and .sh, a fake
+ dotnet, macOS refusal, OpenSSL 4 (source) plus OpenSSL 3 (dpkg). NOT tested: Windows (registry,
+ Schannel, cmd, Git bash, WSL, .NET Framework, PowerShell 2.0 / 5.1), RHEL and SUSE, the vendor
+ guesses for FireDaemon and Shining Light. Run PKI-Acceptance-Checklists.txt (E47).
+
+====================================================================================================
+ 10  OTHER DOCUMENTS
+====================================================================================================
+ START-HERE.txt   Install-DevEnvironment-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

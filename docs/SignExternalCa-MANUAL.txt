@@ -1,113 +1,283 @@
-============================================================
- SignExternalCa.ps1 - sign the CA certificate of a department (or another organization) with our
- Quadrant Root Version 6.4.7
- Author : Nicko Satria Utama
- Company: Agantra Inovatif OU (NextMantra)
- Email  : nicko@nextmantra.com
-============================================================
+====================================================================================================
+ SignExternalCa  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - sign the CA of a department     Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Script : SignExternalCa.ps1
 
  READ THIS FIRST
 ----------------------------------------------------------------------------------------------------
- What it is   : Signs the CA request of another department, so they can run their own intermediate
-                CA.
- Who reads it : The owner of the PKI.
- You need     : The CA .csr file and your PKI.
- Start with   : Read the first section, then run the example.
- Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+ What it is   : A script that checks the CA request of another department and signs it with your
+                Quadrant Root. That department can then run its own intermediate CA, and everything
+                it issues chains to YOUR Enterprise Root.
+ Who reads it : The OWNER of the PKI. No PKI knowledge is needed. Every new word is explained in
+                GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+ Time needed  : 10 minutes to read sections 1 to 5. A signing takes a few seconds.
+ You need     : The ORIGINAL PKI from pki_setup.ps1 (a DevKit has no root key), PowerShell 7,
+                OpenSSL 4, and the CA request (.csr) of the department.
+ Start with   : Section 4 (Quick start).
 ----------------------------------------------------------------------------------------------------
- Manual : docs\SignExternalCa-MANUAL.txt  Design : docs\PKI-Design-with-FIPS-and-PQC.txt (10.58,
-          10.73)
- Needs  : PowerShell 7+, OpenSSL 4.x, the ORIGINAL PKI made by pki_setup.ps1 (a DevKit has no
-          Quadrant Root key and can not do this).
- A leaf (server, person ...) request is a different job: SignCsr.ps1.
+ Related manuals:
+   NewPkiCsr-MANUAL.txt      how the department makes the CA key and the request
+   SignCsr-MANUAL.txt        the other job: a server, person or program certificate
+   PkiRevocation-MANUAL.txt  revoke the CA certificate later
+   PkiProfiles-MANUAL.txt    the -Pki option
+   PKI-Design-with-FIPS-and-PQC.txt   why it is built this way (senior staff, 10.58, 10.73)
+ Help in the terminal:   .\SignExternalCa.ps1 -Help      (one page at a time)
 
-WHAT IT DOES
-  A department has made its own CA key and a CSR and sends you only the CSR. This script
-    1. CHECKS the request against the specification of this PKI (colour report: red ERROR, yellow
-       WARN, green OK, cyan INFO; every finding says why and how to fix it); an ERROR means nothing
-       is signed (exit code 2),
-    2. signs it with our Classic QUADRANT ROOT, so that everything his CA issues chains to OUR
-       Enterprise Root,
-    3. writes a NEW folder (never overwritten):
-          external-ca\<name>_<yyyyMMdd-HHmmss>\
-              <name>.csr            his request, unchanged (LF)
-              <name>.crt            HIS CA CERTIFICATE, signed by us
-              <name>-fullchain.crt  his certificate + our chain (up to, not including, the Enterprise Root): the chain for HIS certificates
-              <name>-chain.crt      our chain only          root.crt   our Enterprise Root (the trust anchor)   our-ca-bundle.crt   chain + root
-              ca-info.json  README.txt   the facts: signer, subject, key, dates, serial,
-                                         fingerprint, constraints, verification result
-  The certificate is recorded in the index.txt of the signing root: revoke it with PkiRevocation.ps1
-  -Action Revoke and it is in the CRL. Nothing but the CSR comes in; no private key of ours goes
-  out.
+ CONTENTS
+    1  What SignExternalCa does                10  What the CA certificate contains
+    2  The words you need                      11  Limits of his CA
+    3  Before you start                        12  Name constraints
+    4  Quick start                             13  Recipes, copy and paste
+    5  The steps in detail                     14  Problems and answers
+    6  Which root signs                        15  Limits you must know
+    7  What his request must contain           16  All options
+    8  Read the report                         17  What was tested, what was not
+    9  What you get                            18  Other documents
 
-WHO SIGNS - ONLY A CLASSIC QUADRANT ROOT
-  (default)  q1-root   Classic, non-FIPS (Quadrant 1)
-  -Fips      q2-root   Classic, FIPS (Quadrant 2).     -Quadrant 1|2 does the same by number.
-  Never an intermediate, never a Quantum Quadrant Root, never the Track or Enterprise Root: they
-  sign our own CAs only. The DevKit holds issuing keys only: a request for a CA certificate can ONLY
-  be signed here, on the original PKI. (pathLenConstraint: a Quadrant Root has 1, so his CA is a
-  sibling of our intermediates and may issue end-entity certificates only - pathLen 0 - unless you
-  raise -PathLen.)
+====================================================================================================
+ 1  WHAT SIGNEXTERNALCA DOES
+====================================================================================================
+ A department wants its own CA. It makes its own CA key and a request (CSR) and sends you ONLY the
+ CSR. SignExternalCa:
 
-THE LEVEL OF HIS CA (-Level, default OV) AND WHAT HIS REQUEST MUST CONTAIN
-  OV (default)  subject C (2 letters), O, OU and CN are REQUIRED, otherwise the request is rejected. ST and L are recommended.
-                Allowed: street, postalCode, name, emailAddress, telephoneNumber.   Policies: OV + High Assurance + PEN.
-  EV            everything of OV, plus ST, L, serialNumber, businessCategory (Private Organization |
-                Government Entity | Business Entity | Non-Commercial Entity) and jurisdictionC.
-                Recommended: jurisdictionST, postalCode. Validity 397 days at most.
-  DV            CN required; any other field is dropped from the certificate (WARN).
-  Key           RSA 4096 or 8192, or ECDSA P-384 / P-521 (equal strength; P-256, RSA 2048/3072,
-                Ed25519, ML-DSA are rejected - this is a Classic CA). The signature of the request
-                must be valid and SHA-256 or stronger. A request that uses the CN of one of OUR CAs
-                is refused.
+     DEPARTMENT                                   YOU (SignExternalCa)
+     CA key (stays with them)
+     dept-ca.csr   ------------------------->    1. checks the CSR against the rules
+                                                  2. signs it with a Quadrant Root
+     folder with CA certificate  <-------------   3. writes a folder with the result
 
-OPTIONS
-  -CsrType Auto|Leaf|IntermediateCA   the kind of request (5.2.6, default Auto). Auto recognises it:
-                                      CA:TRUE = a CA request. This script signs CA requests; a LEAF
-                                      request (names, no CA:TRUE)
-                         is refused with the command to use (SignCsr.ps1). A hand-made CA request
-                         without CA:TRUE is accepted as a CA request. -Level: default OV, EV when
-                         the request carries the complete EV information. New-PkiCsr.ps1
-                         -CertificateType IntermediateCA makes a matching request.
-  -Csr <file>            His PKCS#10 request (PEM).
-  -Level DV|OV|EV        Level written into his certificate (default OV).          -Fips   sign with q2-root (Classic FIPS).
-  -Name <text>           Name of the output folder and files (default: his CN).
-  -Days <n>              Validity (default 1825 = 5 years; EV 397, EV may not be longer), cut to
-                         what the signer still has.
-  -PathLen 0..3          pathLenConstraint of HIS certificate (default 0). Limited to the signer's
-                         pathLen - 1.
-  -PermitDns <a,b>       Name constraint (critical): he may issue only for these DNS names and their
-                         sub-domains (example.internal).
-  -PermitEmail <a,b>     Name constraint: only these e-mail addresses / domains (@example.internal).
-  -OutFolder <path>      Where the per-request folders go (default: .\external-ca next to the pki
-                         folder).
-  -Check                 Check the request and print the report; sign nothing.         -Strict   warnings count as errors.
-  -NoColor               Plain text (also when the environment variable NO_COLOR is set).
-  -Force                 Issue even when the signer has pathLenConstraint 0 (lab only).
-  -List                  List the earlier requests (folders, signer, serial, dates) and stop.
-  -Unblock               UNBLOCK and UNLOCK the script folder and the pki folder, then stop.
-  -ConfigFile <path> -PkiRoot <path> -OpenSslPath <path> -FipsModuleConfig <path> -Verbose   as in pki_setup.ps1.   -Help   this text.
-  -Release <n>         Release of the PKI to use (R1, R2 ...). Default: the LATEST release in
-                       .\pki\. A release that no longer exists (deleted) is not an error: the latest
-                       release is used and a warning says so.
-  -NoCaRevocationInfo  Use the NoCR family (pki\pki-<name>-nocr-<NN>, CA certificates without CRL / OCSP). Default: the normal family (the NoCR one
-                       when it is the only one).   -PkiRoot <folder> names one PKI folder and
-                                                   overrides both.
+ Nothing but the CSR comes in. No private key of yours goes out.
 
-THE OTHER SIDE (he makes the key and the CSR himself, for example)
-  openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out dept-ca.key
-  openssl req -new -key dept-ca.key -sha384 -subj "/C=EE/ST=Harju/L=Tallinn/O=Dept Ltd/OU=IT Department/CN=Dept Issuing CA G1" -out dept-ca.csr
-  (EV adds  /serialNumber=12345678/businessCategory=Private Organization/jurisdictionC=EE )
-  He keeps dept-ca.key. He sends only dept-ca.csr and gets back the folder content.
+====================================================================================================
+ 2  THE WORDS YOU NEED
+====================================================================================================
+ CA request     A CSR for a CA certificate. It asks for CA:TRUE.
+ Quadrant Root  A root of one PKI family. Q1 = Classic, not FIPS. Q2 = Classic, FIPS.
+ Intermediate   A CA below a root. Here: the CA of the department.
+ pathLen        pathLenConstraint. How many CA levels may be below a CA. 0 = it may sign only
+                end-entity certificates (servers, people).
+ Name constraint  A limit inside a CA certificate: the CA may issue only for some names.
+ Level          DV, OV or EV. How much of the identity is checked.
+ SAN, CN        Subject Alternative Name, Common Name.
+ Revoke         Declare a certificate bad before its end date.
 
-EXAMPLES
-  .\SignExternalCa.ps1 -Csr .\dept-ca.csr                         OV, signed by q1-root (Classic, non-FIPS)
-  .\SignExternalCa.ps1 -Csr .\dept-ca.csr -Fips -PermitDns dept.internal -Days 3650
-  .\SignExternalCa.ps1 -Csr .\dept-ca.csr -Level EV -Check        would an EV CA be accepted? report
-                                                                  only
-  .\SignExternalCa.ps1 -List
-EXIT CODES   0 ok (signed, or -Check passed)   1 error (the message says why)   2 the request does not follow the spec (the report says where)
-============================================================
+====================================================================================================
+ 3  BEFORE YOU START
+====================================================================================================
+ - The ORIGINAL PKI made by pki_setup.ps1, on this computer. A DevKit cannot do this job.
+ - PowerShell 7 and OpenSSL 4.
+ - The CA request. Ask the department to use New-PkiCsr.ps1 -CertificateType IntermediateCA.
+ - Decide the level (OV, EV or DV). Check that the company is real before you sign OV or EV. The
+   script cannot check that.
+ - A computer that is allowed: Windows 11 24H2 or newer, Windows Server 2025 and 2022; Linux with
+   PowerShell: Ubuntu 24+, CentOS Stream / RHEL / Rocky / Oracle 10+, SLES / openSUSE 15+. Others:
+   exit 5, nothing is done.
 
-5.0.0: -Pki <name> chooses the company's PKI whose Quadrant Root signs (default agantra).
-PkiProfiles-MANUAL.txt.
+====================================================================================================
+ 4  QUICK START
+====================================================================================================
+     .\SignExternalCa.ps1 -Csr .\dept-ca.csr -Check     read the report
+     .\SignExternalCa.ps1 -Csr .\dept-ca.csr             sign
+
+ The new folder is external-ca\dept-ca_<date>-<time>\. Send it to the department. It has no
+ private key.
+
+====================================================================================================
+ 5  THE STEPS IN DETAIL
+====================================================================================================
+ Step 1  Check only. -Check prints the report and signs nothing. Do it every time.
+ Step 2  Read the report (section 8). Red ERROR = the department makes a new CSR.
+ Step 3  Choose the options (section 16): -Level, -Fips, -Days, -PathLen, -PermitDns,
+         -PermitEmail.
+ Step 4  Sign. Run the command without -Check.
+ Step 5  Send the folder. README.txt inside tells them what to do. Compare the fingerprint in
+         ca-info.json with them if the channel is not trusted.
+
+ Every run makes a NEW folder. Nothing is overwritten. .\SignExternalCa.ps1 -List shows the
+ earlier requests.
+
+====================================================================================================
+ 6  WHICH ROOT SIGNS
+====================================================================================================
+ Option        Root       Family
+ ------------  ---------  --------------------------------
+ (default)     q1-root    Classic, non-FIPS (Quadrant 1)
+ -Fips         q2-root    Classic, FIPS (Quadrant 2)
+
+ -Quadrant 1|2 does the same by number. Never an intermediate. Never a Quantum Quadrant Root.
+ Never the Track or Enterprise Root: they sign your own CAs only. The DevKit holds issuing keys
+ only, so a CA request can ONLY be signed here.
+
+ A Quadrant Root has pathLenConstraint 1. So the department's CA sits next to your own
+ intermediates and may issue end-entity certificates only (pathLen 0), unless you raise -PathLen.
+
+====================================================================================================
+ 7  WHAT HIS REQUEST MUST CONTAIN
+====================================================================================================
+ Level (-Level)  Required in the subject
+ --------------  ------------------------------------------------------------------------------
+ OV (default)    C (2 letters), O, OU, CN. Recommended: ST, L. Allowed: street, postalCode, name,
+                 emailAddress, telephoneNumber. Policies: OV + High Assurance + PEN.
+ EV              Everything of OV, plus ST, L, serialNumber, businessCategory and jurisdictionC.
+                 businessCategory is one of: Private Organization, Government Entity,
+                 Business Entity, Non-Commercial Entity. Recommended: jurisdictionST, postalCode.
+                 Validity 397 days at most.
+ DV              CN. Any other field is dropped (WARN).
+
+ Key: RSA 4096 or 8192, or ECDSA P-384 or P-521. P-256, RSA 2048 or 3072, Ed25519 and ML-DSA are
+ refused: this is a Classic CA.
+ Signature of the CSR: valid, SHA-256 or stronger.
+ The CN must not be the name of one of YOUR CAs (SUBJ-OUR-CA).
+ Kind of request (-CsrType, default Auto): CA:TRUE = a CA request. A request for a server (names,
+ no CA:TRUE) is refused with the command to use (SignCsr.ps1). A hand-made CA request without
+ CA:TRUE is accepted as a CA request.
+
+====================================================================================================
+ 8  READ THE REPORT
+====================================================================================================
+ Colour    Meaning
+ --------  ----------------------------------------------------------------------------------
+ ERROR     red. The CSR breaks a rule. Nothing is signed. Exit code 2.
+ WARN      yellow. Allowed, but something was changed or dropped. -Strict makes it ERROR.
+ OK        green. Passed.
+ INFO      cyan. A fact.
+
+ Each line names the field, says what is wrong and gives the fix, with a code in [ ]. The codes
+ are the same as in SignCsr-MANUAL.txt section 12 (KEY-*, SUBJ-*, EXT-*, VAL-EV). Plain text:
+ -NoColor or NO_COLOR.
+
+====================================================================================================
+ 9  WHAT YOU GET
+====================================================================================================
+ A new folder:  external-ca\<name>_<yyyyMMdd-HHmmss>\
+
+ File                  What it is
+ --------------------  ----------------------------------------------------------------------
+ <name>.csr            His request, unchanged.
+ <name>.crt            HIS CA CERTIFICATE, signed by you.
+ <name>-fullchain.crt  His certificate + your chain, up to but not including the Enterprise
+                       Root. This is the chain for HIS certificates.
+ <name>-chain.crt      Your chain only.
+ root.crt              Your Enterprise Root (the trust anchor).
+ our-ca-bundle.crt     Chain + root.
+ ca-info.json          Signer, subject, key, dates, serial, fingerprint, constraints, the
+                       verification result.
+ README.txt            What the department does next.
+
+ The certificate is written in the index.txt of the signing root. So you can revoke it:
+ PkiRevocation.ps1 -Action Revoke (PkiRevocation-MANUAL.txt). It is then in the CRL.
+
+====================================================================================================
+ 10  WHAT THE CA CERTIFICATE CONTAINS
+====================================================================================================
+ basicConstraints CA:TRUE (critical) with pathLenConstraint (-PathLen, default 0)
+ keyUsage         keyCertSign, cRLSign
+ Name constraints (critical), when you give -PermitDns or -PermitEmail
+ Policies, CRL and OCSP addresses of the signing root, key identifiers
+ Subject          the subject of the request, in its order
+ Validity         -Days (default 1825 = 5 years; EV 397), cut to what the signer still has
+
+====================================================================================================
+ 11  LIMITS OF HIS CA
+====================================================================================================
+ -PathLen 0..3 sets how many CA levels may be below his CA. It is limited to the signer's pathLen
+ minus 1. With the default 0 his CA may issue only servers, people and programs. The department
+ cannot make another CA below it.
+ -Force issues even when the signer has pathLenConstraint 0. For a lab only.
+
+====================================================================================================
+ 12  NAME CONSTRAINTS
+====================================================================================================
+ You can limit the names that his CA may ever issue. The limit is inside the certificate and is
+ critical: clients enforce it.
+   -PermitDns example.internal         DNS names under example.internal only
+   -PermitEmail @example.internal      e-mail addresses of that domain only
+ Several values with commas. Use this whenever you can. A department CA without limits can issue a
+ certificate for any name, also names that are not theirs.
+
+====================================================================================================
+ 13  RECIPES, COPY AND PASTE
+====================================================================================================
+ OV, Q1, five years:        .\SignExternalCa.ps1 -Csr .\dept-ca.csr
+ FIPS, limited to a domain: .\SignExternalCa.ps1 -Csr .\dept-ca.csr -Fips -PermitDns dept.internal
+                                -Days 3650
+ Would EV be accepted?      .\SignExternalCa.ps1 -Csr .\dept-ca.csr -Level EV -Check
+ A name for the folder:     .\SignExternalCa.ps1 -Csr .\dept-ca.csr -Name dept-issuing-g1
+ Earlier requests:          .\SignExternalCa.ps1 -List
+ How the department makes the CSR (New-PkiCsr.ps1 is easier):
+     openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -out dept-ca.key
+     openssl req -new -key dept-ca.key -sha384 -out dept-ca.csr \
+         -subj "/C=EE/ST=Harju/L=Tallinn/O=Dept Ltd/OU=IT Department/CN=Dept Issuing CA G1"
+     (EV adds /serialNumber=12345678/businessCategory=Private Organization/jurisdictionC=EE)
+ They keep dept-ca.key. They send only dept-ca.csr.
+
+====================================================================================================
+ 14  PROBLEMS AND ANSWERS
+====================================================================================================
+ "the request is not a CA request: nothing was signed"
+     The CSR is for a server (exit 2). Use SignCsr.ps1. The reverse also works: SignCsr refuses a
+     CSR with CA:TRUE and names this script.
+ Exit code 2
+     Read the report. The department makes a new CSR, or choose another -Level.
+ "pathLenConstraint" error
+     The signer cannot sign a CA. Use a Quadrant Root (default), or -Force in a lab.
+ "SUBJ-OUR-CA"
+     The CN is the name of one of your CAs. They choose another CN.
+ "The signing CA 'q2-root' does not exist in this PKI"
+     You gave -Fips, but the PKI was built without Quadrant 2. The message lists the roots that
+     exist. Build with pki_setup.ps1 -Quadrant 1,2,3,4, or sign without -Fips.
+ A DevKit says it cannot sign a CA
+     That is correct. Do it on the original PKI.
+ Exit code 5
+     This computer is refused (section 3). Nothing was done.
+
+====================================================================================================
+ 15  LIMITS YOU MUST KNOW
+====================================================================================================
+ - Only Classic CAs. No ML-DSA CA is signed here.
+ - Only a Quadrant Root signs. Never an intermediate.
+ - The script does not check that the company is real. You must.
+ - The department's CA key is as dangerous as a root key. Tell them: offline, or in an HSM.
+ - Your own revocation list (CRL) must be copied to the server after a revoke (PkiRevocation).
+
+====================================================================================================
+ 16  ALL OPTIONS
+====================================================================================================
+ -Csr <file>                       His PKCS#10 request (PEM). Required.
+ -CsrType Auto|Leaf|IntermediateCA Kind of request. Default Auto.
+ -Level DV|OV|EV                   Default OV.
+ -Fips   -Quadrant 1|2             Which root signs.
+ -Name <text>                      Folder and file name. Default: his CN.
+ -Days <n>                         Default 1825. EV 397.
+ -PathLen 0..3                     Default 0.
+ -PermitDns <a,b>   -PermitEmail <a,b>   Name constraints.
+ -OutFolder <path>                 Default external-ca\ next to the pki folder.
+ -Check   -Strict   -NoColor   -Force   -List   -Unblock
+ -Pki <name>   -Release <n>   -NoCaRevocationInfo   -PkiRoot <folder>
+ -ConfigFile   -OpenSslPath   -FipsModuleConfig   -Verbose   -Help
+ Exit codes: 0 ok, 1 error, 2 the CSR breaks a rule, 5 this system is refused.
+
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
+====================================================================================================
+ 17  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested on Ubuntu 24.04 with OpenSSL 4.0.3 and PowerShell 7 on a fresh PKI: -Check, signing, a
+ refused leaf request, the folder contents, -List. NOT tested: a real Windows, real name-constraint
+ behaviour in clients (browsers, Java, Windows), RHEL / SUSE machines. Run
+ PKI-Acceptance-Checklists.txt (E46).
+
+====================================================================================================
+ 18  OTHER DOCUMENTS
+====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
+ NewPkiCsr-MANUAL.txt   SignCsr-MANUAL.txt   PkiRevocation-MANUAL.txt   PkiProfiles-MANUAL.txt
+ GLOSSARY.txt   GLOSSARY-ENGLISH.txt
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

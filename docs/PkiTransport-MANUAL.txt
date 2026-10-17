@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 6.4.7   2026-10-17
+ Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 6.6.18   2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh
 
@@ -478,6 +478,11 @@
  Exit codes of pki-transport.sh: 0 done, 1 error, 2 platform not supported, 4 OpenSSL missing, 5
  wrong password, 6 a prerequisite could not be installed.
 
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
 ====================================================================================================
  17  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
@@ -505,6 +510,7 @@
 ====================================================================================================
  18  OTHER DOCUMENTS
 ====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
    DevKit-MANUAL.txt                  the developer kit
    PKI-SERVER-MANUAL.txt              the CRL, OCSP and time stamp server
    Install-DevEnvironment-MANUAL.txt  OpenSSL 4 and 7-Zip

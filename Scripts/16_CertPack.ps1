@@ -515,7 +515,7 @@ function Install-PkiSevenZip {
         $pwsh = (Get-Process -Id $PID).Path
         if ($ide) {
             Write-PkiLog "Installing 7-Zip with $ide" 'INFO'
-            & $pwsh -NoProfile -ExecutionPolicy Bypass -File $ide -Only 7Zip | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+            & $pwsh -NoProfile -ExecutionPolicy RemoteSigned -File $ide -Only 7Zip | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
         }
         elseif (Get-Command winget.exe -ErrorAction SilentlyContinue) {
             Write-PkiLog 'Installing 7-Zip with WinGet (7zip.7zip)' 'INFO'

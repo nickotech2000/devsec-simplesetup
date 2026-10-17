@@ -20,7 +20,7 @@ function Get-PkiExternalCaSigner {
     if ($Quadrant -notin 1, 2) { throw "A department CA is signed by a Classic Quadrant Root only: Quadrant 1 (non-FIPS, default) or 2 (FIPS, -Fips). Quadrant $Quadrant (Quantum) is not used." }
     $all = @($script:Pki.Catalog | Where-Object { $null -ne $_.Actual })
     $id = "q$Quadrant-root"
-    $ca = @($all | Where-Object { $_.Id -eq $id })[0]
+    $ca = $all | Where-Object { $_.Id -eq $id } | Select-Object -First 1
     if ($null -eq $ca) { throw "The signing CA '$id' does not exist in this PKI (built: $((@($all | Where-Object { $_.Kind -eq 'quadrant' } | ForEach-Object { $_.Id }) -join ', ')))." }
     if ($ca.Kind -ne 'quadrant') { throw "'$id' is not a Quadrant Root." }
     return $ca

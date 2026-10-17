@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 6.4.7                      Updated: 2026-10-17
+ Version : 6.6.18                      Updated: 2026-10-17
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,75 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  6.6.18  2026-10-17  MINOR + REVISION (minor +2, revision +2)
+    * New: Enable-DevMachine.cmd (Command Prompt) and Enable-DevMachine.ps1 (PowerShell 5.1 or 7):
+      make a Windows laptop a development machine. Execution policy Bypass stored for the current
+      user and, as Administrator, the whole computer, in every PowerShell (Windows PowerShell 5.1
+      64 and 32 bit, PowerShell 7), so every present and future session runs unsigned scripts;
+      unblocks and un-read-onlys all files of the folder. -Status, -Undo, -Path, -NoUnblock, -Yes;
+      .cmd: /status /undo /nounblock /yes. Manual: docs\Enable-DevMachine-MANUAL.txt.
+    * The .cmd needs no policy (it only calls Set-ExecutionPolicy / Unblock-File). Opt-in, not part
+      of any other script, kept out of the trust kit. SECURITY-AUDIT.txt lists it as the only
+      files with the exec-policy pattern, on purpose.
+    * Not tested on a real Windows, and the .cmd was not run (no cmd.exe here).
+
+  6.4.16  2026-10-17  REVISION
+    * Bitdefender reported trustkit\Remove-PkiCa.ps1 (CMD:Heur.BZC.PZQ.Pantera). Checked: the file
+      has no download, no encoded command, no hidden window, no persistence. Probable causes
+      removed: (1) the 6.4.13 version block started cmd.exe /c ver: now read from the file
+      version of cmd.exe, no process; (2) the self-extracting Windows .cmd (Base64 payload +
+      PowerShell) is no longer made by New-PkiTrustKit -SelfExtract (Linux .sh stays);
+      (3) every "-ExecutionPolicy Bypass" is now "-ExecutionPolicy RemoteSigned".
+    * tools\audit_scripts.py: read-only static audit of all scripts (12 rule groups, every URL,
+      hidden Unicode); SHA256SUMS in the release root; new document docs\SECURITY-AUDIT.txt.
+    * pki_setup.ps1 -VerifyAll: -Verify for every built PKI, all outputs shown, PASSED / FAILED
+      summary, exit code 1 when one fails; -Pki <name> limits it to one company.
+    * Not tested: Bitdefender itself (not available here): the report may persist. Send the file
+      as a false positive to Bitdefender and see SECURITY-AUDIT.txt.
+
+  6.4.13  2026-10-17  REVISION
+    * New option -Version (PowerShell) / --version (bash) in all 30 .ps1 and 17 .sh scripts. One
+      report, the same layout in both: script name, version, build date, author, company, e-mail;
+      operating system with version and patch level (Windows 11 feature release and build, or
+      Linux kernel); newest .NET SDK and runtimes, .NET Framework (Windows), Node.js, Python 3,
+      Java and JDK; PowerShell (2.0, 5.1, 7.x), Bash, cmd, Git bash, other shells; Schannel
+      (Windows); every OpenSSL found as Default or Side, with its vendor (package, source code,
+      FireDaemon, Shining Light, Git, ...). macOS is rejected (exit 5). Nothing is changed.
+    * The block is one source (tools\version-block.ps1 / .sh), put into every script by
+      tools\Update-VersionBlock.ps1 and tools\update_version_block.py. Run them again after an edit.
+    * All -Help / --help and all manuals name the option; new document docs\VERSION-INFO.txt.
+    * New-PkiServerPackage.ps1 and New-PkiTrustKit.ps1: variable $script:Version renamed
+      (it clashed with the new parameter).
+    * Not tested: Windows detection paths, RHEL / SUSE, the FireDaemon / Shining Light guesses.
+
+  6.4.8  2026-10-17  REVISION
+    + "Revision +3": the rest of the scripts. SignExternalCa, Export-PkiCa, Create-WebServerConfig,
+      Sign-Code, PKI-SERVER (pki-server.sh, New-PkiServerPackage.ps1, Start-PkiCrlServer.ps1) and
+      PkiProfiles (New-PkiConfig.ps1) have new manuals in 18 sections, in short, dry English for
+      people who are new to PKI (10.179). SignExternalCa, Export-PkiCa and PKI-SERVER were written
+      again; Create-WebServerConfig, Sign-Code and PkiProfiles kept their content, moved into the
+      18 sections, with new parts added (words, before you start, recipes, limits).
+    + The -Help and --help are written again, each with "what it is" and a quick start, 100 columns
+      at most: SignExternalCa.ps1, Export-PkiCa.ps1, Create-WebServerConfig.ps1 and .sh,
+      Sign-Code.ps1 and .sh, pki-server.sh, New-PkiServerPackage.ps1, Start-PkiCrlServer.ps1,
+      pki_remove.ps1, New-PkiConfig.ps1, Serve-Docs.ps1, Setup-GitRepo.ps1, Build-HtmlDocs.ps1,
+      fix-permissions.sh and setup-git.sh. Start-PkiCrlServer.ps1 and New-PkiServerPackage.ps1 had a
+      60-column frame.
+    + BUG FIXED (scripts\19_ExternalCaSigning.ps1): SignExternalCa.ps1 -Fips on a PKI without a
+      q2-root stopped with "IndexOutOfRangeException". It now says that the signing CA 'q2-root'
+      does not exist in this PKI.
+    + Wrong text removed: the PKI-SERVER manual said "Version 5.3.7", used a frame of 130
+      columns and claimed Ubuntu only without saying why (the install uses apt; on other systems use
+      --no-packages, not tested); the pki-server.sh help title said Ubuntu 24.04 / 26.04 while the
+      platform check allows more systems; Sign-Code.sh and Create-WebServerConfig.sh said macOS
+      (refused since 5.0.0); START-HERE, linux-README and scripts-README had macOS and "25H2" where
+      24H2 is meant; Sign-Code.ps1 told Linux users to use the .sh "or macOS".
+    + Not changed: pki_setup.ps1 and its manual (already in the new layout), the GenerateLeaf,
+      Person and Office365 manuals (16 sections), the DevKit, PkiTransport, PkiBackup,
+      PrepareComputer, Install-DevEnvironment and trust-kit texts. Script logic is unchanged except
+      the bug fix above.
+    + HTML documents are built again.
 
   6.4.7  2026-10-17  REVISION
     + PkiBackup, PrepareComputer and Install-DevEnvironment: the three manuals are written again

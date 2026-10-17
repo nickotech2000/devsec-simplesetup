@@ -1,0 +1,138 @@
+====================================================================================================
+ SECURITY-AUDIT  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - are the scripts clean? What they do, how to check them
+ Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : The result of a check of every .ps1 and .sh script, the reasons why an antivirus
+                program may warn, and the commands that let YOU check the files yourself.
+ Who reads it : Administrators and security staff who must approve the scripts.
+ You need     : Nothing for sections 1 to 4. Section 5 needs PowerShell or sha256sum.
+ Start with   : Section 5 (check the checksums), then section 3 if an antivirus program warns.
+ Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+----------------------------------------------------------------------------------------------------
+
+ CONTENTS
+   1 Why this matters     2 What the audit looks for     3 Antivirus warnings (false positives)
+   4 What the scripts really do     5 Check your copy     6 Rules for the maintainer
+   7 What was tested, what was not     8 Other documents
+
+====================================================================================================
+ 1  WHY THIS MATTERS
+====================================================================================================
+ These scripts run as Administrator (Windows) or root / sudo (Linux). They change certificate
+ stores and write keys. A bad script could do great harm, so nobody should run them on trust. The
+ scripts are plain text. Read them, check them, and compare their checksums.
+
+====================================================================================================
+ 2  WHAT THE AUDIT LOOKS FOR
+====================================================================================================
+ tools\audit_scripts.py reads every script (it runs nothing) and lists these patterns:
+   encoded-command      Base64 or -EncodedCommand: hidden code
+   invoke-expression    text run as code (Invoke-Expression, iex, eval)
+   download-exec        a download, or "curl | sh"
+   hidden-window        a window made invisible
+   exec-policy          Bypass of the PowerShell script policy
+   persistence          the script starts itself later (Run key, task, service, cron, ssh keys)
+   defender-off         switching off the antivirus or the firewall
+   credential-theft     lsass, mimikatz, /etc/shadow
+   raw-socket-shell     reverse shell
+   shadow-delete        deleting backups, shadow copies or event logs
+   long-blob            a very long encoded string
+   sudo-nopasswd        setuid, NOPASSWD and similar
+   hidden-unicode       zero-width or right-to-left characters that hide text
+ It also prints every host name that appears in a script.
+ Run it yourself:   python3 tools/audit_scripts.py
+
+ RESULT for 6.4.16 (125 files, 30 .ps1 and 17 .sh among them):
+   invoke-expression 0, defender-off 0, credential-theft 0, shadow-delete 0, long-blob 0,
+   sudo-nopasswd 0, hidden-unicode 0, raw-socket-shell 0 (one false hit: the text
+   "AES-256 (WinZip AE-2)"). Hits that remain, and why they are harmless:
+   exec-policy (2 files)  Enable-DevMachine.cmd / .ps1 (6.6.18) set the policy to Bypass on your
+                          development laptop, because you asked for it. Opt-in, asks Y/N, has /undo.
+                          They are the only files with this pattern. Do not copy them to a server.
+   encoded-command (4)    Base64 of a PFX or a certificate that the user gave (Sign-Code.ps1/.sh,
+                          scripts\00_Common.ps1, scripts\23_CaExport.ps1). Data, not code.
+   download-exec (2)      Install-DevEnvironment.ps1 downloads the OQS provider release from GitHub
+                          when you ask for it; Export-PkiCa -FetchAia downloads the CA certificate
+                          from the AIA address in a certificate. Both only on request.
+   hidden-window (37)     CreateNoWindow on the helper process that runs openssl, so no black window
+                          flashes. It hides nothing: the output is read and printed by the script.
+   persistence (3)        linux\Install-DevEnvironment.sh puts the PATH of OpenSSL 4 in ~/.profile
+                          and ~/.bashrc, in a marked block that is shown and can be removed.
+ Hosts: only the CRL / OCSP / CA names of your PKI (*.nextmantra.internal), the public time stamp
+ servers of DigiCert, Sectigo, GlobalSign, Entrust, SSL.com, Certum and Microsoft, github.com,
+ api.github.com, 7-zip.org, repo1.maven.org (Sign-Code Java tools), the package sites of
+ chocolatey.org, brew.sh and dl.fedoraproject.org (named in text), and nextmantra.com.
+
+====================================================================================================
+ 3  ANTIVIRUS WARNINGS (FALSE POSITIVES)
+====================================================================================================
+ Case: Bitdefender reported trustkit\Remove-PkiCa.ps1 as CMD:Heur.BZC.PZQ.Pantera.181.0013D3F3 and
+ moved it to quarantine. "Heur" means a guess from behaviour patterns, not a known virus.
+ A script that starts programs, reads the registry and removes certificates fits such a pattern.
+ What was done in 6.4.16 to make the files look less like a dropper:
+   1. The version report (6.4.13) started cmd.exe to read the Windows version. It now reads the
+      file version of cmd.exe and starts nothing.
+   2. New-PkiTrustKit -SelfExtract no longer makes a Windows .cmd. A .cmd file with a Base64
+      payload that starts PowerShell is exactly what real malware looks like. Extract the zip
+      with right-click, Extract All (or tar -xf). The Linux .sh stays.
+   3. Every "powershell -ExecutionPolicy Bypass" became "-ExecutionPolicy RemoteSigned". If a
+      downloaded script is blocked, run  Unblock-File .\Install-PkiCa.ps1  first.
+ I could not run Bitdefender here, so it may still warn. What you can do:
+   a. Restore the file from quarantine ONLY after you compared it with SHA256SUMS (section 5).
+   b. Send the file to Bitdefender as a false positive (their "submit a sample" page) with the
+      signature name above.
+   c. For your own machines, add an exclusion for the script folder in the antivirus console.
+   d. Sign the scripts with your own code-signing certificate (Sign-Code.ps1 can do it); a signed
+      script from a known publisher is judged more mildly.
+
+====================================================================================================
+ 4  WHAT THE SCRIPTS REALLY DO
+====================================================================================================
+ They run openssl and 7-Zip, write files below their own folder, and (only when you ask) add or
+ remove certificates in the Windows store or in /usr/local/share/ca-certificates (and the RHEL /
+ SUSE equivalents). They never send a key or a password to the Internet. Private keys stay in the
+ pki folder. Passwords are read from a prompt or an environment variable and are cleared at the
+ end. Nothing is installed on the machine in the background; no service, task or start-up entry is
+ made except the optional PKI server kit that you install on purpose (PKI-SERVER-MANUAL.txt).
+ -Version / --version, -Help / --help, -Check and -Verify change nothing.
+
+====================================================================================================
+ 5  CHECK YOUR COPY
+====================================================================================================
+ SHA256SUMS in the root folder holds the SHA-256 of every file of the release (not the pki,
+ transport and leafcerts folders, which are yours).
+   Linux (in the project folder)      sha256sum -c SHA256SUMS --quiet     (no output = all fine)
+   Windows (PowerShell, in the folder)
+     Get-Content SHA256SUMS | ForEach-Object { $h, $f = $_ -split '  ', 2
+       if ((Get-FileHash -LiteralPath $f).Hash -ne $h.ToUpper()) { "CHANGED: $f" } }
+ Compare also the SHA-256 of the zip with the value the sender gives you on another channel.
+
+====================================================================================================
+ 6  RULES FOR THE MAINTAINER
+====================================================================================================
+ - Run  python3 tools/audit_scripts.py --sums  before each release: read the new hits, then write
+   SHA256SUMS. Add nothing from the list in section 2 without writing the reason here.
+ - No Base64 or other payload inside a script, no download without a request from the user, no
+   Bypass of the execution policy, no hidden window, no start-up entry.
+ - Sign the release scripts with Sign-Code.ps1 when a code-signing certificate is available.
+
+====================================================================================================
+ 7  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested: the static audit on Ubuntu 24.04 (all 125 script-like files), -VerifyAll with one PKI
+ (PASSED, exit 0), SHA256SUMS creation. NOT tested: Bitdefender or any other antivirus program,
+ -VerifyAll with several PKIs and with a damaged one, the Windows commands of section 5.
+ A static audit finds patterns; it does not prove that a file is harmless.
+
+====================================================================================================
+ 8  OTHER DOCUMENTS
+====================================================================================================
+ START-HERE.txt   PkiTrustKit-MANUAL.txt   Sign-Code-MANUAL.txt   VERSION-INFO.txt   GLOSSARY.txt
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

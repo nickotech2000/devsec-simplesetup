@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap     Version 6.4.7   2026-10-17
+ Agantra Inovatif Enterprise PKI - developer bootstrap     Version 6.6.18   2026-10-17
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Install-DevEnvironment.ps1 (Windows)   linux/Install-DevEnvironment.sh (Linux)
 
@@ -350,6 +350,11 @@
  2022, the Chinese, Government, IoT, SE and Embedded editions, other Linux distributions, older
  versions, macOS.
 
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
+
 ====================================================================================================
  17  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
@@ -369,6 +374,7 @@
 ====================================================================================================
  18  OTHER DOCUMENTS
 ====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
  PrepareComputer-MANUAL.txt   PkiTransport-MANUAL.txt   pki_setup-MANUAL.txt   DevKit-MANUAL.txt
  PkiProfiles-MANUAL.txt (platform check)   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
 ====================================================================================================

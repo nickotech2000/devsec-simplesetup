@@ -1,45 +1,44 @@
 ====================================================================================================
- Create-WebServerConfig - nginx and Apache configuration for a certificate (HTTPS only)
- Author : Nicko Satria Utama
- Company: Agantra Inovatif OÜ (NextMantra)
- Email  : nicko@nextmantra.com
- Version: 6.4.7
+ Create-WebServerConfig  -  USER MANUAL
 ====================================================================================================
+ Agantra Inovatif Enterprise PKI - nginx and Apache configuration for a certificate
+ Version 6.6.18   2026-10-17
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Script : Create-WebServerConfig.ps1 (PowerShell 7+) and Create-WebServerConfig.sh (bash 4+)
 
  READ THIS FIRST
 ----------------------------------------------------------------------------------------------------
- What it is   : Writes ready nginx and Apache configuration from your leaf certificate (TLS 1.3,
-                HTTP/3, ECH).
- Who reads it : Web and infrastructure staff.
- You need     : A leaf certificate and key; nginx 1.30+ or Apache.
- Start with   : Read the QUICK START, then run the wizard.
- Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
+ What it is   : A script that reads your leaf certificate and writes a ready nginx and Apache
+                configuration: HTTPS only, TLS 1.3, HTTP/3, Brotli, optional ECH.
+ Who reads it : Web and infrastructure staff. No PKI knowledge is needed. Every new word is
+                explained in GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+ Time needed  : 10 minutes to read sections 1 to 4. A run takes a few seconds.
+ You need     : A leaf certificate (best: the -fullchain.crt), PowerShell 7 or bash, OpenSSL 4,
+                and nginx 1.30+ or Apache on the server.
+ Start with   : Section 4 (Quick start), then the wizard (-Wizard / --wizard).
 ----------------------------------------------------------------------------------------------------
+ Related manuals:
+   GenerateLeafCertificate-MANUAL.txt   how to make the certificate
+   PkiTransport-MANUAL.txt   move the files to the server
+   PKI-SERVER-MANUAL.txt   the PKI server (CRL, OCSP)
+   Export-PkiCa-MANUAL.txt   CA files for a CDN in front of this server
+   PKI-Design-with-FIPS-and-PQC.txt   why it is built this way (senior staff)
+ Help in the terminal:   .\Create-WebServerConfig.ps1 -Help      ./Create-WebServerConfig.sh --help
 
-Files : Create-WebServerConfig.ps1   (PowerShell 7+: Windows, Linux, macOS)
-        Create-WebServerConfig.sh    (bash 4+: Linux, macOS with a newer bash)
-Help  : .\Create-WebServerConfig.ps1 -Help          ./Create-WebServerConfig.sh --help
-Also  : it is inside the DevKit, inside every PkiTransport package and inside every package of
-        New-PkiServerPackage.ps1, so it is on the server when you need it.
+ CONTENTS
+    1  What it does                            10 QUIC, Brotli, stream, ECH
+    2  The words you need                      11 Post-quantum certificates
+    3  Before you start                        12 The wizard
+    4  Quick start                             13 Recipes, copy and paste
+    5  Ubuntu or RHEL style                    14 Problems and answers
+    6  What goes into the file                 15 Limits you must know
+    7  Defaults by certificate                 16 All options
+    8  The output folder                       17 What was tested, what was not
+    9  Put the files on the server             18 Other documents
 
-CONTENTS
-  1. What it does, in plain words
-  2. Quick start
-  3. Ubuntu or RHEL style (-Distro)
-  4. What goes into the configuration, and why
-  5. The defaults by certificate (cipher, groups, signature algorithms)
-  6. Options
-  7. The output folder
-  8. Putting the files on the server (step by step)
-  9. QUIC / HTTP/3, Brotli, TCP / UDP stream, ECH
- 10. Post-quantum (ML-DSA) certificates
- 11. Problems and answers
- 12. What was NOT tested
-
-----------------------------------------------------------------------------------------------------
-1. WHAT IT DOES, IN PLAIN WORDS
-----------------------------------------------------------------------------------------------------
-
+====================================================================================================
+ 1   WHAT CREATE-WEBSERVERCONFIG DOES
+====================================================================================================
 A web server such as nginx or Apache needs a configuration file that says: "answer on port 443,
 use this certificate, allow only these secure settings, and send the traffic to my application".
 Writing it by hand is easy to get wrong.
@@ -63,10 +62,34 @@ This script reads your certificate and writes the configuration for you:
 It does NOT start or change anything on a server. It only writes files (or prints them).
 It never copies a private key.
 
-----------------------------------------------------------------------------------------------------
-2. QUICK START
-----------------------------------------------------------------------------------------------------
+====================================================================================================
+ 2   THE WORDS YOU NEED
+====================================================================================================
+ nginx / Apache   Two web server programs.
+ Kestrel          The web server inside an ASP.NET Core application. It sits behind nginx.
+ Upstream         The application behind the web server. Default http://127.0.0.1:5000.
+ TLS 1.3          The current secure connection standard. TLS 1.1 and older are never written.
+ QUIC / HTTP/3    A faster web protocol over UDP. nginx only.
+ HSTS             A header that tells browsers to use HTTPS only.
+ OCSP stapling    The server hands the visitor a fresh proof that the certificate is not revoked.
+ SAN              The list of names inside a certificate. The script uses them as server names.
+ ECH              Encrypted Client Hello. Hides the site name from the network.
+ ML-DSA           The post-quantum signature of the Quantum track.
+ More words: GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
 
+====================================================================================================
+ 3   BEFORE YOU START
+====================================================================================================
+ 1. You have the certificate file. The -fullchain.crt (leaf + intermediate) is best.
+ 2. You know which Linux the server runs: Ubuntu 24+ or RHEL family 10+ (-Distro).
+ 3. You know where your application listens (-Upstream).
+ 4. You can make the files on any computer and copy them to the server. The script needs no PKI
+    folder and never copies a private key.
+ 5. Check the version of nginx on the server: nginx -v. It must be 1.30 or newer.
+
+====================================================================================================
+ 4   QUICK START
+====================================================================================================
  1. Make a certificate (if you do not have one):
         .\GenerateLeafCertificate.ps1 -Dns www.example.com -Purpose ServerAuth
     The file called ...-fullchain.crt has the certificate and the intermediate CA together.
@@ -82,10 +105,9 @@ It never copies a private key.
  See the files on the screen to copy and paste: .\Create-WebServerConfig.ps1 -Certificate x.crt
  -Output Screen -Server nginx
 
-----------------------------------------------------------------------------------------------------
-3. UBUNTU OR RHEL STYLE (-Distro)
-----------------------------------------------------------------------------------------------------
-
+====================================================================================================
+ 5   UBUNTU OR RHEL STYLE (-DISTRO)
+====================================================================================================
 Linux distributions put files in different places and use different tools. You choose with
 -Distro (--distro):
 
@@ -109,10 +131,9 @@ Linux distributions put files in different places and use different tools. You c
 You can make the files for the other Linux on any computer. The README.txt in the output folder is
 written for the Linux you chose.
 
-----------------------------------------------------------------------------------------------------
-4. WHAT GOES INTO THE CONFIGURATION, AND WHY
-----------------------------------------------------------------------------------------------------
-
+====================================================================================================
+ 6   WHAT GOES INTO THE CONFIGURATION, AND WHY
+====================================================================================================
   Setting                   What the script writes                  Why
   ------------------------  --------------------------------------  ----------------------------
   Protocols                 TLSv1.3 (nginx), -all +TLSv1.3 (Apache)  TLS 1.3 is faster and has
@@ -137,12 +158,11 @@ written for the Linux you chose.
                             WebSocket upgrade                        real client and scheme.
   server_name               the DNS names of the certificate         Right site for each name.
 
-Everything above can be overridden with an option (see chapter 6).
+Everything above can be overridden with an option (see section 16).
 
-----------------------------------------------------------------------------------------------------
-5. THE DEFAULTS BY CERTIFICATE
-----------------------------------------------------------------------------------------------------
-
+====================================================================================================
+ 7   DEFAULTS BY CERTIFICATE
+====================================================================================================
 The script looks at the public key of the certificate and at the level. If a leaf-info.json file
 is next to the certificate (the leaf generator writes it) and it says "fips": true, FIPS mode is
 switched on by itself.
@@ -161,16 +181,148 @@ switched on by itself.
       FIPS: only the two AES-GCM suites.
   TLS 1.2 cipher suites (only with -Tls12), by key type:
       RSA    ECDHE-RSA-AES256-GCM-SHA384 : ECDHE-RSA-CHACHA20-POLY1305 : ECDHE-RSA-AES128-GCM-SHA256
-      ECDSA  ECDHE-ECDSA-AES256-GCM-SHA384 : ECDHE-ECDSA-CHACHA20-POLY1305 : ECDHE-ECDSA-AES128-GCM-SHA256
+      ECDSA  ECDHE-ECDSA-AES256-GCM-SHA384 : ECDHE-ECDSA-CHACHA20-POLY1305 :
+             ECDHE-ECDSA-AES128-GCM-SHA256
       (FIPS: without the ChaCha20 suite). An ML-DSA certificate works in TLS 1.3 only.
   HSTS: DV one year; OV and EV two years with includeSubDomains.
 
 Override: -TlsCiphers, -Tls12Ciphers, -Groups, -SignatureAlgorithms, -Fips.
 
-----------------------------------------------------------------------------------------------------
-6. OPTIONS
-----------------------------------------------------------------------------------------------------
+====================================================================================================
+ 8   THE OUTPUT FOLDER
+====================================================================================================
+Name:  transport\webconfig_<site>_<distro>_<servers>_<tls>_<quic>[_stream][_ech]_<date-time>
+Example: webconfig_www-example-com_rhel_nginx-apache_tls12-13_quic_20261017-113000
+The name tells you what is inside. A folder is never overwritten.
 
+  nginx\nginx.conf                       the main file (complete, with the http { } block)
+  nginx\conf.d\<site>.conf               the server { } block and the upstream to Kestrel
+  nginx\snippets\tls.conf                protocols, ciphers, groups, sessions
+  nginx\snippets\compression.conf        Brotli and gzip
+  nginx\snippets\proxy-kestrel.conf      proxy headers and WebSocket support
+  nginx\stream.d\<site>-stream.conf      only with -TcpStream / -UdpStream
+  nginx\snippets\ech.conf, ech\          only with -Ech
+  apache\...                             Ubuntu: conf-available\00-ssl-global.conf and
+                                         sites-available\<site>.conf;  RHEL: conf.d\...
+  <site>-fullchain.crt, <site>-chain.crt the public certificate files (NEVER the key)
+  README.txt                             the commands for your Linux, step by step
+
+nginx and Apache are in separate sub-folders. -Output Screen prints every file between
+"===== FILE: name =====" lines, so you can copy and paste.
+
+====================================================================================================
+ 9   PUTTING THE FILES ON THE SERVER (STEP BY STEP)
+====================================================================================================
+The README.txt in the output folder has these steps with the right paths. In short:
+
+ 1. Copy the certificate chain and your private key to the server, key readable by root only
+    (chmod 600). On RHEL style run restorecon on the folder.
+ 2. nginx: copy the snippets and the conf.d file into /etc/nginx/, then  nginx -t  and
+    systemctl reload nginx.
+    Apache on Ubuntu: a2enmod ssl http2 proxy proxy_http proxy_wstunnel rewrite headers deflate
+    brotli socache_shmcb; copy the two files; a2enconf and a2ensite; apache2ctl configtest; reload.
+    Apache on RHEL: dnf install httpd mod_ssl; copy the files to /etc/httpd/conf.d/; httpd -t.
+ 3. Open the firewall: tcp 443 (and udp 443 for QUIC). Nothing on port 80 is needed.
+    RHEL style also: setsebool -P httpd_can_network_connect 1 (so the web server may talk to
+    Kestrel).
+ 4. Test:  openssl s_client -connect www.example.com:443 -servername www.example.com -tls1_3
+           curl -v --http2 https://www.example.com/
+    The client must trust your private root (Install-PkiTrust), or use  curl --cacert ca-bundle.pem
+
+In ASP.NET Core call  app.UseForwardedHeaders()  so that the application trusts the proxy headers.
+
+====================================================================================================
+ 10  QUIC / HTTP/3, BROTLI, TCP / UDP STREAM, ECH
+====================================================================================================
+QUIC / HTTP/3 (nginx only). Needs an nginx built with the HTTP/3 module (nginx -V shows
+--with-http_v3_module) and OpenSSL 3.5 or newer / 4.x. UDP 443 must be open. The script adds
+"listen 443 quic reuseport", "http3 on", "quic_retry on" and the Alt-Svc header. "reuseport" can be
+used only once for each address and port in the whole nginx: if you have several sites on 443,
+keep it in one of them. Apache has no QUIC: nothing is written for it.
+
+Brotli. nginx does not contain Brotli: it needs the ngx_brotli module. Ubuntu: apt install
+libnginx-mod-http-brotli-filter libnginx-mod-http-brotli-static. RHEL style: build ngx_brotli or
+use a repository that has it. No module? Use -Compression Gzip. Apache: mod_brotli (a2enmod brotli
+on Ubuntu; loaded by default on RHEL). If a module is not there, Apache skips the lines (they are
+inside <IfModule>).
+
+TCP / UDP stream (nginx only). -TcpStream "8883=127.0.0.1:1883" makes nginx listen on port 8883
+with TLS (the same certificate) and pass plain TCP to 127.0.0.1:1883, for example an MQTT broker.
+-UdpStream "5353=127.0.0.1:5300" relays UDP as it is: nginx does not terminate DTLS. The stream
+module must be in your nginx (nginx -V shows --with-stream and --with-stream_ssl_module; on Ubuntu
+install libnginx-mod-stream). Several entries are allowed, separated by commas.
+
+ECH (Encrypted Client Hello). -Ech makes an ECH key with OpenSSL 4 (openssl ech) in the folder
+ech\, and a snippet ech.conf. ECH hides the real site name from the network. Three things must be
+true: your nginx is built with ECH support (the directive names depend on the build: the snippet
+says so), the key file goes to the server and nobody else can read it, and the ECHConfig is
+published in the HTTPS DNS record of the site. Apache has no ECH.
+
+====================================================================================================
+ 11  POST-QUANTUM (ML-DSA) CERTIFICATES
+====================================================================================================
+If the certificate is in the Quantum track (key algorithm ML-DSA-65 or ML-DSA-87), the script uses
+the post-quantum defaults of section 7 by itself: hybrid key exchange (X25519MLKEM768 and others)
+and the signature algorithms mldsa87 / mldsa65. TLS 1.2 is switched off for it even if you ask.
+You need OpenSSL 3.5 / 4.x in nginx or Apache, and clients that support ML-DSA in TLS 1.3. Today
+most browsers do not: test with  openssl s_client  from OpenSSL 4. Public CDNs do not accept
+ML-DSA yet; for them use a Classic certificate.
+
+====================================================================================================
+ 12  THE WIZARD
+====================================================================================================
+ Run the script without -Certificate at a console, or with -Wizard / --wizard. It asks 12
+ questions one by one. Press Enter to keep the value in [brackets]. An option that you already
+ gave is not asked again. If there is no console (a pipe, a scheduled job), no question is asked
+ and a missing -Certificate is an error.
+
+====================================================================================================
+ 13  RECIPES, COPY AND PASTE
+====================================================================================================
+ Simple, both servers:    .\Create-WebServerConfig.ps1 -Certificate .\www-fullchain.crt
+ Only nginx on RHEL:      .\Create-WebServerConfig.ps1 -Certificate .\www-fullchain.crt `
+                            -Server nginx -Distro RHEL
+ Allow old clients:       add -Tls12
+ See it on the screen:    add -Output Screen
+ Other application port:  add -Upstream http://127.0.0.1:5010
+ MQTT over TLS:           add -TcpStream "8883=127.0.0.1:1883"
+ Hide the site name:      add -Ech
+ The same in shell:       ./Create-WebServerConfig.sh --certificate ./www-fullchain.crt \
+                            --server nginx
+
+====================================================================================================
+ 14  PROBLEMS AND ANSWERS
+====================================================================================================
+ "nginx ... is not supported"        -NginxVersion is below 1.30. Update nginx.
+ "No server name"                    The certificate has no DNS name. Add -ServerName.
+ "The key does NOT belong ..."       Wrong key file. Nothing was written.
+ nginx: unknown directive "brotli"   The Brotli module is not installed. See section 10.
+ nginx: unknown directive "http3"    nginx is built without HTTP/3. Use -NoQuic or install nginx
+                                     from nginx.org.
+ nginx: unknown directive            ECH needs a build with ECH. Remove the include line or
+ "ssl_echkeydir"                     update.
+ nginx: "stream" directive not       Install the stream module, or do not use -TcpStream.
+ allowed
+ Browser: ERR_SSL_VERSION_OR_CIPHER  The client is old and needs TLS 1.2: add -Tls12.
+ MISMATCH
+ 502 Bad Gateway                     Kestrel is not listening on the -Upstream address. On RHEL
+                                     style also check setsebool httpd_can_network_connect.
+ Certificate warning in browser      The client does not trust your private root CA.
+
+====================================================================================================
+ 15  LIMITS YOU MUST KNOW
+====================================================================================================
+ - It writes files. It does not start, stop or change a server.
+ - It never copies or writes a private key. The config points to a path on the server.
+ - There is no port 80 server and no redirect. Put the redirect in front, for example in the load
+   balancer.
+ - Only nginx 1.30 and newer are supported. Older versions are refused (exit 1).
+ - Apache has no QUIC and no ECH. Nothing is written for them.
+ - TLS 1.1 and older cannot be switched on.
+
+====================================================================================================
+ 16  ALL OPTIONS
+====================================================================================================
   PowerShell                  Shell                        Meaning
   --------------------------  ---------------------------  ------------------------------------
   -Certificate <file>         --certificate <file>         The certificate (PEM or DER). A
@@ -205,117 +357,28 @@ Override: -TlsCiphers, -Tls12Ciphers, -Groups, -SignatureAlgorithms, -Fips.
 Step by step: with -Wizard (or without -Certificate at a console) the script asks 12 questions.
 Press Enter to keep the value in [brackets]. An option you already gave is not asked again.
 
-----------------------------------------------------------------------------------------------------
-7. THE OUTPUT FOLDER
-----------------------------------------------------------------------------------------------------
+ VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash).
+ It prints the script version, author, company, e-mail, the operating system with its version and
+ patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL
+ found, with the vendor of each OpenSSL. It changes nothing. Details: VERSION-INFO.txt.
 
-Name:  transport\webconfig_<site>_<distro>_<servers>_<tls>_<quic>[_stream][_ech]_<date-time>
-Example: webconfig_www-example-com_rhel_nginx-apache_tls12-13_quic_20261017-113000
-The name tells you what is inside. A folder is never overwritten.
-
-  nginx\nginx.conf                       the main file (complete, with the http { } block)
-  nginx\conf.d\<site>.conf               the server { } block and the upstream to Kestrel
-  nginx\snippets\tls.conf                protocols, ciphers, groups, sessions
-  nginx\snippets\compression.conf        Brotli and gzip
-  nginx\snippets\proxy-kestrel.conf      proxy headers and WebSocket support
-  nginx\stream.d\<site>-stream.conf      only with -TcpStream / -UdpStream
-  nginx\snippets\ech.conf, ech\          only with -Ech
-  apache\...                             Ubuntu: conf-available\00-ssl-global.conf and
-                                         sites-available\<site>.conf;  RHEL: conf.d\...
-  <site>-fullchain.crt, <site>-chain.crt the public certificate files (NEVER the key)
-  README.txt                             the commands for your Linux, step by step
-
-nginx and Apache are in separate sub-folders. -Output Screen prints every file between
-"===== FILE: name =====" lines, so you can copy and paste.
-
-----------------------------------------------------------------------------------------------------
-8. PUTTING THE FILES ON THE SERVER (STEP BY STEP)
-----------------------------------------------------------------------------------------------------
-
-The README.txt in the output folder has these steps with the right paths. In short:
-
- 1. Copy the certificate chain and your private key to the server, key readable by root only
-    (chmod 600). On RHEL style run restorecon on the folder.
- 2. nginx: copy the snippets and the conf.d file into /etc/nginx/, then  nginx -t  and
-    systemctl reload nginx.
-    Apache on Ubuntu: a2enmod ssl http2 proxy proxy_http proxy_wstunnel rewrite headers deflate
-    brotli socache_shmcb; copy the two files; a2enconf and a2ensite; apache2ctl configtest; reload.
-    Apache on RHEL: dnf install httpd mod_ssl; copy the files to /etc/httpd/conf.d/; httpd -t.
- 3. Open the firewall: tcp 443 (and udp 443 for QUIC). Nothing on port 80 is needed.
-    RHEL style also: setsebool -P httpd_can_network_connect 1 (so the web server may talk to
-    Kestrel).
- 4. Test:  openssl s_client -connect www.example.com:443 -servername www.example.com -tls1_3
-           curl -v --http2 https://www.example.com/
-    The client must trust your private root (Install-PkiTrust), or use  curl --cacert ca-bundle.pem
-
-In ASP.NET Core call  app.UseForwardedHeaders()  so that the application trusts the proxy headers.
-
-----------------------------------------------------------------------------------------------------
-9. QUIC / HTTP/3, BROTLI, TCP / UDP STREAM, ECH
-----------------------------------------------------------------------------------------------------
-
-QUIC / HTTP/3 (nginx only). Needs an nginx built with the HTTP/3 module (nginx -V shows
---with-http_v3_module) and OpenSSL 3.5 or newer / 4.x. UDP 443 must be open. The script adds
-"listen 443 quic reuseport", "http3 on", "quic_retry on" and the Alt-Svc header. "reuseport" can be
-used only once for each address and port in the whole nginx: if you have several sites on 443,
-keep it in one of them. Apache has no QUIC: nothing is written for it.
-
-Brotli. nginx does not contain Brotli: it needs the ngx_brotli module. Ubuntu: apt install
-libnginx-mod-http-brotli-filter libnginx-mod-http-brotli-static. RHEL style: build ngx_brotli or
-use a repository that has it. No module? Use -Compression Gzip. Apache: mod_brotli (a2enmod brotli
-on Ubuntu; loaded by default on RHEL). If a module is not there, Apache skips the lines (they are
-inside <IfModule>).
-
-TCP / UDP stream (nginx only). -TcpStream "8883=127.0.0.1:1883" makes nginx listen on port 8883
-with TLS (the same certificate) and pass plain TCP to 127.0.0.1:1883, for example an MQTT broker.
--UdpStream "5353=127.0.0.1:5300" relays UDP as it is: nginx does not terminate DTLS. The stream
-module must be in your nginx (nginx -V shows --with-stream and --with-stream_ssl_module; on Ubuntu
-install libnginx-mod-stream). Several entries are allowed, separated by commas.
-
-ECH (Encrypted Client Hello). -Ech makes an ECH key with OpenSSL 4 (openssl ech) in the folder
-ech\, and a snippet ech.conf. ECH hides the real site name from the network. Three things must be
-true: your nginx is built with ECH support (the directive names depend on the build: the snippet
-says so), the key file goes to the server and nobody else can read it, and the ECHConfig is
-published in the HTTPS DNS record of the site. Apache has no ECH.
-
-----------------------------------------------------------------------------------------------------
-10. POST-QUANTUM (ML-DSA) CERTIFICATES
-----------------------------------------------------------------------------------------------------
-
-If the certificate is in the Quantum track (key algorithm ML-DSA-65 or ML-DSA-87), the script uses
-the post-quantum defaults of chapter 5 by itself: hybrid key exchange (X25519MLKEM768 and others)
-and the signature algorithms mldsa87 / mldsa65. TLS 1.2 is switched off for it even if you ask.
-You need OpenSSL 3.5 / 4.x in nginx or Apache, and clients that support ML-DSA in TLS 1.3. Today
-most browsers do not: test with  openssl s_client  from OpenSSL 4. Public CDNs do not accept
-ML-DSA yet; for them use a Classic certificate.
-
-----------------------------------------------------------------------------------------------------
-11. PROBLEMS AND ANSWERS
-----------------------------------------------------------------------------------------------------
-
- "nginx ... is not supported"        -NginxVersion is below 1.30. Update nginx.
- "No server name"                    The certificate has no DNS name. Add -ServerName.
- "The key does NOT belong ..."       Wrong key file. Nothing was written.
- nginx: unknown directive "brotli"   The Brotli module is not installed. See chapter 9.
- nginx: unknown directive "http3"    nginx is built without HTTP/3. Use -NoQuic or install nginx
-                                     from nginx.org.
- nginx: unknown directive            ECH needs a build with ECH. Remove the include line or
- "ssl_echkeydir"                     update.
- nginx: "stream" directive not       Install the stream module, or do not use -TcpStream.
- allowed
- Browser: ERR_SSL_VERSION_OR_CIPHER  The client is old and needs TLS 1.2: add -Tls12.
- MISMATCH
- 502 Bad Gateway                     Kestrel is not listening on the -Upstream address. On RHEL
-                                     style also check setsebool httpd_can_network_connect.
- Certificate warning in browser      The client does not trust your private root CA.
-
-----------------------------------------------------------------------------------------------------
-12. WHAT WAS NOT TESTED
-----------------------------------------------------------------------------------------------------
-
+====================================================================================================
+ 17  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
 The two scripts were run on Ubuntu 24.04 and give the same files (only the program name in the
 first comment line and the examples differ). The nginx syntax was checked with nginx 1.24 (the
 only version available): the "http" part passes; the lines that need 1.30 (QUIC, stream, ECH) were
 NOT run on a real nginx 1.30 / 1.31. Apache was NOT run (no Apache server was available), and
 neither was any file on RHEL, CentOS Stream, Rocky or Oracle Linux. Read the README, run
 "nginx -t" / "apache2ctl configtest" / "httpd -t" before you reload.
+
+====================================================================================================
+ 18  OTHER DOCUMENTS
+====================================================================================================
+ VERSION-INFO.txt   (what -Version / --version prints)
+ GenerateLeafCertificate-MANUAL.txt   PkiTransport-MANUAL.txt   PKI-SERVER-MANUAL.txt
+ Export-PkiCa-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
+
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================
