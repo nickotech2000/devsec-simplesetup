@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com   Version: 7.5.3
+# Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com   Version: 7.6.4
 # Developer tool: puts tools/version-block.sh into the given .sh scripts (after the header comments and
 # after "set -..." if present), so --version works first. Safe to run again (old block cut by its markers).
 import re, sys, os

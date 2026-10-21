@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.5.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.4">
 <meta name="description" content="Back up and restore the whole PKI (Windows).">
 <title>Backup and restore - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.5.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.4</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Backup and restore</h1>
 <p class="lead">Back up and restore the whole PKI (Windows).</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-backup-does">1  WHAT THE BACKUP DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-make-a-backup-backup-pki-ps1">5  MAKE A BACKUP (Backup-Pki.ps1)</a></li><li class="l2"><a href="#6-passwords">6  PASSWORDS</a></li><li class="l2"><a href="#7-the-backup-zip-inside-and-out">7  THE BACKUP ZIP, INSIDE AND OUT</a></li><li class="l2"><a href="#8-test-a-backup-test-pkibackup-ps1">8  TEST A BACKUP (Test-PkiBackup.ps1)</a></li><li class="l2"><a href="#9-restore-a-backup-restore-pki-ps1">9  RESTORE A BACKUP (Restore-Pki.ps1)</a></li><li class="l2"><a href="#10-the-windows-certificate-stores">10  THE WINDOWS CERTIFICATE STORES</a></li><li class="l2"><a href="#11-keep-it-safe">11  KEEP IT SAFE</a></li><li class="l2"><a href="#12-restore-on-a-new-computer-step-by-step">12  RESTORE ON A NEW COMPUTER, STEP BY STEP</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options-and-exit-codes">16  ALL OPTIONS AND EXIT CODES</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents-and-for-the-maintainer">18  OTHER DOCUMENTS (AND FOR THE MAINTAINER)</a></li><li class="l3"><a href="#texts-are-in-the-src-ps1-files">texts are in the .src.ps1 files.</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - back up and restore the PKI     Version 7.5.3   2026-10-21
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - back up and restore the PKI     Version 7.6.4   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Scripts: Backup-Pki.ps1   Restore-Pki.ps1   Test-PkiBackup.ps1   (and Prepare-Computer.ps1)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
@@ -401,7 +401,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h3 id="texts-are-in-the-src-ps1-files">texts are in the .src.ps1 files.<a class="anchor" href="#texts-are-in-the-src-ps1-files" aria-label="Link to this section">#</a></h3>
 <p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PkiTransport-MANUAL.html"><small>&larr; Previous</small>Transport package</a><a class="nx" href="PrepareComputer-MANUAL.html"><small>Next &rarr;</small>Prepare a computer</a></nav>
-<p class="crumb">Made from PkiBackup-MANUAL.txt by Build-HtmlDocs.ps1 7.5.3.</p>
+<p class="crumb">Made from PkiBackup-MANUAL.txt by Build-HtmlDocs.ps1 7.6.4.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-backup-does">1  WHAT THE BACKUP DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-make-a-backup-backup-pki-ps1">5  MAKE A BACKUP (Backup-Pki.ps1)</a><a href="#6-passwords">6  PASSWORDS</a><a href="#7-the-backup-zip-inside-and-out">7  THE BACKUP ZIP, INSIDE AND OUT</a><a href="#8-test-a-backup-test-pkibackup-ps1">8  TEST A BACKUP (Test-PkiBackup.ps1)</a><a href="#9-restore-a-backup-restore-pki-ps1">9  RESTORE A BACKUP (Restore-Pki.ps1)</a><a href="#10-the-windows-certificate-stores">10  THE WINDOWS CERTIFICATE STORES</a><a href="#11-keep-it-safe">11  KEEP IT SAFE</a><a href="#12-restore-on-a-new-computer-step-by-step">12  RESTORE ON A NEW COMPUTER, STEP BY STEP</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options-and-exit-codes">16  ALL OPTIONS AND EXIT CODES</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents-and-for-the-maintainer">18  OTHER DOCUMENTS (AND FOR THE MAINTAINER)</a><a class="l3" href="#texts-are-in-the-src-ps1-files">texts are in the .src.ps1 files.</a></aside>
@@ -411,7 +411,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.5.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.4</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

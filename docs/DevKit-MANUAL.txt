@@ -1,7 +1,7 @@
 ====================================================================================================
  DevKit  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - the developer kit          Version 7.5.3           2026-10-21
+ Agantra Inovatif Enterprise PKI - the developer kit          Version 7.6.4           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -123,6 +123,8 @@
  GeneratePersonLeafCertificate.ps1 / .sh  People, from a JSON file.
  GenerateOffice365LeafCertificate.ps1 / .sh  Word, Excel and PDF signing, from a JSON file.
  GenerateCodeSigningCertificate.ps1 / .sh   Code signing only: Windows, Java, Android, Apple.
+                                        Also .keystore / .jks (Android, Java), Visual Studio MAUI
+                                        files; .jks needs keytool: Install-DevEnvironment --only java.
  SignCsr.ps1 / .sh                      Sign the request of a colleague.
  New-PkiCsr.ps1 / new-pki-csr.sh        Make a key and a request, step by step.
  Prepare-Computer.ps1 / .sh             Install OpenSSL with winget, Chocolatey, apt, dnf, zypper.

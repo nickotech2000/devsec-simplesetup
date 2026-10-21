@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.5.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.4">
 <meta name="description" content="Make OV / EV code signing certificates for Windows, Java, Android and Apple.">
 <title>Code signing certificates - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.5.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.4</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,8 +168,8 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Certificates</p>
 <h1>Code signing certificates</h1>
 <p class="lead">Make OV / EV code signing certificates for Windows, Java, Android and Apple.</p>
-<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a></li><li class="l2"><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a></li><li class="l2"><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a></li><li class="l2"><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a></li><li class="l2"><a href="#8-subject">8  SUBJECT</a></li><li class="l2"><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a></li><li class="l2"><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a></li><li class="l2"><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a></li><li class="l2"><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#15-all-options">15  ALL OPTIONS</a></li><li class="l2"><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l3"><a href="#apksigner-rcodesign-and-macos-codesign-with-these-certificat">apksigner, rcodesign and macOS codesign with these certificates.</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.5.3           2026-10-21
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a></li><li class="l2"><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a></li><li class="l2"><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a></li><li class="l2"><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a></li><li class="l2"><a href="#8-subject">8  SUBJECT</a></li><li class="l2"><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a></li><li class="l2"><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a></li><li class="l2"><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a></li><li class="l2"><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#15-all-options">15  ALL OPTIONS</a></li><li class="l2"><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN</a></li><li class="l2"><a href="#18-tools-the-formats-need-the-generator-stops-first-before-a">18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)</a></li><li class="l3"><a href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.4           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : A script. It makes CODE SIGNING certificates only: the certificates that put your
@@ -187,7 +187,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
                                         signing certificate, with fewer choices)
    <a href="Sign-Code-MANUAL.html">Sign-Code-MANUAL.txt</a>                 sign your files with these certificates (-UseGenerated)
    <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>                    the Linux kit (devkit.env, Install-PkiTrust.sh)
-   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>     why it is built this way (15.10, decision 10.183)
+   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>     why it is built this way (15.10, decisions 10.183, 10.185)
  Help in the terminal:   .\GenerateCodeSigningCertificate.ps1 -Help
                          ./GenerateCodeSigningCertificate.sh --help</pre></div>
 <div class="code"><pre> CONTENTS
@@ -199,13 +199,15 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
     6  The issuing CA (who signs)                 13  Problems and answers
     7  A CA that is not of this PKI               14  Limits you must know
                                                   15  All options (PowerShell and bash)
-                                                  16  What was tested, what was not</pre></div>
+                                                  16  What was tested, what was not
+                                                  17  Visual Studio 2026: .NET MAUI / Xamarin
+                                                  18  Tools the formats need (stop first)</pre></div>
 <h2 id="1-what-the-script-does">1  WHAT THE SCRIPT DOES<a class="anchor" href="#1-what-the-script-does" aria-label="Link to this section">#</a></h2>
 <p>It makes one code signing certificate for each platform you name, writes it in every format, checks it, and lists it in an index that Sign-Code.ps1 / Sign-Code.sh read.</p>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     .\GenerateCodeSigningCertificate.ps1 -Platform Windows
      ./GenerateCodeSigningCertificate.sh --platform windows</pre></div>
 <p>GenerateLeafCertificate.ps1 -Purpose CodeSigning still works: it makes one general code signing leaf. This script is the specialist: it knows what each platform needs (purposes, validity, subject, tool) and writes the signing commands for it next to the certificate.</p>
-<p>The defaults, so the shortest command is safe: Level EV, Quadrant 1 (Classic RSA, non-FIPS), issuer = the EV intermediate (q1-ev), RSA 4096, SHA-256, every format, PFX password Abc12345!, platform Windows.</p>
+<p>The defaults, so the shortest command is safe: Level EV, Quadrant 1 (Classic RSA, non-FIPS), issuer = the EV intermediate (q1-ev), RSA 4096, SHA-256, every format (also .keystore .jks .p12 .pvk .spc and the Visual Studio files, 7.6.4), PFX password Abc12345!, platform Windows.</p>
 <h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> Code signing   A signature on a program. The user&#39;s computer shows WHO made it and refuses it
                 when someone changed it afterwards.
@@ -308,6 +310,19 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
                          -LegacyPfx: 3DES / SHA-1 PFX for old Java and old Windows.
  &lt;name&gt;.sha256 / .sha512 hash files (-HashFile)          convert-formats.ps1 (-NoGuidance: none)
  leaf-info.json          what was made                  CODESIGN-NOTES.txt  how to sign, per tool
+ More formats (7.6.4; all of them in ALL, or name them in -Format / --format):
+   P12       &lt;name&gt;.p12        the PFX under the other name (macOS, Linux, Java, Electron, Qt).
+   KEYSTORE  &lt;name&gt;.keystore   PKCS#12 key store with ONE simple alias, &lt;company&gt;-&lt;platform&gt; in
+                               lower case (example_ltd-android). Android APK / AAB (apksigner,
+                               Gradle signingConfigs, MAUI, Xamarin), jarsigner, any Java 9+.
+   JKS       &lt;name&gt;.jks        the classic Java key store, same alias. For old Java / old Gradle.
+                               Needs keytool (a JDK): see 18.
+   PVK       &lt;name&gt;.pvk        the old Microsoft private key file (RSA only, encrypted with the
+                               password). With the .spc for pvk2pfx and old signcode / VBA tools.
+   SPC       &lt;name&gt;.spc        certificate + chain as PKCS#7 DER (Software Publisher Certificate).
+   VS        &lt;name&gt;.maui-signing.props and VISUALSTUDIO-MAUI.txt: Visual Studio 2026 (see 17).
+ Every key store and the .pvk have the PFX password (-Password / --pfx-password).
+ leaf-info.json also names keyAlias and keystore.
  Name: &lt;company&gt;-codesign-&lt;platform&gt;-&lt;ov|ev&gt;-&lt;quadrant&gt;-&lt;key&gt;, e.g.
        Agantra_Inovatif_OU-codesign-windows-ev-q1-rsa4096.crt
  Windows extras: -InstallPfx imports the PFX into -InstallStore CurrentUser (default) or
@@ -345,7 +360,14 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  &quot;The issuer ends before ...&quot;   -Days is longer than the issuer: shorten -Days.
  Windows still warns &quot;unknown publisher&quot;   The computer must trust your Root CA (Install-PkiCa /
      Install-PkiTrust.sh) and, for PowerShell, the certificate in Trusted Publishers.
- SmartScreen / Gatekeeper / Play Protect still warn   They trust PUBLIC roots only. See 14.</pre></div>
+ SmartScreen / Gatekeeper / Play Protect still warn   They trust PUBLIC roots only. See 14.
+ &quot;TOOLS MISSING (nothing was made)&quot;, exit 4   A chosen format needs a program that is not here
+     (keytool for .jks). Run Install-DevEnvironment (-Only Java / --only java), open a NEW
+     window, run the generator again. Or leave the format out (-Format without JKS). See 18.
+ Visual Studio does not list the key store   Run the generator with -InstallVisualStudio, or
+     Archive Manager &gt; Distribute &gt; Signing Identity &gt; Import the .keystore. See 17.
+ MSIX: &quot;the Publisher does not match&quot;   Package.appxmanifest &gt; Packaging &gt; Choose Certificate
+     fills the Publisher from the certificate; do not type it by hand.</pre></div>
 <h2 id="14-limits-you-must-know">14  LIMITS YOU MUST KNOW<a class="anchor" href="#14-limits-you-must-know" aria-label="Link to this section">#</a></h2>
 <ul><li>A private PKI: only computers that trust its Root CA trust the signature. Windows SmartScreen, Apple Gatekeeper / notarization and Google Play use public roots and their own programs only.</li><li>EV here is a private EV. Public EV needs a hardware key (HSM / token); this script writes a software key. Keep .key and .pfx files safe, never e-mail them, and change Abc12345!.</li><li>Apple: a signature from a private CA is fine for your own Macs (MDM, profiles); distribution to others needs an Apple Developer ID certificate and notarization.</li><li>Android: Google Play App Signing keeps its own key; this certificate is your upload key or the key of an app you distribute yourself.</li></ul>
 <h2 id="15-all-options">15  ALL OPTIONS<a class="anchor" href="#15-all-options" aria-label="Link to this section">#</a></h2>
@@ -367,29 +389,70 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  -KeyType -KeyBits -Curve -Hash -Days    --key-type --key-bits --curve --hash --days
  -Policy -NoCabfPolicy                   --no-cabf-policy
  -NoCrl -NoOcsp -NoRevocationInfo        --no-crl --no-ocsp --no-revocation-info
- -Format -HashFile -OutputRoot           --hash-file --out                  ALL, sha256 sha512
+ -Format -HashFile -OutputRoot           --format --hash-file --out         ALL, sha256 sha512
+   -Format: PEM DER CER CERT P7B RFC7468 PFX P12 KEYSTORE JKS PVK SPC VS ALL (comma list)
+   --format: p12 keystore jks pvk spc vs all none (the PEM / DER / PFX ... are always made)
  -Password -LegacyPfx -NoGuidance        --pfx-password                     Abc12345!
  -InstallPfx -InstallStore -InstallTrustedPublisher   (Windows only)
+ -InstallVisualStudio                    (Windows only; see 17)
  -Pki -PkiRoot -Release -NoCaRevocationInfo -ConfigFile    --release --no-ca-revocation-info
  -OpenSslPath -FipsModuleConfig          --openssl
  -Unblock -Verbose -Help -Version        --verbose --help --version
- Exit codes: 0 done, 1 error (nothing left behind), 5 this system is refused.</pre></div>
+ Exit codes: 0 done, 1 error (nothing left behind), 4 a tool the formats need is missing
+ (nothing made, see 18), 5 this system is refused.</pre></div>
 <h2 id="16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#16-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
-<p>Tested (Linux, OpenSSL 4.0.3, PowerShell 7, both twins): every platform at EV; OV with the Quadrant Root, RSA 8192, SHA3-512 and Lifetime Signing; FIPS ECDSA P-521 Android, 9125 days; -Combined; an external CA as PEM files and as PFX (password from PKI_ISSUER_PASSWORD); -List and -ListIssuers; the purposes and policies of the certificates (openssl x509 -text); jar files signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh. Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool,</p>
-<h3 id="apksigner-rcodesign-and-macos-codesign-with-these-certificat">apksigner, rcodesign and macOS codesign with these certificates.<a class="anchor" href="#apksigner-rcodesign-and-macos-codesign-with-these-certificat" aria-label="Link to this section">#</a></h3>
+<p>Tested (Linux, OpenSSL 4.0.3, PowerShell 7, both twins): every platform at EV; OV with the Quadrant Root, RSA 8192, SHA3-512 and Lifetime Signing; FIPS ECDSA P-521 Android, 9125 days; -Combined; an external CA as PEM files and as PFX (password from PKI_ISSUER_PASSWORD); -List and -ListIssuers; the purposes and policies of the certificates (openssl x509 -text); jar files signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh. Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool, apksigner, rcodesign and macOS codesign with these certificates. 7.6.4 (Linux, both twins): .keystore and .jks listed by keytool (one PrivateKeyEntry, the alias), a jar signed by jarsigner from the .keystore, .pvk read back by openssl, .spc holds the chain, the .maui-signing.props is valid XML; the stop with exit 4 when keytool is missing; ECDSA without .pvk. Not tested: Visual Studio 2026 itself, -InstallVisualStudio (Windows), dotnet publish of a MAUI app with the props, pvk2pfx.</p>
+<h2 id="17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN<a class="anchor" href="#17-visual-studio-2026-net-maui-xamarin" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> The certificate can be used inside Visual Studio 2026 for .NET MAUI and Xamarin apps:
+   .\GenerateCodeSigningCertificate.ps1 -OV -Platform Android,Windows -InstallVisualStudio
+ Each platform folder then has &lt;name&gt;.maui-signing.props and VISUALSTUDIO-MAUI.txt (the steps for
+ that certificate, with its alias, thumbprint and Publisher).
+ -InstallVisualStudio (Windows) does, without replacing anything that is there:
+   Android  copies &lt;name&gt;.keystore to %LOCALAPPDATA%\Xamarin\Mono for Android\Keystore\&lt;alias&gt;\
+            &lt;alias&gt;.keystore: the folder where Visual Studio keeps its Android signing identities,
+            so Archive Manager &gt; Distribute &gt; Signing Identity lists it.
+   Windows  imports the PFX into Cert:\CurrentUser\My, so &quot;Select from store&quot; (MSIX packaging,
+            ClickOnce, Package.appxmanifest &gt; Choose Certificate) shows it.
+ Android (MAUI net9.0 / net10.0-android, Xamarin.Android):
+   A. Archive Manager: Publish (Archive) &gt; Distribute &gt; Ad Hoc / Google Play &gt; Signing Identity
+      (or Import the .keystore, alias, password).
+   B. Project properties &gt; Android &gt; Package Signing: the .keystore, the alias, the passwords.
+   C. MSBuild / CI: in the .csproj  &lt;Import Project=&quot;&lt;folder&gt;\&lt;name&gt;.maui-signing.props&quot; /&gt;, set
+      CODESIGN_KEYSTORE_PASSWORD, then  dotnet publish -f net10.0-android -c Release.
+      The props sets AndroidKeyStore, AndroidSigningKeyStore (next to the props), the alias, and
+      the passwords as env:CODESIGN_KEYSTORE_PASSWORD (never the password itself).
+ Windows (MAUI net10.0-windows MSIX, WinUI 3, UWP, WPF / WinForms ClickOnce):
+   the props sets AppxPackageSigningEnabled, PackageCertificateThumbprint and a timestamp server;
+   the certificate must be in CurrentUser\My. The computers that install the MSIX must trust the
+   Root CA of this PKI.
+ iOS / Mac Catalyst: Apple accepts only certificates that Apple issued (with a provisioning
+   profile). A private PKI certificate cannot sign an iOS app; VISUALSTUDIO-MAUI.txt says so.
+ The bash twin writes the same files (--format vs); the install into Visual Studio is Windows only.</pre></div>
+<h2 id="18-tools-the-formats-need-the-generator-stops-first-before-a">18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)<a class="anchor" href="#18-tools-the-formats-need-the-generator-stops-first-before-a" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Before it makes anything the generator checks the programs the chosen formats need:
+   .jks   keytool from a JDK (Java 17 or newer): PATH, JAVA_HOME / JDK_HOME, and on Windows the
+          Microsoft OpenJDK (Install-DevEnvironment, Visual Studio), Adoptium, Java, Android Studio.
+   .pvk   the OpenSSL legacy provider (RSA keys only; ECDSA keys simply get no .pvk).
+ When one is missing it prints TOOLS MISSING, the command that installs it, and stops with exit 4.
+ Nothing is made. Install, open a NEW window (the PATH is read when a window starts), run again:
+   Windows   .\Install-DevEnvironment.ps1 -Only Java        (elevated; Microsoft OpenJDK 21,
+                                                           JAVA_HOME and the PATH)
+   Linux     sudo ./linux/Install-DevEnvironment.sh --yes --only java     (OpenJDK 21 or 17)
+ Or leave the format out:  -Format PEM,PFX,KEYSTORE,P12,SPC,VS  /  --format p12,keystore,spc,vs</pre></div>
+<h3 id="the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.<a class="anchor" href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud" aria-label="Link to this section">#</a></h3>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="NewPkiCsr-MANUAL.html"><small>&larr; Previous</small>Make a request (New-PkiCsr)</a><a class="nx" href="Export-PkiCa-MANUAL.html"><small>Next &rarr;</small>Export CA certificates</a></nav>
-<p class="crumb">Made from GenerateCodeSigningCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.5.3.</p>
+<p class="crumb">Made from GenerateCodeSigningCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.6.4.</p>
 
 </div>
-<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a><a href="#8-subject">8  SUBJECT</a><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a><a href="#15-all-options">15  ALL OPTIONS</a><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a><a class="l3" href="#apksigner-rcodesign-and-macos-codesign-with-these-certificat">apksigner, rcodesign and macOS codesign with these certificates.</a></aside>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a><a href="#8-subject">8  SUBJECT</a><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a><a href="#15-all-options">15  ALL OPTIONS</a><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN</a><a href="#18-tools-the-formats-need-the-generator-stops-first-before-a">18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)</a><a class="l3" href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.5.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.4</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

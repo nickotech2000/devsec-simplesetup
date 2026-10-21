@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines           Version 7.5.3      2026-10-21
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines           Version 7.6.4      2026-10-21
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt  Manuals: pki_setup-MANUAL.txt,
@@ -489,6 +489,24 @@
  Signature Details no longer say "Recoverable"; the server window shows the 200 lines. [ ] Ctrl+C
  stops the server; delete the lines from the hosts file. The script itself never writes to the hosts
  file.
+
+====================================================================================================
+ E51  Version 7.6.4: more code signing formats, Visual Studio 2026 (MAUI / Xamarin)
+====================================================================================================
+ [ ] .\GenerateCodeSigningCertificate.ps1 -OV -Platform Android,Windows,Java: each folder has .p12
+ .keystore .jks .pvk .spc .maui-signing.props VISUALSTUDIO-MAUI.txt.
+ keytool -list -keystore <name>.keystore: one PrivateKeyEntry with the alias <company>-android.
+ [ ] Without a JDK (or keytool not on the PATH): TOOLS MISSING, exit 4, no folder made.
+ .\Install-DevEnvironment.ps1 -Only Java (elevated), NEW window, run again: it works.
+ [ ] -Format PEM,PFX,KEYSTORE,VS from cmd / pwsh -File: accepted; -Format XYZ: error with the list.
+ [ ] -InstallVisualStudio: %LOCALAPPDATA%\Xamarin\Mono for Android\Keystore\<alias>\<alias>.keystore
+ exists; Visual Studio 2026 > Archive Manager > Distribute > Signing Identity lists it; the PFX is in
+ CurrentUser\My. A second run does not replace them.
+ [ ] A MAUI app: <Import Project="...\<name>.maui-signing.props" />, set CODESIGN_KEYSTORE_PASSWORD,
+ dotnet publish -f net10.0-android -c Release: apksigner verify --print-certs shows the certificate.
+ [ ] MAUI Windows MSIX: Package.appxmanifest > Choose Certificate (from store), Publish > Create App
+ Packages: the MSIX is signed with the thumbprint of the props.
+ [ ] Linux DevKit: ./GenerateCodeSigningCertificate.sh --platform android --format keystore,vs: same.
 
 ====================================================================================================
  E50  Version 7.5.2: code signing certificates and Sign-Code

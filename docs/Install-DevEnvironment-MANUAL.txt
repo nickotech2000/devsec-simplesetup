@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.5.3   2026-10-21
+ Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.6.4   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Install-DevEnvironment.ps1 (Windows)   linux/Install-DevEnvironment.sh (Linux)
 
@@ -105,6 +105,10 @@
  nginx             -                                  your nginx from your PPA (Ubuntu only)
  Git, Python       Git.Git,                           distribution packages (git; python3 + pip)
                    Python.PythonInstallManager
+ Java (JDK)        Microsoft.OpenJDK.21 (+ JAVA_HOME,  openjdk-21-jdk-headless (else 17), RHEL /
+                   bin folder on the machine Path)    SUSE java-21-openjdk-devel. keytool and
+                                                      jarsigner for the code signing key stores
+                                                      (GenerateCodeSigningCertificate -Format JKS)
  Go, NodeJS, PHP   GoLang.Go, OpenJS.NodeJS, PHP.PHP  golang / go, nodejs + npm, php-cli (SUSE:
                                                       php8-cli): best effort
  DotNet            Microsoft.DotNet.SDK.10 and .8     dotnet-sdk-10.0, else 9.0, else 8.0
@@ -315,9 +319,9 @@
  14  ALL OPTIONS
 ====================================================================================================
  Install-DevEnvironment.ps1 (Windows)
-   -Only <list>      PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, OpenSSL, 7Zip,
+   -Only <list>      PowerShell, DotNet, NodeJS, Go, PHP, Python, Git, Java, OpenSSL, 7Zip,
                      WindowsTerminal
-   -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipOpenSSL
+   -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipJava -SkipOpenSSL
    -SkipWindowsTerminal -Skip7Zip
    -Check   -WithOqsProvider   -Unblock   -Help
 
@@ -326,7 +330,7 @@
    --openssl-source system|ppa|build   --ppa PPA   --nginx-package P
    --openssl-prefix DIR   --openssl-version V   --openssl-no-docs   --openssl-jobs N   --no-path
    --unblock   --version   --help, -h
-   Components: tools 7zip openssl nginx git python go node php dotnet pwsh
+   Components: tools 7zip openssl nginx git java python go node php dotnet pwsh
 
 ====================================================================================================
  15  EXIT CODES

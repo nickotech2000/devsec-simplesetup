@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.5.3                       Updated: 2026-10-21
+ Version : 7.6.4                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,31 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.6.4  2026-10-21  MINOR + REVISION (minor +1, revision +1)
+    * GenerateCodeSigningCertificate.ps1 / .sh: more formats for every platform (in ALL, or named
+      in -Format / --format):
+        .keystore  PKCS#12 key store with one simple alias <company>-<platform>: Android APK / AAB
+                   (apksigner, Gradle, MAUI, Xamarin), jarsigner, Java 9+
+        .jks       classic Java key store (keytool), same alias, for old Java / Gradle
+        .p12       the PFX under the other name (macOS, Linux, Java)
+        .pvk .spc  old Microsoft private key (RSA) and certificate chain, for pvk2pfx / signcode
+      Every key store has the PFX password. leaf-info.json names keyAlias and keystore.
+    * Visual Studio 2026, .NET MAUI / Xamarin: <name>.maui-signing.props (Android: AndroidKeyStore,
+      key store next to the props, alias, password from env:CODESIGN_KEYSTORE_PASSWORD; Windows MSIX:
+      PackageCertificateThumbprint, timestamp) and VISUALSTUDIO-MAUI.txt (Archive Manager, project
+      properties, dotnet publish, Package.appxmanifest Publisher, the Apple limits).
+      New -InstallVisualStudio (Windows): the .keystore into %LOCALAPPDATA%\Xamarin\Mono for
+      Android\Keystore\<alias>\ (the signing identities Visual Studio lists) and the PFX into
+      CurrentUser\My (MSIX "Select from store"). Nothing is replaced.
+    * The generator checks the tools the chosen formats need BEFORE it makes anything (keytool for
+      .jks, the OpenSSL legacy provider for .pvk). Missing: "TOOLS MISSING", the install command,
+      exit 4, nothing made. Install-DevEnvironment.ps1 / .sh have a new component Java (Microsoft
+      OpenJDK 21 with JAVA_HOME on Windows; OpenJDK 21 / 17 on Linux): -Only Java / --only java.
+    * -Format accepts a comma list from pwsh -File / cmd too ("PEM,PFX" was refused by ValidateSet);
+      an unknown format is an error with the list of valid ones.
+    * Not tested on Windows / in Visual Studio itself (no Windows here); tested on Linux: keytool lists
+      both key stores, jarsigner signs with the .keystore, the props is valid XML, exit 4 without keytool.
 
   7.5.3  2026-10-21  REVISION (revision +1)
     * Brings in the fix of the separate 6.6.19 build (2026-10-19), which was not in the repository:

@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiBackup  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - back up and restore the PKI     Version 7.5.3   2026-10-21
+ Agantra Inovatif Enterprise PKI - back up and restore the PKI     Version 7.6.4   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Backup-Pki.ps1   Restore-Pki.ps1   Test-PkiBackup.ps1   (and Prepare-Computer.ps1)
 

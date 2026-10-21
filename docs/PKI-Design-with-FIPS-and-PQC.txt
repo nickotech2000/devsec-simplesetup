@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.5.3                      Updated: 2026-10-21
+ Version : 7.6.4                      Updated: 2026-10-21
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,21 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.185 DECIDED   (7.6.4) Code signing certificates are delivered in the container every platform's
+                 tool wants, and the generator stops before it starts when a tool is missing.
+                 (a) .keystore is PKCS#12 written by OpenSSL (no Java needed) with ONE alias in
+                 [a-z0-9._-] (<company>-<platform>), because jarsigner, Gradle, apksigner and MSBuild
+                 take the alias on a command line or in XML; the friendly name of the .pfx has spaces
+                 and commas. .jks only through keytool (the format is Java's own). .pvk / .spc for the
+                 old Microsoft tools; .p12 is a copy of the .pfx. One password for all (the PFX one).
+                 (b) Visual Studio 2026 / MAUI: a .props file the project imports, the key store path
+                 relative to the props ($(MSBuildThisFileDirectory)) and the password only as
+                 env:CODESIGN_KEYSTORE_PASSWORD, never in the file. -InstallVisualStudio copies the key
+                 store into the folder Visual Studio lists its Android signing identities from and the
+                 PFX into CurrentUser\My; it never replaces. iOS is left out on purpose: Apple signs
+                 with Apple-issued certificates only.
+                 (c) Tool check first (exit 4, nothing made) rather than a warning after half a run: the
+                 user installs with Install-DevEnvironment (new component Java) and runs again.
 10.184 DECIDED   (7.5.3, first in the 6.6.19 build) Paths given by the user are relative to the
                  PowerShell location. A child process does not share it, so every OpenSSL call starts
                  in that location (one place, Invoke-OpenSSL) and file readers use a full path. Error
@@ -2420,6 +2435,11 @@
                  SHA3-512 + Lifetime Signing; FIPS ECDSA P-521 Android 9125 days; -Combined; an
                  external CA as PEM files and as PFX; the bash twin the same; jar files signed and
                  timestamped (local RFC 3161 server) by Sign-Code.ps1 and Sign-Code.sh.
+      7.6.4      Split-PkiCodeSignFormats (leaf formats for New-PkiLeafSpec, extras for the code
+                 signing writer), Test-PkiCodeSignTools (before anything is made; exit 4),
+                 Write-PkiCodeSignExtraFormats (.p12 .keystore .jks .pvk .spc), Write-PkiCodeSignVisualStudio
+                 (.maui-signing.props, VISUALSTUDIO-MAUI.txt), Install-PkiCodeSignVisualStudio
+                 (-InstallVisualStudio). bash twin: --format, cs_extras, cs_visualstudio. Decision 10.185.
 
 
 ====================================================================================================

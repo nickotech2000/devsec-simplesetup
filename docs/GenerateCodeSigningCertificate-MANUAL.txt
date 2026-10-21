@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateCodeSigningCertificate.ps1 / .sh  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.5.3           2026-10-21
+ Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.4           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -22,7 +22,7 @@
                                         signing certificate, with fewer choices)
    Sign-Code-MANUAL.txt                 sign your files with these certificates (-UseGenerated)
    DevKit-MANUAL.txt                    the Linux kit (devkit.env, Install-PkiTrust.sh)
-   PKI-Design-with-FIPS-and-PQC.txt     why it is built this way (15.10, decision 10.183)
+   PKI-Design-with-FIPS-and-PQC.txt     why it is built this way (15.10, decisions 10.183, 10.185)
  Help in the terminal:   .\GenerateCodeSigningCertificate.ps1 -Help
                          ./GenerateCodeSigningCertificate.sh --help
 
@@ -36,6 +36,8 @@
     7  A CA that is not of this PKI               14  Limits you must know
                                                   15  All options (PowerShell and bash)
                                                   16  What was tested, what was not
+                                                  17  Visual Studio 2026: .NET MAUI / Xamarin
+                                                  18  Tools the formats need (stop first)
 
 ====================================================================================================
  1  WHAT THE SCRIPT DOES
@@ -52,7 +54,8 @@
 
  The defaults, so the shortest command is safe:
    Level EV, Quadrant 1 (Classic RSA, non-FIPS), issuer = the EV intermediate (q1-ev),
-   RSA 4096, SHA-256, every format, PFX password Abc12345!, platform Windows.
+   RSA 4096, SHA-256, every format (also .keystore .jks .p12 .pvk .spc and the Visual Studio
+   files, 7.6.4), PFX password Abc12345!, platform Windows.
 
 ====================================================================================================
  2  THE WORDS YOU NEED
@@ -189,6 +192,19 @@
                          -LegacyPfx: 3DES / SHA-1 PFX for old Java and old Windows.
  <name>.sha256 / .sha512 hash files (-HashFile)          convert-formats.ps1 (-NoGuidance: none)
  leaf-info.json          what was made                  CODESIGN-NOTES.txt  how to sign, per tool
+ More formats (7.6.4; all of them in ALL, or name them in -Format / --format):
+   P12       <name>.p12        the PFX under the other name (macOS, Linux, Java, Electron, Qt).
+   KEYSTORE  <name>.keystore   PKCS#12 key store with ONE simple alias, <company>-<platform> in
+                               lower case (example_ltd-android). Android APK / AAB (apksigner,
+                               Gradle signingConfigs, MAUI, Xamarin), jarsigner, any Java 9+.
+   JKS       <name>.jks        the classic Java key store, same alias. For old Java / old Gradle.
+                               Needs keytool (a JDK): see 18.
+   PVK       <name>.pvk        the old Microsoft private key file (RSA only, encrypted with the
+                               password). With the .spc for pvk2pfx and old signcode / VBA tools.
+   SPC       <name>.spc        certificate + chain as PKCS#7 DER (Software Publisher Certificate).
+   VS        <name>.maui-signing.props and VISUALSTUDIO-MAUI.txt: Visual Studio 2026 (see 17).
+ Every key store and the .pvk have the PFX password (-Password / --pfx-password).
+ leaf-info.json also names keyAlias and keystore.
  Name: <company>-codesign-<platform>-<ov|ev>-<quadrant>-<key>, e.g.
        Agantra_Inovatif_OU-codesign-windows-ev-q1-rsa4096.crt
  Windows extras: -InstallPfx imports the PFX into -InstallStore CurrentUser (default) or
@@ -236,6 +252,13 @@
  Windows still warns "unknown publisher"   The computer must trust your Root CA (Install-PkiCa /
      Install-PkiTrust.sh) and, for PowerShell, the certificate in Trusted Publishers.
  SmartScreen / Gatekeeper / Play Protect still warn   They trust PUBLIC roots only. See 14.
+ "TOOLS MISSING (nothing was made)", exit 4   A chosen format needs a program that is not here
+     (keytool for .jks). Run Install-DevEnvironment (-Only Java / --only java), open a NEW
+     window, run the generator again. Or leave the format out (-Format without JKS). See 18.
+ Visual Studio does not list the key store   Run the generator with -InstallVisualStudio, or
+     Archive Manager > Distribute > Signing Identity > Import the .keystore. See 17.
+ MSIX: "the Publisher does not match"   Package.appxmanifest > Packaging > Choose Certificate
+     fills the Publisher from the certificate; do not type it by hand.
 
 ====================================================================================================
  14  LIMITS YOU MUST KNOW
@@ -270,13 +293,17 @@
  -KeyType -KeyBits -Curve -Hash -Days    --key-type --key-bits --curve --hash --days
  -Policy -NoCabfPolicy                   --no-cabf-policy
  -NoCrl -NoOcsp -NoRevocationInfo        --no-crl --no-ocsp --no-revocation-info
- -Format -HashFile -OutputRoot           --hash-file --out                  ALL, sha256 sha512
+ -Format -HashFile -OutputRoot           --format --hash-file --out         ALL, sha256 sha512
+   -Format: PEM DER CER CERT P7B RFC7468 PFX P12 KEYSTORE JKS PVK SPC VS ALL (comma list)
+   --format: p12 keystore jks pvk spc vs all none (the PEM / DER / PFX ... are always made)
  -Password -LegacyPfx -NoGuidance        --pfx-password                     Abc12345!
  -InstallPfx -InstallStore -InstallTrustedPublisher   (Windows only)
+ -InstallVisualStudio                    (Windows only; see 17)
  -Pki -PkiRoot -Release -NoCaRevocationInfo -ConfigFile    --release --no-ca-revocation-info
  -OpenSslPath -FipsModuleConfig          --openssl
  -Unblock -Verbose -Help -Version        --verbose --help --version
- Exit codes: 0 done, 1 error (nothing left behind), 5 this system is refused.
+ Exit codes: 0 done, 1 error (nothing left behind), 4 a tool the formats need is missing
+ (nothing made, see 18), 5 this system is refused.
 
 ====================================================================================================
  16  WHAT WAS TESTED, WHAT WAS NOT
@@ -288,4 +315,53 @@
  signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh.
  Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool,
  apksigner, rcodesign and macOS codesign with these certificates.
+ 7.6.4 (Linux, both twins): .keystore and .jks listed by keytool (one PrivateKeyEntry, the alias),
+ a jar signed by jarsigner from the .keystore, .pvk read back by openssl, .spc holds the chain,
+ the .maui-signing.props is valid XML; the stop with exit 4 when keytool is missing; ECDSA
+ without .pvk. Not tested: Visual Studio 2026 itself, -InstallVisualStudio (Windows), dotnet
+ publish of a MAUI app with the props, pvk2pfx.
+
+====================================================================================================
+ 17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN
+====================================================================================================
+ The certificate can be used inside Visual Studio 2026 for .NET MAUI and Xamarin apps:
+   .\GenerateCodeSigningCertificate.ps1 -OV -Platform Android,Windows -InstallVisualStudio
+ Each platform folder then has <name>.maui-signing.props and VISUALSTUDIO-MAUI.txt (the steps for
+ that certificate, with its alias, thumbprint and Publisher).
+ -InstallVisualStudio (Windows) does, without replacing anything that is there:
+   Android  copies <name>.keystore to %LOCALAPPDATA%\Xamarin\Mono for Android\Keystore\<alias>\
+            <alias>.keystore: the folder where Visual Studio keeps its Android signing identities,
+            so Archive Manager > Distribute > Signing Identity lists it.
+   Windows  imports the PFX into Cert:\CurrentUser\My, so "Select from store" (MSIX packaging,
+            ClickOnce, Package.appxmanifest > Choose Certificate) shows it.
+ Android (MAUI net9.0 / net10.0-android, Xamarin.Android):
+   A. Archive Manager: Publish (Archive) > Distribute > Ad Hoc / Google Play > Signing Identity
+      (or Import the .keystore, alias, password).
+   B. Project properties > Android > Package Signing: the .keystore, the alias, the passwords.
+   C. MSBuild / CI: in the .csproj  <Import Project="<folder>\<name>.maui-signing.props" />, set
+      CODESIGN_KEYSTORE_PASSWORD, then  dotnet publish -f net10.0-android -c Release.
+      The props sets AndroidKeyStore, AndroidSigningKeyStore (next to the props), the alias, and
+      the passwords as env:CODESIGN_KEYSTORE_PASSWORD (never the password itself).
+ Windows (MAUI net10.0-windows MSIX, WinUI 3, UWP, WPF / WinForms ClickOnce):
+   the props sets AppxPackageSigningEnabled, PackageCertificateThumbprint and a timestamp server;
+   the certificate must be in CurrentUser\My. The computers that install the MSIX must trust the
+   Root CA of this PKI.
+ iOS / Mac Catalyst: Apple accepts only certificates that Apple issued (with a provisioning
+   profile). A private PKI certificate cannot sign an iOS app; VISUALSTUDIO-MAUI.txt says so.
+ The bash twin writes the same files (--format vs); the install into Visual Studio is Windows only.
+
+====================================================================================================
+ 18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)
+====================================================================================================
+ Before it makes anything the generator checks the programs the chosen formats need:
+   .jks   keytool from a JDK (Java 17 or newer): PATH, JAVA_HOME / JDK_HOME, and on Windows the
+          Microsoft OpenJDK (Install-DevEnvironment, Visual Studio), Adoptium, Java, Android Studio.
+   .pvk   the OpenSSL legacy provider (RSA keys only; ECDSA keys simply get no .pvk).
+ When one is missing it prints TOOLS MISSING, the command that installs it, and stops with exit 4.
+ Nothing is made. Install, open a NEW window (the PATH is read when a window starts), run again:
+   Windows   .\Install-DevEnvironment.ps1 -Only Java        (elevated; Microsoft OpenJDK 21,
+                                                           JAVA_HOME and the PATH)
+   Linux     sudo ./linux/Install-DevEnvironment.sh --yes --only java     (OpenJDK 21 or 17)
+ Or leave the format out:  -Format PEM,PFX,KEYSTORE,P12,SPC,VS  /  --format p12,keystore,spc,vs
+ The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.
 ====================================================================================================

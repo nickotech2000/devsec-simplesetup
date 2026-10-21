@@ -4,7 +4,7 @@
 # Company: Agantra Inovatif OÜ (NextMantra)
 # Email  : nicko@nextmantra.com
 # ============================================================
-# 24_CodeSigning.ps1  -  the CODE SIGNING profiles of GenerateCodeSigningCertificate.ps1 (7.5.2)
+# 24_CodeSigning.ps1  -  the CODE SIGNING profiles of GenerateCodeSigningCertificate.ps1 (7.5.2; formats and Visual Studio 7.6.4)
 #
 #   Platforms  Windows   Authenticode: exe dll sys msi msix appx cab cat ocx ps1 psm1 vbs js, Office VBA, NuGet, ClickOnce
 #              Java      jarsigner: jar war ear aab
@@ -18,7 +18,9 @@
 #
 # Provides : Get-PkiCodeSignSettings, Get-PkiCodeSignPlatforms, Resolve-PkiCodeSignPlatformList, Get-PkiCodeSignSubject,
 #            Resolve-PkiCodeSignIssuer, Get-PkiCodeSignPolicyOids, New-PkiCodeSignSpec, New-PkiCodeSignExternalCertificate,
-#            Write-PkiCodeSignNotes, Add-PkiCodeSignIndex, Get-PkiCodeSignIndex, Show-PkiCodeSignIssuers
+#            Write-PkiCodeSignNotes, Add-PkiCodeSignIndex, Get-PkiCodeSignIndex, Show-PkiCodeSignIssuers,
+#            Split-PkiCodeSignFormats, Get-PkiCodeSignAlias, Write-PkiCodeSignExtraFormats, Write-PkiCodeSignVisualStudio,
+#            Install-PkiCodeSignVisualStudio (7.6.4: .keystore .jks .p12 .pvk .spc, Visual Studio 2026 MAUI / Xamarin)
 # Requires : 00-04, 06, 13, 14 (New-PkiLeafSpec, New-PkiLeafCertificate, Test-PkiLeafResult, Write-PkiLeafFormats)
 # ============================================================
 Set-StrictMode -Version Latest
@@ -34,6 +36,17 @@ $script:PkiCodeSignEku = [ordered]@{
     KernelMode      = '1.3.6.1.4.1.311.61.1.1'       # Windows kernel mode code signing (drivers in test mode / own policy)
     ApplePackage    = '1.2.840.113635.100.4.13'      # Apple: packageSign (the Installer certificate of a .pkg)
 }
+
+# 7.6.4: the code signing formats beyond those of GenerateLeafCertificate (PEM DER CER CERT P7B RFC7468 PFX)
+#   P12       the PFX again as <name>.p12 (Apple Keychain, Xcode, MAUI docs, many tools ask for .p12)
+#   KEYSTORE  <name>.keystore: a PKCS#12 key store with ONE simple alias (Java 9+, Android Studio, Visual Studio MAUI /
+#             Xamarin, apksigner, jarsigner, Gradle); store and key password = -Password
+#   JKS       <name>.jks: the classic Java KeyStore (keytool -importkeystore; needs a JDK on this computer)
+#   PVK       <name>.pvk: the old Microsoft private key file (pvk2pfx, signcode, old build tools; RSA only)
+#   SPC       <name>.spc: Software Publisher Certificate = PKCS#7 DER with the chain (pvk2pfx, signcode, old Authenticode tools)
+#   VS        <name>.maui-signing.props + VISUALSTUDIO-MAUI.txt: Visual Studio 2026 / .NET MAUI / Xamarin signing settings
+$script:PkiCodeSignExtraFormats = @('P12', 'KEYSTORE', 'JKS', 'PVK', 'SPC', 'VS')
+$script:PkiCodeSignLeafFormats = @('PEM', 'DER', 'CER', 'CERT', 'P7B', 'RFC7468', 'PFX')
 
 # The platforms. Token = folder and file name part. Files = what the certificate signs (shown in the notes).
 $script:PkiCodeSignPlatforms = [ordered]@{
@@ -517,3 +530,230 @@ function Get-PkiCodeSignIndex {
     if (-not (Test-Path -LiteralPath $path)) { return @() }
     return @((Get-Content -LiteralPath $path -Raw | ConvertFrom-Json).certificates)
 }
+
+# ---------------------------------------------------------------- 7.6.4: more formats, Visual Studio MAUI / Xamarin
+function Split-PkiCodeSignFormats {
+    # -Format of the script -> the formats of the leaf generator and the code signing extras (ALL = every one of both)
+    param([string[]]$Format)
+    # pwsh -File hands "PEM,PFX" over as one string: split it here
+    $f = @($Format | ForEach-Object { "$_" -split '[,; ]+' } | Where-Object { $_ } | ForEach-Object { $_.Trim('.').ToUpperInvariant() } | Select-Object -Unique)
+    $bad = @($f | Where-Object { $_ -ne 'ALL' -and $_ -notin $script:PkiCodeSignLeafFormats -and $_ -notin $script:PkiCodeSignExtraFormats })
+    if ($bad.Count -gt 0) { throw "Unknown -Format $($bad -join ', '). Use: $(($script:PkiCodeSignLeafFormats + $script:PkiCodeSignExtraFormats + 'ALL') -join ', ')" }
+    if ($f.Count -eq 0 -or $f -contains 'ALL') { return @{ Leaf = @('ALL'); Extra = @($script:PkiCodeSignExtraFormats) } }
+    $leaf = @($f | Where-Object { $_ -in $script:PkiCodeSignLeafFormats })
+    $extra = @($f | Where-Object { $_ -in $script:PkiCodeSignExtraFormats })
+    if ($leaf.Count -eq 0) { $leaf = @('PEM') }
+    return @{ Leaf = $leaf; Extra = $extra }
+}
+
+function Get-PkiCodeSignAlias {
+    # one simple key alias for the key stores: <company>-<platform>, lower case, letters digits . _ - only
+    # (the friendly name of the PFX has spaces, commas and colons: jarsigner / Gradle / MSBuild need quoting for it)
+    param([Parameter(Mandatory)][hashtable]$Spec)
+    $n = if ($Spec.CodeSign.Contains('Company') -and $Spec.CodeSign.Company) { $Spec.CodeSign.Company } elseif ($Spec.Contains('Primary') -and $Spec.Primary) { $Spec.Primary } else { 'codesign' }
+    $a = ("$n-$($Spec.CodeSign.Token)").ToLowerInvariant() -replace '[^a-z0-9._-]+', '_' -replace '_+', '_'
+    return $a.Trim('_', '-', '.')
+}
+
+function Find-PkiKeytool {
+    $c = Get-Command keytool, keytool.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($c) { return $c.Source }
+    foreach ($h in @($env:JAVA_HOME, $env:JDK_HOME) | Where-Object { $_ }) {
+        foreach ($n in 'keytool.exe', 'keytool') { $p = Join-Path (Join-Path $h 'bin') $n; if (Test-Path -LiteralPath $p) { return $p } }
+    }
+    if ($IsWindows) {
+        # Install-DevEnvironment.ps1 -Only Java and Visual Studio 2026 / MAUI install the Microsoft OpenJDK; Android Studio has its own
+        $g = @("$env:ProgramFiles\Microsoft\jdk-*\bin\keytool.exe", "$env:ProgramFiles\Android\openjdk\*\bin\keytool.exe", "$env:ProgramFiles\Eclipse Adoptium\*\bin\keytool.exe",
+               "$env:ProgramFiles\Java\*\bin\keytool.exe", "$env:ProgramFiles\Android\Android Studio\jbr\bin\keytool.exe")
+        $f = Get-ChildItem -Path $g -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+        if ($f) { return $f.FullName }
+    }
+    return $null
+}
+
+function Test-PkiCodeSignTools {
+    # Before anything is made: the programs the chosen formats need. Returns the missing ones as @{ Tool; For; Fix } (empty = all there).
+    param([string[]]$Extra, [string]$KeyType)
+    $miss = [System.Collections.Generic.List[object]]::new()
+    $ide = if ($IsWindows) { '.\Install-DevEnvironment.ps1 -Only Java   (elevated window)' } else { 'sudo ./linux/Install-DevEnvironment.sh --yes --only java' }
+    if (@($Extra) -contains 'JKS' -and -not (Find-PkiKeytool)) {
+        [void]$miss.Add(@{ Tool = 'keytool (a JDK, Java 17 or newer)'; For = '.jks (Java key store)'; Fix = $ide })
+    }
+    if (@($Extra) -contains 'PVK' -and $KeyType -ne 'ECDSA') {
+        $res = Invoke-OpenSSL -AllowFailure -Arguments @('list', '-providers', '-provider', 'legacy')
+        if ($res.ExitCode -ne 0) {
+            [void]$miss.Add(@{ Tool = 'OpenSSL legacy provider (legacy.dll / legacy.so)'; For = '.pvk (RC4 encrypted)'
+                Fix = $(if ($IsWindows) { '.\Install-DevEnvironment.ps1 -Only OpenSSL   (FireDaemon OpenSSL has it)' } else { 'sudo ./linux/Install-DevEnvironment.sh --yes --only openssl --openssl-source build' }) })
+        }
+    }
+    return , $miss
+}
+
+function Write-PkiCodeSignExtraFormats {
+    # Writes the extra formats of -Format next to the certificate. Returns @{ Files; Alias; Keystore; Jks }.
+    # The password of every key store is the PFX password (env:PKI_PFX_PASSWORD, set by Set-PkiSecretEnvironment).
+    param([Parameter(Mandatory)][hashtable]$Spec, [Parameter(Mandatory)][hashtable]$R, [string[]]$Extra, [switch]$Legacy)
+    $dir = $R.Dir; $stem = $R.Stem
+    $alias = Get-PkiCodeSignAlias -Spec $Spec
+    $cnf = Get-PkiProviderConfigPath -Fips $false; $prov = Get-PkiProviderArgs -Fips $false
+    $out = @{ Files = [System.Collections.Generic.List[string]]::new(); Alias = $alias; Keystore = $null; Jks = $null }
+    $want = @($Extra | ForEach-Object { $_.ToUpperInvariant() })
+    if ($want -contains 'P12') {
+        $p12 = Join-Path $dir "$stem.p12"
+        if ($R.Pfx -and (Test-Path -LiteralPath $R.Pfx)) { Copy-Item -LiteralPath $R.Pfx -Destination $p12 -Force }
+        else { [void](New-PkiPfxFile -KeyPath $R.Key -CertPath $R.Crt -PfxPath $p12 -ChainPath $R.Chain -Name $Spec.FriendlyName -Legacy:$Legacy) }
+        [void]$out.Files.Add("$stem.p12")
+    }
+    if ($want -contains 'KEYSTORE' -or $want -contains 'JKS') {
+        $ks = Join-Path $dir "$stem.keystore"
+        [void](New-PkiPfxFile -KeyPath $R.Key -CertPath $R.Crt -PfxPath $ks -ChainPath $R.Chain -Name $alias -Legacy:$Legacy)
+        $out.Keystore = $ks
+        if ($want -contains 'KEYSTORE') { [void]$out.Files.Add("$stem.keystore") }
+        Write-PkiLog "  key store  : $stem.keystore  (PKCS#12, alias $alias)" 'OK'
+    }
+    if ($want -contains 'JKS') {
+        $kt = Find-PkiKeytool
+        if (-not $kt) { Write-PkiLog '  .jks not made: keytool (a JDK) was not found. Visual Studio / MAUI / Android Studio read the .keystore (PKCS#12) as well.' 'WARN' }
+        else {
+            $jks = Join-Path $dir "$stem.jks"
+            if (Test-Path -LiteralPath $jks) { Remove-Item -LiteralPath $jks -Force }
+            $a = @('-J-Duser.language=en', '-importkeystore', '-noprompt', '-srckeystore', $out.Keystore, '-srcstoretype', 'PKCS12', '-srcstorepass:env', 'PKI_PFX_PASSWORD',
+                   '-srcalias', $alias, '-destkeystore', $jks, '-deststoretype', 'JKS', '-deststorepass:env', 'PKI_PFX_PASSWORD', '-destkeypass:env', 'PKI_PFX_PASSWORD', '-destalias', $alias)
+            Write-PkiLog "  keytool $($a -join ' ')" 'DEBUG'
+            $txt = (& $kt @a 2>&1 | ForEach-Object { "$_" }) -join ' '
+            if ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $jks)) { $out.Jks = $jks; [void]$out.Files.Add("$stem.jks"); Write-PkiLog "  key store  : $stem.jks  (JKS, alias $alias)" 'OK' }
+            else { Write-PkiLog "  .jks not made: keytool said: $(($txt -replace 'Picked up JAVA_TOOL_OPTIONS:\S*[^\n]*?(?=keytool|$)', '').Trim())" 'WARN' }
+        }
+        if ($want -notcontains 'KEYSTORE' -and $out.Keystore) { Remove-Item -LiteralPath $out.Keystore -Force -ErrorAction SilentlyContinue; $out.Keystore = $null }
+    }
+    if ($want -contains 'PVK') {
+        if ($R.Actual.Algorithm -notlike 'RSA*') { Write-PkiLog '  .pvk not made: the PVK format holds RSA keys only.' 'INFO' }
+        else {
+            $pvk = Join-Path $dir "$stem.pvk"
+            # PVK encryption is RC4 (legacy provider): without it the .pvk cannot be written
+            $res = Invoke-OpenSSL -AllowFailure -ConfigPath $cnf -Arguments @('rsa', '-in', $R.Key, '-outform', 'PVK', '-pvk-strong', '-passout', 'env:PKI_PFX_PASSWORD', '-out', $pvk, '-provider', 'legacy', '-provider', 'default')
+            if ($res.ExitCode -eq 0 -and (Test-Path -LiteralPath $pvk)) { [void]$out.Files.Add("$stem.pvk") }
+            else { Remove-Item -LiteralPath $pvk -Force -ErrorAction SilentlyContinue; Write-PkiLog "  .pvk not made (needs the OpenSSL legacy provider): $(($res.StdErr -split "`r?`n" | Where-Object { $_ } | Select-Object -First 1))" 'WARN' }
+        }
+    }
+    if ($want -contains 'SPC') {
+        $spc = Join-Path $dir "$stem.spc"
+        [void](Invoke-OpenSSL -ConfigPath $cnf -Arguments (@('crl2pkcs7', '-nocrl', '-certfile', $R.Full, '-outform', 'DER', '-out', $spc) + $prov))
+        [void]$out.Files.Add("$stem.spc")
+    }
+    return $out
+}
+
+function Get-PkiCodeSignWindowsSubject {
+    # the subject as Windows writes it (Publisher of Package.appxmanifest must be exactly this)
+    param([Parameter(Mandatory)][string]$CrtPath)
+    try { return ([System.Security.Cryptography.X509Certificates.X509Certificate2]::new($CrtPath)).Subject } catch { return '' }
+}
+
+function Write-PkiCodeSignVisualStudio {
+    # <name>.maui-signing.props (MSBuild) and VISUALSTUDIO-MAUI.txt: sign a .NET MAUI / Xamarin app in Visual Studio 2026
+    # with this certificate (Android: the .keystore; Windows / WinUI MSIX: the thumbprint; Apple: see the limits).
+    param([Parameter(Mandatory)][hashtable]$Spec, [Parameter(Mandatory)][hashtable]$R, [hashtable]$Extra)
+    $plats = @($Spec.CodeSign.Platforms)
+    $android = ($plats -contains 'Android' -or $plats -contains 'Java')
+    $windows = ($plats -contains 'Windows')
+    $apple = ($plats -contains 'Apple' -or $plats -contains 'AppleInstaller')
+    $stem = $R.Stem; $alias = if ($Extra) { $Extra.Alias } else { Get-PkiCodeSignAlias -Spec $Spec }
+    $publisher = Get-PkiCodeSignWindowsSubject -CrtPath $R.Crt
+    $x = [System.Collections.Generic.List[string]]::new()
+    [void]$x.Add('<Project>')
+    [void]$x.Add("  <!-- Made by GenerateCodeSigningCertificate $($script:PkiGeneratorVersion) for $($Spec.CodeSign.Label). Visual Studio 2026, .NET MAUI and Xamarin.")
+    [void]$x.Add('       Use: import it in the .csproj from where it is (or copy it TOGETHER with the .keystore; the path is relative to this file):')
+    [void]$x.Add("         <Import Project=`"<folder>\$stem.maui-signing.props`" />")
+    [void]$x.Add('       The password is NOT in this file: set the variable CODESIGN_KEYSTORE_PASSWORD (env:), or use file:<path>. -->')
+    if ($android) {
+        [void]$x.Add('  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier(''$(TargetFramework)'')) == ''android'' and ''$(Configuration)'' == ''Release''">')
+        [void]$x.Add('    <AndroidKeyStore>true</AndroidKeyStore>')
+        [void]$x.Add("    <AndroidSigningKeyStore>`$(MSBuildThisFileDirectory)$stem.keystore</AndroidSigningKeyStore>")
+        [void]$x.Add("    <AndroidSigningKeyAlias>$alias</AndroidSigningKeyAlias>")
+        [void]$x.Add('    <AndroidSigningStorePass>env:CODESIGN_KEYSTORE_PASSWORD</AndroidSigningStorePass>')
+        [void]$x.Add('    <AndroidSigningKeyPass>env:CODESIGN_KEYSTORE_PASSWORD</AndroidSigningKeyPass>')
+        [void]$x.Add('    <!-- Xamarin.Android (classic) reads the same properties. AndroidPackageFormat aab = Google Play, apk = direct. -->')
+        [void]$x.Add('  </PropertyGroup>')
+    }
+    if ($windows) {
+        [void]$x.Add('  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier(''$(TargetFramework)'')) == ''windows'' and ''$(Configuration)'' == ''Release''">')
+        [void]$x.Add('    <!-- MSIX: the certificate must be in Cert:\CurrentUser\My (GenerateCodeSigningCertificate -InstallVisualStudio or -InstallPfx) -->')
+        [void]$x.Add('    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>')
+        [void]$x.Add("    <PackageCertificateThumbprint>$($R.Sha1)</PackageCertificateThumbprint>")
+        [void]$x.Add('    <AppxPackageSigningTimestampServerUrl>http://timestamp.digicert.com</AppxPackageSigningTimestampServerUrl>')
+        [void]$x.Add('    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>')
+        [void]$x.Add("    <!-- Package.appxmanifest: Identity Publisher=`"$([System.Security.SecurityElement]::Escape($publisher))`" -->")
+        [void]$x.Add('  </PropertyGroup>')
+    }
+    if ($apple) { [void]$x.Add('  <!-- iOS / Mac Catalyst: Apple accepts only certificates issued by Apple (CodesignKey, provisioning profiles). See VISUALSTUDIO-MAUI.txt. -->') }
+    [void]$x.Add('</Project>')
+    Write-Utf8NoBom -Path (Join-Path $R.Dir "$stem.maui-signing.props") -Content (($x -join "`n") + "`n")
+
+    $L = [System.Collections.Generic.List[string]]::new()
+    [void]$L.Add("VISUAL STUDIO 2026  -  .NET MAUI / XAMARIN SIGNING WITH THIS CERTIFICATE   ($($Spec.CodeSign.Label))")
+    [void]$L.Add('')
+    if ($android) {
+        [void]$L.Add('ANDROID (MAUI net9.0-android / net10.0-android, Xamarin.Android)')
+        [void]$L.Add("  Key store : $stem.keystore   (PKCS#12)   Alias: $alias   Store and key password: the -Password of the generator")
+        if ($Extra -and $Extra.Jks) { [void]$L.Add("  Also      : $stem.jks (classic JKS, same alias and password) for old tools") }
+        [void]$L.Add('  A. Visual Studio (Archive Manager): right-click the project > Publish (Archive) > Distribute > Ad Hoc or Google Play >')
+        [void]$L.Add("     Signing Identity > Import > choose $stem.keystore, alias $alias, the password. Or run the generator with")
+        [void]$L.Add("     -InstallVisualStudio: the key store is copied to %LOCALAPPDATA%\Xamarin\Mono for Android\Keystore\$alias\, where")
+        [void]$L.Add('     Visual Studio keeps the signing identities it lists.')
+        [void]$L.Add("  B. Project properties > Android > Package Signing: tick 'Sign the .APK file', Keystore = $stem.keystore, alias, passwords.")
+        [void]$L.Add("  C. MSBuild (also CI): import $stem.maui-signing.props, set CODESIGN_KEYSTORE_PASSWORD, then")
+        [void]$L.Add('       dotnet publish -f net10.0-android -c Release')
+        [void]$L.Add("     or on the command line: -p:AndroidKeyStore=true -p:AndroidSigningKeyStore=$stem.keystore -p:AndroidSigningKeyAlias=$alias")
+        [void]$L.Add('       -p:AndroidSigningStorePass=env:CODESIGN_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:CODESIGN_KEYSTORE_PASSWORD')
+        [void]$L.Add('  The key store is the identity of the app for ever (updates must be signed with the same key): back it up.')
+        [void]$L.Add('')
+    }
+    if ($windows) {
+        [void]$L.Add('WINDOWS (MAUI net10.0-windows10.0.19041.0 MSIX, WinUI 3, UWP, WPF / WinForms ClickOnce)')
+        [void]$L.Add("  Thumbprint: $($R.Sha1)")
+        [void]$L.Add("  Publisher : $publisher")
+        [void]$L.Add('  1. Put the certificate in Cert:\CurrentUser\My: run the generator with -InstallVisualStudio (or -InstallPfx), or')
+        [void]$L.Add("     double-click $stem.pfx > Current User > Personal.")
+        [void]$L.Add('  2. Package.appxmanifest > Packaging > Publisher: Choose Certificate > Select from store (Visual Studio fills the')
+        [void]$L.Add('     Publisher), or write the Publisher above EXACTLY into <Identity Publisher="...">.')
+        [void]$L.Add("  3. Publish > Create App Packages > Sign with a certificate > Select from store, or import $stem.maui-signing.props:")
+        [void]$L.Add("       dotnet publish -f net10.0-windows10.0.19041.0 -c Release -p:PackageCertificateThumbprint=$($R.Sha1)")
+        [void]$L.Add('  ClickOnce / VSTO: project properties > Signing > Select from Store (the same certificate). Plain exe / dll: Sign-Code.ps1.')
+        [void]$L.Add('  The computers that install the MSIX must trust the Root CA of this PKI (and, for sideloading, the certificate).')
+        [void]$L.Add('')
+    }
+    if ($apple) {
+        [void]$L.Add('iOS / MAC CATALYST (MAUI)')
+        [void]$L.Add('  Apple signs and runs apps only with certificates that APPLE issued (Apple Development / Distribution / Developer ID)')
+        [void]$L.Add('  and a provisioning profile. A private PKI certificate cannot be used for iOS, and not for Mac Catalyst outside your')
+        [void]$L.Add('  own managed Macs. Use it for macOS command-line tools / internal apps signed with rcodesign or codesign (CODESIGN-NOTES.txt).')
+        [void]$L.Add('')
+    }
+    [void]$L.Add('Never put a password into the .csproj or into Git. In a pipeline: the .keystore / .pfx as a base64 secret, the password as')
+    [void]$L.Add('a second secret mapped to CODESIGN_KEYSTORE_PASSWORD.')
+    Write-Utf8NoBom -Path (Join-Path $R.Dir 'VISUALSTUDIO-MAUI.txt') -Content (($L -join "`n") + "`n")
+    return @("$stem.maui-signing.props", 'VISUALSTUDIO-MAUI.txt')
+}
+
+function Install-PkiCodeSignVisualStudio {
+    # Windows: the Android key store into the folder of the Visual Studio signing identities, the PFX into CurrentUser\My
+    # (MSIX "Select from store"). Nothing is overwritten.
+    param([Parameter(Mandatory)][hashtable]$Spec, [Parameter(Mandatory)][hashtable]$R, [hashtable]$Extra, [Parameter(Mandatory)][string]$Password)
+    $plats = @($Spec.CodeSign.Platforms)
+    if (($plats -contains 'Android' -or $plats -contains 'Java') -and $Extra -and $Extra.Keystore) {
+        $alias = $Extra.Alias
+        $d = Join-Path $env:LOCALAPPDATA (Join-Path 'Xamarin\Mono for Android\Keystore' $alias)
+        $dest = Join-Path $d "$alias.keystore"
+        if (Test-Path -LiteralPath $dest) { Write-PkiLog "  Visual Studio: a key store with the alias $alias exists already ($dest): not replaced." 'WARN' }
+        else { [void][System.IO.Directory]::CreateDirectory($d); Copy-Item -LiteralPath $Extra.Keystore -Destination $dest; Write-PkiLog "  Visual Studio: Android signing identity $alias -> $dest" 'OK' }
+    }
+    if ($plats -contains 'Windows' -and $R.Pfx) {
+        $X = [System.Security.Cryptography.X509Certificates.X509Certificate2]; $fl = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]
+        $c = $X::new($R.Pfx, $Password, $fl::PersistKeySet -bor $fl::UserKeySet)
+        $st = [System.Security.Cryptography.X509Certificates.X509Store]::new('My', 'CurrentUser'); $st.Open('ReadWrite')
+        try { if (-not ($st.Certificates | Where-Object { $_.Thumbprint -eq $c.Thumbprint })) { $st.Add($c) } } finally { $st.Close() }
+        Write-PkiLog "  Visual Studio: MSIX certificate in CurrentUser\My ($($c.Thumbprint))" 'OK'
+    }
+}
+

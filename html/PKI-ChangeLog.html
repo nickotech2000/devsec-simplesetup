@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.5.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.4">
 <meta name="description" content="What changed in each version.">
 <title>Change log - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.5.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.4</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,7 +168,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Reference</p>
 <h1>Change log</h1>
 <p class="lead">What changed in each version.</p>
-<div class="code"><pre> Version : 7.5.3                       Updated: 2026-10-21
+<div class="code"><pre> Version : 7.6.4                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -183,6 +183,30 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  You need     : None.
  Start with   : Read the top entry.
  Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
+<div class="code"><pre>  7.6.4  2026-10-21  MINOR + REVISION (minor +1, revision +1)
+    * GenerateCodeSigningCertificate.ps1 / .sh: more formats for every platform (in ALL, or named
+      in -Format / --format):
+        .keystore  PKCS#12 key store with one simple alias &lt;company&gt;-&lt;platform&gt;: Android APK / AAB
+                   (apksigner, Gradle, MAUI, Xamarin), jarsigner, Java 9+
+        .jks       classic Java key store (keytool), same alias, for old Java / Gradle
+        .p12       the PFX under the other name (macOS, Linux, Java)
+        .pvk .spc  old Microsoft private key (RSA) and certificate chain, for pvk2pfx / signcode
+      Every key store has the PFX password. leaf-info.json names keyAlias and keystore.
+    * Visual Studio 2026, .NET MAUI / Xamarin: &lt;name&gt;.maui-signing.props (Android: AndroidKeyStore,
+      key store next to the props, alias, password from env:CODESIGN_KEYSTORE_PASSWORD; Windows MSIX:
+      PackageCertificateThumbprint, timestamp) and VISUALSTUDIO-MAUI.txt (Archive Manager, project
+      properties, dotnet publish, Package.appxmanifest Publisher, the Apple limits).
+      New -InstallVisualStudio (Windows): the .keystore into %LOCALAPPDATA%\Xamarin\Mono for
+      Android\Keystore\&lt;alias&gt;\ (the signing identities Visual Studio lists) and the PFX into
+      CurrentUser\My (MSIX &quot;Select from store&quot;). Nothing is replaced.
+    * The generator checks the tools the chosen formats need BEFORE it makes anything (keytool for
+      .jks, the OpenSSL legacy provider for .pvk). Missing: &quot;TOOLS MISSING&quot;, the install command,
+      exit 4, nothing made. Install-DevEnvironment.ps1 / .sh have a new component Java (Microsoft
+      OpenJDK 21 with JAVA_HOME on Windows; OpenJDK 21 / 17 on Linux): -Only Java / --only java.
+    * -Format accepts a comma list from pwsh -File / cmd too (&quot;PEM,PFX&quot; was refused by ValidateSet);
+      an unknown format is an error with the list of valid ones.
+    * Not tested on Windows / in Visual Studio itself (no Windows here); tested on Linux: keytool lists
+      both key stores, jarsigner signs with the .keystore, the props is valid XML, exit 4 without keytool.</pre></div>
 <div class="code"><pre>  7.5.3  2026-10-21  REVISION (revision +1)
     * Brings in the fix of the separate 6.6.19 build (2026-10-19), which was not in the repository:
       a relative path such as .\leafcerts\x\x.pfx failed with &quot;The PFX could not be opened
@@ -770,7 +794,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  4.0.0  New hierarchy, OpenSSL 4 gate, native providers, agantra_pki.cnf, validation, trust.</pre></div>
 <p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PKI-Design-with-FIPS-and-PQC.html"><small>&larr; Previous</small>Design and decisions</a><a class="nx" href="PKI-Acceptance-Checklists.html"><small>Next &rarr;</small>Acceptance checklists</a></nav>
-<p class="crumb">Made from PKI-ChangeLog.txt by Build-HtmlDocs.ps1 7.5.3.</p>
+<p class="crumb">Made from PKI-ChangeLog.txt by Build-HtmlDocs.ps1 7.6.4.</p>
 
 </div>
 
@@ -780,7 +804,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.5.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.4</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>
