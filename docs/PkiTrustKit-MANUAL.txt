@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTrustKit  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - let other computers trust your PKI   Version 7.6.5   2026-10-21
+ Agantra Inovatif Enterprise PKI - let other computers trust your PKI   Version 7.6.6   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: New-PkiTrustKit.ps1 (builds the kits)   Install-PkiCa.ps1 / install-pki-ca.sh (install)
           Remove-PkiCa.ps1 / remove-pki-ca.sh (remove)

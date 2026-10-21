@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.6.5">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.6">
 <meta name="description" content="What each module of the scripts folder does.">
 <title>Modules (scripts folder) - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.5</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.6</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Modules (scripts folder)</h1>
 <p class="lead">What each module of the scripts folder does.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-how-a-script-loads-the-modules">1  HOW A SCRIPT LOADS THE MODULES</a></li><li class="l2"><a href="#2-the-modules">2  THE MODULES</a></li><li class="l2"><a href="#3-patterns-for-phase-b-and-phase-c">3  PATTERNS FOR PHASE B AND PHASE C</a></li><li class="l2"><a href="#4-shared-state-script-pki">4  SHARED STATE  ($script:Pki)</a></li><li class="l2"><a href="#5-rules-for-adding-or-changing-a-module">5  RULES FOR ADDING OR CHANGING A MODULE</a></li><li class="l2"><a href="#6-where-to-change-what">6  WHERE TO CHANGE WHAT</a></li><li class="l3"><a href="#conversion-script-and-tls-guidance-text-15-leafguidance-ps1">Conversion script and TLS guidance text                15_LeafGuidance.ps1</a></li><li class="l2"><a href="#new-in-7-5-2">NEW IN 7.5.2</a></li><li class="l2"><a href="#new-in-6-3-6">NEW IN 6.3.6</a></li></ol></details>
-<div class="code"><pre> Version 7.6.5      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+<div class="code"><pre> Version 7.6.6      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1</pre></div>
 <p>This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions. The scripts in the project folder load it and call the functions.</p>
 <div class="code"><pre> CONTENTS
@@ -340,7 +340,7 @@ NoCR / release words, PQC short label                  agantra_pki.cnf [ ca_name
 <h2 id="new-in-6-3-6">NEW IN 6.3.6<a class="anchor" href="#new-in-6-3-6" aria-label="Link to this section">#</a></h2>
 <p>Module 23_CaExport.ps1 is the code behind Export-PkiCa.ps1. Create-WebServerConfig and Sign-Code (.ps1 and .sh) are standalone tools: they use no module. Build-HtmlDocs.ps1 makes the html\ folder from the text documents.</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="linux-README.html"><small>&larr; Previous</small>Linux scripts</a><a class="nx" href="PUBLIC-CA-ENTERPRISE-ROOT.html"><small>Next &rarr;</small>Enterprise Root signed by a public CA</a></nav>
-<p class="crumb">Made from scripts-README.txt by Build-HtmlDocs.ps1 7.6.5.</p>
+<p class="crumb">Made from scripts-README.txt by Build-HtmlDocs.ps1 7.6.6.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-how-a-script-loads-the-modules">1  HOW A SCRIPT LOADS THE MODULES</a><a href="#2-the-modules">2  THE MODULES</a><a href="#3-patterns-for-phase-b-and-phase-c">3  PATTERNS FOR PHASE B AND PHASE C</a><a href="#4-shared-state-script-pki">4  SHARED STATE  ($script:Pki)</a><a href="#5-rules-for-adding-or-changing-a-module">5  RULES FOR ADDING OR CHANGING A MODULE</a><a href="#6-where-to-change-what">6  WHERE TO CHANGE WHAT</a><a class="l3" href="#conversion-script-and-tls-guidance-text-15-leafguidance-ps1">Conversion script and TLS guidance text                15_LeafGuidance.ps1</a><a href="#new-in-7-5-2">NEW IN 7.5.2</a><a href="#new-in-6-3-6">NEW IN 6.3.6</a></aside>
@@ -350,7 +350,7 @@ NoCR / release words, PQC short label                  agantra_pki.cnf [ ca_name
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.5</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.6</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

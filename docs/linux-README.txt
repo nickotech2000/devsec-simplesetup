@@ -1,6 +1,6 @@
 ====================================================================================================
  linux/  -  the shell scripts of the Agantra Inovatif PKI
- Version 7.6.5
+ Version 7.6.6
  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
 ====================================================================================================

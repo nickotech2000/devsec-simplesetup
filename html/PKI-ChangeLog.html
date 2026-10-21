@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.6.5">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.6">
 <meta name="description" content="What changed in each version.">
 <title>Change log - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.5</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.6</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,7 +168,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Reference</p>
 <h1>Change log</h1>
 <p class="lead">What changed in each version.</p>
-<div class="code"><pre> Version : 7.6.5                       Updated: 2026-10-21
+<div class="code"><pre> Version : 7.6.6                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -183,6 +183,20 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  You need     : None.
  Start with   : Read the top entry.
  Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
+<div class="code"><pre>  7.6.6  2026-10-21  REVISION (revision +1)
+    * VISUALSTUDIO-MAUI.txt (both twins) for Visual Studio 2026 Run / Deploy and Publish, Debug AND Release:
+      1. a ready .csproj block with the FULL path of the key store and the alias, to paste as the LAST
+         PropertyGroup, and the rule to delete every older AndroidKeyStore / AndroidSigning* line (a later
+         Release / Debug group with an old key store, alias or password overrode the new one);
+      2. the password once as a User variable, then restart Visual Studio;
+      3. Archive Manager (Publish &gt; Distribute) signs with its OWN Signing Identity list, not the .csproj:
+         import the .keystore there (or -InstallVisualStudio);
+      4. how to check the signed APK (apksigner verify --print-certs, the SHA-1);
+      and, when the key is shorter than 25 years (EV: 397 days), its end date and why a Google Play app
+      needs an OV Android key (valid after 22 October 2033; an app can never change its key).
+    * bash twin: the extra formats are written after the end date is known (for the note above).
+    * Checked with the user&#39;s real .keystore: PKCS#12, alias pt_makan_murah_bersama-android, jarsigner
+      signs and verifies with it.</pre></div>
 <div class="code"><pre>  7.6.5  2026-10-21  REVISION (revision +1)
     * Fix, Visual Studio 2026 MAUI: a Debug build with the generated .keystore failed with
       XA4314 &quot;$(AndroidSigningKeyPass) is empty&quot;. The .maui-signing.props set the Android signing
@@ -808,7 +822,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  4.0.0  New hierarchy, OpenSSL 4 gate, native providers, agantra_pki.cnf, validation, trust.</pre></div>
 <p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PKI-Design-with-FIPS-and-PQC.html"><small>&larr; Previous</small>Design and decisions</a><a class="nx" href="PKI-Acceptance-Checklists.html"><small>Next &rarr;</small>Acceptance checklists</a></nav>
-<p class="crumb">Made from PKI-ChangeLog.txt by Build-HtmlDocs.ps1 7.6.5.</p>
+<p class="crumb">Made from PKI-ChangeLog.txt by Build-HtmlDocs.ps1 7.6.6.</p>
 
 </div>
 
@@ -818,7 +832,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.5</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.6</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

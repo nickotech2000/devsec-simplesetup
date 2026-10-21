@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateCodeSigningCertificate.ps1 / .sh  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.5           2026-10-21
+ Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.6           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -346,6 +346,13 @@
    Windows  imports the PFX into Cert:\CurrentUser\My, so "Select from store" (MSIX packaging,
             ClickOnce, Package.appxmanifest > Choose Certificate) shows it.
  Android (MAUI net9.0 / net10.0-android, Xamarin.Android):
+   VISUALSTUDIO-MAUI.txt (7.6.6) has a ready .csproj block with the FULL path of the key store and the
+   alias: paste it as the LAST PropertyGroup and delete every older AndroidKeyStore / AndroidSigning*
+   line (an old Release or Debug group would override it). Visual Studio Run / Deploy and Publish
+   then sign Debug and Release with it. Archive Manager (Publish > Distribute) uses its OWN Signing
+   Identity list: import the .keystore there once (or -InstallVisualStudio).
+   EV keys live 397 days: fine to test; a Google Play app needs an OV Android key (25 years), since
+   an app can never change its key.
    A. Archive Manager: Publish (Archive) > Distribute > Ad Hoc / Google Play > Signing Identity
       (or Import the .keystore, alias, password).
    B. Project properties > Android > Package Signing: the .keystore, the alias and BOTH passwords

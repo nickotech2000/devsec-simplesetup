@@ -2,7 +2,7 @@
  Create-WebServerConfig  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - nginx and Apache configuration for a certificate
- Version 7.6.5   2026-10-21
+ Version 7.6.6   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Create-WebServerConfig.ps1 (PowerShell 7+) and Create-WebServerConfig.sh (bash 4+)
 

@@ -1,7 +1,7 @@
 ====================================================================================================
  ENTERPRISE ROOT SIGNED BY A PUBLIC CA  (DigiCert, GlobalSign, Sectigo, ...)
 ====================================================================================================
-  Version 7.6.5       2026-10-21      pki_setup.ps1 + scripts\13_ExternalRoot.ps1
+  Version 7.6.6       2026-10-21      pki_setup.ps1 + scripts\13_ExternalRoot.ps1
  Owner  : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Related: pki_setup-MANUAL.txt, PKI-Design-with-FIPS-and-PQC.txt, .\pki_setup.ps1 -Help
 

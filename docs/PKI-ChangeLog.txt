@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.6.5                       Updated: 2026-10-21
+ Version : 7.6.6                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,21 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.6.6  2026-10-21  REVISION (revision +1)
+    * VISUALSTUDIO-MAUI.txt (both twins) for Visual Studio 2026 Run / Deploy and Publish, Debug AND Release:
+      1. a ready .csproj block with the FULL path of the key store and the alias, to paste as the LAST
+         PropertyGroup, and the rule to delete every older AndroidKeyStore / AndroidSigning* line (a later
+         Release / Debug group with an old key store, alias or password overrode the new one);
+      2. the password once as a User variable, then restart Visual Studio;
+      3. Archive Manager (Publish > Distribute) signs with its OWN Signing Identity list, not the .csproj:
+         import the .keystore there (or -InstallVisualStudio);
+      4. how to check the signed APK (apksigner verify --print-certs, the SHA-1);
+      and, when the key is shorter than 25 years (EV: 397 days), its end date and why a Google Play app
+      needs an OV Android key (valid after 22 October 2033; an app can never change its key).
+    * bash twin: the extra formats are written after the end date is known (for the note above).
+    * Checked with the user's real .keystore: PKCS#12, alias pt_makan_murah_bersama-android, jarsigner
+      signs and verifies with it.
 
   7.6.5  2026-10-21  REVISION (revision +1)
     * Fix, Visual Studio 2026 MAUI: a Debug build with the generated .keystore failed with
