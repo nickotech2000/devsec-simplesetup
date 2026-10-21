@@ -19,6 +19,7 @@
    GenerateLeafCertificate            Seven certificates: TLS, code signing, e-mail, ...
    GeneratePersonLeafCertificate      Certificates of people, from a JSON file.
    GenerateOffice365LeafCertificate   Word, Excel and PDF signing, from a JSON file.
+   GenerateCodeSigningCertificate     Code signing: Windows, Java, Android, Apple (OV / EV).
    SignCsr                            Sign the request (CSR) of a colleague.
    New-PkiCsr / new-pki-csr.sh        Make a key and a request, step by step.
    Prepare-Computer                   Install OpenSSL (winget, Chocolatey, apt, dnf, zypper).

@@ -2,14 +2,15 @@
  Sign-Code  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
- Version 6.6.18   2026-10-17
+ Version 7.5.2   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)
 
  READ THIS FIRST
 ----------------------------------------------------------------------------------------------------
  What it is   : A script that signs your software (Windows files, PowerShell, .NET, Java, Android,
-                Office macros). It checks the certificate and the time server FIRST.
+                Apple, Office macros). It checks the certificate and the time server FIRST. By
+                hand, from Visual Studio / MSBuild, or in any build pipeline.
  Who reads it : Developers and DevSecOps staff. No PKI knowledge is needed. Every new word is
                 explained in GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
  Time needed  : 10 minutes to read sections 1 to 4. Pipeline set-up: section 11.
@@ -17,6 +18,8 @@
  Start with   : Section 4 (Quick start). DevSecOps: section 11.
 ----------------------------------------------------------------------------------------------------
  Related manuals:
+   GenerateCodeSigningCertificate-MANUAL.txt   make code-signing certificates per platform
+                                        (Sign-Code -UseGenerated finds them)
    GenerateLeafCertificate-MANUAL.txt   make a code-signing certificate (-Purpose CodeSigning)
    PkiTrustKit-MANUAL.txt   make Windows trust your private root
    PkiTransport-MANUAL.txt   move files to a build machine
@@ -50,8 +53,8 @@ block is made with the maker's PRIVATE KEY. Anyone can check it with the matchin
 
 Your certificate comes from one of two places:
 
-  PRIVATE PKI   A certificate made by this project (GenerateLeafCertificate.ps1 with
-                -Purpose CodeSigning). Good for internal tools, test and staging builds. Computers
+  PRIVATE PKI   A certificate made by this project (GenerateCodeSigningCertificate.ps1 / .sh,
+                or GenerateLeafCertificate.ps1 with -Purpose CodeSigning). Good for internal tools, test and staging builds. Computers
                 must trust your root CA (Install-PkiTrust does that), otherwise Windows shows
                 "unknown publisher".
   PUBLIC CA     An OV or EV code-signing certificate bought from DigiCert, Sectigo, GlobalSign,
@@ -171,6 +174,11 @@ The script is strict on purpose. If a check fails, NOTHING is signed and the scr
   Java               jar war ear                                 jarsigner (JDK)
   Android            apk                                         apksigner (Android build-tools)
                      aab                                         jarsigner
+  Apple (macOS, iOS) Mach-O programs and libraries (found by    rcodesign (Windows and Linux)
+                     their first bytes, also without an
+                     extension), dylib; bundles .app .framework
+                     .appex .xpc .kext .plugin .bundle (a
+                     FOLDER, signed as one item); dmg; pkg
   Microsoft Office   docm xlsm pptm dotm xlam ppam xltm potm     Windows only, signtool. Needs
   VBA                doc xls ppt dot xla                         Microsoft Office (or the Office
                                                                  SIP) installed on that PC.
@@ -181,6 +189,10 @@ The script is strict on purpose. If a check fails, NOTHING is signed and the scr
 
   Notes
     * An APK has no timestamp: the Android format does not have one.
+    * Apple: the hardened runtime flag is set on programs and bundles. The timestamp comes from
+      Apple's server unless you give -Timestamp / -TimestampUrl. Gatekeeper on other Macs also
+      needs notarization, which needs a public Apple Developer ID certificate. A .pkg needs the
+      installer purpose (GenerateCodeSigningCertificate -Platform Apple -AppleType Installer).
     * On Linux the VBA files and vbs / js / wsf are skipped (they need Windows).
     * msix / appx: the "Publisher" inside the package must equal the subject of the certificate.
 
@@ -189,6 +201,17 @@ The script is strict on purpose. If a check fails, NOTHING is signed and the scr
 ====================================================================================================
 Choose ONE way:
 
+  -UseGenerated               The certificates of GenerateCodeSigningCertificate.ps1 / .sh. The
+  --use-generated             script reads leafcerts\codesign\codesign-index.json (or .tsv), finds
+                              the platform of each file (Windows, Java, Android, Apple, Apple
+                              installer for .pkg), takes the NEWEST valid certificate of that
+                              platform with its chain, and runs once per platform. Password:
+                              SIGN_PFX_PASSWORD; not set = the generator default Abc12345!.
+      -GeneratedRoot <dir>    Another leafcerts\codesign folder (--generated-root).
+      -GeneratedPlatform <p>  One platform for all files (--generated-platform).
+  -CertFolder <dir>           A local folder with the certificate, e.g. a platform folder of the
+  --cert-folder <dir>         generator: its newest .pfx / .p12, and <name>-chain.crt for the chain
+                              check. Not set password + no console: Abc12345! is tried.
   -Pfx file.pfx               A PFX / P12 file. Password in the environment variable named by
   --pfx file.pfx              -PfxPasswordEnv (default SIGN_PFX_PASSWORD). If the variable is empty
                               and you sit at a console, you are asked.
@@ -200,7 +223,14 @@ Choose ONE way:
   -Thumbprint HEX             (Windows only) A certificate already in the Windows certificate
                               store. This is how a hardware token (USB EV token, smart card) is
                               used: the key stays on the token; Windows asks for the PIN.
-                              -StoreLocation CurrentUser (default) or LocalMachine.
+                              -StoreLocation CurrentUser (default, "Current User" certificate
+                              manager, certmgr.msc) or LocalMachine ("Local Computer", certlm.msc,
+                              for build agents that run as a service).
+  -Subject TEXT               (Windows only) The same, found by subject: the newest valid code
+                              signing certificate WITH a private key whose subject contains TEXT,
+                              e.g. -Subject "CN=Agantra Inovatif OU". -StoreName My (Personal,
+                              default) or another store name. GenerateCodeSigningCertificate
+                              -InstallPfx puts a generated certificate there.
   -Provider NAME              The key is in a cloud key service or HSM and never leaves it:
   --provider NAME
         AzureKeyVault          AzureSignTool (Windows) or Jsign (Linux)
@@ -211,6 +241,13 @@ Choose ONE way:
         DigiCertKeyLocker      DigiCert KeyLocker, through the smctl client
       -ProviderArg "a|b|c"     The settings of the provider separated by "|" (see -Help).
       -CertFile file.cer       The PUBLIC certificate. Needed so that section 5 can run its checks.
+
+ca-certificates (Linux). The key never comes from the ca-certificates store: it only holds
+trusted ROOTS. Sign-Code.sh uses it to check the chain: --trust-store system (default) is the
+bundle of this computer (/etc/ssl/certs/ca-certificates.crt, /etc/pki/tls/certs/ca-bundle.crt,
+/etc/ssl/ca-bundle.pem), so a private root installed with Install-PkiTrust.sh (update-ca-
+certificates / update-ca-trust) is trusted; --trust-store <file> uses a PEM bundle of your own.
+Windows uses its own Trusted Root store the same way.
 
 How the password is protected. The script never puts your PFX password on a command line. On
 Windows the certificate is imported into a temporary store of the current user and removed in the
@@ -231,8 +268,21 @@ URL (--timestamp-url URL) for any other RFC 3161 server.
   Sectigo      http://timestamp.sectigo.com
   SSLcom       http://ts.ssl.com
   Entrust      http://timestamp.entrust.net/TSS/RFC3161sha2TS
+  Microsoft    http://timestamp.acs.microsoft.com               (Artifact Signing)
+  Apple        http://timestamp.apple.com/ts01                  (Apple code by default)
+  IdenTrust    http://timestamp.identrust.com
+  QuoVadis     http://ts.quovadisglobal.com/eu
+  SwissSign    http://tsa.swisssign.net
+  Buypass      http://timestamp.buypass.no/RFC3161
+  HARICA       http://ts.harica.gr
+  FreeTSA      https://freetsa.org/tsr                          (free, for tests)
 
 The addresses are the ones the companies publish. If one changes, use -TimestampUrl.
+
+Fallback. -TimestampFallback (--timestamp-fallback): when the chosen server fails its check, the
+script tries DigiCert, Sectigo, GlobalSign, SSL.com, Certum, Entrust and Microsoft in that order
+and signs with the first one that passes. Good for pipelines: one server that is down does not
+stop a release. Without the switch a failed server stops the run (exit 3).
 
 Your own timestamp server. This project can run an RFC 3161 time-stamping service
 (linux/pki-server, see PKI-SERVER-MANUAL.txt). For internal builds you can point to it:
@@ -284,6 +334,11 @@ LINUX  (--installer auto, the default: apt on Ubuntu, dnf on the Red Hat family;
   ANDROID_HOME, or use a COPR that has a package.
   If you are not root the script uses sudo.
 
+APPLE (both scripts)
+  rcodesign (the apple-codesign project) signs Mach-O, bundles, dmg and pkg on Windows and Linux.
+  Missing: installed with  cargo install --locked apple-codesign  when Rust (cargo) is there;
+  otherwise the script stops (exit 4) and says where to download it.
+
 ====================================================================================================
  10  WHAT YOU GET AFTER SIGNING
 ====================================================================================================
@@ -309,13 +364,37 @@ passwords. The same two scripts do the work everywhere. Only the way you hand ov
 different.
 
 Ready-made starting files:   .\Sign-Code.ps1 -Template all      ./Sign-Code.sh --template all
-They are written to  transport\signing-ci_<date-time>\  : github-actions.yml, azure-pipelines.yml,
+They are written to  transport\signing-ci_<date-time>\  : github-actions.yml, azure-pipelines.yml
+(Azure DevOps Services, cloud), azure-devops-server-pipelines.yml (Azure DevOps Server, on
+premises), gitlab-ci.yml, Jenkinsfile, bitbucket-pipelines.yml, teamcity-build-step.txt,
 aws-codebuild-buildspec.yml, google-cloudbuild.yaml, alibaba-yunxiao-flow.yml, Sign-Code.targets.
+One at a time: -Template github | azure | azure-server | gitlab | jenkins | bitbucket | teamcity |
+aws | gcp | alibaba | msbuild.
+
+The build system is DETECTED, and pipeline mode is then switched on by itself:
+  GitHub Actions (GITHUB_ACTIONS)          annotations ::error:: / ::warning::, job summary
+  Azure DevOps Services (TF_BUILD and       ##vso[task.logissue] annotations, the variable
+    dev.azure.com / visualstudio.com)        SignCode.Signed
+  Azure DevOps Server (TF_BUILD, your own   the same ##vso annotations
+    server address)
+  GitLab CI/CD (GITLAB_CI)                  plain log lines (GitLab has no annotation format)
+  Jenkins (JENKINS_URL), Bitbucket          plain log lines
+    (BITBUCKET_BUILD_NUMBER)
+  TeamCity (TEAMCITY_VERSION)               ##teamcity[message ...] build messages
+  AWS CodeBuild, Google Cloud Build         plain log lines
+  Visual Studio / MSBuild (Exec task)       "error SC0001" / "warning SC0001" lines: they show in
+                                            the Visual Studio Error List. Questions are still
+                                            allowed here (a developer PC).
+  -Verbose / --verbose prints every step, every command line (passwords as ***) and the output of
+  the signing tools; use it when a pipeline step fails.
 Edit names and paths. They were written from the public documentation of each service and have
 NOT been run on a real pipeline (see section 17).
 
 11.1  RULES THAT ARE THE SAME EVERYWHERE
 
+  0. Private PKI, quick: GenerateCodeSigningCertificate makes the certificate; put its PFX in the
+     secret store as base64 (11.1 point 11) and use -PfxBase64Env. -UseGenerated is for a build
+     machine that holds the leafcerts\codesign folder itself (a developer PC, an on-premises agent).
   1. The scripts must be in the repository (or on the agent): Sign-Code.ps1 for Windows agents,
      Sign-Code.sh for Linux agents. Both are also inside the DevKit.
   2. Use the pipeline mode:  -Ci  /  --ci. It never asks a question, it writes annotations
@@ -446,6 +525,11 @@ NOT been run on a real pipeline (see section 17).
        or  msbuild MyApp.sln /p:Configuration=Release /p:SignCode=true
        with SIGN_PFX_B64 and SIGN_PFX_PASSWORD in the environment.
     4. Change the timestamp server with  -p:SignTimestamp=GlobalSign .
+    5. Local build on a developer PC with the generated certificate (Visual Studio "Build" too):
+         dotnet build -p:SignCode=true -p:SignCodeArgs="-UseGenerated"
+       or with a certificate in your Windows store:
+         dotnet build -p:SignCode=true -p:SignCodeArgs="-Subject 'CN=Agantra Inovatif OU'"
+       Warnings and errors of the script show in the Visual Studio Error List.
 
   The target runs after the output is copied and signs the main assembly of each project. To sign
   everything you publish (installer, all dlls), add one more step AFTER publish that runs
@@ -491,6 +575,13 @@ NOT been run on a real pipeline (see section 17).
                           -ProviderArg "https://myvault.vault.azure.net|codesign" `
                           -CertFile .\codesign.cer -Folder .\out
  Other time server:     add  -Timestamp GlobalSign  or  -TimestampUrl http://ts.example.com
+ Generated certificates: .\Sign-Code.ps1 -UseGenerated -Folder .\out -Verbose
+                         ./Sign-Code.sh --use-generated --folder ./out --verbose
+ A generator folder:    .\Sign-Code.ps1 -CertFolder .\leafcerts\codesign\Agantra_Inovatif_OU\windows `
+                          -File .\app.exe, .\setup.msi
+ Local Machine store:   .\Sign-Code.ps1 -Subject "CN=Agantra Inovatif OU" -StoreLocation LocalMachine `
+                          -Folder .\out -TimestampFallback
+ Apple app on Linux:    ./Sign-Code.sh --pfx apple.pfx --file MyApp.app --file MyApp.dmg
  Make pipeline files:   .\Sign-Code.ps1 -Template all
  On Linux:              ./Sign-Code.sh --pfx codesign.pfx --file app.dll --file tool.jar
 
@@ -517,6 +608,11 @@ NOT been run on a real pipeline (see section 17).
                                           last, and mark binaries as binary in .gitattributes.
  apksigner not found on Rocky / Oracle    See section 9: install the Android build-tools.
  Java files: "unable to sign jar"         The key must be RSA or EC. jarsigner cannot use ML-DSA.
+ "No valid generated ... certificate"     Make one: GenerateCodeSigningCertificate -Platform <p>,
+                                          or point -GeneratedRoot to the right folder.
+ Each pipeline step prints what it ran     Add -Verbose / --verbose; passwords stay hidden (***).
+ "Cannot bind parameter ... File"         PowerShell takes a LIST: -File a.exe, b.dll (not -File
+                                          twice). With pwsh -File, "a.exe,b.dll" works too.
 
 ====================================================================================================
  15  LIMITS YOU MUST KNOW
@@ -534,24 +630,30 @@ NOT been run on a real pipeline (see section 17).
 ====================================================================================================
   PowerShell                   Shell                      Meaning
   ---------------------------  -------------------------  -------------------------------------
-  -File <path>  (repeat)       --file <path>              One file to sign
-  -Folder <path>  (repeat)     --folder <path>            A folder: every supported file inside
+  -File <path>, <path>         --file <path> (repeat)     The files to sign (a list in PowerShell)
+  -Folder <path>, <path>       --folder <path> (repeat)   A folder: every supported file inside
   -NoRecurse                   --no-recurse               Do not enter sub-folders
   -Include / -Exclude <glob>   --include / --exclude      Name filters, repeatable
   -OutFolder <path>            --out-folder <path>        Sign copies; keep the originals
   -SkipSigned                  --skip-signed              Skip files that are already signed
+  -UseGenerated                --use-generated            Certificates of GenerateCodeSigningCertificate
+  -GeneratedRoot <dir>         --generated-root <dir>     Another leafcerts\codesign folder
+  -GeneratedPlatform <p>       --generated-platform <p>   One platform for all files
+  -CertFolder <dir>            --cert-folder <dir>        The newest .pfx of a local folder
   -Pfx / -PfxPasswordEnv       --pfx / --pfx-password-env PFX file and its password variable
   -PfxBase64Env <name>         --pfx-base64-env <name>    PFX from a secret, as base64
   -Thumbprint, -StoreLocation  (Windows only)             Certificate or token in the Windows store
+  -Subject, -StoreName         (Windows only)             The same, found by subject; store name
+  (Windows: the root stores)   --trust-store <file>|system  Roots for the chain check (ca-certificates)
   -CertPem, -KeyPem            --cert-pem, --key-pem      PEM pair; -KeyPasswordEnv for its password
   -ChainFile <file>            --chain-file <file>        CA bundle of your private PKI
   -CertSource Auto|PrivatePki  --cert-source ...          Which rule set to apply
               |PublicCa
   -Provider, -ProviderArg      --provider, --provider-arg Cloud key service or HSM
   -CertFile <file>             --cert-file <file>         Public certificate for -Provider
-  -Timestamp <name>            --timestamp <name>         DigiCert, GlobalSign, Certum, Sectigo,
-                                                          SSLcom, Entrust
+  -Timestamp <name>            --timestamp <name>         DigiCert (default) and the others of 8
   -TimestampUrl <url>          --timestamp-url <url>      Any RFC 3161 address
+  -TimestampFallback           --timestamp-fallback       Try the next server when one fails
   -Digest sha256|sha384|       --digest ...               File and timestamp digest (default
           sha512                                          sha256)
   -Description, -DescriptionUrl  --description, --description-url   Text shown in the signature
@@ -561,6 +663,7 @@ NOT been run on a real pipeline (see section 17).
   -ShowCertificate             --show-certificate         Print the certificate
   -Strict                      --strict                   Skipped file = failed run
   -Ci                          --ci                       Pipeline mode (section 11)
+  -Verbose                     --verbose, -v              Every step and command (secrets as ***)
   -Template <name>             --template <name>          Write pipeline files and stop
   -Help                        --help                     The help text
 
@@ -576,6 +679,13 @@ Tested on Ubuntu 24.04 (the author's build machine): the certificate checks (goo
 certificates), the timestamp check (against a local RFC 3161 test server), signing of PowerShell
 scripts and a JAR with osslsigncode / jarsigner, the hash files, and the pipeline templates being
 written. The PowerShell script was tested up to and including the checks (-CheckOnly) on Linux.
+
+Version 7.5.2, tested on Linux (OpenSSL 4, PowerShell 7, a local RFC 3161 server): -UseGenerated
+and -CertFolder with both scripts (jar files signed and timestamped), the timestamp fallback, the
+file type detection (Mach-O without an extension, .app bundles, dmg, pkg), the build system
+detection and every pipeline template being written, -Verbose with the passwords hidden.
+NOT tested in 7.5.2: rcodesign (Apple), -Subject / -StoreName on a real Windows store, the
+TeamCity / Visual Studio annotations, and the new templates on the real services.
 
 NOT tested (no such machine was available): signtool on Windows 11 / Server 2022 / 2025, winget
 and Chocolatey installs, signing of exe / dll / msi / VBA files on Windows, apksigner, NuGet

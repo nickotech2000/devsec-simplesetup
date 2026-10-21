@@ -64,6 +64,8 @@ $script:PkiPurposeProfiles = [ordered]@{
     DocumentSigning      = @{ Token = 'docsign';       Label = 'Document signing (Microsoft Office 365 / Office, LibreOffice)'; Web = $false; NotInSet = $true }
     DocumentSigningAdobe = @{ Token = 'docsign-adobe'; Label = 'Document signing (Adobe Acrobat / Reader PDF)'; Web = $false; NotInSet = $true }
 }
+# the digests a leaf signature may use (7.5.2: SHA-3 for the code signing generator; SHA-2 stays the default everywhere)
+$script:PkiLeafHashes = @('sha256', 'sha384', 'sha512', 'sha3-256', 'sha3-384', 'sha3-512')
 # hashes below SHA-256 are rejected
 $script:PkiRejectedHashes = @('md2', 'md4', 'md5', 'sha1', 'sha-1', 'sha224', 'sha-224', 'ripemd160', 'whirlpool', 'mdc2')
 
@@ -377,7 +379,7 @@ function Resolve-PkiLeafKey {
         'RSA' {
             $bits = if ($KeyBits -gt 0) { $KeyBits } else { 2048 }
             if ($bits -lt 2048) { throw "RSA key size $bits is rejected: the minimum for a leaf is 2048." }
-            if ($bits -notin 2048, 3072, 4096, 8192) { throw "RSA key size must be 2048, 3072, 4096 or 8192 (got $bits)." }
+            if ($bits -notin 2048, 3072, 4096, 6144, 7680, 8192) { throw "RSA key size must be 2048, 3072, 4096, 6144, 7680 or 8192 (got $bits)." }
             if ($codeSigning -and $bits -lt 4096) { [void]$notes.Add("code signing: RSA $bits raised to 4096"); $bits = 4096 }
             return [ordered]@{ Family = 'rsa'; Bits = $bits; Curve = $null; PqcAlg = $null; Algorithm = "RSA-$bits"; Tag = "rsa$bits"; Notes = $notes }
         }
@@ -407,7 +409,7 @@ function Resolve-PkiLeafHash {
     if ([string]::IsNullOrWhiteSpace($Hash)) { return [ordered]@{ Md = $issuerMd; Notes = $notes } }
     $h = $Hash.Trim().ToLowerInvariant()
     if ($h -in $script:PkiRejectedHashes) { throw "Hash '$Hash' is rejected: a leaf signature needs SHA-256 or stronger." }
-    if ($h -notin 'sha256', 'sha384', 'sha512') { throw "Hash must be sha256, sha384 or sha512 (got '$Hash')." }
+    if ($h -notin $script:PkiLeafHashes) { throw "Hash must be $($script:PkiLeafHashes -join ', ') (got '$Hash')." }
     if ($Ca.Actual.Family -eq 'pqc') { [void]$notes.Add("-Hash $h ignored: the issuer is ML-DSA and signs without a digest"); return [ordered]@{ Md = 'default'; Notes = $notes } }
     return [ordered]@{ Md = $h; Notes = $notes }
 }

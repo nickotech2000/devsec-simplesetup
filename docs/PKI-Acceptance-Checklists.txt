@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines           Version 6.6.18      2026-10-17
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines           Version 7.5.2      2026-10-21
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt  Manuals: pki_setup-MANUAL.txt,
@@ -489,6 +489,25 @@
  Signature Details no longer say "Recoverable"; the server window shows the 200 lines. [ ] Ctrl+C
  stops the server; delete the lines from the hosts file. The script itself never writes to the hosts
  file.
+
+====================================================================================================
+ E50  Version 7.5.2: code signing certificates and Sign-Code
+====================================================================================================
+ [ ] .\GenerateCodeSigningCertificate.ps1 -ListIssuers: q1-ev / q1-ov ... with "key here: yes".
+ [ ] .\GenerateCodeSigningCertificate.ps1 -Platform All -AppleType Both: five folders under
+ leafcerts\codesign\<company>\, each with every format; certutil -dump <name>.cer shows Code
+ Signing (and 1.2.840.113635.100.4.13 for apple-installer) and policy 2.23.140.1.3.
+ [ ] -OV -Platform Android: valid 9125 days. -EV -Platform Android: a warning, 397 days.
+ [ ] -IssuerPfx <a CA of your own>: the certificate chains to that CA.
+ [ ] -InstallPfx -InstallTrustedPublisher: certificate in CurrentUser\My and Trusted Publishers.
+ [ ] Linux DevKit: ./GenerateCodeSigningCertificate.sh --platform java,android: same files.
+ [ ] .\Sign-Code.ps1 -UseGenerated -File .\app.exe, .\tool.jar -Verbose: each file with the
+ certificate of its platform, DigiCert timestamp, commands shown, the password never shown.
+ [ ] .\Sign-Code.ps1 -Subject "CN=<company>" -StoreLocation LocalMachine -File .\app.exe.
+ [ ] -Timestamp <a wrong URL> -TimestampFallback: the next server signs; without the switch, exit 3.
+ [ ] A pipeline (GitHub, Azure DevOps Services or Server, GitLab): the template of -Template runs;
+ warnings appear as annotations; dotnet build -p:SignCode=true -p:SignCodeArgs="-UseGenerated".
+ [ ] macOS / rcodesign (if used): ./Sign-Code.sh --pfx apple.pfx --file My.app; rcodesign verify.
 
 ====================================================================================================
  E49  Version 6.6.18: Enable-DevMachine.cmd / .ps1 (Windows laptop, your own)

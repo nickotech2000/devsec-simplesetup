@@ -1,0 +1,291 @@
+====================================================================================================
+ GenerateCodeSigningCertificate.ps1 / .sh  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.5.2           2026-10-21
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : A script. It makes CODE SIGNING certificates only: the certificates that put your
+                company's name on a program (Windows, Java, Android, Apple). It signs them with a
+                CA of this PKI, or with any other CA that is on this computer.
+ Who reads it : Developers, release and build engineers. No PKI knowledge is needed. Every new
+                word is explained in GLOSSARY.txt and GLOSSARY-ENGLISH.txt.
+ Time needed  : 15 minutes to read sections 1 to 4. One run takes under a minute.
+ You need     : The PKI from pki_setup.ps1 (or a CA of your own as files / PFX), PowerShell 7 and
+                OpenSSL 4. Linux twin: bash and openssl 3.0+ (4.0.1+ recommended).
+ Start with   : Section 3 (First run, step by step).
+ Linux twin   : devkit/GenerateCodeSigningCertificate.sh (no PowerShell needed).
+----------------------------------------------------------------------------------------------------
+ Related manuals:
+   GenerateLeafCertificate-MANUAL.txt   the general leaf generator (it can also make a code
+                                        signing certificate, with fewer choices)
+   Sign-Code-MANUAL.txt                 sign your files with these certificates (-UseGenerated)
+   DevKit-MANUAL.txt                    the Linux kit (devkit.env, Install-PkiTrust.sh)
+   PKI-Design-with-FIPS-and-PQC.txt     why it is built this way (15.10, decision 10.183)
+ Help in the terminal:   .\GenerateCodeSigningCertificate.ps1 -Help
+                         ./GenerateCodeSigningCertificate.sh --help
+
+ CONTENTS
+    1  What the script does                        8  Subject (names in the certificate)
+    2  The words you need                          9  Keys, digests and validity
+    3  First run, step by step                    10  The files you get
+    4  The platforms                              11  Where the files go, the index
+    5  OV or EV                                   12  Recipes, copy and paste
+    6  The issuing CA (who signs)                 13  Problems and answers
+    7  A CA that is not of this PKI               14  Limits you must know
+                                                  15  All options (PowerShell and bash)
+                                                  16  What was tested, what was not
+
+====================================================================================================
+ 1  WHAT THE SCRIPT DOES
+====================================================================================================
+ It makes one code signing certificate for each platform you name, writes it in every format,
+ checks it, and lists it in an index that Sign-Code.ps1 / Sign-Code.sh read.
+
+     .\GenerateCodeSigningCertificate.ps1 -Platform Windows
+     ./GenerateCodeSigningCertificate.sh --platform windows
+
+ GenerateLeafCertificate.ps1 -Purpose CodeSigning still works: it makes one general code signing
+ leaf. This script is the specialist: it knows what each platform needs (purposes, validity,
+ subject, tool) and writes the signing commands for it next to the certificate.
+
+ The defaults, so the shortest command is safe:
+   Level EV, Quadrant 1 (Classic RSA, non-FIPS), issuer = the EV intermediate (q1-ev),
+   RSA 4096, SHA-256, every format, PFX password Abc12345!, platform Windows.
+
+====================================================================================================
+ 2  THE WORDS YOU NEED
+====================================================================================================
+ Code signing   A signature on a program. The user's computer shows WHO made it and refuses it
+                when someone changed it afterwards.
+ OV / EV        Organization Validated / Extended Validation. EV has more company details in the
+                certificate (registration number, jurisdiction) and a shorter life (397 days).
+ Issuer         The CA that signs the certificate. Here: an intermediate (default) or a
+                Quadrant Root of this PKI, or a CA of your own.
+ EKU            Extended Key Usage, the purpose written in the certificate. Code Signing is
+                1.3.6.1.5.5.7.3.3. Apple installers also need 1.2.840.113635.100.4.13.
+ Timestamp      Proof of WHEN a file was signed. With it, the signature stays valid after the
+                certificate expires. Sign-Code adds it (DigiCert by default).
+ PFX            One file (.pfx / .p12) with the certificate, its chain and the private key,
+                locked with a password. Most signing tools want it.
+
+====================================================================================================
+ 3  FIRST RUN, STEP BY STEP
+====================================================================================================
+ Windows / PowerShell 7:
+   1. Build the PKI once (if not done):        .\pki_setup.ps1
+   2. See which CA can sign:                   .\GenerateCodeSigningCertificate.ps1 -ListIssuers
+   3. Make the Windows certificate:            .\GenerateCodeSigningCertificate.ps1 -Platform Windows
+   4. See what was made:                       .\GenerateCodeSigningCertificate.ps1 -List
+   5. Sign a program with it:                  .\Sign-Code.ps1 -UseGenerated -File .\app.exe -Verbose
+
+ Linux (DevKit):
+   1. Get the DevKit (PkiTransport.ps1 -DevKit on the PKI machine), then  ./Install-PkiTrust.sh
+   2. ./GenerateCodeSigningCertificate.sh --list-issuers
+   3. ./GenerateCodeSigningCertificate.sh --platform java,android
+   4. ./Sign-Code.sh --use-generated --folder ./build --verbose
+
+ What you see: one row per certificate (platform, key, hash, days, expiry date, file), then
+ "done" and the folder. A warning reminds you that Abc12345! is a lab password.
+
+====================================================================================================
+ 4  THE PLATFORMS   (-Platform / --platform, one or more)
+====================================================================================================
+ Windows   Authenticode: exe dll sys ocx scr cpl efi msi msp msix appx cab cat winmd, PowerShell
+           ps1 psm1 psd1 ps1xml, vbs js wsf, Office VBA (docm xlsm ...), NuGet, ClickOnce.
+           Tool: signtool (Windows), osslsigncode / jsign (Linux), Sign-Code.
+           -LifetimeSigning   adds Lifetime Signing (1.3.6.1.4.1.311.10.3.13): the signature ends
+                              with the certificate, even with a timestamp. Use it only when you
+                              want signatures to die with the certificate.
+           -KernelMode        adds Kernel Mode Code Signing (1.3.6.1.4.1.311.61.1.1), for drivers
+                              on test machines or under your own WDAC policy. Public Windows
+                              drivers need Microsoft's attestation signing; this does not replace it.
+ Java      jarsigner: jar war ear; the upload key of an Android App Bundle (aab).
+ Android   apksigner: apk (signature schemes v1 to v4), aab. An Android app key must never change
+           for the life of the app, so OV Android certificates are valid 9125 days (25 years,
+           [ codesign ] DaysAndroid). EV is limited to 397 days: the script warns you.
+ Apple     rcodesign (Windows, Linux) or codesign (macOS): Mach-O, .app, .framework, .dylib,
+           .dmg.  -AppleType Application (default) | Installer | Both. Installer = the .pkg purpose
+           (1.2.840.113635.100.4.13), in its own certificate (folder apple-installer).
+ All       Windows, Java, Android and Apple.
+ -Combined ONE certificate with the purposes of every platform you named (folder "multi").
+           Simpler to handle, but one stolen key then signs for every platform. Default: one each.
+
+====================================================================================================
+ 5  OV OR EV   (default -EV)
+====================================================================================================
+ OV   Subject C, ST, L, O, CN (CN = O = the company). Policy 2.23.140.1.4.1. Valid [ codesign ]
+      DaysOV (1095 days) or -Days.
+ EV   OV plus businessCategory, jurisdictionCountryName (and state / locality) and serialNumber
+      (the company registration number). Policy 2.23.140.1.3. Valid 397 days at most.
+ The CA/B Forum policy lets Sign-Code tell OV from EV. -NoCabfPolicy leaves it out.
+ This is a PRIVATE EV: the rules of the CA/B Forum about hardware keys are not enforced. See 14.
+
+====================================================================================================
+ 6  THE ISSUING CA   (who signs; default the intermediate of the level)
+====================================================================================================
+ -Issuer Intermediate     q1-ev for EV, q1-ov for OV (q2-ev / q2-ov with -FIPS).
+ -Issuer QuadrantRoot     q1-root / q2-root signs directly (a shorter chain). The certificate is
+                          then never longer valid than the root allows.
+ -IssuerId <id>           Any CA of this PKI whose key is on this computer, e.g. q2-ov.
+ -FIPS / --fips           Quadrant 2 (Classic FIPS, ECDSA CAs). Without it Quadrant 1.
+ -ListIssuers             The CAs of this PKI with "key here: yes / no", and (Windows) the CA
+                          certificates with a private key in your certificate stores.
+ Never: the Enterprise Root and the Track Roots never sign a leaf. The Quantum quadrants (3, 4) are
+ refused: no code signing tool verifies ML-DSA signatures yet.
+
+====================================================================================================
+ 7  A CA THAT IS NOT OF THIS PKI
+====================================================================================================
+ A department CA, a test CA, a CA from another tool: as long as you have its key on this computer.
+   PEM / DER files    -IssuerCert ca.crt -IssuerKey ca.key [-IssuerChain chain.pem]
+                      bash: --issuer-cert ca.crt --issuer-key ca.key [--issuer-chain chain.pem]
+   PFX / P12          -IssuerPfx ca.pfx            bash: --issuer-p12 ca.pfx
+   Windows store      -IssuerThumbprint <sha1> -IssuerStore CurrentUser\My | LocalMachine\My |
+                      CurrentUser\CA ...   The key must be exportable.
+ The key / PFX password comes from the variable named by -IssuerPasswordEnv (default
+ PKI_ISSUER_PASSWORD); not set and a console = you are asked. Never on the command line.
+ The certificate is made with openssl x509 -req (random 128-bit serial), checked against the
+ issuer with -partial_chain, and the issuer must be a CA (CA:TRUE, keyCertSign). On Linux without a
+ devkit.env this works too: then there are no CRL / OCSP addresses and no PKI policy.
+
+====================================================================================================
+ 8  SUBJECT
+====================================================================================================
+ -Company <name>        CN = O. Default [ codesign ] Company, else the organization of the PKI.
+                        At most 64 characters. Aliases -CodeSigningCompany, -CodesignCompany.
+ -OrganizationalUnit -Country -State -Locality      Default [ subject_ov ] (EE, Tallinn).
+ EV only: -Serial <registration number> -BusinessCategory "Private Organization"
+          -JurisdictionCountry EE -JurisdictionState -JurisdictionLocality   Default [ subject_ev ].
+ bash: --company --ou --country --state --locality --serial --business-category
+       --jurisdiction-country --jurisdiction-state --jurisdiction-locality (default devkit.env).
+
+====================================================================================================
+ 9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)
+====================================================================================================
+ -KeyType RSA | ECDSA       Default RSA.
+ -KeyBits 4096 6144 7680 8192   Default 4096. 2048 / 3072 are raised to 4096 (the code signing
+                            floor of this PKI). Above 4096 some Windows parts and tools refuse it.
+ -Curve P-384 | P-521       Default P-384. P-256 is raised to P-384. P-521 is not accepted by
+                            every signing tool.
+ -Hash sha256 sha384 sha512 sha3-256 sha3-384 sha3-512   Default sha256. The digest the CA uses
+                            to sign the certificate. SHA-3 needs OpenSSL 3.x+ and only the newest
+                            verifiers (Windows 11 24H2+, Java 17+) accept it. SHA-1 / MD5: refused.
+ -Days <n>                  EV 397. OV 1095. Android OV 9125. Never past the end of the issuer.
+ -Policy <oid>[=<cps url>]  More certificate policies.
+ -NoCrl -NoOcsp -NoRevocationInfo   No CRL / OCSP address (a build machine without network).
+ The [ codesign ] section of agantra_pki.cnf holds the defaults: Level Platform KeyType KeyBits
+ Curve Hash DaysOV DaysAndroid Company CabfPolicy Folder.
+
+====================================================================================================
+ 10  THE FILES YOU GET   (per platform folder)
+====================================================================================================
+ <name>.crt              the certificate (PEM)          <name>.key   the PRIVATE key (keep safe)
+ <name>.pub / .pub.der   the public key                 <name>.cnf   the OpenSSL request config
+ <name>-chain.crt        the CAs above it               <name>-fullchain.crt  certificate + CAs
+ <name>.pem .der .cer .cert .p7b .rfc7468.pem          every format (-Format, default ALL)
+ <name>.pfx              certificate + chain + key, password -Password (default Abc12345!)
+                         -LegacyPfx: 3DES / SHA-1 PFX for old Java and old Windows.
+ <name>.sha256 / .sha512 hash files (-HashFile)          convert-formats.ps1 (-NoGuidance: none)
+ leaf-info.json          what was made                  CODESIGN-NOTES.txt  how to sign, per tool
+ Name: <company>-codesign-<platform>-<ov|ev>-<quadrant>-<key>, e.g.
+       Agantra_Inovatif_OU-codesign-windows-ev-q1-rsa4096.crt
+ Windows extras: -InstallPfx imports the PFX into -InstallStore CurrentUser (default) or
+ LocalMachine (administrator) \My; -InstallTrustedPublisher puts the .cer into Trusted Publishers,
+ so signed PowerShell scripts run without a prompt on this computer.
+
+====================================================================================================
+ 11  WHERE THE FILES GO, THE INDEX
+====================================================================================================
+ leafcerts\codesign\<company>\<platform>\        (-OutputRoot / --out to change it)
+ Only code signing certificates live under leafcerts\codesign. A second run never overwrites: it
+ makes <company>_<yyyyMMdd>-<HHmmss>. A run is all or nothing: if one certificate fails, the new
+ folder is removed.
+ leafcerts\codesign\codesign-index.json  (PowerShell) and codesign-index.tsv (both twins) list
+ every certificate: platform, level, end date, SHA-1, the relative paths of pfx / crt / key /
+ chain. No password is written. Sign-Code -UseGenerated reads it and takes, for each file it
+ signs, the NEWEST valid certificate of the file's platform.
+
+====================================================================================================
+ 12  RECIPES, COPY AND PASTE
+====================================================================================================
+ .\GenerateCodeSigningCertificate.ps1 -Platform Windows -Company "Example Ltd"
+ .\GenerateCodeSigningCertificate.ps1 -OV -Platform All -KeyBits 8192 -Hash sha512
+ .\GenerateCodeSigningCertificate.ps1 -OV -Platform Android -Days 9125
+ .\GenerateCodeSigningCertificate.ps1 -Platform Apple -AppleType Both
+ .\GenerateCodeSigningCertificate.ps1 -Platform Windows -Issuer QuadrantRoot -LifetimeSigning
+ .\GenerateCodeSigningCertificate.ps1 -Platform Java -IssuerPfx D:\ca\dept-ca.pfx
+ .\GenerateCodeSigningCertificate.ps1 -Platform Windows -FIPS -KeyType ECDSA -Curve P-384
+ .\GenerateCodeSigningCertificate.ps1 -Platform Windows -InstallPfx -InstallTrustedPublisher
+ ./GenerateCodeSigningCertificate.sh --platform all --apple-type both
+ ./GenerateCodeSigningCertificate.sh --ov --platform android --fips --key-type ecdsa --curve P-521
+ PKI_ISSUER_PASSWORD=... ./GenerateCodeSigningCertificate.sh --platform java --issuer-p12 ca.pfx
+ Then sign:
+ .\Sign-Code.ps1 -UseGenerated -Folder .\bin\Release -Verbose
+ ./Sign-Code.sh --use-generated --folder ./build --verbose
+
+====================================================================================================
+ 13  PROBLEMS AND ANSWERS
+====================================================================================================
+ "The CA ... has no key on this computer"   The CA key lives on the PKI machine. Run there, or
+     use -IssuerPfx / -IssuerCert with a CA you hold.
+ "EV needs serialNumber"   Fill [ subject_ev ] in the cnf or give -Serial <registration number>.
+ "Quantum quadrant refused"   Use -FIPS (Quadrant 2) or nothing (Quadrant 1).
+ "The issuer ends before ..."   -Days is longer than the issuer: shorten -Days.
+ Windows still warns "unknown publisher"   The computer must trust your Root CA (Install-PkiCa /
+     Install-PkiTrust.sh) and, for PowerShell, the certificate in Trusted Publishers.
+ SmartScreen / Gatekeeper / Play Protect still warn   They trust PUBLIC roots only. See 14.
+
+====================================================================================================
+ 14  LIMITS YOU MUST KNOW
+====================================================================================================
+ * A private PKI: only computers that trust its Root CA trust the signature. Windows SmartScreen,
+   Apple Gatekeeper / notarization and Google Play use public roots and their own programs only.
+ * EV here is a private EV. Public EV needs a hardware key (HSM / token); this script writes a
+   software key. Keep .key and .pfx files safe, never e-mail them, and change Abc12345!.
+ * Apple: a signature from a private CA is fine for your own Macs (MDM, profiles); distribution to
+   others needs an Apple Developer ID certificate and notarization.
+ * Android: Google Play App Signing keeps its own key; this certificate is your upload key or the
+   key of an app you distribute yourself.
+
+====================================================================================================
+ 15  ALL OPTIONS
+====================================================================================================
+ PowerShell                              bash                               default
+ -Platform Windows,Java,Android,Apple,All --platform windows,java,...        Windows
+ -AppleType Application|Installer|Both   --apple-type                       Application
+ -Combined -LifetimeSigning -KernelMode  --combined --lifetime-signing --kernel-mode
+ -OV | -EV                               --ov | --ev | --level              EV
+ -FIPS                                   --fips | --quadrant 1|2            Quadrant 1
+ -Issuer Intermediate|QuadrantRoot       --issuer intermediate|quadrant-root Intermediate
+ -IssuerId -IssuerCert -IssuerKey        --issuer-id --issuer-cert --issuer-key
+ -IssuerChain -IssuerPfx                 --issuer-chain --issuer-p12
+ -IssuerThumbprint -IssuerStore          (Windows only)                     CurrentUser\My
+ -IssuerPasswordEnv                      --issuer-password-env              PKI_ISSUER_PASSWORD
+ -ListIssuers -List                      --list-issuers --list
+ -Company -OrganizationalUnit -Country   --company --ou --country
+ -State -Locality -Serial                --state --locality --serial
+ -BusinessCategory -Jurisdiction*        --business-category --jurisdiction-*
+ -KeyType -KeyBits -Curve -Hash -Days    --key-type --key-bits --curve --hash --days
+ -Policy -NoCabfPolicy                   --no-cabf-policy
+ -NoCrl -NoOcsp -NoRevocationInfo        --no-crl --no-ocsp --no-revocation-info
+ -Format -HashFile -OutputRoot           --hash-file --out                  ALL, sha256 sha512
+ -Password -LegacyPfx -NoGuidance        --pfx-password                     Abc12345!
+ -InstallPfx -InstallStore -InstallTrustedPublisher   (Windows only)
+ -Pki -PkiRoot -Release -NoCaRevocationInfo -ConfigFile    --release --no-ca-revocation-info
+ -OpenSslPath -FipsModuleConfig          --openssl
+ -Unblock -Verbose -Help -Version        --verbose --help --version
+ Exit codes: 0 done, 1 error (nothing left behind), 5 this system is refused.
+
+====================================================================================================
+ 16  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Tested (Linux, OpenSSL 4.0.3, PowerShell 7, both twins): every platform at EV; OV with the
+ Quadrant Root, RSA 8192, SHA3-512 and Lifetime Signing; FIPS ECDSA P-521 Android, 9125 days;
+ -Combined; an external CA as PEM files and as PFX (password from PKI_ISSUER_PASSWORD); -List and
+ -ListIssuers; the purposes and policies of the certificates (openssl x509 -text); jar files
+ signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh.
+ Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool,
+ apksigner, rcodesign and macOS codesign with these certificates.
+====================================================================================================

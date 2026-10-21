@@ -1,6 +1,6 @@
 ====================================================================================================
  START HERE  -  which file for which job
- Version 6.6.18
+ Version 7.5.2
  Author : Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
 ====================================================================================================
 
@@ -21,6 +21,8 @@
  I AM THE OWNER OF THE PKI
    Build it, issue certificates ... pki_setup-MANUAL.txt, GenerateLeafCertificate-MANUAL.txt
                                     (+ Person, Office365), PkiProfiles-MANUAL.txt (another company)
+   Code signing certificates ...... GenerateCodeSigningCertificate-MANUAL.txt (Windows, Java,
+                                    Android, Apple; OV / EV; .ps1 and the DevKit .sh)
    Sign what others send me ....... SignCsr-MANUAL.txt (servers, people, code: LEAF requests)
                                     SignExternalCa-MANUAL.txt (a CA of a department: CA requests)
    Revoke, CRL, OCSP, time stamps . PkiRevocation-MANUAL.txt, PKI-SERVER-MANUAL.txt
@@ -39,7 +41,8 @@
  I WANT TO USE A CERTIFICATE
    CA files for Cloudflare, Azure . Export-PkiCa-MANUAL.txt
    nginx or Apache with my cert ... Create-WebServerConfig-MANUAL.txt
-   Sign my software, build pipeline Sign-Code-MANUAL.txt
+   Sign my software, build pipeline Sign-Code-MANUAL.txt (GitHub, Azure DevOps Services and
+                                    Server, GitLab, Jenkins, Visual Studio / MSBuild, by hand)
    Install the developer tools .... Install-DevEnvironment-MANUAL.txt
    A word I do not know ........... GLOSSARY.txt, GLOSSARY-ENGLISH.txt
    All documents as web pages ..... open html\index.html with a double click. Build-HtmlDocs.ps1

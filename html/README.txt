@@ -1,4 +1,4 @@
-HTML documentation of the PKI DevSecOps Agantra project - version 6.6.18
+HTML documentation of the PKI DevSecOps Agantra project - version 7.5.2
 Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 
 HOW TO OPEN

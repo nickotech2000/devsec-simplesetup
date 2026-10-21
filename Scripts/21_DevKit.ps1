@@ -8,7 +8,7 @@
 #   PkiTransport.ps1 -DevKit builds it:
 #     * the .certpacked (CA certificates + the PKI folder with the ISSUING (intermediate) CA keys only, no root key)
 #     * Install-PkiTrust.ps1 / .sh               unpack the .certpacked and put the PKI in the Local Machine store / the Ubuntu store
-#     * GenerateLeafCertificate / GeneratePersonLeafCertificate / GenerateOffice365LeafCertificate  (.ps1 and .sh)
+#     * GenerateLeafCertificate / GeneratePersonLeafCertificate / GenerateOffice365LeafCertificate / GenerateCodeSigningCertificate  (.ps1 and .sh)
 #     * Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (Windows developers: no Linux knowledge needed)
 #     * devkit.env (written from the live configuration), examples, docs, START-HERE.txt
 # Needs the Library module set (configuration, catalog, leaf generator, transport).
@@ -100,7 +100,7 @@ function Copy-PkiDevKitTree {
     param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit)
     Ensure-PkiDirectory -Path $Kit
     # scripts and project files the PowerShell generators and the transport need
-    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'GenerateLeafCertificate.ps1', 'GeneratePersonLeafCertificate.ps1', 'GenerateOffice365LeafCertificate.ps1', 'SignCsr.ps1', 'Create-WebServerConfig.ps1', 'Sign-Code.ps1',
+    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'GenerateLeafCertificate.ps1', 'GeneratePersonLeafCertificate.ps1', 'GenerateOffice365LeafCertificate.ps1', 'GenerateCodeSigningCertificate.ps1', 'SignCsr.ps1', 'Create-WebServerConfig.ps1', 'Sign-Code.ps1',
                    'Install-DevEnvironment.ps1', (Split-Path -Leaf $script:Pki.ConfigPath), '.gitattributes') {
         $src = Join-Path $Root $f
         if (Test-Path -LiteralPath $src -PathType Leaf) { Copy-Item -LiteralPath $src -Destination $Kit -Force }
@@ -132,7 +132,7 @@ function Copy-PkiDevKitTree {
     foreach ($f in Get-ChildItem -LiteralPath (Join-Path $dk 'lib') -File) { Copy-Item -LiteralPath $f.FullName -Destination $lib -Force }
     # manuals
     $docs = Join-Path $Kit 'docs'; Ensure-PkiDirectory -Path $docs
-    foreach ($n in 'DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt', 'Sign-Code-MANUAL.txt') {
+    foreach ($n in 'DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'GenerateCodeSigningCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt', 'Sign-Code-MANUAL.txt') {
         $src = Get-PkiDevKitSourceFile -Root $Root -Name $n
         if ($src) { Copy-Item -LiteralPath $src -Destination $docs -Force } else { Write-PkiLog "DevKit: manual $n not found (skipped)." 'WARN' }
     }

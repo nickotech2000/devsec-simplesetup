@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 6.6.18                      Updated: 2026-10-17
+ Version : 7.5.2                      Updated: 2026-10-21
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,26 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.183 DECIDED   (7.5.2) Code signing gets its own generator and the signer finds its certificates.
+                 (a) GenerateCodeSigningCertificate.ps1 / .sh make code signing certificates
+                 only, one per platform (Windows, Java, Android, Apple application, Apple
+                 installer), because the platforms differ in purposes (Apple packageSign
+                 1.2.840.113635.100.4.13, Lifetime Signing, Kernel Mode), validity (Android: 25
+                 years for an OV app key, EV 397 days) and tools; GenerateLeafCertificate keeps its
+                 general CodeSigning purpose. (b) EV by default, with the EV subject (businessCategory,
+                 jurisdiction, serialNumber) and the CA/B Forum code signing policy OID, so
+                 Sign-Code can read the level; the TLS level OIDs of the intermediate are left out.
+                 (c) The issuer is the intermediate of the level, the Quadrant Root, or a CA that
+                 is not of this PKI (PEM files, PFX, Windows store), signed with openssl x509 -req
+                 and checked with -partial_chain; the Enterprise Root and Track Roots never sign a
+                 leaf (10.12 stays). Quantum quadrants are refused: no code signing tool verifies
+                 ML-DSA yet. (d) Output in leafcerts\codesign\ only, with an index (JSON for
+                 PowerShell, TSV for bash, no passwords) that Sign-Code -UseGenerated reads.
+                 (e) The default PFX password Abc12345! is a lab value and is printed as a warning.
+                 (f) Sign-Code keeps DigiCert as default timestamp, adds a fallback list, detects
+                 the build system (pipeline mode on by itself), and -Verbose shows commands with
+                 every secret replaced by ***. ca-certificates is used for TRUST (chain check) only;
+                 a private key never comes from it.
 10.182 DECIDED   (6.6.18) A development laptop may switch the execution policy to Bypass, by the
                  owner's explicit wish, with two small readable files and nothing hidden. Decisions:
                  (a) two twins, because a laptop that blocks scripts cannot run the .ps1 first:
@@ -2373,6 +2393,29 @@
       Tests run  OpenSSL 4.0.3: EV and OV code signing with and without a company (subject exactly as above, EKU codeSigning, RSA 4096); a Quantum FIPS set with a company (code signing
                  subject and the unchanged EV server subject, file names -q2-mldsa65); a
                  70-character company refused with no folder left.
+
+ 15.10 Code signing generator (7.5.2)  GenerateCodeSigningCertificate.ps1 / devkit/...sh
+      Module     scripts\24_CodeSigning.ps1: platform table (Windows, Java, Android, Apple,
+                 AppleInstaller: token, tool, file types, extra EKUs), [ codesign ] settings,
+                 Resolve-PkiCodeSignIssuer (catalog CA or external CA from files / PFX / store),
+                 New-PkiCodeSignSpec (on top of New-PkiLeafSpec: EKUs, CA/B Forum policy, days,
+                 stem <company>-codesign-<platform>-<level>-<tag>), New-PkiCodeSignExternalCertificate,
+                 Write-PkiCodeSignNotes, Add-PkiCodeSignIndex (codesign-index.json and .tsv).
+      Keys       RSA 4096 (6144 / 7680 / 8192 on request), ECDSA P-384 / P-521; 2048 / 3072 and
+                 P-256 are raised (15.x code signing floor). Digest SHA-256 default, SHA-384 / 512,
+                 SHA3-256 / 384 / 512 (OpenSSL 4; only new verifiers accept SHA-3).
+      Validity   EV 397 days; OV [ codesign ] DaysOV (1095); Android OV DaysAndroid (9125);
+                 -Days wins; never past the issuer.
+      Files      Like GenerateLeafCertificate (all formats, chain, fullchain, hash files) plus
+                 CODESIGN-NOTES.txt; folder leafcerts\codesign\<company>\<platform>\, a second run
+                 makes <company>_<yyyyMMdd-HHmmss>; a failed run leaves no folder.
+      Signing    Sign-Code.ps1 / .sh -UseGenerated: the platform of each file (Get-KindPlatform /
+                 kind_platform), the newest valid entry of the index for it, one child run per
+                 platform with -Pfx and -ChainFile.
+      Tests run  OpenSSL 4.0.3, pwsh 7 on Linux: all platforms EV; OV + Quadrant Root + RSA 8192 +
+                 SHA3-512 + Lifetime Signing; FIPS ECDSA P-521 Android 9125 days; -Combined; an
+                 external CA as PEM files and as PFX; the bash twin the same; jar files signed and
+                 timestamped (local RFC 3161 server) by Sign-Code.ps1 and Sign-Code.sh.
 
 
 ====================================================================================================

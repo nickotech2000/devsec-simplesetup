@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 6.6.18                      Updated: 2026-10-17
+ Version : 7.5.2                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,56 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.5.2  2026-10-21  MAJOR + MINOR + REVISION (major +1, minor 5, revision 2)
+    * New: GenerateCodeSigningCertificate.ps1 and its Linux twin devkit/GenerateCodeSigningCertificate.sh.
+      CODE SIGNING certificates only, OV or EV (default EV), one per platform you name: Windows
+      (Authenticode exe dll sys msi msix cab cat, PowerShell, VBA, NuGet; -LifetimeSigning,
+      -KernelMode), Java (jarsigner), Android (apksigner; OV valid 25 years), Apple (Mach-O, .app,
+      .dmg; -AppleType Installer adds the .pkg purpose), All, or -Combined (one for all).
+    * Issuer: the intermediate of the level (q1-ev / q1-ov ...), the Quadrant Root (-Issuer
+      QuadrantRoot), any CA of this PKI (-IssuerId), or a CA on this computer that is not of this
+      PKI: PEM files (-IssuerCert / -IssuerKey), a PFX (-IssuerPfx), the Windows store
+      (-IssuerThumbprint). -ListIssuers shows them. The Enterprise Root and the Track Roots never sign.
+    * RSA 4096 + SHA-256 by default; -KeyBits 4096 6144 7680 8192, -Curve P-384 P-521, -Hash sha256
+      sha384 sha512 sha3-256 sha3-384 sha3-512. Weak values are rejected. EV adds businessCategory,
+      jurisdiction and serialNumber and is valid 397 days at most. CA/B Forum code signing policy
+      (OV 2.23.140.1.4.1, EV 2.23.140.1.3) unless -NoCabfPolicy.
+    * Every format of GenerateLeafCertificate (crt key pub pem der cer cert p7b rfc7468 pfx, chain,
+      fullchain, hash files, convert-formats.ps1) plus CODESIGN-NOTES.txt with the signing commands.
+      Output: leafcerts\codesign\<company>\<platform>\ (only code signing certificates), never
+      overwritten, all or nothing. PFX password Abc12345! by default (change it for real use).
+      leafcerts\codesign\codesign-index.json / .tsv lists them (no passwords) for Sign-Code.
+    * New: [ codesign ] section in agantra_pki.cnf (Level Platform KeyType KeyBits Curve Hash DaysOV
+      DaysAndroid Company CabfPolicy Folder). New module scripts\24_CodeSigning.ps1.
+    * GenerateLeafCertificate: -Hash also takes sha3-256 / sha3-384 / sha3-512, RSA also 6144 /
+      7680 / 8192 (shared code in 14_LeafGenerator.ps1; 06_Validation.ps1 accepts SHA-3).
+    * Sign-Code.ps1 / Sign-Code.sh, updated:
+      - -UseGenerated / --use-generated: takes, per file, the newest valid generated certificate of
+        its platform and its chain (password SIGN_PFX_PASSWORD, else Abc12345!).
+      - New certificate sources: -CertFolder / --cert-folder (a local folder), -Subject with
+        -StoreLocation CurrentUser | LocalMachine and -StoreName (Windows certificate manager).
+        Sign-Code.sh checks the chain against the ca-certificates bundle (--trust-store).
+      - Timestamp: DigiCert stays the default; added Microsoft, Apple, IdenTrust, QuoVadis,
+        SwissSign, Buypass, HARICA, FreeTSA; -TimestampFallback / --timestamp-fallback tries the
+        next server when one fails its check.
+      - Apple: Mach-O (found by its first bytes), dylib, bundles (.app .framework ...), dmg, pkg,
+        signed with rcodesign (installed with cargo when missing).
+      - Build systems detected: GitHub Actions, Azure DevOps Services (cloud) and Azure DevOps
+        Server (on premises), GitLab, Jenkins, TeamCity, Bitbucket, AWS, Google Cloud, Visual
+        Studio / MSBuild; pipeline mode switches on by itself there. Annotations for GitHub, Azure
+        DevOps, TeamCity and the Visual Studio Error List. New -Template azure-server, gitlab,
+        jenkins, bitbucket, teamcity; Sign-Code.targets takes -p:SignCodeArgs (e.g. -UseGenerated).
+      - -Verbose / --verbose: every step, every command line (passwords as ***) and tool output.
+      - Fixes: -File / -Folder lists work under pwsh -File ("a.exe,b.dll"); the Java key alias
+        is read from keytool -v (an alias with a comma failed); Sign-Code.sh checks the code signing
+        purpose with OpenSSL 3.4+ ("codesign"; "codesigning" was refused, so no chain ever
+        verified); its temporary files are in one private folder that is always removed.
+    * Tested here (Linux, OpenSSL 4, pwsh 7, a local RFC 3161 server): every platform, EV and OV,
+      FIPS ECDSA P-521, RSA 8192 + SHA3-512, an external CA as files and as PFX, both twins; jar
+      files signed and timestamped by both Sign-Code scripts. NOT tested: signtool, osslsigncode,
+      apksigner, rcodesign and the real timestamp servers (not on this machine / no internet),
+      real pipelines, Windows.
 
   6.6.18  2026-10-17  MINOR + REVISION (minor +2, revision +2)
     * New: Enable-DevMachine.cmd (Command Prompt) and Enable-DevMachine.ps1 (PowerShell 5.1 or 7):

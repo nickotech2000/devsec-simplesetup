@@ -63,7 +63,7 @@ function Assert-PkiSignatureDigest {
     if ($Kind -in 'root', 'track', 'quadrant') {
         if ($alg -notmatch '(?i)sha512') { throw "[$Id] root-level certificates must be signed with SHA-512 (found $alg)." }
     }
-    elseif ($alg -notmatch '(?i)sha(256|384|512)') {
+    elseif ($alg -notmatch '(?i)sha3?-?(256|384|512)') {
         throw "[$Id] weak or unknown signature algorithm $alg."
     }
     return $alg

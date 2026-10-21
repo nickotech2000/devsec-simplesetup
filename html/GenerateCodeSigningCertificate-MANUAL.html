@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.5.2">
+<meta name="description" content="Make OV / EV code signing certificates for Windows, Java, Android and Apple.">
+<title>Code signing certificates - PKI DevSecOps Agantra</title>
+<style>
+@font-face{font-family:"Roboto";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:500;font-display:swap;src:url("fonts/roboto-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:400;font-display:swap;src:url("fonts/roboto-mono-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Roboto Mono";font-style:normal;font-weight:700;font-display:swap;src:url("fonts/roboto-mono-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Material Symbols Outlined";font-style:normal;font-weight:400;font-display:block;src:url("fonts/material-symbols-outlined-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Font Awesome Solid";font-style:normal;font-weight:900;font-display:block;src:url("fonts/fa-solid-900.woff2") format("woff2")}
+:root{color-scheme:light dark;--primary:#0b57d0;--on-primary:#ffffff;--primary-c:#d3e3fd;--on-primary-c:#041e49;--bg:#f8f9fc;--surface:#ffffff;--surface-2:#eef2f9;--surface-3:#e4eaf4;--text:#1a1c1e;--muted:#4a5565;--line:#c9d1de;--code-bg:#f1f4f9;--ok:#146c2e;--warn:#8c4a00;--e1:0 1px 2px rgba(0,0,0,.18),0 1px 3px 1px rgba(0,0,0,.1);--e2:0 1px 2px rgba(0,0,0,.2),0 2px 6px 2px rgba(0,0,0,.12);--bar:64px}
+:root[data-theme="dark"]{--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--primary:#a8c7fa;--on-primary:#062e6f;--primary-c:#0842a0;--on-primary-c:#d3e3fd;--bg:#111418;--surface:#1a1d22;--surface-2:#22262d;--surface-3:#2b3039;--text:#e3e6eb;--muted:#a9b3c1;--line:#3a414c;--code-bg:#0d1014;--ok:#6dd58c;--warn:#ffb870;--e1:0 1px 2px rgba(0,0,0,.6);--e2:0 2px 8px rgba(0,0,0,.6)}}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth;scroll-padding-top:84px}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Roboto","Segoe UI",system-ui,-apple-system,"Noto Sans","PingFang SC","Microsoft YaHei",Arial,sans-serif;font-size:16px;line-height:1.65;min-height:100vh;display:-webkit-box;display:-ms-flexbox;display:flex;-webkit-box-orient:vertical;-webkit-box-direction:normal;flex-direction:column}
+a{color:var(--primary);text-decoration:none}a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--primary);outline-offset:2px}
+code,pre,.mono{font-family:"Roboto Mono",Consolas,"Cascadia Mono",Menlo,"DejaVu Sans Mono","Liberation Mono",monospace}
+.ms{font-family:"Material Symbols Outlined";font-weight:400;font-style:normal;font-size:24px;line-height:1;letter-spacing:normal;text-transform:none;display:inline-block;white-space:nowrap;word-wrap:normal;direction:ltr;-webkit-font-feature-settings:"liga";font-feature-settings:"liga";-webkit-font-smoothing:antialiased;vertical-align:middle;user-select:none;-webkit-user-select:none}
+.fa{font-family:"Font Awesome Solid";font-weight:900;font-style:normal;display:inline-block;line-height:1;-webkit-font-smoothing:antialiased}
+.fa-globe::before{content:"\f0ac"}.fa-envelope::before{content:"\f0e0"}.fa-copy::before{content:"\f0c5"}.fa-link::before{content:"\f0c1"}.fa-shield::before{content:"\f132"}.fa-check::before{content:"\f00c"}
+.skip{position:absolute;left:-999px;top:0;background:var(--primary);color:var(--on-primary);padding:8px 14px;z-index:100;border-radius:0 0 8px 0}.skip:focus{left:0}
+.bar{position:fixed;top:0;left:0;right:0;height:var(--bar);background:var(--surface);box-shadow:var(--e1);display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:8px;padding:0 16px;z-index:50}
+.brand{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:10px;color:var(--text);font-weight:500;font-size:1.15rem;white-space:nowrap}.brand:hover{text-decoration:none}
+.brand .ms{color:var(--primary);font-size:30px}.brand small{font-weight:400;font-size:.78rem;color:var(--on-primary-c);background:var(--primary-c);border-radius:999px;padding:2px 10px}
+.grow{-webkit-box-flex:1;-ms-flex:1;flex:1}
+.topnav{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;gap:2px;position:relative}
+.nb{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:var(--text);font:inherit;font-size:.95rem;font-weight:500;padding:8px 14px;border-radius:999px;cursor:pointer}
+.nb:hover{background:var(--surface-3);text-decoration:none}.nb[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.nb .ms{font-size:20px}
+.mega{position:absolute;right:0;top:calc(var(--bar) - 8px);width:min(940px,94vw);max-height:calc(100vh - var(--bar) - 20px);overflow:auto;background:var(--surface);border-radius:16px;box-shadow:var(--e2);padding:16px 20px;display:none;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:6px 22px}
+.mega.open{display:grid}.mg{min-width:0}
+.mega h2,.drawer h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 8px 2px;padding:0;border:0;font-weight:700}
+.mega a,.drawer a.dl{display:block;padding:6px 10px;border-radius:8px;color:var(--text);font-size:.92rem;line-height:1.35}
+.mega a:hover,.drawer a.dl:hover{background:var(--surface-3);text-decoration:none}.mega a[aria-current="page"],.drawer a[aria-current="page"]{background:var(--primary-c);color:var(--on-primary-c)}
+.sbox{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;background:var(--surface-2);border-radius:999px;padding:0 6px 0 12px;margin:0 6px}
+.sbox input{border:0;background:transparent;color:var(--text);font:inherit;font-size:.92rem;width:190px;padding:8px 6px}.sbox input:focus{outline:0}.sbox:focus-within{box-shadow:0 0 0 2px var(--primary)}
+.sbox .ms{color:var(--muted);font-size:20px}
+#menubtn{display:none}
+.scrim{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,.45);z-index:55;display:none}.scrim.open{display:block}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(88vw,340px);background:var(--surface);z-index:60;overflow-y:auto;padding:12px 12px 40px;-webkit-transform:translateX(105%);transform:translateX(105%);transition:-webkit-transform .22s ease,transform .22s ease;box-shadow:var(--e2);visibility:hidden}
+.drawer.open{-webkit-transform:none;transform:none;visibility:visible}
+.drawer .dh{display:-webkit-box;display:-ms-flexbox;display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.drawer .sbox{display:-webkit-box;display:-ms-flexbox;display:flex;margin:8px 4px}.drawer .sbox input{width:100%}
+.wrap{-webkit-box-flex:1;-ms-flex:1 0 auto;flex:1 0 auto;padding:calc(var(--bar) + 28px) 20px 40px;width:100%;max-width:1180px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:0 36px}
+.wrap.has-toc{grid-template-columns:minmax(0,1fr) 250px}
+.page{min-width:0;max-width:940px}
+.side{position:sticky;top:calc(var(--bar) + 20px);align-self:start;max-height:calc(100vh - var(--bar) - 40px);overflow:auto;font-size:.88rem;border-left:2px solid var(--line);padding:2px 0 2px 14px;display:none}
+.wrap.has-toc .side{display:block}.side h2{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;padding:0;border:0}
+.side a{display:block;padding:3px 0;color:var(--muted);line-height:1.35}.side a.l3{padding-left:12px;font-size:.84rem}.side a:hover,.side a.on{color:var(--primary);text-decoration:none}
+.crumb{font-size:.85rem;color:var(--muted);margin:0 0 6px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 8px;font-weight:500}
+h2{font-size:1.45rem;margin:2.4rem 0 .6rem;padding-top:.7rem;border-top:1px solid var(--line);line-height:1.3;font-weight:500}
+h3{font-size:1.1rem;margin:1.7rem 0 .4rem;line-height:1.35;font-weight:500;color:var(--primary)}
+.anchor{opacity:0;margin-left:8px;font-size:.8em;color:var(--muted)}h2:hover .anchor,h3:hover .anchor,.anchor:focus{opacity:1}
+.lead{color:var(--muted);margin:0 0 14px;font-size:1.05rem}
+.meta{display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:6px 8px;margin:12px 0 18px}
+.chip{display:inline-block;background:var(--surface-2);color:var(--muted);border-radius:8px;padding:3px 12px;font-size:.84rem}
+p{margin:.6em 0}ul,ol{margin:.5em 0 .9em;padding-left:1.5em}li{margin:.25em 0}
+.decision{background:var(--surface);border-radius:12px;box-shadow:var(--e1);border-left:4px solid var(--primary);padding:10px 14px;margin:12px 0}
+.dnum{font-weight:700;margin-right:6px}.dstate{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.05em;padding:1px 9px;border-radius:999px;background:var(--primary-c);color:var(--on-primary-c);margin-right:6px}
+.code{position:relative;margin:.8em 0;background:var(--code-bg);border:1px solid var(--line);border-radius:12px}
+.code pre{margin:0;padding:14px 16px;overflow-x:auto;font-size:.84rem;line-height:1.55;tab-size:4;-moz-tab-size:4;white-space:pre}
+.code .copy{position:absolute;top:8px;right:8px;display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:.78rem;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--muted);cursor:pointer}
+.code .copy:hover{color:var(--text);background:var(--surface-3)}
+ul.check{list-style:none;padding-left:0}ul.check li{background:var(--surface);border-radius:12px;box-shadow:var(--e1);margin:8px 0;padding:10px 14px}
+ul.check label{display:block;cursor:pointer}ul.check input{margin-right:10px;width:18px;height:18px;vertical-align:-3px;accent-color:var(--primary)}ul.check input:checked + span{color:var(--muted);text-decoration:line-through}
+.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;margin:.8em 0}th,td{border:1px solid var(--line);padding:7px 12px;text-align:left;vertical-align:top;font-size:.92rem}th{background:var(--surface-2)}
+.toc{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 18px;margin:16px 0 24px}
+.toc summary{cursor:pointer;font-weight:500}.toc ol{list-style:none;padding-left:0;margin:8px 0 2px;-webkit-columns:2 300px;columns:2 300px;-webkit-column-gap:28px;column-gap:28px}
+.toc li{margin:2px 0;-webkit-column-break-inside:avoid;break-inside:avoid;font-size:.92rem}.toc li.l3{padding-left:16px;font-size:.86rem}
+.pn{display:-webkit-box;display:-ms-flexbox;display:flex;justify-content:space-between;gap:12px;margin:44px 0 0;padding-top:18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.pn a{display:block;border-radius:16px;background:var(--surface);box-shadow:var(--e1);padding:12px 18px;min-width:220px;max-width:48%;color:var(--text)}.pn a:hover{box-shadow:var(--e2);text-decoration:none}.pn small{display:block;color:var(--muted)}.pn .nx{text-align:right;margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin:12px 0 28px}
+.card{display:block;background:var(--surface);border-radius:16px;box-shadow:var(--e1);padding:16px 18px;color:var(--text)}
+.card:hover{box-shadow:var(--e2);text-decoration:none;background:var(--surface-2)}.card b{display:block;margin-bottom:4px;font-weight:500;color:var(--primary)}.card span{color:var(--muted);font-size:.92rem}
+.hero{background:var(--primary-c);color:var(--on-primary-c);border-radius:28px;padding:28px 32px;margin:0 0 26px}.hero h1{color:inherit}.hero p{max-width:70ch}.hero a{color:inherit;text-decoration:underline}
+.btn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex;align-items:center;gap:8px;border:0;border-radius:999px;background:var(--primary);color:var(--on-primary);font:inherit;font-weight:500;padding:9px 20px;cursor:pointer}.btn:hover{text-decoration:none;box-shadow:var(--e2)}
+#totop{position:fixed;right:20px;bottom:20px;display:none;z-index:40;border-radius:16px;padding:12px}
+mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
+.hit{background:var(--surface);border-radius:12px;box-shadow:var(--e1);padding:10px 16px;margin:10px 0}.hit small{color:var(--muted)}
+.foot{background:var(--surface-2);border-top:1px solid var(--line);padding:22px 20px 26px;color:var(--muted);font-size:.9rem}
+.foot .in{max-width:1180px;margin:0 auto;display:-webkit-box;display:-ms-flexbox;display:flex;flex-wrap:wrap;gap:8px 28px;justify-content:space-between}
+.foot a{color:var(--primary)}.foot .fa{margin-right:6px}.foot p{margin:.2em 0}
+@media (max-width:1180px){.wrap.has-toc{grid-template-columns:minmax(0,1fr)}.wrap.has-toc .side{display:none}}
+@media (max-width:900px){.topnav{display:none}#menubtn{display:-webkit-inline-box;display:-ms-inline-flexbox;display:inline-flex}.brand small{display:none}.wrap{padding:calc(var(--bar) + 18px) 14px 30px}}
+@media (max-width:520px){html{font-size:15px}h1{font-size:1.55rem}.pn a{max-width:100%;width:100%}.code pre{font-size:.78rem}.hero{padding:20px;border-radius:20px}}
+@media (min-width:1700px){html{font-size:17px}.wrap{max-width:1320px}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.drawer{transition:none}}
+.a11y{position:fixed;top:calc(var(--bar) + 8px);right:12px;width:min(340px,calc(100vw - 24px));max-height:calc(100vh - var(--bar) - 24px);overflow:auto;background:var(--surface);color:var(--text);border-radius:16px;box-shadow:var(--e2);padding:14px 18px 16px;z-index:70}
+.a11y[hidden]{display:none}.a11y h2{font-size:1.1rem;margin:0 0 8px;padding:0;border:0}
+.a11y fieldset{border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:6px 12px 8px}.a11y legend{font-size:.8rem;font-weight:700;color:var(--muted);padding:0 6px}
+.a11y label{display:block;padding:4px 0;cursor:pointer}.a11y input{margin-right:8px;width:17px;height:17px;vertical-align:-3px;accent-color:var(--primary)}
+.a11y .row{display:-webkit-box;display:-ms-flexbox;display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.btn.alt{background:var(--surface-3);color:var(--text)}
+:root[data-cb="deut"]{--primary:#0072b2;--on-primary:#fff;--primary-c:#cfe6f5;--on-primary-c:#00263f;--ok:#005a8c;--warn:#a84300}
+:root[data-cb="deut"][data-theme="dark"]{--primary:#56b4e9;--on-primary:#00263f;--primary-c:#0b4468;--on-primary-c:#d6ecfa;--ok:#56b4e9;--warn:#f0a35e}
+:root[data-cb="trit"]{--primary:#a3153f;--on-primary:#fff;--primary-c:#f7d9e1;--on-primary-c:#4a0a1c;--ok:#00706f;--warn:#a3153f}
+:root[data-cb="trit"][data-theme="dark"]{--primary:#ff9db5;--on-primary:#4a0a1c;--primary-c:#6b1230;--on-primary-c:#ffe0e8;--ok:#5fd0cf;--warn:#ff9db5}
+:root[data-cb="mono"] body{-webkit-filter:grayscale(1);filter:grayscale(1)}
+:root[data-contrast="high"]{--bg:#fff;--surface:#fff;--surface-2:#f2f2f2;--surface-3:#e0e0e0;--text:#000;--muted:#111;--line:#000;--code-bg:#fff;--primary:#0000b8;--on-primary:#fff;--primary-c:#dfe3ff;--on-primary-c:#000}
+:root[data-contrast="high"][data-theme="dark"]{--bg:#000;--surface:#000;--surface-2:#141414;--surface-3:#2a2a2a;--text:#fff;--muted:#f0f0f0;--line:#fff;--code-bg:#000;--primary:#ffe94d;--on-primary:#000;--primary-c:#333300;--on-primary-c:#fff}
+:root[data-contrast="high"] .card,:root[data-contrast="high"] .decision,:root[data-contrast="high"] .code,:root[data-contrast="high"] ul.check li{border:2px solid var(--line);box-shadow:none}
+:root[data-links="u"] a,:root[data-cb] a{text-decoration:underline}
+:root[data-size="l"]{font-size:18px}:root[data-size="xl"]{font-size:20px}
+:root[data-motion="off"]{scroll-behavior:auto}:root[data-motion="off"] *{transition:none!important;animation:none!important;scroll-behavior:auto!important}
+@media print{.bar,.drawer,.scrim,.side,.pn,#totop,.copy,.toc,.skip{display:none!important}.wrap{padding:0;max-width:none;display:block}body{background:#fff;color:#000}.code{border-color:#999;background:#fff}.code pre{white-space:pre-wrap;color:#000}a{color:#000}h2{page-break-after:avoid}.code,.decision{page-break-inside:avoid}.foot{background:#fff;border:0}}
+@media (min-width:1181px){.wrap.has-toc .toc{display:none}}
+</style>
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="bar">
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.5.2</small></a>
+<span class="grow"></span>
+<nav class="topnav" aria-label="Main">
+<a class="nb" href="index.html">Home</a>
+<a class="nb" href="START-HERE.html">Start here</a>
+<a class="nb" href="GLOSSARY.html">Glossary</a>
+<button type="button" class="nb" id="docsbtn" aria-haspopup="true" aria-expanded="false" aria-controls="mega">Documents<span class="ms" aria-hidden="true">expand_more</span></button>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button>
+<button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button>
+<div class="mega" id="mega"><div class="mg"><h2>Start</h2><a href="README.html">README</a><a href="START-HERE.html">Start here</a><a href="Enable-DevMachine-MANUAL.html">Development laptop (Bypass)</a><a href="SECURITY-AUDIT.html">Security audit of the scripts</a><a href="VERSION-INFO.html">Version and system report</a><a href="GLOSSARY.html">Glossary (technical terms)</a><a href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a><a href="GenerateCodeSigningCertificate-MANUAL.html" aria-current="page">Code signing certificates</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a href="PkiTrustKit-MANUAL.html">Trust kit</a><a href="DevKit-MANUAL.html">DevKit</a><a href="PkiTransport-MANUAL.html">Transport package</a><a href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a href="PrepareComputer-MANUAL.html">Prepare a computer</a><a href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a href="scripts-README.html">Modules (scripts folder)</a><a href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a href="PKI-ChangeLog.html">Change log</a><a href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div></div>
+</nav>
+<button type="button" class="nb" id="menubtn" aria-label="Open menu" aria-expanded="false" aria-controls="drawer"><span class="ms" aria-hidden="true">menu</span></button>
+</header>
+<div class="a11y" id="a11y" role="dialog" aria-labelledby="a11yt" hidden>
+<h2 id="a11yt">Accessibility</h2>
+<fieldset><legend>Colors</legend>
+<label><input type="radio" name="a-cb" value="off" checked> Normal colors</label>
+<label><input type="radio" name="a-cb" value="deut"> Red-green safe (protanopia, deuteranopia)</label>
+<label><input type="radio" name="a-cb" value="trit"> Blue-yellow safe (tritanopia)</label>
+<label><input type="radio" name="a-cb" value="mono"> Grayscale (no color at all)</label>
+</fieldset>
+<fieldset><legend>Contrast and links</legend>
+<label><input type="checkbox" id="a-hc"> High contrast</label>
+<label><input type="checkbox" id="a-links"> Underline every link</label>
+</fieldset>
+<fieldset><legend>Text size</legend>
+<label><input type="radio" name="a-size" value="n" checked> Normal</label>
+<label><input type="radio" name="a-size" value="l"> Large</label>
+<label><input type="radio" name="a-size" value="xl"> Extra large</label>
+</fieldset>
+<label><input type="checkbox" id="a-motion"> Reduce motion</label>
+<div class="row"><button type="button" class="btn alt" data-a11y-reset="1">Reset</button><button type="button" class="btn" data-a11y-close="1">Close</button></div>
+</div>
+<div class="scrim" id="scrim"></div>
+<nav class="drawer" id="drawer" aria-label="Menu">
+<div class="dh"><strong>Menu</strong><button type="button" class="nb" data-close="1" aria-label="Close menu"><span class="ms" aria-hidden="true">close</span></button></div>
+<span class="sbox"><span class="ms" aria-hidden="true">search</span><input type="search" placeholder="Search" aria-label="Search all documents"></span>
+<a class="dl" href="index.html">Home</a>
+<div class="mg"><h2>Start</h2><a class="dl" href="README.html">README</a><a class="dl" href="START-HERE.html">Start here</a><a class="dl" href="Enable-DevMachine-MANUAL.html">Development laptop (Bypass)</a><a class="dl" href="SECURITY-AUDIT.html">Security audit of the scripts</a><a class="dl" href="VERSION-INFO.html">Version and system report</a><a class="dl" href="GLOSSARY.html">Glossary (technical terms)</a><a class="dl" href="GLOSSARY-ENGLISH.html">Glossary (English words)</a></div><div class="mg"><h2>Build and run the PKI</h2><a class="dl" href="pki_setup-MANUAL.html">Build the PKI (pki_setup)</a><a class="dl" href="PkiProfiles-MANUAL.html">Profiles: PKI for another company</a></div><div class="mg"><h2>Certificates</h2><a class="dl" href="GenerateLeafCertificate-MANUAL.html">Leaf certificates</a><a class="dl" href="GeneratePersonLeafCertificate-MANUAL.html">Person certificates</a><a class="dl" href="GenerateOffice365LeafCertificate-MANUAL.html">Office 365 certificates</a><a class="dl" href="SignCsr-MANUAL.html">Sign a request (CSR)</a><a class="dl" href="SignExternalCa-MANUAL.html">Sign a CA of a department</a><a class="dl" href="NewPkiCsr-MANUAL.html">Make a request (New-PkiCsr)</a><a class="dl" href="GenerateCodeSigningCertificate-MANUAL.html" aria-current="page">Code signing certificates</a></div><div class="mg"><h2>Tools for CDN, web and signing</h2><a class="dl" href="Export-PkiCa-MANUAL.html">Export CA certificates</a><a class="dl" href="Create-WebServerConfig-MANUAL.html">Web server configuration</a><a class="dl" href="Sign-Code-MANUAL.html">Code signing</a></div><div class="mg"><h2>Servers and revocation</h2><a class="dl" href="PkiRevocation-MANUAL.html">Revocation, CRL, OCSP, time stamp</a><a class="dl" href="PKI-SERVER-MANUAL.html">The PKI server (Ubuntu)</a><a class="dl" href="PKI-Server-Design.html">PKI server design</a></div><div class="mg"><h2>Give the PKI to other people</h2><a class="dl" href="PkiTrustKit-MANUAL.html">Trust kit</a><a class="dl" href="DevKit-MANUAL.html">DevKit</a><a class="dl" href="PkiTransport-MANUAL.html">Transport package</a><a class="dl" href="PkiBackup-MANUAL.html">Backup and restore</a></div><div class="mg"><h2>Computers</h2><a class="dl" href="PrepareComputer-MANUAL.html">Prepare a computer</a><a class="dl" href="Install-DevEnvironment-MANUAL.html">Developer environment</a><a class="dl" href="linux-README.html">Linux scripts</a></div><div class="mg"><h2>Reference</h2><a class="dl" href="scripts-README.html">Modules (scripts folder)</a><a class="dl" href="PUBLIC-CA-ENTERPRISE-ROOT.html">Enterprise Root signed by a public CA</a><a class="dl" href="PKI-Design-with-FIPS-and-PQC.html">Design and decisions</a><a class="dl" href="PKI-ChangeLog.html">Change log</a><a class="dl" href="PKI-Acceptance-Checklists.html">Acceptance checklists</a></div>
+<p><button type="button" class="nb a11ybtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="a11y"><span class="ms" aria-hidden="true">accessibility_new</span><span class="tx">Accessibility</span></button></p>
+<p><button type="button" class="nb themebtn" aria-label="Switch to dark mode"><span class="ms" aria-hidden="true">dark_mode</span><span class="tx">Dark</span></button></p>
+</nav>
+<main class="wrap has-toc" id="content">
+<div class="page">
+<p class="crumb"><a href="index.html">Home</a> &rsaquo; Certificates</p>
+<h1>Code signing certificates</h1>
+<p class="lead">Make OV / EV code signing certificates for Windows, Java, Android and Apple.</p>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a></li><li class="l2"><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a></li><li class="l2"><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a></li><li class="l2"><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a></li><li class="l2"><a href="#8-subject">8  SUBJECT</a></li><li class="l2"><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a></li><li class="l2"><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a></li><li class="l2"><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a></li><li class="l2"><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#15-all-options">15  ALL OPTIONS</a></li><li class="l2"><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l3"><a href="#apksigner-rcodesign-and-macos-codesign-with-these-certificat">apksigner, rcodesign and macOS codesign with these certificates.</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.5.2           2026-10-21
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
+<h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> What it is   : A script. It makes CODE SIGNING certificates only: the certificates that put your
+                company&#39;s name on a program (Windows, Java, Android, Apple). It signs them with a
+                CA of this PKI, or with any other CA that is on this computer.
+ Who reads it : Developers, release and build engineers. No PKI knowledge is needed. Every new
+                word is explained in <a href="GLOSSARY.html">GLOSSARY.txt</a> and <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a>.
+ Time needed  : 15 minutes to read sections 1 to 4. One run takes under a minute.
+ You need     : The PKI from pki_setup.ps1 (or a CA of your own as files / PFX), PowerShell 7 and
+                OpenSSL 4. Linux twin: bash and openssl 3.0+ (4.0.1+ recommended).
+ Start with   : Section 3 (First run, step by step).
+ Linux twin   : devkit/GenerateCodeSigningCertificate.sh (no PowerShell needed).</pre></div>
+<div class="code"><pre> Related manuals:
+   <a href="GenerateLeafCertificate-MANUAL.html">GenerateLeafCertificate-MANUAL.txt</a>   the general leaf generator (it can also make a code
+                                        signing certificate, with fewer choices)
+   <a href="Sign-Code-MANUAL.html">Sign-Code-MANUAL.txt</a>                 sign your files with these certificates (-UseGenerated)
+   <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>                    the Linux kit (devkit.env, Install-PkiTrust.sh)
+   <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>     why it is built this way (15.10, decision 10.183)
+ Help in the terminal:   .\GenerateCodeSigningCertificate.ps1 -Help
+                         ./GenerateCodeSigningCertificate.sh --help</pre></div>
+<div class="code"><pre> CONTENTS
+    1  What the script does                        8  Subject (names in the certificate)
+    2  The words you need                          9  Keys, digests and validity
+    3  First run, step by step                    10  The files you get
+    4  The platforms                              11  Where the files go, the index
+    5  OV or EV                                   12  Recipes, copy and paste
+    6  The issuing CA (who signs)                 13  Problems and answers
+    7  A CA that is not of this PKI               14  Limits you must know
+                                                  15  All options (PowerShell and bash)
+                                                  16  What was tested, what was not</pre></div>
+<h2 id="1-what-the-script-does">1  WHAT THE SCRIPT DOES<a class="anchor" href="#1-what-the-script-does" aria-label="Link to this section">#</a></h2>
+<p>It makes one code signing certificate for each platform you name, writes it in every format, checks it, and lists it in an index that Sign-Code.ps1 / Sign-Code.sh read.</p>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre>     .\GenerateCodeSigningCertificate.ps1 -Platform Windows
+     ./GenerateCodeSigningCertificate.sh --platform windows</pre></div>
+<p>GenerateLeafCertificate.ps1 -Purpose CodeSigning still works: it makes one general code signing leaf. This script is the specialist: it knows what each platform needs (purposes, validity, subject, tool) and writes the signing commands for it next to the certificate.</p>
+<p>The defaults, so the shortest command is safe: Level EV, Quadrant 1 (Classic RSA, non-FIPS), issuer = the EV intermediate (q1-ev), RSA 4096, SHA-256, every format, PFX password Abc12345!, platform Windows.</p>
+<h2 id="2-the-words-you-need">2  THE WORDS YOU NEED<a class="anchor" href="#2-the-words-you-need" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Code signing   A signature on a program. The user&#39;s computer shows WHO made it and refuses it
+                when someone changed it afterwards.
+ OV / EV        Organization Validated / Extended Validation. EV has more company details in the
+                certificate (registration number, jurisdiction) and a shorter life (397 days).
+ Issuer         The CA that signs the certificate. Here: an intermediate (default) or a
+                Quadrant Root of this PKI, or a CA of your own.
+ EKU            Extended Key Usage, the purpose written in the certificate. Code Signing is
+                1.3.6.1.5.5.7.3.3. Apple installers also need 1.2.840.113635.100.4.13.
+ Timestamp      Proof of WHEN a file was signed. With it, the signature stays valid after the
+                certificate expires. Sign-Code adds it (DigiCert by default).
+ PFX            One file (.pfx / .p12) with the certificate, its chain and the private key,
+                locked with a password. Most signing tools want it.</pre></div>
+<h2 id="3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP<a class="anchor" href="#3-first-run-step-by-step" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Windows / PowerShell 7:
+   1. Build the PKI once (if not done):        .\pki_setup.ps1
+   2. See which CA can sign:                   .\GenerateCodeSigningCertificate.ps1 -ListIssuers
+   3. Make the Windows certificate:            .\GenerateCodeSigningCertificate.ps1 -Platform Windows
+   4. See what was made:                       .\GenerateCodeSigningCertificate.ps1 -List
+   5. Sign a program with it:                  .\Sign-Code.ps1 -UseGenerated -File .\app.exe -Verbose</pre></div>
+<p>Linux (DevKit): 1. Get the DevKit (PkiTransport.ps1 -DevKit on the PKI machine), then  ./Install-PkiTrust.sh 2. ./GenerateCodeSigningCertificate.sh --list-issuers 3. ./GenerateCodeSigningCertificate.sh --platform java,android 4. ./Sign-Code.sh --use-generated --folder ./build --verbose</p>
+<p>What you see: one row per certificate (platform, key, hash, days, expiry date, file), then &quot;done&quot; and the folder. A warning reminds you that Abc12345! is a lab password.</p>
+<h2 id="4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)<a class="anchor" href="#4-the-platforms-platform-platform-one-or-more" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> Windows   Authenticode: exe dll sys ocx scr cpl efi msi msp msix appx cab cat winmd, PowerShell
+           ps1 psm1 psd1 ps1xml, vbs js wsf, Office VBA (docm xlsm ...), NuGet, ClickOnce.
+           Tool: signtool (Windows), osslsigncode / jsign (Linux), Sign-Code.
+           -LifetimeSigning   adds Lifetime Signing (1.3.6.1.4.1.311.10.3.13): the signature ends
+                              with the certificate, even with a timestamp. Use it only when you
+                              want signatures to die with the certificate.
+           -KernelMode        adds Kernel Mode Code Signing (1.3.6.1.4.1.311.61.1.1), for drivers
+                              on test machines or under your own WDAC policy. Public Windows
+                              drivers need Microsoft&#39;s attestation signing; this does not replace it.
+ Java      jarsigner: jar war ear; the upload key of an Android App Bundle (aab).
+ Android   apksigner: apk (signature schemes v1 to v4), aab. An Android app key must never change
+           for the life of the app, so OV Android certificates are valid 9125 days (25 years,
+           [ codesign ] DaysAndroid). EV is limited to 397 days: the script warns you.
+ Apple     rcodesign (Windows, Linux) or codesign (macOS): Mach-O, .app, .framework, .dylib,
+           .dmg.  -AppleType Application (default) | Installer | Both. Installer = the .pkg purpose
+           (1.2.840.113635.100.4.13), in its own certificate (folder apple-installer).
+ All       Windows, Java, Android and Apple.
+ -Combined ONE certificate with the purposes of every platform you named (folder &quot;multi&quot;).
+           Simpler to handle, but one stolen key then signs for every platform. Default: one each.</pre></div>
+<h2 id="5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)<a class="anchor" href="#5-ov-or-ev-default-ev" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> OV   Subject C, ST, L, O, CN (CN = O = the company). Policy 2.23.140.1.4.1. Valid [ codesign ]
+      DaysOV (1095 days) or -Days.
+ EV   OV plus businessCategory, jurisdictionCountryName (and state / locality) and serialNumber
+      (the company registration number). Policy 2.23.140.1.3. Valid 397 days at most.
+ The CA/B Forum policy lets Sign-Code tell OV from EV. -NoCabfPolicy leaves it out.
+ This is a PRIVATE EV: the rules of the CA/B Forum about hardware keys are not enforced. See 14.</pre></div>
+<h2 id="6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)<a class="anchor" href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> -Issuer Intermediate     q1-ev for EV, q1-ov for OV (q2-ev / q2-ov with -FIPS).
+ -Issuer QuadrantRoot     q1-root / q2-root signs directly (a shorter chain). The certificate is
+                          then never longer valid than the root allows.
+ -IssuerId &lt;id&gt;           Any CA of this PKI whose key is on this computer, e.g. q2-ov.
+ -FIPS / --fips           Quadrant 2 (Classic FIPS, ECDSA CAs). Without it Quadrant 1.
+ -ListIssuers             The CAs of this PKI with &quot;key here: yes / no&quot;, and (Windows) the CA
+                          certificates with a private key in your certificate stores.
+ Never: the Enterprise Root and the Track Roots never sign a leaf. The Quantum quadrants (3, 4) are
+ refused: no code signing tool verifies ML-DSA signatures yet.</pre></div>
+<h2 id="7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI<a class="anchor" href="#7-a-ca-that-is-not-of-this-pki" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> A department CA, a test CA, a CA from another tool: as long as you have its key on this computer.
+   PEM / DER files    -IssuerCert ca.crt -IssuerKey ca.key [-IssuerChain chain.pem]
+                      bash: --issuer-cert ca.crt --issuer-key ca.key [--issuer-chain chain.pem]
+   PFX / P12          -IssuerPfx ca.pfx            bash: --issuer-p12 ca.pfx
+   Windows store      -IssuerThumbprint &lt;sha1&gt; -IssuerStore CurrentUser\My | LocalMachine\My |
+                      CurrentUser\CA ...   The key must be exportable.
+ The key / PFX password comes from the variable named by -IssuerPasswordEnv (default
+ PKI_ISSUER_PASSWORD); not set and a console = you are asked. Never on the command line.
+ The certificate is made with openssl x509 -req (random 128-bit serial), checked against the
+ issuer with -partial_chain, and the issuer must be a CA (CA:TRUE, keyCertSign). On Linux without a
+ devkit.env this works too: then there are no CRL / OCSP addresses and no PKI policy.</pre></div>
+<h2 id="8-subject">8  SUBJECT<a class="anchor" href="#8-subject" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> -Company &lt;name&gt;        CN = O. Default [ codesign ] Company, else the organization of the PKI.
+                        At most 64 characters. Aliases -CodeSigningCompany, -CodesignCompany.
+ -OrganizationalUnit -Country -State -Locality      Default [ subject_ov ] (EE, Tallinn).
+ EV only: -Serial &lt;registration number&gt; -BusinessCategory &quot;Private Organization&quot;
+          -JurisdictionCountry EE -JurisdictionState -JurisdictionLocality   Default [ subject_ev ].
+ bash: --company --ou --country --state --locality --serial --business-category
+       --jurisdiction-country --jurisdiction-state --jurisdiction-locality (default devkit.env).</pre></div>
+<h2 id="9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)<a class="anchor" href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> -KeyType RSA | ECDSA       Default RSA.
+ -KeyBits 4096 6144 7680 8192   Default 4096. 2048 / 3072 are raised to 4096 (the code signing
+                            floor of this PKI). Above 4096 some Windows parts and tools refuse it.
+ -Curve P-384 | P-521       Default P-384. P-256 is raised to P-384. P-521 is not accepted by
+                            every signing tool.
+ -Hash sha256 sha384 sha512 sha3-256 sha3-384 sha3-512   Default sha256. The digest the CA uses
+                            to sign the certificate. SHA-3 needs OpenSSL 3.x+ and only the newest
+                            verifiers (Windows 11 24H2+, Java 17+) accept it. SHA-1 / MD5: refused.
+ -Days &lt;n&gt;                  EV 397. OV 1095. Android OV 9125. Never past the end of the issuer.
+ -Policy &lt;oid&gt;[=&lt;cps url&gt;]  More certificate policies.
+ -NoCrl -NoOcsp -NoRevocationInfo   No CRL / OCSP address (a build machine without network).
+ The [ codesign ] section of agantra_pki.cnf holds the defaults: Level Platform KeyType KeyBits
+ Curve Hash DaysOV DaysAndroid Company CabfPolicy Folder.</pre></div>
+<h2 id="10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)<a class="anchor" href="#10-the-files-you-get-per-platform-folder" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> &lt;name&gt;.crt              the certificate (PEM)          &lt;name&gt;.key   the PRIVATE key (keep safe)
+ &lt;name&gt;.pub / .pub.der   the public key                 &lt;name&gt;.cnf   the OpenSSL request config
+ &lt;name&gt;-chain.crt        the CAs above it               &lt;name&gt;-fullchain.crt  certificate + CAs
+ &lt;name&gt;.pem .der .cer .cert .p7b .rfc7468.pem          every format (-Format, default ALL)
+ &lt;name&gt;.pfx              certificate + chain + key, password -Password (default Abc12345!)
+                         -LegacyPfx: 3DES / SHA-1 PFX for old Java and old Windows.
+ &lt;name&gt;.sha256 / .sha512 hash files (-HashFile)          convert-formats.ps1 (-NoGuidance: none)
+ leaf-info.json          what was made                  CODESIGN-NOTES.txt  how to sign, per tool
+ Name: &lt;company&gt;-codesign-&lt;platform&gt;-&lt;ov|ev&gt;-&lt;quadrant&gt;-&lt;key&gt;, e.g.
+       Agantra_Inovatif_OU-codesign-windows-ev-q1-rsa4096.crt
+ Windows extras: -InstallPfx imports the PFX into -InstallStore CurrentUser (default) or
+ LocalMachine (administrator) \My; -InstallTrustedPublisher puts the .cer into Trusted Publishers,
+ so signed PowerShell scripts run without a prompt on this computer.</pre></div>
+<h2 id="11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX<a class="anchor" href="#11-where-the-files-go-the-index" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> leafcerts\codesign\&lt;company&gt;\&lt;platform&gt;\        (-OutputRoot / --out to change it)
+ Only code signing certificates live under leafcerts\codesign. A second run never overwrites: it
+ makes &lt;company&gt;_&lt;yyyyMMdd&gt;-&lt;HHmmss&gt;. A run is all or nothing: if one certificate fails, the new
+ folder is removed.
+ leafcerts\codesign\codesign-index.json  (PowerShell) and codesign-index.tsv (both twins) list
+ every certificate: platform, level, end date, SHA-1, the relative paths of pfx / crt / key /
+ chain. No password is written. Sign-Code -UseGenerated reads it and takes, for each file it
+ signs, the NEWEST valid certificate of the file&#39;s platform.</pre></div>
+<h2 id="12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE<a class="anchor" href="#12-recipes-copy-and-paste" aria-label="Link to this section">#</a></h2>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\GenerateCodeSigningCertificate.ps1 -Platform Windows -Company &quot;Example Ltd&quot;
+ .\GenerateCodeSigningCertificate.ps1 -OV -Platform All -KeyBits 8192 -Hash sha512
+ .\GenerateCodeSigningCertificate.ps1 -OV -Platform Android -Days 9125
+ .\GenerateCodeSigningCertificate.ps1 -Platform Apple -AppleType Both
+ .\GenerateCodeSigningCertificate.ps1 -Platform Windows -Issuer QuadrantRoot -LifetimeSigning
+ .\GenerateCodeSigningCertificate.ps1 -Platform Java -IssuerPfx D:\ca\dept-ca.pfx
+ .\GenerateCodeSigningCertificate.ps1 -Platform Windows -FIPS -KeyType ECDSA -Curve P-384
+ .\GenerateCodeSigningCertificate.ps1 -Platform Windows -InstallPfx -InstallTrustedPublisher
+ ./GenerateCodeSigningCertificate.sh --platform all --apple-type both
+ ./GenerateCodeSigningCertificate.sh --ov --platform android --fips --key-type ecdsa --curve P-521
+ PKI_ISSUER_PASSWORD=... ./GenerateCodeSigningCertificate.sh --platform java --issuer-p12 ca.pfx
+ Then sign:
+ .\Sign-Code.ps1 -UseGenerated -Folder .\bin\Release -Verbose
+ ./Sign-Code.sh --use-generated --folder ./build --verbose</pre></div>
+<h2 id="13-problems-and-answers">13  PROBLEMS AND ANSWERS<a class="anchor" href="#13-problems-and-answers" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> &quot;The CA ... has no key on this computer&quot;   The CA key lives on the PKI machine. Run there, or
+     use -IssuerPfx / -IssuerCert with a CA you hold.
+ &quot;EV needs serialNumber&quot;   Fill [ subject_ev ] in the cnf or give -Serial &lt;registration number&gt;.
+ &quot;Quantum quadrant refused&quot;   Use -FIPS (Quadrant 2) or nothing (Quadrant 1).
+ &quot;The issuer ends before ...&quot;   -Days is longer than the issuer: shorten -Days.
+ Windows still warns &quot;unknown publisher&quot;   The computer must trust your Root CA (Install-PkiCa /
+     Install-PkiTrust.sh) and, for PowerShell, the certificate in Trusted Publishers.
+ SmartScreen / Gatekeeper / Play Protect still warn   They trust PUBLIC roots only. See 14.</pre></div>
+<h2 id="14-limits-you-must-know">14  LIMITS YOU MUST KNOW<a class="anchor" href="#14-limits-you-must-know" aria-label="Link to this section">#</a></h2>
+<ul><li>A private PKI: only computers that trust its Root CA trust the signature. Windows SmartScreen, Apple Gatekeeper / notarization and Google Play use public roots and their own programs only.</li><li>EV here is a private EV. Public EV needs a hardware key (HSM / token); this script writes a software key. Keep .key and .pfx files safe, never e-mail them, and change Abc12345!.</li><li>Apple: a signature from a private CA is fine for your own Macs (MDM, profiles); distribution to others needs an Apple Developer ID certificate and notarization.</li><li>Android: Google Play App Signing keeps its own key; this certificate is your upload key or the key of an app you distribute yourself.</li></ul>
+<h2 id="15-all-options">15  ALL OPTIONS<a class="anchor" href="#15-all-options" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> PowerShell                              bash                               default
+ -Platform Windows,Java,Android,Apple,All --platform windows,java,...        Windows
+ -AppleType Application|Installer|Both   --apple-type                       Application
+ -Combined -LifetimeSigning -KernelMode  --combined --lifetime-signing --kernel-mode
+ -OV | -EV                               --ov | --ev | --level              EV
+ -FIPS                                   --fips | --quadrant 1|2            Quadrant 1
+ -Issuer Intermediate|QuadrantRoot       --issuer intermediate|quadrant-root Intermediate
+ -IssuerId -IssuerCert -IssuerKey        --issuer-id --issuer-cert --issuer-key
+ -IssuerChain -IssuerPfx                 --issuer-chain --issuer-p12
+ -IssuerThumbprint -IssuerStore          (Windows only)                     CurrentUser\My
+ -IssuerPasswordEnv                      --issuer-password-env              PKI_ISSUER_PASSWORD
+ -ListIssuers -List                      --list-issuers --list
+ -Company -OrganizationalUnit -Country   --company --ou --country
+ -State -Locality -Serial                --state --locality --serial
+ -BusinessCategory -Jurisdiction*        --business-category --jurisdiction-*
+ -KeyType -KeyBits -Curve -Hash -Days    --key-type --key-bits --curve --hash --days
+ -Policy -NoCabfPolicy                   --no-cabf-policy
+ -NoCrl -NoOcsp -NoRevocationInfo        --no-crl --no-ocsp --no-revocation-info
+ -Format -HashFile -OutputRoot           --hash-file --out                  ALL, sha256 sha512
+ -Password -LegacyPfx -NoGuidance        --pfx-password                     Abc12345!
+ -InstallPfx -InstallStore -InstallTrustedPublisher   (Windows only)
+ -Pki -PkiRoot -Release -NoCaRevocationInfo -ConfigFile    --release --no-ca-revocation-info
+ -OpenSslPath -FipsModuleConfig          --openssl
+ -Unblock -Verbose -Help -Version        --verbose --help --version
+ Exit codes: 0 done, 1 error (nothing left behind), 5 this system is refused.</pre></div>
+<h2 id="16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#16-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
+<p>Tested (Linux, OpenSSL 4.0.3, PowerShell 7, both twins): every platform at EV; OV with the Quadrant Root, RSA 8192, SHA3-512 and Lifetime Signing; FIPS ECDSA P-521 Android, 9125 days; -Combined; an external CA as PEM files and as PFX (password from PKI_ISSUER_PASSWORD); -List and -ListIssuers; the purposes and policies of the certificates (openssl x509 -text); jar files signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh. Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool,</p>
+<h3 id="apksigner-rcodesign-and-macos-codesign-with-these-certificat">apksigner, rcodesign and macOS codesign with these certificates.<a class="anchor" href="#apksigner-rcodesign-and-macos-codesign-with-these-certificat" aria-label="Link to this section">#</a></h3>
+
+<nav class="pn" aria-label="Previous and next document"><a class="pv" href="NewPkiCsr-MANUAL.html"><small>&larr; Previous</small>Make a request (New-PkiCsr)</a><a class="nx" href="Export-PkiCa-MANUAL.html"><small>Next &rarr;</small>Export CA certificates</a></nav>
+<p class="crumb">Made from GenerateCodeSigningCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.5.2.</p>
+
+</div>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a><a href="#8-subject">8  SUBJECT</a><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a><a href="#15-all-options">15  ALL OPTIONS</a><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a><a class="l3" href="#apksigner-rcodesign-and-macos-codesign-with-these-certificat">apksigner, rcodesign and macOS codesign with these certificates.</a></aside>
+</main>
+<footer class="foot"><div class="in">
+<div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
+<p>We are an Estonian company in AI and Web3.</p></div>
+<div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
+<p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.5.2</p></div>
+</div></footer>
+<button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
+<script>
+(function(){
+  "use strict";
+  var d=document,w=window,root=d.documentElement;
+  function $(s,c){return (c||d).querySelector(s)}
+  function $$(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s))}
+  function store(k,v){try{if(v===undefined){return w.localStorage.getItem(k)}w.localStorage.setItem(k,v)}catch(e){return null}}
+  function dark(){var a=root.getAttribute("data-theme");if(a){return a==="dark"}return !!(w.matchMedia&&w.matchMedia("(prefers-color-scheme: dark)").matches)}
+  var saved=store("pkidocs-theme");if(saved==="dark"||saved==="light"){root.setAttribute("data-theme",saved)}
+  function paintTheme(){$$(".themebtn").forEach(function(b){var ic=$(".ms",b),tx=$(".tx",b);if(ic){ic.textContent=dark()?"light_mode":"dark_mode"}if(tx){tx.textContent=dark()?"Light":"Dark"}b.setAttribute("aria-label",dark()?"Switch to light mode":"Switch to dark mode")})}
+  $$(".themebtn").forEach(function(b){b.addEventListener("click",function(){var n=dark()?"light":"dark";root.setAttribute("data-theme",n);store("pkidocs-theme",n);paintTheme()})});
+  paintTheme();
+  var mega=$("#mega"),mb=$("#docsbtn"),dr=$("#drawer"),sc=$("#scrim"),menu=$("#menubtn");
+  function closeMega(){if(mega){mega.classList.remove("open");if(mb){mb.setAttribute("aria-expanded","false")}}}
+  function setDrawer(o){if(!dr){return}dr.classList[o?"add":"remove"]("open");sc.classList[o?"add":"remove"]("open");menu.setAttribute("aria-expanded",o?"true":"false");if(o){var f=$("a,input,button",dr);if(f){f.focus()}}}
+  if(mb){mb.addEventListener("click",function(e){e.stopPropagation();var o=!mega.classList.contains("open");closeMega();if(o){mega.classList.add("open");mb.setAttribute("aria-expanded","true")}})}
+  if(menu){menu.addEventListener("click",function(){setDrawer(true)})}
+  $$("[data-close]").forEach(function(b){b.addEventListener("click",function(){setDrawer(false);if(menu){menu.focus()}})});
+  if(sc){sc.addEventListener("click",function(){setDrawer(false)})}
+  d.addEventListener("click",function(e){if(mega&&!e.target.closest("#mega")&&e.target!==mb){closeMega()}});
+  d.addEventListener("keydown",function(e){var k=e.key||"";if(k==="Escape"||k==="Esc"){closeMega();setDrawer(false)}
+    if(k==="/"&&!/INPUT|TEXTAREA/.test(e.target.tagName||"")){var q=$(".sbox input");if(q&&q.offsetParent!==null){e.preventDefault();q.focus()}}});
+  $$(".sbox input").forEach(function(q){q.addEventListener("keydown",function(e){if((e.key||"")==="Enter"){var v=q.value.replace(/^\s+|\s+$/g,"");if(v){w.location.href=(w.PKI_INDEX||"index.html")+"#q="+encodeURIComponent(v)}}})});
+  $$(".copy").forEach(function(b){b.addEventListener("click",function(){
+    var pre=b.parentNode.querySelector("pre"),txt=pre?pre.textContent:"",lab=$(".tx",b);
+    function done(){if(lab){var o=lab.textContent;lab.textContent="Copied";w.setTimeout(function(){lab.textContent=o},1300)}}
+    function fb(){var ta=d.createElement("textarea");ta.value=txt;ta.style.position="fixed";ta.style.opacity="0";d.body.appendChild(ta);ta.select();try{d.execCommand("copy");done()}catch(e){}d.body.removeChild(ta)}
+    if(w.navigator.clipboard&&w.navigator.clipboard.writeText){w.navigator.clipboard.writeText(txt).then(done,fb)}else{fb()}})});
+  var page=(w.location.pathname.split("/").pop()||"index.html");
+  $$("ul.check input").forEach(function(c,i){var k="pkidocs-chk-"+page+"-"+i;if(store(k)==="1"){c.checked=true}c.addEventListener("change",function(){store(k,c.checked?"1":"0")})});
+  var tt=$("#totop");if(tt){w.addEventListener("scroll",function(){tt.style.display=(w.pageYOffset>600)?"block":"none"});tt.addEventListener("click",function(){w.scrollTo(0,0)})}
+  var links=$$(".side a");if(links.length&&w.IntersectionObserver){var map={};links.forEach(function(a){map[a.getAttribute("href").slice(1)]=a});
+    var io=new w.IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){links.forEach(function(a){a.classList.remove("on")});var a=map[en.target.id];if(a){a.classList.add("on")}}})},{rootMargin:"-80px 0px -70% 0px"});
+    $$("h2[id],h3[id]").forEach(function(h){io.observe(h)})}
+  var A11Y=$("#a11y"),abtns=$$(".a11ybtn"),st={cb:"off",hc:false,size:"n",links:false,motion:false};
+  try{var raw=store("pkidocs-a11y");if(raw){var o=JSON.parse(raw);for(var key in st){if(o&&o[key]!==undefined){st[key]=o[key]}}}}catch(e){}
+  function applyA11y(){
+    function set(a,v){if(v){root.setAttribute(a,v)}else{root.removeAttribute(a)}}
+    set("data-cb",st.cb==="off"?"":st.cb);set("data-contrast",st.hc?"high":"");set("data-size",st.size==="n"?"":st.size);set("data-links",st.links?"u":"");set("data-motion",st.motion?"off":"");
+    if((st.cb!=="off"||st.hc)&&!root.getAttribute("data-theme")){root.setAttribute("data-theme",dark()?"dark":"light")}
+    if(A11Y){$$("input[name=a-cb]",A11Y).forEach(function(r){r.checked=(r.value===st.cb)});$$("input[name=a-size]",A11Y).forEach(function(r){r.checked=(r.value===st.size)});
+      $("#a-hc").checked=st.hc;$("#a-links").checked=st.links;$("#a-motion").checked=st.motion}
+    paintTheme()}
+  function saveA11y(){store("pkidocs-a11y",JSON.stringify(st))}
+  if(A11Y){
+    var openA=function(o){A11Y.hidden=!o;abtns.forEach(function(b){b.setAttribute("aria-expanded",o?"true":"false")});if(o){setDrawer(false);var f=$("input",A11Y);if(f){f.focus()}}};
+    abtns.forEach(function(b){b.addEventListener("click",function(e){e.stopPropagation();openA(A11Y.hidden)})});
+    $$("[data-a11y-close]",A11Y).forEach(function(b){b.addEventListener("click",function(){openA(false);if(abtns[0]){abtns[0].focus()}})});
+    A11Y.addEventListener("change",function(e){var t=e.target;
+      if(t.name==="a-cb"){st.cb=t.value}else if(t.name==="a-size"){st.size=t.value}else if(t.id==="a-hc"){st.hc=t.checked}else if(t.id==="a-links"){st.links=t.checked}else if(t.id==="a-motion"){st.motion=t.checked}
+      saveA11y();applyA11y()});
+    $("[data-a11y-reset]",A11Y).addEventListener("click",function(){st={cb:"off",hc:false,size:"n",links:false,motion:false};saveA11y();applyA11y()});
+    d.addEventListener("click",function(e){if(!A11Y.hidden&&!e.target.closest("#a11y")&&!e.target.closest(".a11ybtn")){openA(false)}});
+    d.addEventListener("keydown",function(e){if((e.key||"")==="Escape"&&!A11Y.hidden){openA(false)}})}
+  applyA11y();
+  var box=$("#results");
+  if(box&&w.PKI_SEARCH){
+    var esc=function(s){return s.replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
+    var run=function(){
+      var m=/[#&]q=([^&]*)/.exec(w.location.hash),term="";try{term=m?decodeURIComponent(m[1]):""}catch(e){term=""}
+      var home=$("#home");$$(".sbox input").forEach(function(q){if(term){q.value=term}});
+      if(!term){box.innerHTML="";if(home){home.hidden=false}return}
+      if(home){home.hidden=true}
+      var words=term.toLowerCase().split(/\s+/).filter(Boolean),res=[];
+      w.PKI_SEARCH.forEach(function(s){var low=s.t.toLowerCase(),hay=s.h.toLowerCase()+" "+s.d.toLowerCase()+" "+low,ok=true,score=0;
+        for(var i=0;i<words.length;i++){if(hay.indexOf(words[i])<0){ok=false;break}score+=(s.h.toLowerCase().indexOf(words[i])>=0)?5:1}
+        if(ok){var p0=low.indexOf(words[0]),a=Math.max(0,p0-70);res.push({s:s,score:score,sn:(a>0?"... ":"")+s.t.substr(a,220)+" ..."})}});
+      res.sort(function(a,b){return b.score-a.score});
+      var out="<h1>Search: "+esc(term)+"</h1><p class=\"lead\">"+res.length+" place(s) found.</p>";
+      res.slice(0,60).forEach(function(r){var sn=esc(r.sn);words.forEach(function(wd){sn=sn.replace(new RegExp("("+wd.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")","ig"),"<mark>$1</mark>")});
+        out+="<div class=\"hit\"><a href=\""+r.s.p+(r.s.i?"#"+r.s.i:"")+"\"><b>"+esc(r.s.d)+"</b> &rsaquo; "+esc(r.s.h||"start")+"</a><br><small>"+sn+"</small></div>"});
+      if(!res.length){out+="<p>Nothing found. Try fewer or shorter words.</p>"}
+      box.innerHTML=out};
+    w.addEventListener("hashchange",run);run()}
+})();
+</script>
+</body>
+</html>

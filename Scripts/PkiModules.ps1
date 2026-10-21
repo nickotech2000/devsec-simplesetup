@@ -55,6 +55,7 @@ $script:PkiModuleCatalog = @(
     @{ File = '21_DevKit.ps1';               Sets = 'All', 'Library';          Purpose = 'the DevKit: one archive with the PKI, installers and generators for developers (Windows and Ubuntu)' }
     @{ File = '22_CsrSigning.ps1';           Sets = 'All', 'Library';          Purpose = 'checks a CSR against the spec of the PKI and signs it (leaf certificates; CA requests use the same checker)' }
     @{ File = '23_CaExport.ps1';             Sets = 'All', 'Library';          Purpose = 'takes CA certificates out of the PKI or out of a leaf chain: many formats, hash files, CDN / cloud names' }
+    @{ File = '24_CodeSigning.ps1';          Sets = 'All', 'Library';          Purpose = 'code signing certificates per platform (Windows, Java, Android, Apple): subject, EKU, issuer choice, index (7.5.2)' }
     @{ File = '17_Transport.ps1';            Sets = 'All', 'Library', 'Transport'; Purpose = 'Phase C: pack, unpack, scans, Windows trust install' }
 )
 

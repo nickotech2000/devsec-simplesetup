@@ -2,7 +2,7 @@
  VERSION-INFO  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - the version and system report of every script
- Version 6.6.18   2026-10-17
+ Version 7.5.2   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

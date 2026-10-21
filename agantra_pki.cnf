@@ -431,5 +431,29 @@ NoCrl              = false
 NoOcsp             = false
 
 # ============================================================
+# [ codesign ]  defaults of GenerateCodeSigningCertificate.ps1 / .sh (7.5.2; a parameter wins)
+#   Level        EV (default) or OV. EV: 397 days at most, subject with businessCategory, jurisdiction and serialNumber.
+#   Platform     Windows, Java, Android, Apple or All (several: Windows,Java). One certificate per platform.
+#   KeyType      RSA (default) or ECDSA.  KeyBits 4096 (default; 6144, 7680, 8192).  Curve P-384 (ECDSA; P-521 allowed).
+#   Hash         sha256 (default), sha384, sha512, sha3-256, sha3-384, sha3-512 (SHA-3: newest Windows / Java only).
+#   DaysOV       validity of an OV code signing certificate.  DaysAndroid  OV Android signing key (Google Play: valid after 2033).
+#   Company      CN = O of the certificate. Empty = the Organization of [ subject_ov ].
+#   CabfPolicy   true: add the CA/Browser Forum code signing policy (OV 2.23.140.1.4.1, EV 2.23.140.1.3).
+#   Folder       the folder inside leafcerts that receives ONLY the code signing certificates.
+# ============================================================
+[ codesign ]
+Level       = EV
+Platform    = Windows
+KeyType     = RSA
+KeyBits     = 4096
+Curve       = P-384
+Hash        = sha256
+DaysOV      = 1095
+DaysAndroid = 9125
+Company     =
+CabfPolicy  = true
+Folder      = codesign
+
+# ============================================================
 # END OF CONFIGURATION
 # ============================================================

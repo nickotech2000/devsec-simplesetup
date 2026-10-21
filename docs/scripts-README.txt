@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 6.6.18      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 7.5.2      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -113,6 +113,7 @@
                                export, Windows trust install, chain proof, kit,
                                Install-PkiOpenSsl (via Install-DevEnvironment.*)
  22_CsrSigning.ps1         Read and check a CSR against the PKI spec (colour report), sign it with a DV/OV/EV intermediate (SignCsr.ps1)   00, 01, 02, 03, 04, 19
+ 24_CodeSigning.ps1            Code signing certificates per platform (GenerateCodeSigningCertificate.ps1): issuer, spec, external CA, notes, index   00, 01, 02, 03, 04, 06, 14
  21_DevKit.ps1                 The DevKit (PkiTransport.ps1 -DevKit): devkit.env from the live configuration, the kit folder, the zip / 7z    00, 01, 03, 14, 16, 17, 20
                                (Write-PkiDevKitEnv, Copy-PkiDevKitTree, New-PkiDevKitArchive,
                                New-PkiDevKit). The kit's own files are in devkit\ of the project.
@@ -242,6 +243,18 @@ or organization), selfextract.sh template. New-PkiTrustKit.ps1 builds the single
 itself (no PkiTransport.ps1 -Pack call any more).
 
 5.3.6 scripts\backup\: the SOURCE of Backup-Pki.ps1, Restore-Pki.ps1 and Test-PkiBackup.ps1 (*.src.ps1), PkiBackupCommon.ps1 (gate, password policy, hashes, requirement check, certificate / key inventory, Local Machine store) and Build-BackupScripts.ps1. The builder pastes PkiBackupCommon.ps1 and the zip engine of 16_CertPack.ps1 into each source and writes the three finished, STANDALONE scripts to the project root (they need no other .ps1). Edit the sources, run  pwsh -File .\scripts\backup\Build-BackupScripts.ps1 , never edit the three root scripts by hand. Not in the module catalog (PkiModules.ps1). See PkiBackup-MANUAL.txt
+
+====================================================================================================
+ NEW IN 7.5.2
+====================================================================================================
+ Module 24_CodeSigning.ps1 (sets All and Library, loaded before 17_Transport) is the code behind
+ GenerateCodeSigningCertificate.ps1: the platform table (Windows, Java, Android, Apple, Apple
+ installer), Get-PkiCodeSignSettings ([ codesign ] of the cnf), Resolve-PkiCodeSignIssuer (a CA of
+ the catalog, or one from PEM files / PFX / the Windows store), New-PkiCodeSignSpec (on top of
+ New-PkiLeafSpec), New-PkiCodeSignExternalCertificate, Write-PkiCodeSignNotes and the index
+ (Add-PkiCodeSignIndex / Get-PkiCodeSignIndex: leafcerts\codesign\codesign-index.json and .tsv).
+ 14_LeafGenerator.ps1: $script:PkiLeafHashes (SHA-2 and SHA-3) and RSA 6144 / 7680 / 8192.
+ 06_Validation.ps1: Assert-PkiSignatureDigest accepts SHA-3. Sign-Code stays standalone.
 
 ====================================================================================================
  NEW IN 6.3.6
