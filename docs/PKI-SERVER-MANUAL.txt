@@ -2,7 +2,7 @@
  PKI-SERVER  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - CRL, OCSP and time stamping on a Linux server
- Version 7.6.7   2026-10-21
+ Version 7.6.8   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : pki-server.sh (Linux), New-PkiServerPackage.ps1 and Start-PkiCrlServer.ps1 (Windows)
 

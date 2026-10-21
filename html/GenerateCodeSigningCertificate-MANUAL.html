@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.6.7">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.8">
 <meta name="description" content="Make OV / EV code signing certificates for Windows, Java, Android and Apple.">
 <title>Code signing certificates - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.7</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.8</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Code signing certificates</h1>
 <p class="lead">Make OV / EV code signing certificates for Windows, Java, Android and Apple.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a></li><li class="l2"><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a></li><li class="l2"><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a></li><li class="l2"><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a></li><li class="l2"><a href="#8-subject">8  SUBJECT</a></li><li class="l2"><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a></li><li class="l2"><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a></li><li class="l2"><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a></li><li class="l2"><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#15-all-options">15  ALL OPTIONS</a></li><li class="l2"><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN</a></li><li class="l2"><a href="#18-tools-the-formats-need-the-generator-stops-first-before-a">18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)</a></li><li class="l3"><a href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.7           2026-10-21
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.8           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : A script. It makes CODE SIGNING certificates only: the certificates that put your
@@ -464,7 +464,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h3 id="the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.<a class="anchor" href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud" aria-label="Link to this section">#</a></h3>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="NewPkiCsr-MANUAL.html"><small>&larr; Previous</small>Make a request (New-PkiCsr)</a><a class="nx" href="Export-PkiCa-MANUAL.html"><small>Next &rarr;</small>Export CA certificates</a></nav>
-<p class="crumb">Made from GenerateCodeSigningCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.6.7.</p>
+<p class="crumb">Made from GenerateCodeSigningCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.6.8.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a><a href="#8-subject">8  SUBJECT</a><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a><a href="#15-all-options">15  ALL OPTIONS</a><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN</a><a href="#18-tools-the-formats-need-the-generator-stops-first-before-a">18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)</a><a class="l3" href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.</a></aside>
@@ -474,7 +474,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.7</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.8</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

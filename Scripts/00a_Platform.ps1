@@ -29,7 +29,7 @@
 Set-StrictMode -Version Latest
 
 # The version of the whole tool set. Raise it together with the VERSION / 'Version' lines (see docs/PKI-Design-with-FIPS-and-PQC.txt, versioning rule 10.117).
-$script:PkiToolVersion = '7.6.7'
+$script:PkiToolVersion = '7.6.8'
 function Get-PkiToolVersion { return $script:PkiToolVersion }
 
 function Get-PkiPlatformInfo {

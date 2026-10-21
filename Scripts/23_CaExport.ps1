@@ -7,7 +7,7 @@
 # 23_CaExport.ps1  -  take CA certificates out of the PKI (or out of the chain of a leaf certificate) and
 #                     write them in many formats, ready for a CDN, a proxy, a load balancer or a cloud
 #
-# Used by Export-PkiCa.ps1. Version 7.6.7.
+# Used by Export-PkiCa.ps1. Version 7.6.8.
 #
 # Provides : Get-PkiCertInfo, Read-PkiCertificatesFromFile, Resolve-PkiChain, Get-PkiExportTargets,
 #            Get-PkiExportCaList, Select-PkiExportCa, Write-PkiCaFiles, Write-PkiTargetFiles,

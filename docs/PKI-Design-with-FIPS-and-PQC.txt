@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.6.7                      Updated: 2026-10-21
+ Version : 7.6.8                      Updated: 2026-10-21
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,11 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.187 DECIDED   (7.6.8) Sign-Code.ps1 serialises per certificate (named mutex Local\DevSecSignCode-
+                 <thumbprint>) instead of a per-run copy of the key: a solution build runs Sign-Code
+                 once per project in parallel, and the temporary store entry is shared by thumbprint.
+                 A certificate that was in the store before the run is never removed. MSBuild signs
+                 the obj\ assembly after CoreCompile, the one file both bin\ and publish\ copy.
 10.186 DECIDED   (7.6.5) The MSBuild props of a code signing certificate signs every configuration and
                  only FILLS what is empty: imported at the end of the project, it completes what
                  Project properties wrote (key store without password = XA4314) without overriding a

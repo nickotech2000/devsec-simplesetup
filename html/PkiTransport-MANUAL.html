@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.6.7">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.8">
 <meta name="description" content="Move the PKI safely in an encrypted .certpacked.">
 <title>Transport package - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.7</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.8</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Transport package</h1>
 <p class="lead">Move the PKI safely in an encrypted .certpacked.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a></li><li class="l2"><a href="#6-passwords">6  PASSWORDS</a></li><li class="l2"><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a></li><li class="l2"><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a></li><li class="l2"><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a></li><li class="l2"><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a></li><li class="l2"><a href="#11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE</a></li><li class="l2"><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.6.7   2026-10-21
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.6.8   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
@@ -537,7 +537,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a>             many companies (-Pki), the platform list (section 6)
    <a href="PKI-ChangeLog.html">PKI-ChangeLog.txt</a>                  what changed in each version</pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="DevKit-MANUAL.html"><small>&larr; Previous</small>DevKit</a><a class="nx" href="PkiBackup-MANUAL.html"><small>Next &rarr;</small>Backup and restore</a></nav>
-<p class="crumb">Made from PkiTransport-MANUAL.txt by Build-HtmlDocs.ps1 7.6.7.</p>
+<p class="crumb">Made from PkiTransport-MANUAL.txt by Build-HtmlDocs.ps1 7.6.8.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a><a href="#6-passwords">6  PASSWORDS</a><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a><a href="#11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE</a><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a></aside>
@@ -547,7 +547,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.7</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.8</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

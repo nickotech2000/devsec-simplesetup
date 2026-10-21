@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.6.7                       Updated: 2026-10-21
+ Version : 7.6.8                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,16 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.6.8  2026-10-21  REVISION (revision +1)
+    * Sign-Code.ps1 FIX for many builds at once (a solution of many projects, msbuild -m): two runs
+      with the same .pfx no longer race on the temporary CurrentUser\My entry (one run removed the
+      certificate while the other still signed with it). One run at a time per certificate (a named
+      mutex), and a certificate with its key that was already in the store stays there afterwards
+      (before, it was removed at the end).
+    * The MSBuild template (-Template msbuild, Sign-Code.targets) signs the assembly in obj\ right after
+      the compiler, so bin\ and publish\ both get the signed copy (before, it signed obj\ after the copy
+      to bin\, and bin\ stayed unsigned).
 
   7.6.7  2026-10-21  REVISION (revision +1)
     * Sign-Code.ps1 / Sign-Code.sh are PORTABLE: copy one alone into another repository (for example
