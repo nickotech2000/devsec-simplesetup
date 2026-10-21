@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.6.6">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.7">
 <meta name="description" content="Why everything is the way it is. Every numbered decision.">
 <title>Design and decisions - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.6</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.7</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -176,7 +176,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  Start with   : Use the contents; search for a decision number.
  Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
 <div class="code"><pre> Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
- Version : 7.6.6                      Updated: 2026-10-21
+ Version : 7.6.7                      Updated: 2026-10-21
  Scope   : pki_setup.ps1 + &lt;short&gt;_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a>) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -548,7 +548,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <div class="code"><pre>   B. Windows 11 26H2 Pro development VM  (Visual Studio 2026, Visual Studio Code)
       Component              Version in the screenshot         Classic leaf / Quantum (ML-DSA) leaf
       ---------------------  --------------------------------  -------------------------------------
-      PowerShell             7.6.6                             meets the PowerShell 7 requirement
+      PowerShell             7.6.7                             meets the PowerShell 7 requirement
       OpenSSL                4.0.3 (29 Sep 2026)               meets the OpenSSL 4.x requirement;
                                                                ML-DSA
       Windows store          Root / CA / My                    both: Quantum certs installed by
@@ -1395,7 +1395,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  system, ppa and build. NOT RUN: systemd units and a real nginx on port 80 with the PPA package,
  add-apt-repository on the PPA, the PPA packages, Ubuntu 26.04, WSL, Windows.</pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PUBLIC-CA-ENTERPRISE-ROOT.html"><small>&larr; Previous</small>Enterprise Root signed by a public CA</a><a class="nx" href="PKI-ChangeLog.html"><small>Next &rarr;</small>Change log</a></nav>
-<p class="crumb">Made from PKI-Design-with-FIPS-and-PQC.txt by Build-HtmlDocs.ps1 7.6.6.</p>
+<p class="crumb">Made from PKI-Design-with-FIPS-and-PQC.txt by Build-HtmlDocs.ps1 7.6.7.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-goals-and-targets">1  GOALS AND TARGETS</a><a href="#2-diagram-1-hierarchy">2  DIAGRAM 1  -  HIERARCHY</a><a href="#3-rules-by-level">3  RULES BY LEVEL</a><a href="#4-names-configurable">4  NAMES  (configurable)</a><a href="#5-policies-extensions-revocation">5  POLICIES, EXTENSIONS, REVOCATION</a><a href="#6-diagrams-2-5-trust-handshake-files-public-ca">6  DIAGRAMS 2-5  -  TRUST, HANDSHAKE, FILES, PUBLIC CA</a><a class="l3" href="#diagram-2-what-you-install-where-only-the-enterprise-root-go">DIAGRAM 2 - WHAT YOU INSTALL WHERE  (only the Enterprise Root goes on clients)</a><a class="l3" href="#diagram-3-tls-1-3-handshakes-classic-and-quantum-quadrants">DIAGRAM 3 - TLS 1.3 HANDSHAKES  (classic and quantum quadrants)</a><a class="l3" href="#diagram-4-files-of-one-leaf-and-what-each-server-reads">DIAGRAM 4 - FILES OF ONE LEAF, AND WHAT EACH SERVER READS</a><a class="l3" href="#diagram-5-enterprise-root-signed-by-a-public-ca-public-ca-en">DIAGRAM 5 - ENTERPRISE ROOT SIGNED BY A PUBLIC CA  (PUBLIC-CA-ENTERPRISE-ROOT.txt)</a><a href="#7-where-ml-dsa-works-servers-and-clients-status-of-mid-2026">7  WHERE ML-DSA WORKS  /  SERVERS AND CLIENTS  (status of mid-2026; verify on your builds)</a><a href="#8-folder-layout-scripts-parameters">8  FOLDER LAYOUT, SCRIPTS, PARAMETERS</a><a href="#9-limitations">9  LIMITATIONS</a><a href="#10-decisions-and-open-questions">10  DECISIONS AND OPEN QUESTIONS</a><a href="#11-requirement-tracker">11  REQUIREMENT TRACKER</a><a href="#12-change-log-moved">12  CHANGE LOG  (moved)</a><a href="#13-quick-commands-moved">13  QUICK COMMANDS  (moved)</a><a href="#14-phase-a-acceptance-checklist-moved">14  PHASE A ACCEPTANCE CHECKLIST  (moved)</a><a href="#15-leaf-certificate-generator-phase-b-generateleafcertificat">15  LEAF CERTIFICATE GENERATOR  (Phase B: GenerateLeafCertificate.ps1)</a><a href="#16-phase-b-acceptance-checklist-moved">16  PHASE B ACCEPTANCE CHECKLIST  (moved)</a><a href="#17-transport-design-phase-c-pkitransport-ps1-unpack-pkitrans">17  TRANSPORT DESIGN  (Phase C: PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh)</a><a href="#18-developer-bootstrap-design-install-devenvironment-ps1-ins">18  DEVELOPER BOOTSTRAP DESIGN  (Install-DevEnvironment.ps1 / Install-DevEnvironment.sh)</a><a class="l3" href="#the-finished-compile">the finished compile.</a><a href="#19-devkit-design-pkitransport-ps1-devkit-devkit-scripts-21-d">19  DEVKIT DESIGN  (PkiTransport.ps1 -DevKit, devkit\, scripts\21_DevKit.ps1)</a><a class="l3" href="#windows-macos-other-linux-distributions">Windows), macOS, other Linux distributions.</a><a href="#20-csr-signing-design-signcsr-ps1-signcsr-sh-signexternalca">20  CSR SIGNING DESIGN  (SignCsr.ps1 / SignCsr.sh, SignExternalCa.ps1, scripts\22_CsrSigning.ps1, scripts\19_ExternalCaSigning.ps1, devkit\lib\pki-csr.py, 4.9.5)</a><a class="l3" href="#distributions">distributions.</a><a href="#21-releases-the-nocr-variant-and-removal-4-9-5-scripts-01c-r">21  RELEASES, THE NoCR VARIANT AND REMOVAL  (4.9.5; scripts\01c_Releases.ps1, 01b_CaNaming.ps1, 08_Cleanup.ps1, 07_TrustStore.ps1, pki_remove.ps1)</a><a href="#22-crl-ocsp-server-from-the-pki-4-9-5-scripts-18-revocation">22  CRL / OCSP SERVER FROM THE PKI  (4.9.5; scripts\18_Revocation.ps1 Write-PkiServerInfo, linux\pki-server\pki-server.sh, PkiTransport.ps1 -Server, linux\Install-DevEnvironment.sh)</a></aside>
@@ -1405,7 +1405,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.6</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.7</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

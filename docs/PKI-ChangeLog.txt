@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.6.6                       Updated: 2026-10-21
+ Version : 7.6.7                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,16 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.6.7  2026-10-21  REVISION (revision +1)
+    * Sign-Code.ps1 / Sign-Code.sh are PORTABLE: copy one alone into another repository (for example
+      <project>\build\) and run it there. Nothing is written next to the copy any more: the report goes to
+      the new -ReportFolder / --report-folder, the variable SIGN_REPORT_DIR, transport\ inside this project,
+      else the temp folder. Pipeline templates go to the current folder outside this project.
+      -UseGenerated also reads SIGN_GENERATED_ROOT. Tested: a copy alone in an empty folder signs a jar
+      (PowerShell and bash), only the signed file and its hash files appear in the work folder.
+    * Sign-Code-MANUAL.txt: the portable copy, and a .NET MAUI Android Target that runs Sign-Code after
+      Visual Studio signed the APK, with a certificate per configuration (Debug / Release).
 
   7.6.6  2026-10-21  REVISION (revision +1)
     * VISUALSTUDIO-MAUI.txt (both twins) for Visual Studio 2026 Run / Deploy and Publish, Debug AND Release:

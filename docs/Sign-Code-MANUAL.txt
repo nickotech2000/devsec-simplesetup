@@ -2,7 +2,7 @@
  Sign-Code  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
- Version 7.6.6   2026-10-21
+ Version 7.6.7   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)
 
@@ -353,7 +353,22 @@ APPLE (both scripts)
                         Get-FileHash app.exe -Algorithm SHA256  (Windows; compare the text)
     The hashes are made AFTER signing, so they describe the file you ship.
   * The certificate is printed: subject, issuer, serial, validity, key, thumbprints, purposes.
-  * sign-report_<date-time>.json lists every file, the result and the timestamp server.
+  * sign-report_<date-time>.json lists every file, the result and the timestamp server. It goes to
+    -ReportFolder / --report-folder (or the variable SIGN_REPORT_DIR); default transport\ of this
+    project, or the temp folder (%TEMP%\Sign-Code, /tmp/sign-code) when the script was copied.
+
+ PORTABLE (7.6.7): Sign-Code.ps1 and Sign-Code.sh need no other file of this project. Copy the one you
+ need into your own repository (for example <project>\build\Sign-Code.ps1) and call it from there:
+ nothing is written next to the copy. -UseGenerated / --use-generated then needs -GeneratedRoot /
+ --generated-root (or SIGN_GENERATED_ROOT); -Pfx, -Subject, -Thumbprint ... work as they are.
+ .NET MAUI Android (Visual Studio 2026), after MAUI signed the APK (one Target in the .csproj):
+     <Target Name="SignCodeAndroidApk" AfterTargets="SignAndroidPackage">
+       <Exec Command="pwsh -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\build\Sign-Code.ps1&quot;
+             -Ci -Pfx &quot;$(SignCodePfx)&quot; -TimestampFallback -ReportFolder &quot;$(BaseIntermediateOutputPath)sign-code&quot;
+             -File &quot;$(ApkFileSigned)&quot;"
+             EnvironmentVariables="SIGN_PFX_PASSWORD=$(AndroidSigningStorePass);ANDROID_HOME=$(AndroidSdkDirectory)" />
+     </Target>
+   SignCodePfx per configuration (a Debug and a Release PropertyGroup) lets each use its own certificate.
   * In a pipeline (-Ci): a short summary for GitHub Actions and a variable for Azure DevOps.
 
 ====================================================================================================
@@ -635,6 +650,7 @@ NOT been run on a real pipeline (see section 17).
   -NoRecurse                   --no-recurse               Do not enter sub-folders
   -Include / -Exclude <glob>   --include / --exclude      Name filters, repeatable
   -OutFolder <path>            --out-folder <path>        Sign copies; keep the originals
+  -ReportFolder <path>         --report-folder <path>     Where sign-report_*.json goes (7.6.7)
   -SkipSigned                  --skip-signed              Skip files that are already signed
   -UseGenerated                --use-generated            Certificates of GenerateCodeSigningCertificate
   -GeneratedRoot <dir>         --generated-root <dir>     Another leafcerts\codesign folder

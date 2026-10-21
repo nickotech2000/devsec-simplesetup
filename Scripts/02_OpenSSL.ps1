@@ -212,7 +212,7 @@ function Invoke-OpenSSL {
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.CreateNoWindow = $true
-    # 7.6.6 (the fix of 6.6.19): a relative path (.\leafcerts\x.pfx) is relative to the PowerShell location, but a child process starts in
+    # 7.5.3 (the fix of 6.6.19): a relative path (.\leafcerts\x.pfx) is relative to the PowerShell location, but a child process starts in
     # [Environment]::CurrentDirectory, which Set-Location does not change. Start OpenSSL where the user is.
     try { $loc = (Get-Location -PSProvider FileSystem).ProviderPath; if ($loc -and (Test-Path -LiteralPath $loc -PathType Container)) { $psi.WorkingDirectory = $loc } } catch { }
     # ALWAYS set OPENSSL_CONF. A machine-wide OPENSSL_CONF (for example a master configuration that also
