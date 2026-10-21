@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateCodeSigningCertificate.ps1 / .sh  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.8           2026-10-21
+ Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.9           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

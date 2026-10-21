@@ -1,7 +1,7 @@
 ====================================================================================================
  GeneratePersonLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - person certificates          Version 7.6.8           2026-10-21
+ Agantra Inovatif Enterprise PKI - person certificates          Version 7.6.9           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

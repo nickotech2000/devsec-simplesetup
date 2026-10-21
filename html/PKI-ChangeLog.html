@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.6.8">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.9">
 <meta name="description" content="What changed in each version.">
 <title>Change log - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.8</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.9</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,7 +168,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Reference</p>
 <h1>Change log</h1>
 <p class="lead">What changed in each version.</p>
-<div class="code"><pre> Version : 7.6.8                       Updated: 2026-10-21
+<div class="code"><pre> Version : 7.6.9                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -183,6 +183,11 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  You need     : None.
  Start with   : Read the top entry.
  Words        : <a href="GLOSSARY.html">GLOSSARY.txt</a> (technical terms), <a href="GLOSSARY-ENGLISH.html">GLOSSARY-ENGLISH.txt</a> (everyday English words)</pre></div>
+<div class="code"><pre>  7.6.9  2026-10-21  REVISION (revision +1)
+    * Sign-Code.ps1 -Timestamp None: sign without a timestamp server (no network, no wait), for Debug
+      builds and tests. Every signing tool gets its timestamp arguments removed (signtool, jarsigner,
+      dotnet nuget sign, Set-AuthenticodeSignature, jsign; rcodesign gets --timestamp-url none).
+      The signature then ends with the certificate: Release keeps a timestamp server.</pre></div>
 <div class="code"><pre>  7.6.8  2026-10-21  REVISION (revision +1)
     * Sign-Code.ps1 FIX for many builds at once (a solution of many projects, msbuild -m): two runs
       with the same .pfx no longer race on the temporary CurrentUser\My entry (one run removed the
@@ -840,7 +845,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  4.0.0  New hierarchy, OpenSSL 4 gate, native providers, agantra_pki.cnf, validation, trust.</pre></div>
 <p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PKI-Design-with-FIPS-and-PQC.html"><small>&larr; Previous</small>Design and decisions</a><a class="nx" href="PKI-Acceptance-Checklists.html"><small>Next &rarr;</small>Acceptance checklists</a></nav>
-<p class="crumb">Made from PKI-ChangeLog.txt by Build-HtmlDocs.ps1 7.6.8.</p>
+<p class="crumb">Made from PKI-ChangeLog.txt by Build-HtmlDocs.ps1 7.6.9.</p>
 
 </div>
 
@@ -850,7 +855,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.8</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.9</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

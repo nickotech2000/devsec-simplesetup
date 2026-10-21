@@ -2,7 +2,7 @@
  Sign-Code  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
- Version 7.6.8   2026-10-21
+ Version 7.6.9   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)
 
@@ -369,6 +369,8 @@ APPLE (both scripts)
              EnvironmentVariables="SIGN_PFX_PASSWORD=$(AndroidSigningStorePass);ANDROID_HOME=$(AndroidSdkDirectory)" />
      </Target>
    SignCodePfx per configuration (a Debug and a Release PropertyGroup) lets each use its own certificate.
+ DEBUG BUILDS, FAST: -Timestamp None signs without a timestamp server (no network). Only for Debug
+ and tests: the signature ends when the certificate expires. Better still, sign only Release.
  A WHOLE SOLUTION (many projects): put the signing in Directory.Build.props / .targets at the root
  instead of in each .csproj, with a Debug and a Release certificate. Many projects sign at the same
  time without trouble (7.6.8: one run at a time per certificate, -SkipSigned for publish folders).

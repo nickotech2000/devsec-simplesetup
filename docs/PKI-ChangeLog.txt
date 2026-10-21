@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.6.8                       Updated: 2026-10-21
+ Version : 7.6.9                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,12 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.6.9  2026-10-21  REVISION (revision +1)
+    * Sign-Code.ps1 -Timestamp None: sign without a timestamp server (no network, no wait), for Debug
+      builds and tests. Every signing tool gets its timestamp arguments removed (signtool, jarsigner,
+      dotnet nuget sign, Set-AuthenticodeSignature, jsign; rcodesign gets --timestamp-url none).
+      The signature then ends with the certificate: Release keeps a timestamp server.
 
   7.6.8  2026-10-21  REVISION (revision +1)
     * Sign-Code.ps1 FIX for many builds at once (a solution of many projects, msbuild -m): two runs
