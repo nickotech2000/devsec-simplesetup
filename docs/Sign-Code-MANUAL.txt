@@ -2,7 +2,7 @@
  Sign-Code  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
- Version 7.5.2   2026-10-21
+ Version 7.5.3   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)
 

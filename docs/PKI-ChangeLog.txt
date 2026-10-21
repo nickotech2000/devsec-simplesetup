@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.5.2                       Updated: 2026-10-21
+ Version : 7.5.3                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,19 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.5.3  2026-10-21  REVISION (revision +1)
+    * Brings in the fix of the separate 6.6.19 build (2026-10-19), which was not in the repository:
+      a relative path such as .\leafcerts\x\x.pfx failed with "The PFX could not be opened
+      (wrong password?)" when the PowerShell location differed from the process directory
+      ([Environment]::CurrentDirectory; Set-Location does not change it). Invoke-OpenSSL now starts
+      OpenSSL in the current PowerShell location, and Export-PkiCa resolves the PFX to a full path.
+    * The PFX error now shows what OpenSSL said ("Mac verify error" = wrong password, "No such file" =
+      wrong path). Reproduced and fixed on Linux (6.6.19); the Windows run of the user was not repeated.
+    * Other scripts that start their own helper process (7-Zip, git) are not changed.
+    * Design decision of 6.6.19 (10.183 there) is 10.184 here: 10.183 is the code signing decision.
+    * Fix: tools/audit_scripts.py --sums also listed the files inside .git (the 7.5.2 SHA256SUMS had
+      them). .git is skipped now; SHA256SUMS lists the project files only.
 
   7.5.2  2026-10-21  MAJOR + MINOR + REVISION (major +1, minor 5, revision 2)
     * New: GenerateCodeSigningCertificate.ps1 and its Linux twin devkit/GenerateCodeSigningCertificate.sh.

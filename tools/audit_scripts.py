@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com   Version: 7.5.2
+# Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com   Version: 7.5.3
 # Developer tool: static audit of every script for patterns that malware uses. Read only.
 # Use:  python3 tools/audit_scripts.py [--sums]    (--sums writes SHA256SUMS of all files except pki/ transport/ ...)
 import os, re, sys, hashlib, unicodedata
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-skip = ('pki', 'transport', 'leafcerts', 'csr-signed', 'external-ca', 'backup-pki')
+skip = ('.git', 'pki', 'transport', 'leafcerts', 'csr-signed', 'external-ca', 'backup-pki')
 RULES = [  # (id, regex, what it would mean)
  ('encoded-command',   r'(?i)(-enc(odedcommand)?\b|FromBase64String|\[Convert\]::FromBase64|base64\s+-d|certutil\s+-decode)', 'decodes hidden code'),
  ('invoke-expression', r'(?i)(\bInvoke-Expression\b|\biex\b\s*[\(\$"\']|\beval\s+["\$`])', 'runs text as code'),

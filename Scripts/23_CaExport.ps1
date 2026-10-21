@@ -7,7 +7,7 @@
 # 23_CaExport.ps1  -  take CA certificates out of the PKI (or out of the chain of a leaf certificate) and
 #                     write them in many formats, ready for a CDN, a proxy, a load balancer or a cloud
 #
-# Used by Export-PkiCa.ps1. Version 7.5.2.
+# Used by Export-PkiCa.ps1. Version 7.5.3.
 #
 # Provides : Get-PkiCertInfo, Read-PkiCertificatesFromFile, Resolve-PkiChain, Get-PkiExportTargets,
 #            Get-PkiExportCaList, Select-PkiExportCa, Write-PkiCaFiles, Write-PkiTargetFiles,
@@ -104,14 +104,16 @@ function Read-PkiCertificatesFromFile {
     $ext = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
     $pems = [System.Collections.Generic.List[string]]::new()
     if ($ext -in '.pfx', '.p12') {
-        $done = $false
+        $done = $false; $lastErr = ''
+        $Path = (Resolve-Path -LiteralPath $Path).ProviderPath      # full path: never depends on the process directory
         foreach ($legacy in @($false, $true)) {
             $a = @('pkcs12', '-in', $Path, '-nokeys', '-passin', "pass:$Password")
             if ($legacy) { $a += '-legacy' }
             $r = Invoke-OpenSSL -Arguments $a -AllowFailure
             if ($r.ExitCode -eq 0) { foreach ($x in [regex]::Matches($r.StdOut, '-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----')) { [void]$pems.Add($x.Value) }; $done = $true; break }
+            if (-not $legacy) { $lastErr = (($r.StdErr -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 2) -join ' | ') }
         }
-        if (-not $done) { throw "The PFX could not be opened (wrong password? -LeafPassword): $Path" }
+        if (-not $done) { throw "The PFX could not be opened: $Path`n  OpenSSL says: $lastErr`n  'Mac verify error' = wrong password (-LeafPassword; the default of GenerateLeafCertificate is Abc12345!). 'No such file' = wrong path." }
     }
     elseif ($ext -in '.p7b', '.p7c') {
         $r = Invoke-OpenSSL -Arguments @('pkcs7', '-in', $Path, '-print_certs') -AllowFailure

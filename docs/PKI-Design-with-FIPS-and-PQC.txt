@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.5.2                      Updated: 2026-10-21
+ Version : 7.5.3                      Updated: 2026-10-21
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,10 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.184 DECIDED   (7.5.3, first in the 6.6.19 build) Paths given by the user are relative to the
+                 PowerShell location. A child process does not share it, so every OpenSSL call starts
+                 in that location (one place, Invoke-OpenSSL) and file readers use a full path. Error
+                 messages must carry the tool's own reason, not a guess ("wrong password?").
 10.183 DECIDED   (7.5.2) Code signing gets its own generator and the signer finds its certificates.
                  (a) GenerateCodeSigningCertificate.ps1 / .sh make code signing certificates
                  only, one per platform (Windows, Java, Android, Apple application, Apple
