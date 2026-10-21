@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateCodeSigningCertificate.ps1 / .sh  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.4           2026-10-21
+ Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.5           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -257,6 +257,13 @@
      window, run the generator again. Or leave the format out (-Format without JKS). See 18.
  Visual Studio does not list the key store   Run the generator with -InstallVisualStudio, or
      Archive Manager > Distribute > Signing Identity > Import the .keystore. See 17.
+ XA4314: `$(AndroidSigningKeyPass)` is empty   The key store and alias are set but no password,
+     often for Debug only (Project properties keep one set per configuration). Import the
+     .maui-signing.props at the END of the .csproj (7.6.5: it fills an empty password in every
+     configuration) and set the User variable CODESIGN_KEYSTORE_PASSWORD, then CLOSE and reopen
+     Visual Studio. See 17.
+ "The key store password is not set" (build error)   The variable CODESIGN_KEYSTORE_PASSWORD is
+     missing in the process of Visual Studio / dotnet: set it (17) and restart Visual Studio.
  MSIX: "the Publisher does not match"   Package.appxmanifest > Packaging > Choose Certificate
      fills the Publisher from the certificate; do not type it by hand.
 
@@ -315,6 +322,9 @@
  signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh.
  Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool,
  apksigner, rcodesign and macOS codesign with these certificates.
+ 7.6.5: the .maui-signing.props evaluated by MSBuild (dotnet msbuild, a project with
+ TargetFramework net10.0-android, Debug): passwords filled, the clear error without the variable,
+ a password of the project kept, nothing set for a Windows target framework.
  7.6.4 (Linux, both twins): .keystore and .jks listed by keytool (one PrivateKeyEntry, the alias),
  a jar signed by jarsigner from the .keystore, .pvk read back by openssl, .spc holds the chain,
  the .maui-signing.props is valid XML; the stop with exit 4 when keytool is missing; ECDSA
@@ -331,17 +341,25 @@
  -InstallVisualStudio (Windows) does, without replacing anything that is there:
    Android  copies <name>.keystore to %LOCALAPPDATA%\Xamarin\Mono for Android\Keystore\<alias>\
             <alias>.keystore: the folder where Visual Studio keeps its Android signing identities,
-            so Archive Manager > Distribute > Signing Identity lists it.
+            so Archive Manager > Distribute > Signing Identity lists it. It also sets the User
+            variable CODESIGN_KEYSTORE_PASSWORD (when not set yet; plain text in your profile).
    Windows  imports the PFX into Cert:\CurrentUser\My, so "Select from store" (MSIX packaging,
             ClickOnce, Package.appxmanifest > Choose Certificate) shows it.
  Android (MAUI net9.0 / net10.0-android, Xamarin.Android):
    A. Archive Manager: Publish (Archive) > Distribute > Ad Hoc / Google Play > Signing Identity
       (or Import the .keystore, alias, password).
-   B. Project properties > Android > Package Signing: the .keystore, the alias, the passwords.
-   C. MSBuild / CI: in the .csproj  <Import Project="<folder>\<name>.maui-signing.props" />, set
-      CODESIGN_KEYSTORE_PASSWORD, then  dotnet publish -f net10.0-android -c Release.
-      The props sets AndroidKeyStore, AndroidSigningKeyStore (next to the props), the alias, and
-      the passwords as env:CODESIGN_KEYSTORE_PASSWORD (never the password itself).
+   B. Project properties > Android > Package Signing: the .keystore, the alias and BOTH passwords
+      (store and key, the same), for Debug AND Release. An empty password = error XA4314.
+   C. MSBuild (recommended, also CI): at the END of the .csproj, just before </Project>:
+         <Import Project="<folder>\<name>.maui-signing.props" />
+      Set the password once, then CLOSE and reopen Visual Studio (it reads variables at start):
+         [Environment]::SetEnvironmentVariable('CODESIGN_KEYSTORE_PASSWORD', '<password>', 'User')
+      Then build / deploy in Visual Studio, or  dotnet publish -f net10.0-android -c Release.
+      The props sets, for EVERY configuration: AndroidKeyStore, AndroidSigningKeyStore (next to the
+      props), the alias, and, only where they are empty, both passwords as
+      env:CODESIGN_KEYSTORE_PASSWORD (never the password itself). A password from Project
+      properties, a .csproj.user or -p: wins. Without the variable the build stops with "The key
+      store password is not set" and the command above (7.6.5).
  Windows (MAUI net10.0-windows MSIX, WinUI 3, UWP, WPF / WinForms ClickOnce):
    the props sets AppxPackageSigningEnabled, PackageCertificateThumbprint and a timestamp server;
    the certificate must be in CurrentUser\My. The computers that install the MSIX must trust the

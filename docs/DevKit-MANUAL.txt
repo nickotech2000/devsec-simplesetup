@@ -1,7 +1,7 @@
 ====================================================================================================
  DevKit  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - the developer kit          Version 7.6.4           2026-10-21
+ Agantra Inovatif Enterprise PKI - the developer kit          Version 7.6.5           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

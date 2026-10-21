@@ -4,7 +4,7 @@ rem PKI Script (Command Prompt twin of Enable-DevMachine.ps1)
 rem Author : Nicko Satria Utama
 rem Company: Agantra Inovatif OU (NextMantra)
 rem Email  : nicko@nextmantra.com
-rem Version: 7.6.4
+rem Version: 7.6.5
 rem ============================================================
 rem Makes this Windows computer a DEVELOPMENT machine: the PowerShell execution policy becomes Bypass for the
 rem current user (and, when this window is "Run as administrator", for the whole computer), in every present and
@@ -33,7 +33,7 @@ if /i not "%OS%"=="Windows_NT" ( echo This file is for Windows. & exit /b 5 )
 set "ADMIN=0"
 net session >nul 2>&1 && set "ADMIN=1"
 set "FOLDER=%~dp0."
-echo Enable-DevMachine.cmd 7.6.4   (administrator: %ADMIN%)
+echo Enable-DevMachine.cmd 7.6.5   (administrator: %ADMIN%)
 
 rem every PowerShell: Windows PowerShell 64 bit, 32 bit, and pwsh 7 (found by where)
 set "PSLIST="
@@ -99,7 +99,7 @@ echo  Enable-DevMachine.cmd  -  version information
 echo ====================================================================================================
 echo  SCRIPT
 echo  Name           : Enable-DevMachine.cmd
-echo  Version        : 7.6.4   (build of 2026-10-21)
+echo  Version        : 7.6.5   (build of 2026-10-21)
 echo  Author         : Nicko Satria Utama
 echo  Company        : Agantra Inovatif OU (NextMantra)
 echo  Email          : nicko@nextmantra.com
@@ -112,7 +112,7 @@ exit /b 0
 :help
 echo ====================================================================================================
 echo  Enable-DevMachine.cmd  -  make this Windows computer a development machine
-echo  Version 7.6.4
+echo  Version 7.6.5
 echo  Author : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
 echo ====================================================================================================
 echo  Sets the PowerShell execution policy to Bypass in every present and future session ^(current user;

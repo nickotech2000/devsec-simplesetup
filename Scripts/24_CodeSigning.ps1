@@ -663,18 +663,30 @@ function Write-PkiCodeSignVisualStudio {
     $x = [System.Collections.Generic.List[string]]::new()
     [void]$x.Add('<Project>')
     [void]$x.Add("  <!-- Made by GenerateCodeSigningCertificate $($script:PkiGeneratorVersion) for $($Spec.CodeSign.Label). Visual Studio 2026, .NET MAUI and Xamarin.")
-    [void]$x.Add('       Use: import it in the .csproj from where it is (or copy it TOGETHER with the .keystore; the path is relative to this file):')
+    [void]$x.Add('       Use: import it at the END of the .csproj, just before </Project>, so it also completes what Project properties wrote:')
     [void]$x.Add("         <Import Project=`"<folder>\$stem.maui-signing.props`" />")
-    [void]$x.Add('       The password is NOT in this file: set the variable CODESIGN_KEYSTORE_PASSWORD (env:), or use file:<path>. -->')
+    [void]$x.Add('       Keep it next to the .keystore (the path is relative to this file). Every configuration (Debug and Release) is signed.')
+    [void]$x.Add('       The password is NOT in this file: it comes from the variable CODESIGN_KEYSTORE_PASSWORD (a User variable; restart')
+    [void]$x.Add('       Visual Studio after setting it). A password given in Project properties, a .csproj.user or -p: wins. -->')
     if ($android) {
-        [void]$x.Add('  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier(''$(TargetFramework)'')) == ''android'' and ''$(Configuration)'' == ''Release''">')
+        $cA = '$([MSBuild]::GetTargetPlatformIdentifier(''$(TargetFramework)'')) == ''android'''
+        [void]$x.Add("  <PropertyGroup Condition=`"$cA`">")
         [void]$x.Add('    <AndroidKeyStore>true</AndroidKeyStore>')
         [void]$x.Add("    <AndroidSigningKeyStore>`$(MSBuildThisFileDirectory)$stem.keystore</AndroidSigningKeyStore>")
         [void]$x.Add("    <AndroidSigningKeyAlias>$alias</AndroidSigningKeyAlias>")
-        [void]$x.Add('    <AndroidSigningStorePass>env:CODESIGN_KEYSTORE_PASSWORD</AndroidSigningStorePass>')
-        [void]$x.Add('    <AndroidSigningKeyPass>env:CODESIGN_KEYSTORE_PASSWORD</AndroidSigningKeyPass>')
         [void]$x.Add('    <!-- Xamarin.Android (classic) reads the same properties. AndroidPackageFormat aab = Google Play, apk = direct. -->')
         [void]$x.Add('  </PropertyGroup>')
+        # an empty password is error XA4314: fill only what is empty (the store and the key password are the same)
+        [void]$x.Add("  <PropertyGroup Condition=`"$cA and '`$(AndroidSigningStorePass)' == ''`">")
+        [void]$x.Add('    <AndroidSigningStorePass>env:CODESIGN_KEYSTORE_PASSWORD</AndroidSigningStorePass>')
+        [void]$x.Add('  </PropertyGroup>')
+        [void]$x.Add("  <PropertyGroup Condition=`"$cA and '`$(AndroidSigningKeyPass)' == ''`">")
+        [void]$x.Add('    <AndroidSigningKeyPass>env:CODESIGN_KEYSTORE_PASSWORD</AndroidSigningKeyPass>')
+        [void]$x.Add('  </PropertyGroup>')
+        [void]$x.Add('  <Target Name="CodeSignCheckKeystorePassword" BeforeTargets="BeforeBuild;SignAndroidPackage"')
+        [void]$x.Add("          Condition=`"$cA and '`$(CODESIGN_KEYSTORE_PASSWORD)' == '' and (`$(AndroidSigningStorePass.Contains('CODESIGN_KEYSTORE_PASSWORD')) or `$(AndroidSigningKeyPass.Contains('CODESIGN_KEYSTORE_PASSWORD')))`">")
+        [void]$x.Add('    <Error Text="The key store password is not set. PowerShell: [Environment]::SetEnvironmentVariable(''CODESIGN_KEYSTORE_PASSWORD'', ''&lt;password&gt;'', ''User''), then CLOSE and reopen Visual Studio (or run GenerateCodeSigningCertificate.ps1 -InstallVisualStudio)." />')
+        [void]$x.Add('  </Target>')
     }
     if ($windows) {
         [void]$x.Add('  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier(''$(TargetFramework)'')) == ''windows'' and ''$(Configuration)'' == ''Release''">')
@@ -701,8 +713,13 @@ function Write-PkiCodeSignVisualStudio {
         [void]$L.Add("     Signing Identity > Import > choose $stem.keystore, alias $alias, the password. Or run the generator with")
         [void]$L.Add("     -InstallVisualStudio: the key store is copied to %LOCALAPPDATA%\Xamarin\Mono for Android\Keystore\$alias\, where")
         [void]$L.Add('     Visual Studio keeps the signing identities it lists.')
-        [void]$L.Add("  B. Project properties > Android > Package Signing: tick 'Sign the .APK file', Keystore = $stem.keystore, alias, passwords.")
-        [void]$L.Add("  C. MSBuild (also CI): import $stem.maui-signing.props, set CODESIGN_KEYSTORE_PASSWORD, then")
+        [void]$L.Add("  B. Project properties > Android > Package Signing: tick 'Sign the .APK file', Keystore = $stem.keystore, alias, and")
+        [void]$L.Add('     BOTH passwords (store and key; the same). An empty one is error XA4314 "$(AndroidSigningKeyPass) is empty".')
+        [void]$L.Add('     Do it for Debug AND Release (the page has a configuration list), or use C, which covers every configuration.')
+        [void]$L.Add("  C. MSBuild (recommended, also CI): put  <Import Project=`"<folder>\$stem.maui-signing.props`" />  at the END of the")
+        [void]$L.Add('     .csproj (just before </Project>). Set the password once as a User variable, then CLOSE and reopen Visual Studio:')
+        [void]$L.Add("       [Environment]::SetEnvironmentVariable('CODESIGN_KEYSTORE_PASSWORD', '<password>', 'User')")
+        [void]$L.Add('     (-InstallVisualStudio sets it for you.) Without it the build stops with a message that says so. Then')
         [void]$L.Add('       dotnet publish -f net10.0-android -c Release')
         [void]$L.Add("     or on the command line: -p:AndroidKeyStore=true -p:AndroidSigningKeyStore=$stem.keystore -p:AndroidSigningKeyAlias=$alias")
         [void]$L.Add('       -p:AndroidSigningStorePass=env:CODESIGN_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:CODESIGN_KEYSTORE_PASSWORD')
@@ -747,6 +764,14 @@ function Install-PkiCodeSignVisualStudio {
         $dest = Join-Path $d "$alias.keystore"
         if (Test-Path -LiteralPath $dest) { Write-PkiLog "  Visual Studio: a key store with the alias $alias exists already ($dest): not replaced." 'WARN' }
         else { [void][System.IO.Directory]::CreateDirectory($d); Copy-Item -LiteralPath $Extra.Keystore -Destination $dest; Write-PkiLog "  Visual Studio: Android signing identity $alias -> $dest" 'OK' }
+        # the .maui-signing.props reads the password from this User variable (an empty password is error XA4314)
+        $cur = [Environment]::GetEnvironmentVariable('CODESIGN_KEYSTORE_PASSWORD', 'User')
+        if (-not $cur) {
+            [Environment]::SetEnvironmentVariable('CODESIGN_KEYSTORE_PASSWORD', $Password, 'User')
+            Write-PkiLog '  Visual Studio: User variable CODESIGN_KEYSTORE_PASSWORD set (the key store password). CLOSE and reopen Visual Studio.' 'OK'
+            Write-PkiLog '  It is stored in plain text in your user profile. Remove: [Environment]::SetEnvironmentVariable(''CODESIGN_KEYSTORE_PASSWORD'', $null, ''User'')' 'WARN'
+        }
+        elseif ($cur -ne $Password) { Write-PkiLog '  Visual Studio: CODESIGN_KEYSTORE_PASSWORD is already set to ANOTHER password: not changed. The build of this key store fails until it matches.' 'WARN' }
     }
     if ($plats -contains 'Windows' -and $R.Pfx) {
         $X = [System.Security.Cryptography.X509Certificates.X509Certificate2]; $fl = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]

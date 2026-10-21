@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiRevocation  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - revoke, CRL, OCSP, time stamp     Version 7.6.4   2026-10-21
+ Agantra Inovatif Enterprise PKI - revoke, CRL, OCSP, time stamp     Version 7.6.5   2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : PkiRevocation.ps1
 

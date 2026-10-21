@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.6.4                       Updated: 2026-10-21
+ Version : 7.6.5                       Updated: 2026-10-21
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,21 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.6.5  2026-10-21  REVISION (revision +1)
+    * Fix, Visual Studio 2026 MAUI: a Debug build with the generated .keystore failed with
+      XA4314 "$(AndroidSigningKeyPass) is empty". The .maui-signing.props set the Android signing
+      for Release only, and Project properties had saved the key store and alias without passwords.
+      Now the props signs EVERY configuration, fills the store and key password only where they are
+      empty (env:CODESIGN_KEYSTORE_PASSWORD), and stops the build with a clear message (how to set
+      the variable, restart Visual Studio) when the variable is missing. Import it at the END of
+      the .csproj. Both twins.
+    * -InstallVisualStudio also sets the User variable CODESIGN_KEYSTORE_PASSWORD (when not set; a
+      warning says it is plain text and how to remove it; another value is never replaced).
+    * VISUALSTUDIO-MAUI.txt and the manual (13, 17): both passwords, Debug AND Release, restart
+      Visual Studio after setting the variable.
+    * Tested: dotnet msbuild evaluation of the props (Debug, net10.0-android). Not tested: a real
+      MAUI build in Visual Studio (no Windows here).
 
   7.6.4  2026-10-21  MINOR + REVISION (minor +1, revision +1)
     * GenerateCodeSigningCertificate.ps1 / .sh: more formats for every platform (in ALL, or named

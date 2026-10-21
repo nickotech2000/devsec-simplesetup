@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.6.4">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.6.5">
 <meta name="description" content="Make OV / EV code signing certificates for Windows, Java, Android and Apple.">
 <title>Code signing certificates - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.4</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.6.5</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Code signing certificates</h1>
 <p class="lead">Make OV / EV code signing certificates for Windows, Java, Android and Apple.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a></li><li class="l2"><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a></li><li class="l2"><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a></li><li class="l2"><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a></li><li class="l2"><a href="#8-subject">8  SUBJECT</a></li><li class="l2"><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a></li><li class="l2"><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a></li><li class="l2"><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a></li><li class="l2"><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#15-all-options">15  ALL OPTIONS</a></li><li class="l2"><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN</a></li><li class="l2"><a href="#18-tools-the-formats-need-the-generator-stops-first-before-a">18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)</a></li><li class="l3"><a href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.4           2026-10-21
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - code signing certificates     Version 7.6.5           2026-10-21
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : A script. It makes CODE SIGNING certificates only: the certificates that put your
@@ -366,6 +366,13 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
      window, run the generator again. Or leave the format out (-Format without JKS). See 18.
  Visual Studio does not list the key store   Run the generator with -InstallVisualStudio, or
      Archive Manager &gt; Distribute &gt; Signing Identity &gt; Import the .keystore. See 17.
+ XA4314: `$(AndroidSigningKeyPass)` is empty   The key store and alias are set but no password,
+     often for Debug only (Project properties keep one set per configuration). Import the
+     .maui-signing.props at the END of the .csproj (7.6.5: it fills an empty password in every
+     configuration) and set the User variable CODESIGN_KEYSTORE_PASSWORD, then CLOSE and reopen
+     Visual Studio. See 17.
+ &quot;The key store password is not set&quot; (build error)   The variable CODESIGN_KEYSTORE_PASSWORD is
+     missing in the process of Visual Studio / dotnet: set it (17) and restart Visual Studio.
  MSIX: &quot;the Publisher does not match&quot;   Package.appxmanifest &gt; Packaging &gt; Choose Certificate
      fills the Publisher from the certificate; do not type it by hand.</pre></div>
 <h2 id="14-limits-you-must-know">14  LIMITS YOU MUST KNOW<a class="anchor" href="#14-limits-you-must-know" aria-label="Link to this section">#</a></h2>
@@ -401,7 +408,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  Exit codes: 0 done, 1 error (nothing left behind), 4 a tool the formats need is missing
  (nothing made, see 18), 5 this system is refused.</pre></div>
 <h2 id="16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#16-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
-<p>Tested (Linux, OpenSSL 4.0.3, PowerShell 7, both twins): every platform at EV; OV with the Quadrant Root, RSA 8192, SHA3-512 and Lifetime Signing; FIPS ECDSA P-521 Android, 9125 days; -Combined; an external CA as PEM files and as PFX (password from PKI_ISSUER_PASSWORD); -List and -ListIssuers; the purposes and policies of the certificates (openssl x509 -text); jar files signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh. Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool, apksigner, rcodesign and macOS codesign with these certificates. 7.6.4 (Linux, both twins): .keystore and .jks listed by keytool (one PrivateKeyEntry, the alias), a jar signed by jarsigner from the .keystore, .pvk read back by openssl, .spc holds the chain, the .maui-signing.props is valid XML; the stop with exit 4 when keytool is missing; ECDSA without .pvk. Not tested: Visual Studio 2026 itself, -InstallVisualStudio (Windows), dotnet publish of a MAUI app with the props, pvk2pfx.</p>
+<p>Tested (Linux, OpenSSL 4.0.3, PowerShell 7, both twins): every platform at EV; OV with the Quadrant Root, RSA 8192, SHA3-512 and Lifetime Signing; FIPS ECDSA P-521 Android, 9125 days; -Combined; an external CA as PEM files and as PFX (password from PKI_ISSUER_PASSWORD); -List and -ListIssuers; the purposes and policies of the certificates (openssl x509 -text); jar files signed and timestamped with these certificates by Sign-Code.ps1 and Sign-Code.sh. Not tested: Windows itself (-IssuerThumbprint, -InstallPfx, -InstallTrustedPublisher), signtool, apksigner, rcodesign and macOS codesign with these certificates. 7.6.5: the .maui-signing.props evaluated by MSBuild (dotnet msbuild, a project with TargetFramework net10.0-android, Debug): passwords filled, the clear error without the variable, a password of the project kept, nothing set for a Windows target framework. 7.6.4 (Linux, both twins): .keystore and .jks listed by keytool (one PrivateKeyEntry, the alias), a jar signed by jarsigner from the .keystore, .pvk read back by openssl, .spc holds the chain, the .maui-signing.props is valid XML; the stop with exit 4 when keytool is missing; ECDSA without .pvk. Not tested: Visual Studio 2026 itself, -InstallVisualStudio (Windows), dotnet publish of a MAUI app with the props, pvk2pfx.</p>
 <h2 id="17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN<a class="anchor" href="#17-visual-studio-2026-net-maui-xamarin" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> The certificate can be used inside Visual Studio 2026 for .NET MAUI and Xamarin apps:
    .\GenerateCodeSigningCertificate.ps1 -OV -Platform Android,Windows -InstallVisualStudio
@@ -410,17 +417,25 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  -InstallVisualStudio (Windows) does, without replacing anything that is there:
    Android  copies &lt;name&gt;.keystore to %LOCALAPPDATA%\Xamarin\Mono for Android\Keystore\&lt;alias&gt;\
             &lt;alias&gt;.keystore: the folder where Visual Studio keeps its Android signing identities,
-            so Archive Manager &gt; Distribute &gt; Signing Identity lists it.
+            so Archive Manager &gt; Distribute &gt; Signing Identity lists it. It also sets the User
+            variable CODESIGN_KEYSTORE_PASSWORD (when not set yet; plain text in your profile).
    Windows  imports the PFX into Cert:\CurrentUser\My, so &quot;Select from store&quot; (MSIX packaging,
             ClickOnce, Package.appxmanifest &gt; Choose Certificate) shows it.
  Android (MAUI net9.0 / net10.0-android, Xamarin.Android):
    A. Archive Manager: Publish (Archive) &gt; Distribute &gt; Ad Hoc / Google Play &gt; Signing Identity
       (or Import the .keystore, alias, password).
-   B. Project properties &gt; Android &gt; Package Signing: the .keystore, the alias, the passwords.
-   C. MSBuild / CI: in the .csproj  &lt;Import Project=&quot;&lt;folder&gt;\&lt;name&gt;.maui-signing.props&quot; /&gt;, set
-      CODESIGN_KEYSTORE_PASSWORD, then  dotnet publish -f net10.0-android -c Release.
-      The props sets AndroidKeyStore, AndroidSigningKeyStore (next to the props), the alias, and
-      the passwords as env:CODESIGN_KEYSTORE_PASSWORD (never the password itself).
+   B. Project properties &gt; Android &gt; Package Signing: the .keystore, the alias and BOTH passwords
+      (store and key, the same), for Debug AND Release. An empty password = error XA4314.
+   C. MSBuild (recommended, also CI): at the END of the .csproj, just before &lt;/Project&gt;:
+         &lt;Import Project=&quot;&lt;folder&gt;\&lt;name&gt;.maui-signing.props&quot; /&gt;
+      Set the password once, then CLOSE and reopen Visual Studio (it reads variables at start):
+         [Environment]::SetEnvironmentVariable(&#39;CODESIGN_KEYSTORE_PASSWORD&#39;, &#39;&lt;password&gt;&#39;, &#39;User&#39;)
+      Then build / deploy in Visual Studio, or  dotnet publish -f net10.0-android -c Release.
+      The props sets, for EVERY configuration: AndroidKeyStore, AndroidSigningKeyStore (next to the
+      props), the alias, and, only where they are empty, both passwords as
+      env:CODESIGN_KEYSTORE_PASSWORD (never the password itself). A password from Project
+      properties, a .csproj.user or -p: wins. Without the variable the build stops with &quot;The key
+      store password is not set&quot; and the command above (7.6.5).
  Windows (MAUI net10.0-windows MSIX, WinUI 3, UWP, WPF / WinForms ClickOnce):
    the props sets AppxPackageSigningEnabled, PackageCertificateThumbprint and a timestamp server;
    the certificate must be in CurrentUser\My. The computers that install the MSIX must trust the
@@ -442,7 +457,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h3 id="the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.<a class="anchor" href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud" aria-label="Link to this section">#</a></h3>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="NewPkiCsr-MANUAL.html"><small>&larr; Previous</small>Make a request (New-PkiCsr)</a><a class="nx" href="Export-PkiCa-MANUAL.html"><small>Next &rarr;</small>Export CA certificates</a></nav>
-<p class="crumb">Made from GenerateCodeSigningCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.6.4.</p>
+<p class="crumb">Made from GenerateCodeSigningCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.6.5.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-first-run-step-by-step">3  FIRST RUN, STEP BY STEP</a><a href="#4-the-platforms-platform-platform-one-or-more">4  THE PLATFORMS   (-Platform / --platform, one or more)</a><a href="#5-ov-or-ev-default-ev">5  OV OR EV   (default -EV)</a><a href="#6-the-issuing-ca-who-signs-default-the-intermediate-of-the-l">6  THE ISSUING CA   (who signs; default the intermediate of the level)</a><a href="#7-a-ca-that-is-not-of-this-pki">7  A CA THAT IS NOT OF THIS PKI</a><a href="#8-subject">8  SUBJECT</a><a href="#9-keys-digests-and-validity-weak-values-are-rejected-not-qui">9  KEYS, DIGESTS AND VALIDITY   (weak values are REJECTED, not quietly corrected)</a><a href="#10-the-files-you-get-per-platform-folder">10  THE FILES YOU GET   (per platform folder)</a><a href="#11-where-the-files-go-the-index">11  WHERE THE FILES GO, THE INDEX</a><a href="#12-recipes-copy-and-paste">12  RECIPES, COPY AND PASTE</a><a href="#13-problems-and-answers">13  PROBLEMS AND ANSWERS</a><a href="#14-limits-you-must-know">14  LIMITS YOU MUST KNOW</a><a href="#15-all-options">15  ALL OPTIONS</a><a href="#16-what-was-tested-what-was-not">16  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#17-visual-studio-2026-net-maui-xamarin">17  VISUAL STUDIO 2026: .NET MAUI / XAMARIN</a><a href="#18-tools-the-formats-need-the-generator-stops-first-before-a">18  TOOLS THE FORMATS NEED   (the generator stops FIRST, before anything is made)</a><a class="l3" href="#the-keystore-needs-no-java-openssl-writes-it-and-visual-stud">The .keystore needs no Java: OpenSSL writes it, and Visual Studio, Gradle and apksigner read it.</a></aside>
@@ -452,7 +467,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.4</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.6.5</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

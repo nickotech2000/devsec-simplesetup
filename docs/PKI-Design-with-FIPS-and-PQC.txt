@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.6.4                      Updated: 2026-10-21
+ Version : 7.6.5                      Updated: 2026-10-21
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,11 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.186 DECIDED   (7.6.5) The MSBuild props of a code signing certificate signs every configuration and
+                 only FILLS what is empty: imported at the end of the project, it completes what
+                 Project properties wrote (key store without password = XA4314) without overriding a
+                 password the developer gave. A missing password variable is a build error that says
+                 what to do, not a failure deep in the Android tools.
 10.185 DECIDED   (7.6.4) Code signing certificates are delivered in the container every platform's
                  tool wants, and the generator stops before it starts when a tool is missing.
                  (a) .keystore is PKCS#12 written by OpenSSL (no Java needed) with ONE alias in
