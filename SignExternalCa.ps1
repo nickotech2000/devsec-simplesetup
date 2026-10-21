@@ -179,7 +179,7 @@ function Show-PkiVersionInfo {
     if ($isWin) {
         if ((Get-Reg 'HKLM:\SOFTWARE\Microsoft\PowerShell\1\PowerShellEngine' 'PowerShellVersion') -eq '2.0') { $ps += '2.0' }
         $w5 = [string](Get-Reg 'HKLM:\SOFTWARE\Microsoft\PowerShell\3\PowerShellEngine' 'PowerShellVersion'); if ($w5) { $ps += $w5 }
-        foreach ($d in @(Get-ChildItem -Path (Join-Path $env:ProgramFiles 'PowerShell') -Directory -ErrorAction SilentlyContinue)) { $x = Join-Path $d.FullName 'pwsh.exe'; if (Test-Path -LiteralPath $x) { $t = Run-Tool $x '-NoProfile -Command $PSVersionTable.PSVersion.ToString()' ''; if ($t -match '^\d+\.\d+') { $ps += (First-Line $t) } } }
+        foreach ($d in @(Get-ChildItem -Path (Join-Path $env:ProgramFiles 'PowerShell') -Directory -ErrorAction SilentlyContinue)) { $x = Join-Path $d.FullName 'pwsh.exe'; if (Test-Path -LiteralPath $x) { $t = [string](Get-Item -LiteralPath $x).VersionInfo.ProductVersion; if ($t -match '^\d+\.\d+\.\d+(-[\w\.]+)?') { $ps += $Matches[0] } } }  # file version: no child PowerShell (antivirus heuristics)
     } else {
         foreach ($x in (Find-Tool 'pwsh')) { $t = Run-Tool $x '-NoProfile -Command $PSVersionTable.PSVersion.ToString()' ''; if ($t -match '^\d+\.\d+') { $ps += (First-Line $t) } }
     }
