@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.8.3">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.1">
 <meta name="description" content="Move the PKI safely in an encrypted .certpacked.">
 <title>Transport package - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.8.3</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.1</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,8 +168,8 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Give the PKI to other people</p>
 <h1>Transport package</h1>
 <p class="lead">Move the PKI safely in an encrypted .certpacked.</p>
-<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a></li><li class="l2"><a href="#6-passwords">6  PASSWORDS</a></li><li class="l2"><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a></li><li class="l2"><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a></li><li class="l2"><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a></li><li class="l2"><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a></li><li class="l2"><a href="#11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE</a></li><li class="l2"><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.8.3   2026-10-22
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a></li><li class="l2"><a href="#6-passwords">6  PASSWORDS</a></li><li class="l2"><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a></li><li class="l2"><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a></li><li class="l2"><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a></li><li class="l2"><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a></li><li class="l2"><a href="#11-which-pkis-go-in-what-is-replaced">11  WHICH PKIs GO IN, WHAT IS REPLACED</a></li><li class="l2"><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li></ol></details>
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.1   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
@@ -194,7 +194,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
                          ./pki-transport.sh --help                (one page at a time)</pre></div>
 <div class="code"><pre> CONTENTS
     1  What the transport does                    10  Packages for servers
-    2  The words you need                         11  Which PKI goes into a package
+    2  The words you need                         11  Which PKIs go in, what is replaced
     3  Before you start                           12  What is installed for you
     4  Quick start                                13  Recipes, copy and paste
     5  Make a package (-Pack)                     14  Problems and answers
@@ -245,6 +245,8 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <div class="code"><pre> 1. SOURCE. Make the package:
         .\PkiTransport.ps1 -Pack -GeneratePassword -Kit
     The password is shown ONCE at the end. Write it down.
+    Without other options the package holds EVERY CA of every company and every release (7.9.1).
+    -Pki, -Release, -Latest, -PkiFolder and -Ca take only a part (section 11).
  2. Copy the .certpacked and the &lt;name&gt;-kit folder to the destination. Send the password another
    way.
  3. DESTINATION, Windows (PowerShell 7 as administrator, in the kit folder):
@@ -258,16 +260,33 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
     (Firefox has its own store: import the root there).</pre></div>
 <h2 id="5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)<a class="anchor" href="#5-make-a-package-pack" aria-label="Link to this section">#</a></h2>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\PkiTransport.ps1 -Pack [options]
- The PKI is read from .\pki (or -PkiRoot). Leaf certificates are read from .\leafcerts.</pre></div>
+ The PKIs are read from .\pki: by default EVERY PKI folder there (every company, every release,
+ normal and NoCR). Section 11 shows how to take only a part. Leaf certificates are read from
+ .\leafcerts.</pre></div>
 <p>WHAT IS IN THE PACKAGE (the scope; certpack.json says which)</p>
 <div class="code"><pre> Scope                       Option             Contains                          Private keys
  --------------------------  -----------------  --------------------------------  ---------------
  CA certificates (default)   (none)             Roots, intermediates, chains,     none
                                                 bundles, CRLs
  + leaf certificates         -IncludeLeafCerts  The leafcerts folders             leaf keys
- + CA keys                   -IncludeCaKeys     The whole pki folder              ALL CA keys
- DevKit                      -DevKit            See <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>             issuing CAs only</pre></div>
-<p>Files in the archive: certpack.json and certpack.tsv (the list), SHA256SUMS, README.txt, ca\roots\*.crt, ca\intermediates\*.crt, ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt, ca\chains\*-fullchain.crt, ca\publish\*, and when packed leafcerts\* and pki\*. A PKI whose Enterprise Root was signed by a public CA also gets ca\external-chain.pem and the cross-certificates.</p>
+ + CA keys                   -IncludeCaKeys     The PKI folders                   the CA keys (*)
+ + issuing CA keys           -IssuingKeysOnly   The PKI folders                   intermediates
+                                                                                  only, no root
+ DevKit                      -DevKit            See <a href="DevKit-MANUAL.html">DevKit-MANUAL.txt</a>             issuing CAs only
+ (*) Without -Ca: every key of the folder. With -Ca: only the keys of the CAs you chose (and of the
+     CAs below a chosen root). A parent that is only there to complete the chain never gives its
+     key. -IssuingKeysOnly never packs a root key, an OCSP / time stamp key or a .pfx.</pre></div>
+<div class="code"><pre> Files in the archive: certpack.json and certpack.tsv (the list), SHA256SUMS, README.txt, and for
+ every PKI folder (pki-default-01, pki-raksaka-01 ...):
+   ca\roots\&lt;folder&gt;-&lt;slug&gt;.crt           ca\intermediates\&lt;folder&gt;-&lt;slug&gt;.crt
+   ca\chains\&lt;folder&gt;-&lt;slug&gt;-fullchain.crt ca\publish\&lt;folder&gt;\*     (CRLs, published files)
+   ca\external\&lt;folder&gt;-external-chain.pem and ca\cross-sign\&lt;folder&gt;-*   (a root signed by a
+                                                                           public CA)
+   pki\&lt;folder&gt;\*                           (-IncludeCaKeys / -IssuingKeysOnly)
+ and once: ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt (the CAs of ALL packed PKIs), leafcerts\*.
+ certpack.json lists the PKIs (pkis) and gives every CA its company (pki) and folder (release).
+ The DevKit package keeps the older layout of ONE PKI (ca\roots\&lt;slug&gt;.crt, pki\*), now with the
+ same pki / release names.</pre></div>
 <p>FORMATS. A .certpacked IS an archive under another name. Rename it to .zip or .7z and 7-Zip opens it with the password. The scripts read the first bytes, never the extension.</p>
 <div class="code"><pre> Kind                     Made by                       Needs at the destination
  -----------------------  ----------------------------  ----------------------------------------
@@ -278,15 +297,19 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  7z + AES-256             7-Zip (-ArchiveFormat 7z)     7-Zip on both sides. Smaller. File names
                                                         are encrypted too.</pre></div>
 <div class="code"><pre> OPTIONS
-   -Out &lt;file&gt;           Default .\transport\agantra-pki-&lt;yyyyMMdd-HHmmss&gt;.certpacked. The
-                         extension is always .certpacked.
+   -Out &lt;file&gt;           Default .\transport\&lt;name&gt;-&lt;yyyyMMdd-HHmmss&gt;.certpacked: allpki (every
+                         CA), agantra-pki (one company), agantra-raksaka-pki (two or three),
+                         multipki (more). The extension is always .certpacked.
    -GeneratePassword     A 20-character password, shown once at the end.
    -PackagePassword &lt;t&gt;  Your own password (alias -Password). Also: PKI_TRANSPORT_PASSWORD, or a
                          prompt (asked twice).
    -ArchiveFormat zip|7z     -ZipEncryption Aes256|ZipCrypto     -SevenZipPath &lt;exe&gt;
    -IncludeLeafCerts [-LeafName a*,b]   Add the leafcerts folders (all, or those that match).
-   -IncludeCaKeys        Add the whole PKI with the CA private keys. Only for a machine that must
-                         issue certificates.
+   -IncludeCaKeys        Add the PKI folders with the CA private keys. Only for a machine that
+                         must issue certificates. With -Ca: the keys of the chosen CAs only.
+   -IssuingKeysOnly      Like -IncludeCaKeys, but only the keys of the intermediate (issuing) CAs.
+   -Pki -Release -Latest -NoCaRevocationInfo -PkiFolder -PkiRoot -Ca -AllCa -ListCa
+                         Which PKIs and which CAs: section 11.
    -Kit                  Also write &lt;name&gt;-kit\ : the three scripts, the modules, the bootstrap
                          scripts, the CSR tools, Create-WebServerConfig and the manuals.
    -Comment &lt;text&gt;       Stored in the package, shown when it is opened.
@@ -326,22 +349,44 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <div class="code"><pre> WHAT -Install DOES, IN ORDER
    1. Opens the package and checks the SHA-256 of every file.
    2. Writes the selection (-Extract, default ca) to -Destination
-      (default .\certpacked-received\&lt;package name&gt;).
-   3. Puts every ROOT in Trusted Root Certification Authorities and every INTERMEDIATE in
+      (default .\certpacked-received\&lt;package name&gt;). -Pki, -Release, -PkiFolder and -Ca choose
+      some of the PKIs of the package (default: all of them; section 11).
+   3. REPLACE: for each PKI that is installed, the OLDER copy of exactly that PKI is removed from
+      Trusted Root and Intermediate first. Only certificates PROVEN to be ours go (section 11).
+      -KeepOld leaves them.
+   4. Puts every ROOT in Trusted Root Certification Authorities and every INTERMEDIATE in
       Intermediate Certification Authorities. The stores are read back. A wrong placement is an
-      error.
-   4. -InstallLeafPfx: imports the leaf PFX files into LocalMachine\My (the leaf only). -PfxPassword
+      error. What was installed is written to %ProgramData%\PkiTransport\installed.tsv.
+   5. -InstallLeafPfx: imports the leaf PFX files into LocalMachine\My (the leaf only). -PfxPassword
       is their password (default Abc12345!).
-   5. OpenSSL 4 proves that every CA and every extracted leaf chains to the roots (ML-DSA too).</pre></div>
-<div class="code"><pre> Remove the trust again:   .\PkiTransport.ps1 -RemoveTrust -Package &lt;file&gt;
- (The leaf PFX files in My stay.)
+   6. OpenSSL 4 proves that every CA and every extracted leaf chains to the roots (ML-DSA too).</pre></div>
+<div class="code"><pre> Remove the trust again:   .\PkiTransport.ps1 -RemoveTrust -Package &lt;file&gt; [-Pki x] [-Release n]
+ (By the thumbprints of the package only. The leaf PFX files in My stay.)
  Exit codes: 0 done, 1 error, 2 Windows not supported, 3 not Windows (use pki-transport.sh),
  4 OpenSSL 4.0.1+ missing, 5 this system is refused.
  To see the exit code use  pwsh -File .\PkiTransport.ps1 ...  (&quot;pwsh -Command&quot; shows only 0 or 1).</pre></div>
 <h2 id="8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)<a class="anchor" href="#8-unpack-only-any-computer" aria-label="Link to this section">#</a></h2>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> .\Unpack-PkiTransport.ps1 -Package &lt;file&gt; [-Extract &lt;list&gt;] [-LeafName &lt;w&gt;] [-Destination &lt;folder&gt;]
-                           [-List] [-Force]</pre></div>
-<p>It installs NOTHING and touches no certificate store. Use it to get the files, for example for a server that reads a CA file. * Default destination: .\certpacked-received\&lt;package name&gt;. certpack.json and README.txt are always written. * Identical files that already exist are left alone. A different file stops the run unless -Force. * -List shows what is inside and writes nothing. * -Extract pki also rewrites the absolute paths in the manifest and the CA settings to the new place. Then  GenerateLeafCertificate.ps1 -PkiRoot &lt;folder&gt;\pki  can issue from the moved PKI. * A wrong password, a damaged or a changed file: it says so and writes nothing.</p>
+                           [-Pki &lt;a,b&gt;] [-Release &lt;n | folder&gt;] [-Ca &lt;list&gt;] [-List] [-Force]</pre></div>
+<div class="code"><pre> It installs NOTHING and touches no certificate store. Use it to get the files, for example for a
+ server that reads a CA file.
+ * Default destination: .\certpacked-received\&lt;package name&gt;. certpack.json and README.txt are
+   always written.
+ * Identical files that already exist are left alone. A different file stops the run unless -Force.
+ * -List shows the PKIs of the package (company, PKI folder, number of CAs), then every CA with its
+   company, folder, kind and id. It writes nothing.
+ * A package can hold many PKIs. All are unpacked, each in its own names (section 5). Choose some:
+     -Pki raksaka                       one company (several: -Pki agantra,raksaka)
+     -Release 2                         release 2 of each company (normal and NoCR)
+     -Release pki-default-nocr-01       exactly this PKI folder (wildcards: &#39;pki-default-*&#39;)
+     -Ca q1-root                        this root and every CA below it, plus its parents
+     -Ca &#39;*OV*&#39;                         every CA whose id, slug or name matches, plus its parents
+   The bundles and the leaf certificates are always written. -Ca chooses CA certificates and chains;
+   the CRLs and the pki\&lt;folder&gt; files of a chosen PKI are written whole.
+ * -Extract pki also rewrites the absolute paths in the manifest and the CA settings to the new
+   place (each PKI folder: pki\&lt;folder&gt;). Then  GenerateLeafCertificate.ps1 -PkiRoot &lt;folder&gt;\pki
+   can issue from the moved PKI.
+ * A wrong password, a damaged or a changed file: it says so and writes nothing.</pre></div>
 <h2 id="9-linux-pki-transport-sh">9  LINUX: pki-transport.sh<a class="anchor" href="#9-linux-pki-transport-sh" aria-label="Link to this section">#</a></h2>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> ./linux/pki-transport.sh --package &lt;file&gt; [options]</pre></div>
 <div class="code"><pre> It does these four things, and nothing else:
@@ -357,7 +402,17 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  update-ca-trust extract
  SUSE Linux Enterprise, openSUSE          /etc/pki/trust/anchors              update-ca-certificates
  Another Linux                            --store-dir DIR                     --update-cmd CMD</pre></div>
-<p>The family is read from /etc/os-release. The files it adds are named agantra-pki-*, so --remove-trust takes out exactly those.</p>
+<p>The family is read from /etc/os-release. The files it adds are named agantra-pki-* (for a package with several PKIs: agantra-pki-&lt;folder&gt;-&lt;slug&gt;.crt), so --remove-trust takes out exactly those. What it placed is written to /var/lib/pki-transport/installed.tsv (company, PKI folder, file, SHA-1 thumbprint).</p>
+<div class="code"><pre> SEVERAL PKIs, AND THE OLDER COPY (7.9.1)
+   --pki LIST        only these companies (agantra,raksaka)
+   --release LIST    release numbers (2) or PKI folders (pki-raksaka-01, &#39;pki-default-*&#39;)
+   --ca LIST         CAs by id, slug or common name (wildcards): a root brings every CA below it,
+                     any CA brings its parents
+   --keep-old        do not remove the older copy
+   Before the new files go in, the older copy of each chosen PKI is removed: the files that
+   pki-transport.sh (its list, checked against the thumbprint inside the file) or a trust kit (its
+   list, file pki-&lt;company&gt;-*) put there for EXACTLY that company and PKI folder. Never a file
+   because of its name. Public CAs and other PKIs stay. Section 11.</pre></div>
 <div class="code"><pre> WHICH CAs GO IN (--trust)
    roots (default)   every root: Enterprise, Track and Quadrant roots. A Linux store has one kind of
                      anchor, so every root goes in.
@@ -371,7 +426,8 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    --destdir DIR     Put the anchors under DIR and do not rebuild the store (image builds).
    --check           The scan only.
    --list            What is inside. Nothing is written.
-   --remove-trust    Take the CAs out (with --package: exactly that package&#39;s).
+   --remove-trust    Take the CAs out (with --package: exactly that package&#39;s, checked by
+                     thumbprint; --pki / --release / --ca choose a part).
  Exit codes: 0 done, 1 error, 2 platform not supported, 4 OpenSSL missing, 5 wrong password (or this
  system is refused), 6 a prerequisite could not be installed.
  OpenSSL 4 missing: --install-openssl builds a FULL OpenSSL 4.0.3 from the official release into
@@ -407,18 +463,59 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
   pki-server.sh update --crl-only --source ./pki .
  The CRL and certificate addresses are the ones in the certificates, for example
  http://crl.nextmantra.internal/&lt;ca&gt;.crl. Full steps: <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>.</pre></div>
-<h2 id="11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE<a class="anchor" href="#11-which-pki-goes-into-a-package" aria-label="Link to this section">#</a></h2>
-<div class="code"><pre> One package holds ONE PKI.
-   * By default: the latest release of the normal family.
-   * -Release N: release N. A release that no longer exists = the latest, with a warning.
-   * -NoCaRevocationInfo: the NoCR family (CAs without CRL and OCSP addresses).
-   * -PkiRoot &lt;folder&gt;: exactly this folder.
-   * -Pki &lt;name&gt;: the company. The file &lt;name&gt;_pki.cnf is used. File names follow it
-     (agantra-pki-&lt;date&gt;.certpacked, raksaka-pki-&lt;date&gt;.certpacked).
- Inside the package the PKI is always the folder pki/, so the destination scripts need no change.
- devkit.env holds PKI_RELEASE and PKI_VARIANT. Make one kit for each release.
+<h2 id="11-which-pkis-go-in-what-is-replaced">11  WHICH PKIs GO IN, WHAT IS REPLACED<a class="anchor" href="#11-which-pkis-go-in-what-is-replaced" aria-label="Link to this section">#</a></h2>
+<p>A. WHICH PKIs AND CAs GO INTO A PACKAGE (source, -Pack) Since 7.9.1 one package can hold MANY PKIs: several companies, several releases, NoCR and normal. Without any of the options below, -Pack takes EVERY CA of every company and every release that is built in .\pki (the same as -AllCa). The options take a part; they can be combined:</p>
+<div class="code"><pre> Option                         Takes
+ -----------------------------  ------------------------------------------------------------------
+ (none)  or  -AllCa             every PKI folder in .\pki: every company, every release, NoCR too
+ -Pki raksaka                   one company. Several: -Pki agantra,raksaka
+ -Pki D:\cfg\raksaka_pki.cnf    the company of that configuration file (the name of the file
+   (also -ConfigFile &lt;file&gt;)    says which: &lt;name&gt;_pki.cnf). Its PKI folders are in .\pki.
+ -Release 2   -Release 1,3      these release numbers (of each chosen company)
+ -NoCaRevocationInfo            only the NoCR family
+ -Latest                        only the latest release of each company
+ -PkiFolder pki-raksaka-01      exactly these PKI folders of .\pki (several: comma)
+ -PkiRoot D:\other\pki-x-01     exactly these PKI folders, anywhere
+ -Ca q1-root                    a root (Enterprise, Track or Quadrant root): it and every CA below
+                                it, plus its parents
+ -Ca q1-dv  -Ca &#39;*OV*&#39;          these CAs (id, slug or common name; wildcards), plus their parents.
+                                A chain is always complete.
+ -IncludeCaKeys / -IssuingKeysOnly   with the private keys (section 5); without them: no key.
+ -ListCa                        shows the PKIs and their CAs (+ = would be packed). Packs nothing.</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Examples
+   .\PkiTransport.ps1 -Pack -GeneratePassword                          every CA, no key
+   .\PkiTransport.ps1 -Pack -Pki raksaka -Latest                       the newest raksaka PKI
+   .\PkiTransport.ps1 -Pack -Pki agantra -Release 2 -Ca q2-root        release 2, the Q2 tree only
+   .\PkiTransport.ps1 -Pack -PkiFolder pki-default-nocr-01 -IssuingKeysOnly
+   .\PkiTransport.ps1 -Pack -Pki raksaka -Ca q1-root -ListCa           look before packing
+ -DevKit and the server packages still take ONE PKI: the latest release of -Pki (default agantra),
+ or -Release / -NoCaRevocationInfo / -PkiRoot. devkit.env holds PKI_RELEASE and PKI_VARIANT.
  Settings for all runs: pki_tools.cnf has TransportFolder, ArchiveFormat and ZipEncryption.
  See <a href="pki_setup-MANUAL.html">pki_setup-MANUAL.txt</a>, section 9.</pre></div>
+<p>B. READING A PACKAGE (destination) PkiTransport.ps1 -Install / -List / -RemoveTrust, Unpack-PkiTransport.ps1 and pki-transport.sh read every PKI of a package: several roots, several intermediates, several companies, several releases. All of them are used unless -Pki / -Release / -PkiFolder / -Ca (pki-transport.sh: --pki / --release / --ca) choose some. Packages made before 7.9.1 (one PKI) are read as before: their PKI is named from the folder they were made from.</p>
+<div class="code"><pre> C. REPLACING THE OLDER COPY, AND WHAT IS NEVER TOUCHED
+ When a PKI of the package is installed, its OLDER copy is removed first, then the new certificates
+ go in. &quot;Older copy&quot; means: the same company AND the same PKI folder (for example pki-raksaka-01
+ that was built again). Another release of the same company is another PKI: it stays.
+ A certificate in a store is removed ONLY when it is PROVEN to be ours:
+   Windows  its SHA-1 thumbprint is in the list of what PkiTransport installed
+            (%ProgramData%\PkiTransport\installed.tsv) or a trust kit installed for the computer
+            (%ProgramData%\PkiTrustKit\installed.tsv), for that company and PKI folder; or it is a
+            certificate file of that PKI folder on this computer (.\pki\&lt;folder&gt;).
+   Linux    the file is in the list of pki-transport.sh (/var/lib/pki-transport/installed.tsv) and
+            still holds the certificate with that thumbprint, or a trust kit listed it
+            (/var/lib/pki-trust-kit/installed.tsv, file pki-&lt;company&gt;-*).
+ NEVER removed, for any reason:
+   * a certificate of a public CA (DigiCert, GlobalSign, Microsoft, Let&#39;s Encrypt ...);
+   * a certificate of another company&#39;s PKI, or of any private PKI that is not yours;
+   * a certificate that only has the same NAME as one of yours (a name is never proof);
+   * a certificate of the package itself (it is kept, not installed twice);
+   * on Linux, a file that has our name but holds another certificate.
+ A computer that got the PKI from a version before 7.9.1 has no such list yet: nothing is removed
+ there (the log says so). Remove the old copy once with -RemoveTrust -Package &lt;the old package&gt;
+ (exactly its thumbprints), or with pki_setup.ps1 / the trust kit remove scripts. From then on
+ every install remembers what it put in, and the next package replaces exactly that.
+ -KeepOld (Windows) / --keep-old (Linux): remove nothing, only add.</pre></div>
 <h2 id="12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU<a class="anchor" href="#12-what-is-installed-for-you" aria-label="Link to this section">#</a></h2>
 <p>The transport needs three programs. When one is missing, the scripts install it.</p>
 <div class="code"><pre> Program                 Needed for                  Windows                        Linux
@@ -448,6 +545,12 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
      .\PkiTransport.ps1 -Pack -ArchiveFormat 7z -GeneratePassword</pre></div>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> No 7-Zip anywhere, CA certificates only
      .\PkiTransport.ps1 -Pack -ZipEncryption ZipCrypto -GeneratePassword      (then unzip -P works)</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Every company and release in one file; each machine takes what it needs
+     .\PkiTransport.ps1 -Pack -GeneratePassword
+     .\PkiTransport.ps1 -Install -Package &lt;file&gt; -Pki raksaka           (Windows: raksaka only)
+     sudo ./linux/pki-transport.sh --package &lt;file&gt; --release 2 --yes    (Linux: release 2 only)</pre></div>
+<div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> A newer copy of the same PKI (built again): install the new package; the old copy goes by itself
+     .\PkiTransport.ps1 -Install -Package &lt;new file&gt;</pre></div>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> Take the CAs out again
      .\PkiTransport.ps1 -RemoveTrust -Package &lt;file&gt;
      sudo ./linux/pki-transport.sh --package &lt;file&gt; --remove-trust</pre></div>
@@ -498,14 +601,17 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
                   -Install  -Check  -List  -RemoveTrust  -Unblock
    Package        -Out  -Package  -PackagePassword  -GeneratePassword  -AllowWeakPassword
                   -ArchiveFormat  -ZipEncryption  -SevenZipPath  -Comment  -NoVerify  -Kit
-   Contents       -IncludeLeafCerts  -LeafName  -IncludeCaKeys  -Extract  -Destination
+   Contents       -IncludeLeafCerts  -LeafName  -IncludeCaKeys  -IssuingKeysOnly  -Extract
+                  -Destination
+   Which CAs      -AllCa  -Pki  -Release  -Latest  -NoCaRevocationInfo  -PkiFolder  -PkiRoot  -Ca
+   (7.9.1)        -ListCa  -ConfigFile                              (-Pack: choose; others: filter)
    DevKit         -KitArchiveFormat  -DevKitNoKeys  -DevKitNoServer
    Servers        -Tar  -Force  -IncludeServiceKeys
    Install        -InstallLeafPfx  -PfxPassword  -InstallMissing  -OpenSslPath  -SkipOpenSslCheck
-   Which PKI      -Pki  -PkiRoot  -Release  -NoCaRevocationInfo  -ConfigFile
+                  -KeepOld
    Other          -Verbose  -Help</pre></div>
-<p>Unpack-PkiTransport.ps1 -Package  -PackagePassword  -Destination  -Extract  -LeafName  -List  -Force  -SevenZipPath -InstallMissing  -Unblock  -Verbose  -Help</p>
-<p>pki-transport.sh --package  --password  --password-file  --dest  --extract  --leaf  --trust  --no-trust --remove-trust  --list  --check  --force  --no-verify  --yes  --dry-run  --install-openssl --openssl-prefix  --openssl  --skip-openssl-check  --7z  --store-dir  --update-cmd  --destdir --unblock  --version  --help</p>
+<p>Unpack-PkiTransport.ps1 -Package  -PackagePassword  -Destination  -Extract  -LeafName  -Pki  -Release  -Ca  -List  -Force -SevenZipPath  -InstallMissing  -Unblock  -Verbose  -Help</p>
+<p>pki-transport.sh --package  --password  --password-file  --dest  --extract  --leaf  --trust  --no-trust --remove-trust  --pki  --release  --ca  --keep-old  --list  --check  --force  --no-verify  --yes --dry-run  --install-openssl --openssl-prefix  --openssl  --skip-openssl-check  --7z  --store-dir  --update-cmd  --destdir --unblock  --version  --help</p>
 <p>Exit codes of pki-transport.sh: 0 done, 1 error, 2 platform not supported, 4 OpenSSL missing, 5 wrong password, 6 a prerequisite could not be installed.</p>
 <p>VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash). It prints the script version, author, company, e-mail, the operating system with its version and patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL found, with the vendor of each OpenSSL. It changes nothing. Details: <a href="VERSION-INFO.html">VERSION-INFO.txt</a>.</p>
 <h2 id="17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#17-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
@@ -521,12 +627,25 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
      removal (the store returned to its exact size), the three --trust modes, --destdir, every
      --extract selection, a wrong password, on-demand 7-Zip with apt, ZipCrypto with unzip only,
      7z.
+ Tested in 7.9.1 (Linux, PowerShell 7.5, four test PKIs: two companies, two releases, NoCR):
+   * -Pack with no option (every CA), -AllCa, -Pki (a name and a &lt;name&gt;_pki.cnf file), -Release,
+     -NoCaRevocationInfo, -Latest, -PkiFolder, -Ca (a root, an intermediate, a name with wildcards),
+     -IncludeCaKeys and -IssuingKeysOnly with and without -Ca (which keys went in), -ListCa, and
+     the error cases (no match, an unknown company, -AllCa with a filter).
+   * Unpack-PkiTransport.ps1 and pki-transport.sh --list / unpack with -Pki / -Release (number,
+     folder, wildcard) / -Ca; a package of 7.6.5 (one PKI) and a DevKit package still read.
+   * pki-transport.sh into a --destdir store: install two PKIs, build one of them again, install
+     the new package: the 7 old files of exactly that PKI were replaced; the other PKI, a public CA
+     (DigiCert Global Root G2), a foreign CA with the SAME name, a public CA in a file named like
+     ours, and a public CA listed by mistake in a trust-kit list for another company all stayed.
+   * Windows: the decision (which store certificates are removed) with simulated stores and lists:
+     only the listed thumbprints of the PKIs being installed; the list itself (add, drop).
  Tested only by simulation (--dry-run with a fake os-release): CentOS Stream 10, Rocky 10, RHEL 10,
  Oracle Linux 10, SLES 15 and 16, openSUSE. The directories and commands are the documented ones,
  but never ran there.
  NOT tested:
    * -Install and -RemoveTrust on a real Windows (the stores, the administrator check, the scan of
-     a real computer).
+     a real computer, the replace step against real stores).
    * The 7-Zip package names on the RHEL family and SUSE.
    * The server packages on a real Ubuntu server (see <a href="PKI-SERVER-MANUAL.html">PKI-SERVER-MANUAL.txt</a>).</pre></div>
 <h2 id="18-other-documents">18  OTHER DOCUMENTS<a class="anchor" href="#18-other-documents" aria-label="Link to this section">#</a></h2>
@@ -537,17 +656,17 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    <a href="PkiProfiles-MANUAL.html">PkiProfiles-MANUAL.txt</a>             many companies (-Pki), the platform list (section 6)
    <a href="PKI-ChangeLog.html">PKI-ChangeLog.txt</a>                  what changed in each version</pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="DevKit-MANUAL.html"><small>&larr; Previous</small>DevKit</a><a class="nx" href="PkiBackup-MANUAL.html"><small>Next &rarr;</small>Backup and restore</a></nav>
-<p class="crumb">Made from PkiTransport-MANUAL.txt by Build-HtmlDocs.ps1 7.8.3.</p>
+<p class="crumb">Made from PkiTransport-MANUAL.txt by Build-HtmlDocs.ps1 7.9.1.</p>
 
 </div>
-<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a><a href="#6-passwords">6  PASSWORDS</a><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a><a href="#11-which-pki-goes-into-a-package">11  WHICH PKI GOES INTO A PACKAGE</a><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a></aside>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-transport-does">1  WHAT THE TRANSPORT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-make-a-package-pack">5  MAKE A PACKAGE (-Pack)</a><a href="#6-passwords">6  PASSWORDS</a><a href="#7-windows-scan-and-install">7  WINDOWS: SCAN AND INSTALL</a><a href="#8-unpack-only-any-computer">8  UNPACK ONLY (ANY COMPUTER)</a><a href="#9-linux-pki-transport-sh">9  LINUX: pki-transport.sh</a><a href="#10-packages-for-servers">10  PACKAGES FOR SERVERS</a><a href="#11-which-pkis-go-in-what-is-replaced">11  WHICH PKIs GO IN, WHAT IS REPLACED</a><a href="#12-what-is-installed-for-you">12  WHAT IS INSTALLED FOR YOU</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.8.3</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.1</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

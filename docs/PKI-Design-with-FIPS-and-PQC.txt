@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.8.3                      Updated: 2026-10-22
+ Version : 7.9.1                      Updated: 2026-10-22
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,19 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.191 DECIDED   (7.9.1) One .certpacked holds MANY PKIs and -Pack takes every CA by default; the
+                 parameters only narrow it (company, cnf file, release, latest, NoCR, folder, CA).
+                 The layout of the trust kit (ca/roots/<folder>-<slug>.crt, pki and release in the
+                 list) is reused, formatVersion stays 1, so an older reader still opens it. A chosen
+                 CA always brings its parents (a chain must be complete) and a chosen root its
+                 children; private keys follow only the CAs that were CHOSEN, never a parent that is
+                 there only for the chain. Replacing an older copy is decided by PROOF, not by name:
+                 a thumbprint we recorded when we installed it (our own list, or a trust kit's),
+                 for the same company AND the same PKI folder, or a certificate file of that folder
+                 on the computer. Names can be copied by anyone, and a public or foreign CA with the
+                 same name must never lose its trust; so a computer without such a list keeps its
+                 old copy (said in the log) rather than guessing. Another release of the same
+                 company is another PKI and is never replaced by it.
 10.190 DECIDED   (7.8.3) Catalogs: the PORTABLE format is two plain hash lists (sha256sum / sha512sum
                  format, readable without any tool) with a detached CMS signature and an RFC 3161
                  token per list, so any system with OpenSSL or .NET can make and check it, and a

@@ -1,7 +1,7 @@
 ====================================================================================================
  scripts\  -  SHARED MODULES OF THE AGANTRA PKI SCRIPTS
 ====================================================================================================
- Version 7.8.3      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
+ Version 7.9.1      Author: Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)   Email: nicko@nextmantra.com
  Used by : pki_setup.ps1   GenerateLeafCertificate.ps1   PkiTransport.ps1   Unpack-PkiTransport.ps1
 
  This folder is a small library. Nothing in it runs by itself: every file only DEFINES functions.
@@ -243,6 +243,15 @@ or organization), selfextract.sh template. New-PkiTrustKit.ps1 builds the single
 itself (no PkiTransport.ps1 -Pack call any more).
 
 5.3.6 scripts\backup\: the SOURCE of Backup-Pki.ps1, Restore-Pki.ps1 and Test-PkiBackup.ps1 (*.src.ps1), PkiBackupCommon.ps1 (gate, password policy, hashes, requirement check, certificate / key inventory, Local Machine store) and Build-BackupScripts.ps1. The builder pastes PkiBackupCommon.ps1 and the zip engine of 16_CertPack.ps1 into each source and writes the three finished, STANDALONE scripts to the project root (they need no other .ps1). Edit the sources, run  pwsh -File .\scripts\backup\Build-BackupScripts.ps1 , never edit the three root scripts by hand. Not in the module catalog (PkiModules.ps1). See PkiBackup-MANUAL.txt
+
+====================================================================================================
+ NEW IN 7.9.1
+====================================================================================================
+ 17_Transport.ps1: several PKIs in one .certpacked (Resolve-PkiPackPkis, Select-PkiCaTree,
+ Get-PkiMultiPackagePlan; New-PkiCertPackage -Pkis), reading them (Get-PkiPackagePkiList,
+ Select-PkiPackageContent, Write-PkiPackagePkiTable), and the strict replace on Windows
+ (Read-PkiTrustLedger, Update-PkiTrustLedger, Get-PkiOldTrustPlan, Remove-PkiOldTrustWindows).
+ The list of what was installed: %ProgramData%\PkiTransport\installed.tsv.
 
 ====================================================================================================
  NEW IN 7.8.3

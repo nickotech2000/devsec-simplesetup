@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.8.3                       Updated: 2026-10-22
+ Version : 7.9.1                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,38 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.9.1  2026-10-22  MINOR + REVISION (minor +1, revision 1)
+    * PkiTransport.ps1 -Pack: ONE package can hold MANY PKIs. Without a choice it packs EVERY CA of every
+      company and every release (normal and NoCR) found in .\pki (also -AllCa). New choices, combinable:
+      -Pki a,b (a company name or a <name>_pki.cnf file; -ConfigFile <file> too), -Release 1,3, -Latest,
+      -NoCaRevocationInfo, -PkiFolder pki-raksaka-01, -PkiRoot <dir,dir>, -Ca <id | slug | name, wildcards>
+      (a root brings every CA below it, any CA its parents: a chain is always complete), -ListCa (show what
+      would be packed). Keys: none by default; -IncludeCaKeys (with -Ca: only the keys of the chosen CAs,
+      never of a parent that is only there for the chain), NEW -IssuingKeysOnly (intermediate keys only).
+      Paths per PKI folder: ca/roots/<folder>-<slug>.crt, ca/intermediates/..., ca/chains/...,
+      ca/publish/<folder>/, pki/<folder>/; certpack.json lists the PKIs (pkis) and gives every CA and file
+      its company (pki) and folder (release); certpack.tsv has the columns pki, release, id, parent.
+      formatVersion stays 1: older readers still open it. Default file name allpki-<date>.certpacked.
+    * Unpack-PkiTransport.ps1, PkiTransport.ps1 -Install / -List / -RemoveTrust and pki-transport.sh read
+      every PKI of a package (several roots, intermediates, companies, releases); -Pki, -Release (number or
+      folder, wildcards), -PkiFolder, -Ca (pki-transport.sh: --pki, --release, --ca) choose some. -List shows
+      the PKIs and every CA with company, folder and id. Packages of older versions are read as one PKI
+      named from their source folder; the DevKit package now carries the same names.
+    * REPLACE: installing a PKI first removes its OLDER copy (same company AND same PKI folder), then adds
+      the new certificates. STRICT: a certificate goes only when it is proven ours - its thumbprint is in
+      the list of what PkiTransport installed (NEW: %ProgramData%\PkiTransport\installed.tsv, Linux
+      /var/lib/pki-transport/installed.tsv) or a trust kit installed for the computer, for that company
+      and folder; Windows also: a certificate file of that folder in .\pki. Linux checks that the listed
+      file still holds that thumbprint. Never by name: public CAs, other companies' PKIs, other private
+      PKIs, a certificate with the same name, a public CA in a file named like ours stay. -KeepOld /
+      --keep-old adds only. -RemoveTrust / --remove-trust also update the list (and on Linux check the
+      thumbprint before deleting a file). A computer set up before 7.9.1 has no list: nothing is removed
+      there (said in the log).
+    * Fixed: New-CodeSignCatalog.ps1 / .sh reported version 7.7.1 in -Version / --version.
+    * Docs: PkiTransport-MANUAL.txt (sections 4, 5, 7, 8, 9, 11 new, 13, 16, 17), -Help / --help of the
+      three transport scripts, design 10.191. Tested on Linux with four test PKIs (two companies, two
+      releases, NoCR); the Windows store steps only with simulated stores (no Windows here).
 
   7.8.3  2026-10-22  MINOR + REVISION (minor +1, revision +2)
     * NEW New-CodeSignCatalog.ps1 / New-CodeSignCatalog.sh (standalone): a signed CATALOG of files that

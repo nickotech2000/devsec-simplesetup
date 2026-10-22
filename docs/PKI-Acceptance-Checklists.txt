@@ -1,5 +1,5 @@
 ====================================================================================================
- PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines           Version 7.8.3      2026-10-22
+ PKI ACCEPTANCE CHECKLISTS  -  what to run on YOUR machines           Version 7.9.1      2026-10-22
 ====================================================================================================
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
   Design : PKI-Design-with-FIPS-and-PQC.txt  Manuals: pki_setup-MANUAL.txt,
