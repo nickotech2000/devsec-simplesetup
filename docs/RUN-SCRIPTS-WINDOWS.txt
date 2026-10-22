@@ -2,7 +2,7 @@
  RUN THE SCRIPTS ON WINDOWS  -  blocked scripts, execution policy, Windows Sandbox
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - how to start Install-PkiTrust.ps1 and the other scripts
- Version 7.9.5   2026-10-22
+ Version 7.9.8   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.9.5                       Updated: 2026-10-22
+ Version : 7.9.8                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,28 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.9.8  2026-10-22  REVISION (revision +3)
+    * PkiTransport.ps1 -DevKit packs EVERY PKI by default, like -Pack: every company with a built PKI
+      (<name>_pki.cnf), every release, normal and NoCR, every root with its intermediates. The same
+      choices narrow it: -Pki a,b (or a <name>_pki.cnf file), -Release, -Latest, -NoCaRevocationInfo,
+      -PkiFolder, -PkiRoot, -Ca; -ListCa shows what goes in. The package inside uses the multi-PKI layout
+      (pki/<folder>/); keys: the issuing CA keys of the chosen CAs only, never a root key.
+    * The kit carries the *_pki.cnf of every company in it, env/<folder>.env (the settings of each PKI for
+      the shell generators) and env/pkis.tsv; devkit.env and DefaultPki in pki_tools.cnf are the default
+      company (the DefaultPki of the master, else the first). One server kit per PKI: server\ for a kit of
+      one PKI, server-<folder>\ for each of several; each now uses the *_pki.cnf of its own company (it
+      took agantra_pki.cnf before).
+    * Install-PkiTrust (.ps1 / .sh) installs EVERY PKI of the .certpacked (each in pki\<folder>, paths
+      rewritten per folder, new serial counters for every issuing CA). -Pki / -Release / -Ca (--pki /
+      --release / --ca) install only a part.
+    * The generators and SignCsr of the kit choose the PKI: -Pki <company> -Release <n>
+      -NoCaRevocationInfo (.sh: NEW --pki, --release, --no-ca-revocation-info). Default: the kit's
+      company, latest normal release. The .sh scripts load env/<folder>.env of the chosen PKI before
+      anything is built; an unknown company stops and names the companies of the kit.
+    * Docs: DevKit-MANUAL (4, 5, 10, 16, 17, 18), PkiTransport-MANUAL (5, 11), START-HERE of the kit and
+      of the trust kit, the -Help / --help of PkiTransport, Install-PkiTrust and the .sh generators,
+      design 10.193, scripts-README, html.
 
   7.9.5  2026-10-22  REVISION (revision +4)
     * Install-DevEnvironment.ps1 on Windows PowerShell 5.1 (Windows Sandbox): fixed "The property 'Patch'

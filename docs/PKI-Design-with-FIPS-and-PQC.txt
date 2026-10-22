@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.9.5                      Updated: 2026-10-22
+ Version : 7.9.8                      Updated: 2026-10-22
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,17 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.193 DECIDED   (7.9.8) The DevKit follows -Pack: every PKI of the master by default, the same
+                 parameters narrow it. A developer who works for several companies or releases
+                 needs one kit, not one per PKI. The kit keeps the layout of the master
+                 (pki\<folder>, every <name>_pki.cnf, pki_tools.cnf DefaultPki), so the
+                 PowerShell generators choose with -Pki / -Release / -NoCaRevocationInfo exactly
+                 as on the master. The shell generators have no configuration reader: each PKI
+                 gets its own env\<folder>.env, written from the configuration of its company,
+                 and the PKI is chosen BEFORE any setting is used, so a certificate never mixes
+                 the policies or URLs of one company with the CA of another. The default stays
+                 one PKI (the default company, latest normal release) so that a plain command
+                 does what it did with a kit of one PKI.
 10.192 DECIDED   (7.9.5) A kit without CA keys carries no script that issues or signs: a
                  generator, SignCsr or Sign-Code there could only fail, and a trust kit should
                  show by its contents that it only adds trust. Blocked scripts are opened for ONE

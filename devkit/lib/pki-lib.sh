@@ -28,7 +28,7 @@ if [ -z "${PKI_GATE_DONE:-}" ]; then
       echo "        SUSE Linux Enterprise 15+ (15, 16 ...); openSUSE 15+ (Leap 15, 16 ..., Tumbleweed). Other distributions, older versions and macOS are refused." >&2
       exit 5
     fi
-    PKI_TOOL_VERSION="7.9.5"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
+    PKI_TOOL_VERSION="7.9.8"; echo "[INFO] $(basename "$0") version $PKI_TOOL_VERSION" >&2
     export PKI_GATE_DONE=1 ;;
   esac
 fi
@@ -50,6 +50,9 @@ pki_load_env() {
   local f="$PKI_KIT_DIR/devkit.env"
   [ -f "$f" ] || pki_die "devkit.env not found in $PKI_KIT_DIR. Run these scripts from the DevKit folder (the zip made by PkiTransport.ps1 -DevKit)."
   set -a; . "$f"; set +a
+  # 7.9.8: a kit of several PKIs: choose the PKI now (--pki / --release / --no-ca-revocation-info), so that every setting
+  # (policies, URLs, subject, CA list) comes from env/<folder>.env of THAT PKI before anything is built
+  if [ -f "$PKI_KIT_DIR/env/pkis.tsv" ] && [ -d "$PKI_KIT_DIR/pki" ]; then pki_select_pki; fi
 }
 
 # --openssl FILE or the first openssl 3.0+ found (an OpenSSL 4 under /opt is preferred)
@@ -90,19 +93,29 @@ pki_rand_serial() {
 # (release and variant are then read from its pki-manifest.json; no entry = release 1, normal).
 # The scripts offer   --release N   and   --no-ca-revocation-info   (PKI_WANT_REL, PKI_WANT_NOCR).  Default: the LATEST release of the
 # normal family (the NoCR family when only that exists). A release that does not exist any more (deleted) is NOT an error: the latest is used, with a warning.
-PKI_WANT_REL=""; PKI_WANT_NOCR=""
+PKI_WANT_REL=""; PKI_WANT_NOCR=""; PKI_WANT_PKI=""
 PKI_DIR=""; PKI_REL=1; PKI_NOCR=0; PKI_SLUG_SUFFIX=""
 
 pki_manifest_field() {   # <manifest.json> <key>  ->  value (empty when the key is missing)
   grep -o "\"$2\": *[^,}]*" "$1" 2>/dev/null | head -1 | sed 's/^[^:]*: *//; s/[" ]//g'
 }
 
-pki_scan() {   # one line per PKI:  path|release|nocr(0/1)
-  local d n rel nocr v
+pki_company_of() {   # <pki folder> -> its company: env/pkis.tsv of the kit (7.9.8), else "profile" of its pki-manifest.json, else empty
+  local n; n="$(basename "$1")"
+  if [ -f "$PKI_KIT_DIR/env/pkis.tsv" ]; then
+    awk -F'\t' -v f="$n" '!/^#/ && $1 == f {print $2; exit}' "$PKI_KIT_DIR/env/pkis.tsv"
+  elif [ -f "$1/pki-manifest.json" ]; then pki_manifest_field "$1/pki-manifest.json" profile
+  fi
+}
+
+pki_scan() {   # one line per PKI:  path|release|nocr(0/1)   (7.9.8: only the PKIs of the company --pki, default the company of devkit.env)
+  local d n rel nocr v co want
+  want="$(pki_lc "${PKI_WANT_PKI:-${PKI_PROFILE:-}}")"
   for d in "$PKI_KIT_DIR/pki" "$PKI_KIT_DIR"/pki/R[0-9]* "$PKI_KIT_DIR"/pki/NoCR-R[0-9]* "$PKI_KIT_DIR"/pki/pki-*-[0-9][0-9]*; do
     [ -d "$d" ] || continue
     [ -f "$d/pki-manifest.json" ] || [ -f "$d/root/root.crt" ] || continue
     n="$(basename "$d")"; rel=1; nocr=0
+    if [ -n "$want" ]; then co="$(pki_lc "$(pki_company_of "$d")")"; [ -n "$co" ] && [ "$co" != "$want" ] && continue; fi
     case "$n" in NoCR-R[0-9]*) nocr=1; rel="${n#NoCR-R}" ;; R[0-9]*) rel="${n#R}" ;; pki-*-nocr-[0-9]*) nocr=1; rel=$((10#${n##*-})) ;; pki-*-[0-9]*) rel=$((10#${n##*-})) ;; esac
     if [ -f "$d/pki-manifest.json" ]; then
       v="$(pki_manifest_field "$d/pki-manifest.json" release)"; [ -n "$v" ] && rel="$v"
@@ -117,6 +130,7 @@ pki_select_pki() {
   [ -n "$PKI_DIR" ] && return 0
   local all fam want_nocr=0 line best="" bestrel=-1 hit="" d r n nn
   all="$(pki_scan)"
+  if [ -z "$all" ] && [ -n "$PKI_WANT_PKI" ]; then pki_die "No PKI of the company '$PKI_WANT_PKI' in $PKI_KIT_DIR/pki.$([ -f "$PKI_KIT_DIR/env/pkis.tsv" ] && printf ' This kit holds: %s' "$(awk -F'\t' '!/^#/ {print $2}' "$PKI_KIT_DIR/env/pkis.tsv" | sort -u | paste -sd, -)")"; fi
   [ -n "$all" ] || pki_die "No PKI found in $PKI_KIT_DIR/pki. Run Install-PkiTrust (.ps1 on Windows, .sh on Linux) first: it unpacks the .certpacked."
   if [ "$PKI_WANT_NOCR" = 1 ]; then want_nocr=1
   elif ! printf '%s\n' "$all" | grep -q '|0$'; then want_nocr=1; pki_info "Only a NoCR PKI exists here: using it."; fi
@@ -139,6 +153,10 @@ EOF
   [ "$PKI_NOCR" = 1 ] && PKI_SLUG_SUFFIX="-nocr"
   [ "$PKI_REL" -gt 1 ] && PKI_SLUG_SUFFIX="$PKI_SLUG_SUFFIX-r$PKI_REL"
   PKI_LABEL="$([ "$PKI_NOCR" = 1 ] && printf 'NoCR ')R$PKI_REL"
+  # 7.9.8: a kit of several PKIs has the settings of each one (env/<folder>.env): load those of the PKI that was chosen
+  local fe; fe="$PKI_KIT_DIR/env/$(basename "$PKI_DIR").env"
+  if [ -f "$fe" ]; then set -a; . "$fe"; set +a; fi
+  [ -n "${PKI_PROFILE:-}" ] && PKI_LABEL="$PKI_PROFILE $PKI_LABEL"
 }
 
 # ---------------------------------------------------------------- the issuing CA

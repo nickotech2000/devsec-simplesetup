@@ -1,7 +1,7 @@
 ====================================================================================================
  DevKit  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - the developer kit          Version 7.9.5           2026-10-22
+ Agantra Inovatif Enterprise PKI - the developer kit          Version 7.9.8           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -103,11 +103,20 @@
                                                      no generator, no SignCsr, no Sign-Code
                                                      (section 6).
 
- ONE kit holds ONE PKI: the latest release. Choose another with -Release N, -NoCaRevocationInfo or
- -PkiRoot. Make one kit for each release.
- The kit is built from the CURRENT configuration (agantra_pki.cnf and the pki folder): policies,
- CPS addresses, company numbers, CRL and OCSP addresses, subject defaults and the development SAN
- go into devkit.env. Build the kit again when any of them changes.
+ WHICH PKIs (7.9.8). By default ONE kit holds EVERY PKI of this computer: every company (each
+ <name>_pki.cnf with a built PKI), every release, normal and NoCR, every root with its
+ intermediates. The same choices as  PkiTransport.ps1 -Pack  take a part:
+     .\PkiTransport.ps1 -DevKit -Pki raksaka                  one company, all its releases
+     .\PkiTransport.ps1 -DevKit -Pki agantra,raksaka -Latest  the newest release of each
+     .\PkiTransport.ps1 -DevKit -Release 2                    release 2 (normal and NoCR)
+     .\PkiTransport.ps1 -DevKit -NoCaRevocationInfo           the NoCR PKIs only
+     .\PkiTransport.ps1 -DevKit -PkiFolder pki-default-01     exactly these PKI folders
+     .\PkiTransport.ps1 -DevKit -Ca q1-root                   one root and its intermediates
+     .\PkiTransport.ps1 -DevKit -ListCa                       show what goes in; nothing is written
+ The kit is built from the CURRENT configuration of each company (<name>_pki.cnf and the pki
+ folder): policies, CPS addresses, company numbers, CRL and OCSP addresses, subject defaults and
+ the development SAN go into env\<folder>.env (one per PKI) and devkit.env (the default PKI).
+ Build the kit again when any of them changes.
  The password can also come from the variable PKI_TRANSPORT_PASSWORD.
 
 ====================================================================================================
@@ -135,12 +144,14 @@
  Make-ShExecutable.ps1                  Windows: line endings and executable bit for the .sh.
  make-executable.sh                     Linux: the same.
  PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh   Unpack and install tools.
- devkit.env, agantra_pki.cnf, pki_tools.cnf   The settings.
+ devkit.env, env\, <company>_pki.cnf, pki_tools.cnf   The settings. env\<folder>.env per PKI,
+                                        env\pkis.tsv lists the PKIs; devkit.env = the default.
  lib\, scripts\                         Helper code for the scripts.
  examples\                              persons.example.json, office365.example.json
  docs\                                  The manuals.
  server\                                The server kit for CRL, OCSP and time stamping. It has
                                         NO private key. Copy only this folder to a server.
+                                        A kit of several PKIs: server-<folder>\ for each.
  RUN-SCRIPTS-WINDOWS.txt                Blocked scripts, execution policy, Windows Sandbox.
  SHA256SUMS                             The hash of every file.
 
@@ -254,6 +265,12 @@
 ====================================================================================================
  The certificates go to  leafcerts\  (Windows) or  leafcerts/  (Linux) inside the kit folder.
  Every folder has the .crt, .key, .pfx, the chain files and hash files (.sha256, .sha512).
+ WHICH PKI SIGNS (7.9.8). A kit can hold several PKIs. Default: the kit's company (DefaultPki in
+ pki_tools.cnf), its latest normal release. Another one, on every generator and on SignCsr:
+     .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com -Pki raksaka -Release 2
+     ./GenerateLeafCertificate.sh --ov --dns www.example.com --pki raksaka --no-ca-revocation-info
+ env\pkis.tsv lists the PKIs of the kit. A company that is not in the kit is an error that names
+ the companies the kit holds.
 
  What you want                  Windows                                  Linux
  -----------------------------  ---------------------------------------  ------------------------
@@ -419,7 +436,7 @@
  * The zip is not encrypted as a whole. Only the .certpacked is. Do not put secrets next to it.
  * A zip made on Windows has no Unix permissions. That is why make-executable exists. A zip made on
    Linux keeps the executable bit.
- * One kit = one PKI at one moment (section 13).
+ * One kit = the chosen PKIs at one moment (section 13). Default: all of them.
  * A kit with keys makes every holder an operator of the issuing CAs (section 6).
  * Certificates from a kit are development certificates (section 13).
  * The kit holds the version of the scripts it was built with. Build a new kit to update.
@@ -458,14 +475,19 @@
 
  Options of the kit scripts:
    Install-PkiTrust.ps1   -Package -PackagePassword -TrustOnly -Reset -InstallMissing
-                          -SkipOpenSslCheck -OpenSslPath -SevenZipPath -Help
+                          -SkipOpenSslCheck -OpenSslPath -SevenZipPath -Pki -Release -Ca -Help
    Install-PkiTrust.sh    --package --password-file --trust-only --reset --yes --install-openssl
                           --skip-openssl-check --openssl --7z --trust roots|enterprise|all-ca|none
+                          --pki --release --ca
    Make-ShExecutable.ps1  -Path -LineEndingsOnly -Help
    make-executable.sh     [folder] --help
    PkiTransport.ps1       -DevKit -Out -GeneratePassword -PackagePassword -ArchiveFormat
                           -KitArchiveFormat -DevKitNoKeys -Comment -SevenZipPath -InstallMissing
-                          -NoVerify -Release -NoCaRevocationInfo -PkiRoot
+                          -NoVerify -Pki -Release -Latest -NoCaRevocationInfo -PkiRoot -PkiFolder
+                          -Ca -ListCa      (default: every PKI)
+   The generators and SignCsr  -Pki <company> -Release <n> -NoCaRevocationInfo
+                          (.sh: --pki --release --no-ca-revocation-info). Default: the kit's
+                          company (DefaultPki in pki_tools.cnf), its latest normal release.
 
  Exit codes: 0 = done. 1 = an error. 2 = SignCsr: the request breaks the rules. 4 =
  Install-DevEnvironment --check: not ready. 5 = this system is refused.
@@ -483,6 +505,13 @@
      the system store and every chain verifies; six issuing CAs got new serial counters.
    * ./GenerateLeafCertificate.sh from the unpacked kit: seven certificates, hash files check OK.
    * The help of every script runs; the manual and the helps fit 100 columns.
+ Tested in 7.9.8 (Linux, OpenSSL 4.0.0, PowerShell 7.5, three real PKIs: agantra R1, agantra NoCR
+ R1, raksaka R1): -DevKit packed all three (12 issuing keys, no root key) with env\ per PKI, both
+ *_pki.cnf and three server kits; Install-PkiTrust.sh --trust none unpacked pki\<folder> for each
+ and rewrote their paths; GenerateLeafCertificate.sh and .ps1 issued from the default PKI, from
+ --pki raksaka / -Pki raksaka and from the NoCR PKI (issuer checked each time); an unknown company
+ stops with the list. -DevKit -Pki raksaka -DevKitNoKeys and -Pki agantra -NoCaRevocationInfo
+ chose one PKI; -ListCa listed. The server kit of a company now uses that company's *_pki.cnf.
  NOT tested:
    * Install-PkiTrust.ps1 and the Windows certificate stores, Make-ShExecutable.ps1 through WSL.
    * Windows PowerShell scripts of the kit on Windows (they parse, they were not run there).

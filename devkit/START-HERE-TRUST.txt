@@ -22,7 +22,7 @@
    Prepare-Computer                   Install OpenSSL (winget, Chocolatey, apt, dnf, zypper).
    Install-DevEnvironment             Install PowerShell 7, OpenSSL 4 and 7-Zip.
    Make-ShExecutable.ps1 / make-executable.sh   Make the .sh files ready for Linux.
-   server\                            The server kit (CRL, OCSP, time stamping; no private key).
+   server\  or  server-<folder>\     The server kit of each PKI (CRL, OCSP, time stamping; no key).
    scripts\, docs\                    Used by the scripts. SHA256SUMS lists every file.
  Help of every script:   .\<script>.ps1 -Help          ./<script>.sh --help
 
@@ -50,6 +50,8 @@
 ----------------------------------------------------------------------------------------------------
  GOOD TO KNOW
 ----------------------------------------------------------------------------------------------------
+ * The kit can hold SEVERAL PKIs (companies, releases, normal and NoCR). Install-PkiTrust installs
+   ALL of them; -Pki / -Release (--pki / --release) install only a part.
  * Installing again removes the older CAs of this same PKI first (only of this PKI, matched by
    thumbprint) and puts the new ones in. Public CAs and other PKIs are never touched.
  * Trouble? docs\DevKit-MANUAL.txt, section 15, lists the messages and the fixes.

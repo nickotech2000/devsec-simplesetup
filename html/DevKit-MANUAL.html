@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.5">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.8">
 <meta name="description" content="One zip for a developer: trust plus the tools to issue certificates.">
 <title>DevKit - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.5</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.8</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>DevKit</h1>
 <p class="lead">One zip for a developer: trust plus the tools to issue certificates.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-devkit-is">1  WHAT THE DEVKIT IS</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-owner-make-the-kit">4  OWNER: MAKE THE KIT</a></li><li class="l2"><a href="#5-what-is-inside-the-kit">5  WHAT IS INSIDE THE KIT</a></li><li class="l2"><a href="#6-what-is-not-inside-and-the-keys">6  WHAT IS NOT INSIDE, AND THE KEYS</a></li><li class="l2"><a href="#7-send-the-kit">7  SEND THE KIT</a></li><li class="l2"><a href="#8-developer-windows-step-by-step">8  DEVELOPER: WINDOWS, STEP BY STEP</a></li><li class="l2"><a href="#9-developer-linux-step-by-step">9  DEVELOPER: LINUX, STEP BY STEP</a></li><li class="l2"><a href="#10-make-certificates-in-the-kit">10  MAKE CERTIFICATES IN THE KIT</a></li><li class="l2"><a href="#11-sign-the-request-csr-of-a-colleague">11  SIGN THE REQUEST (CSR) OF A COLLEAGUE</a></li><li class="l2"><a href="#12-install-openssl-4-on-the-machine">12  INSTALL OPENSSL 4 ON THE MACHINE</a></li><li class="l2"><a href="#13-serial-numbers-revocation-copies">13  SERIAL NUMBERS, REVOCATION, COPIES</a></li><li class="l2"><a href="#14-shell-scripts-and-powershell-scripts">14  SHELL SCRIPTS AND POWERSHELL SCRIPTS</a></li><li class="l2"><a href="#15-problems-and-answers">15  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#16-limits-you-must-know">16  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#17-all-scripts-and-options">17  ALL SCRIPTS AND OPTIONS</a></li><li class="l2"><a href="#18-what-was-tested-what-was-not">18  WHAT WAS TESTED, WHAT WAS NOT</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - the developer kit          Version 7.9.5           2026-10-22
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - the developer kit          Version 7.9.8           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : One zip file for a developer. It holds your private PKI (so the computer trusts
@@ -240,7 +240,21 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
      .\PkiTransport.ps1 -DevKit -DevKitNoKeys        A TRUST kit: CA certificates only. It has
                                                      no generator, no SignCsr, no Sign-Code
                                                      (section 6).</pre></div>
-<p>ONE kit holds ONE PKI: the latest release. Choose another with -Release N, -NoCaRevocationInfo or -PkiRoot. Make one kit for each release. The kit is built from the CURRENT configuration (agantra_pki.cnf and the pki folder): policies, CPS addresses, company numbers, CRL and OCSP addresses, subject defaults and the development SAN go into devkit.env. Build the kit again when any of them changes. The password can also come from the variable PKI_TRANSPORT_PASSWORD.</p>
+<div class="code"><pre> WHICH PKIs (7.9.8). By default ONE kit holds EVERY PKI of this computer: every company (each
+ &lt;name&gt;_pki.cnf with a built PKI), every release, normal and NoCR, every root with its
+ intermediates. The same choices as  PkiTransport.ps1 -Pack  take a part:
+     .\PkiTransport.ps1 -DevKit -Pki raksaka                  one company, all its releases
+     .\PkiTransport.ps1 -DevKit -Pki agantra,raksaka -Latest  the newest release of each
+     .\PkiTransport.ps1 -DevKit -Release 2                    release 2 (normal and NoCR)
+     .\PkiTransport.ps1 -DevKit -NoCaRevocationInfo           the NoCR PKIs only
+     .\PkiTransport.ps1 -DevKit -PkiFolder pki-default-01     exactly these PKI folders
+     .\PkiTransport.ps1 -DevKit -Ca q1-root                   one root and its intermediates
+     .\PkiTransport.ps1 -DevKit -ListCa                       show what goes in; nothing is written
+ The kit is built from the CURRENT configuration of each company (&lt;name&gt;_pki.cnf and the pki
+ folder): policies, CPS addresses, company numbers, CRL and OCSP addresses, subject defaults and
+ the development SAN go into env\&lt;folder&gt;.env (one per PKI) and devkit.env (the default PKI).
+ Build the kit again when any of them changes.
+ The password can also come from the variable PKI_TRANSPORT_PASSWORD.</pre></div>
 <h2 id="5-what-is-inside-the-kit">5  WHAT IS INSIDE THE KIT<a class="anchor" href="#5-what-is-inside-the-kit" aria-label="Link to this section">#</a></h2>
 <p>One folder. Its name is the zip name.</p>
 <div class="code"><pre> File or folder                         What it is
@@ -263,12 +277,14 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  Make-ShExecutable.ps1                  Windows: line endings and executable bit for the .sh.
  make-executable.sh                     Linux: the same.
  PkiTransport.ps1, Unpack-PkiTransport.ps1, pki-transport.sh   Unpack and install tools.
- devkit.env, agantra_pki.cnf, pki_tools.cnf   The settings.
+ devkit.env, env\, &lt;company&gt;_pki.cnf, pki_tools.cnf   The settings. env\&lt;folder&gt;.env per PKI,
+                                        env\pkis.tsv lists the PKIs; devkit.env = the default.
  lib\, scripts\                         Helper code for the scripts.
  examples\                              persons.example.json, office365.example.json
  docs\                                  The manuals.
  server\                                The server kit for CRL, OCSP and time stamping. It has
                                         NO private key. Copy only this folder to a server.
+                                        A kit of several PKIs: server-&lt;folder&gt;\ for each.
  <a href="RUN-SCRIPTS-WINDOWS.html">RUN-SCRIPTS-WINDOWS.txt</a>                Blocked scripts, execution policy, Windows Sandbox.
  SHA256SUMS                             The hash of every file.</pre></div>
 <p>A TRUST kit (-DevKitNoKeys) has only: the .certpacked, <a href="START-HERE.html">START-HERE.txt</a> (the trust version), Install-PkiTrust, New-PkiCsr, Prepare-Computer, Install-DevEnvironment, Create-WebServerConfig, Make-ShExecutable, the transport scripts, the settings, scripts\, docs\, server\, SHA256SUMS.</p>
@@ -339,7 +355,14 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  Remove the trust: remove the agantra-pki-* files in /usr/local/share/ca-certificates and run
  update-ca-certificates --fresh.</pre></div>
 <h2 id="10-make-certificates-in-the-kit">10  MAKE CERTIFICATES IN THE KIT<a class="anchor" href="#10-make-certificates-in-the-kit" aria-label="Link to this section">#</a></h2>
-<p>The certificates go to  leafcerts\  (Windows) or  leafcerts/  (Linux) inside the kit folder. Every folder has the .crt, .key, .pfx, the chain files and hash files (.sha256, .sha512).</p>
+<div class="code"><pre> The certificates go to  leafcerts\  (Windows) or  leafcerts/  (Linux) inside the kit folder.
+ Every folder has the .crt, .key, .pfx, the chain files and hash files (.sha256, .sha512).
+ WHICH PKI SIGNS (7.9.8). A kit can hold several PKIs. Default: the kit&#39;s company (DefaultPki in
+ pki_tools.cnf), its latest normal release. Another one, on every generator and on SignCsr:
+     .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com -Pki raksaka -Release 2
+     ./GenerateLeafCertificate.sh --ov --dns www.example.com --pki raksaka --no-ca-revocation-info
+ env\pkis.tsv lists the PKIs of the kit. A company that is not in the kit is an error that names
+ the companies the kit holds.</pre></div>
 <div class="code"><pre> What you want                  Windows                                  Linux
  -----------------------------  ---------------------------------------  ------------------------
  7 certificates for a site      GenerateLeafCertificate.ps1 -OV          GenerateLeafCertificate.sh
@@ -450,7 +473,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  Files are blocked on Windows                        Unblock-File .\*.ps1, or
                                                      .\PkiTransport.ps1 -Unblock</pre></div>
 <h2 id="16-limits-you-must-know">16  LIMITS YOU MUST KNOW<a class="anchor" href="#16-limits-you-must-know" aria-label="Link to this section">#</a></h2>
-<ul><li>The zip is not encrypted as a whole. Only the .certpacked is. Do not put secrets next to it.</li><li>A zip made on Windows has no Unix permissions. That is why make-executable exists. A zip made on Linux keeps the executable bit.</li><li>One kit = one PKI at one moment (section 13).</li><li>A kit with keys makes every holder an operator of the issuing CAs (section 6).</li><li>Certificates from a kit are development certificates (section 13).</li><li>The kit holds the version of the scripts it was built with. Build a new kit to update.</li></ul>
+<ul><li>The zip is not encrypted as a whole. Only the .certpacked is. Do not put secrets next to it.</li><li>A zip made on Windows has no Unix permissions. That is why make-executable exists. A zip made on Linux keeps the executable bit.</li><li>One kit = the chosen PKIs at one moment (section 13). Default: all of them.</li><li>A kit with keys makes every holder an operator of the issuing CAs (section 6).</li><li>Certificates from a kit are development certificates (section 13).</li><li>The kit holds the version of the scripts it was built with. Build a new kit to update.</li></ul>
 <h2 id="17-all-scripts-and-options">17  ALL SCRIPTS AND OPTIONS<a class="anchor" href="#17-all-scripts-and-options" aria-label="Link to this section">#</a></h2>
 <div class="code cmd"><button type="button" class="copy" title="Copy"><span class="fa fa-copy" aria-hidden="true"></span><span class="tx">Copy</span></button><pre> The full option list of every script is in the terminal, one page at a time:
      .\&lt;script&gt;.ps1 -Help          ./&lt;script&gt;.sh --help</pre></div>
@@ -481,14 +504,19 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  <a href="RUN-SCRIPTS-WINDOWS.html">RUN-SCRIPTS-WINDOWS.txt</a>.</pre></div>
 <div class="code"><pre> Options of the kit scripts:
    Install-PkiTrust.ps1   -Package -PackagePassword -TrustOnly -Reset -InstallMissing
-                          -SkipOpenSslCheck -OpenSslPath -SevenZipPath -Help
+                          -SkipOpenSslCheck -OpenSslPath -SevenZipPath -Pki -Release -Ca -Help
    Install-PkiTrust.sh    --package --password-file --trust-only --reset --yes --install-openssl
                           --skip-openssl-check --openssl --7z --trust roots|enterprise|all-ca|none
+                          --pki --release --ca
    Make-ShExecutable.ps1  -Path -LineEndingsOnly -Help
    make-executable.sh     [folder] --help
    PkiTransport.ps1       -DevKit -Out -GeneratePassword -PackagePassword -ArchiveFormat
                           -KitArchiveFormat -DevKitNoKeys -Comment -SevenZipPath -InstallMissing
-                          -NoVerify -Release -NoCaRevocationInfo -PkiRoot</pre></div>
+                          -NoVerify -Pki -Release -Latest -NoCaRevocationInfo -PkiRoot -PkiFolder
+                          -Ca -ListCa      (default: every PKI)
+   The generators and SignCsr  -Pki &lt;company&gt; -Release &lt;n&gt; -NoCaRevocationInfo
+                          (.sh: --pki --release --no-ca-revocation-info). Default: the kit&#39;s
+                          company (DefaultPki in pki_tools.cnf), its latest normal release.</pre></div>
 <p>Exit codes: 0 = done. 1 = an error. 2 = SignCsr: the request breaks the rules. 4 = Install-DevEnvironment --check: not ready. 5 = this system is refused.</p>
 <p>VERSION REPORT (new in 6.4.13).  Every script answers -Version (PowerShell) or --version (bash). It prints the script version, author, company, e-mail, the operating system with its version and patch level (or kernel), and the newest .NET, Node.js, Python 3, Java, shell, Schannel and OpenSSL found, with the vendor of each OpenSSL. It changes nothing. Details: <a href="VERSION-INFO.html">VERSION-INFO.txt</a>.</p>
 <h2 id="18-what-was-tested-what-was-not">18  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#18-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
@@ -497,6 +525,13 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
      the system store and every chain verifies; six issuing CAs got new serial counters.
    * ./GenerateLeafCertificate.sh from the unpacked kit: seven certificates, hash files check OK.
    * The help of every script runs; the manual and the helps fit 100 columns.
+ Tested in 7.9.8 (Linux, OpenSSL 4.0.0, PowerShell 7.5, three real PKIs: agantra R1, agantra NoCR
+ R1, raksaka R1): -DevKit packed all three (12 issuing keys, no root key) with env\ per PKI, both
+ *_pki.cnf and three server kits; Install-PkiTrust.sh --trust none unpacked pki\&lt;folder&gt; for each
+ and rewrote their paths; GenerateLeafCertificate.sh and .ps1 issued from the default PKI, from
+ --pki raksaka / -Pki raksaka and from the NoCR PKI (issuer checked each time); an unknown company
+ stops with the list. -DevKit -Pki raksaka -DevKitNoKeys and -Pki agantra -NoCaRevocationInfo
+ chose one PKI; -ListCa listed. The server kit of a company now uses that company&#39;s *_pki.cnf.
  NOT tested:
    * Install-PkiTrust.ps1 and the Windows certificate stores, Make-ShExecutable.ps1 through WSL.
    * Windows PowerShell scripts of the kit on Windows (they parse, they were not run there).
@@ -504,7 +539,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    * -KitArchiveFormat 7z and the PPA and build sources of Install-DevEnvironment.sh.
    * Firefox and other browsers with the installed roots.</pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PkiTrustKit-MANUAL.html"><small>&larr; Previous</small>Trust kit</a><a class="nx" href="PkiTransport-MANUAL.html"><small>Next &rarr;</small>Transport package</a></nav>
-<p class="crumb">Made from DevKit-MANUAL.txt by Build-HtmlDocs.ps1 7.9.5.</p>
+<p class="crumb">Made from DevKit-MANUAL.txt by Build-HtmlDocs.ps1 7.9.8.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-devkit-is">1  WHAT THE DEVKIT IS</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-owner-make-the-kit">4  OWNER: MAKE THE KIT</a><a href="#5-what-is-inside-the-kit">5  WHAT IS INSIDE THE KIT</a><a href="#6-what-is-not-inside-and-the-keys">6  WHAT IS NOT INSIDE, AND THE KEYS</a><a href="#7-send-the-kit">7  SEND THE KIT</a><a href="#8-developer-windows-step-by-step">8  DEVELOPER: WINDOWS, STEP BY STEP</a><a href="#9-developer-linux-step-by-step">9  DEVELOPER: LINUX, STEP BY STEP</a><a href="#10-make-certificates-in-the-kit">10  MAKE CERTIFICATES IN THE KIT</a><a href="#11-sign-the-request-csr-of-a-colleague">11  SIGN THE REQUEST (CSR) OF A COLLEAGUE</a><a href="#12-install-openssl-4-on-the-machine">12  INSTALL OPENSSL 4 ON THE MACHINE</a><a href="#13-serial-numbers-revocation-copies">13  SERIAL NUMBERS, REVOCATION, COPIES</a><a href="#14-shell-scripts-and-powershell-scripts">14  SHELL SCRIPTS AND POWERSHELL SCRIPTS</a><a href="#15-problems-and-answers">15  PROBLEMS AND ANSWERS</a><a href="#16-limits-you-must-know">16  LIMITS YOU MUST KNOW</a><a href="#17-all-scripts-and-options">17  ALL SCRIPTS AND OPTIONS</a><a href="#18-what-was-tested-what-was-not">18  WHAT WAS TESTED, WHAT WAS NOT</a></aside>
@@ -514,7 +549,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.5</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.8</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

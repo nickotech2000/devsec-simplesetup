@@ -25,8 +25,10 @@
    Prepare-Computer                   Install OpenSSL (winget, Chocolatey, apt, dnf, zypper).
    Install-DevEnvironment             Install OpenSSL 4 and put it on the PATH.
    Make-ShExecutable.ps1 / make-executable.sh   Make the .sh files ready for Linux.
-   server\                            The server kit (CRL, OCSP, time stamping; no private key).
-   devkit.env, lib\, scripts\, examples\, docs\   Used by the scripts. SHA256SUMS lists every file.
+   server\  or  server-<folder>\     The server kit of each PKI (CRL, OCSP, time stamping; no key).
+   devkit.env, env\, lib\, scripts\, examples\, docs\   Used by the scripts. SHA256SUMS lists
+                                      every file.
+   RUN-SCRIPTS-WINDOWS.txt            Blocked scripts, execution policy, Windows Sandbox.
  Every PowerShell script (.ps1) has a bash twin (.sh). Help of every script:
      .\<script>.ps1 -Help          ./<script>.sh --help
 
@@ -118,13 +120,18 @@
          hosts-file lines and router DNS records
  server\README-SERVER-PACKAGE.txt and server\docs\PKI-SERVER-MANUAL.txt have every step. The
  server\pki folder has NO private key. The OCSP and time stamp keys are made on the server and
-   signed
- on the CA machine (PkiRevocation.ps1 -Action SignCsr). For a new CRL, build the kit again.
+ signed on the CA machine (PkiRevocation.ps1 -Action SignCsr). For a new CRL, build the kit again.
+ A kit of SEVERAL PKIs has one server kit per PKI: server-<folder>\ (server-pki-default-01 ...).
+ Use the one of the PKI that the server serves; the commands are the same.
 
 ----------------------------------------------------------------------------------------------------
- RELEASE OF THIS KIT
+ THE PKIs OF THIS KIT
 ----------------------------------------------------------------------------------------------------
- The kit holds ONE PKI (see PKI_RELEASE and PKI_VARIANT in devkit.env). The generators use it
- automatically. -Release / --release and -NoCaRevocationInfo / --no-ca-revocation-info are needed
- only when the pki folder holds several. A PKI made with NoCR has CA certificates without CRL and
- OCSP addresses.
+ The kit can hold SEVERAL PKIs: every company, every release, normal and NoCR (the owner chose
+ them when building the kit; the default is all). Install-PkiTrust installs ALL of them. The list:
+ env\pkis.tsv, or  .\PkiTransport.ps1 -List -Package <the .certpacked>.
+ The generators and SignCsr use the DEFAULT company (DefaultPki in pki_tools.cnf), its latest
+ normal release. Choose another one:
+     PowerShell   -Pki raksaka   -Release 2   -NoCaRevocationInfo
+     Shell        --pki raksaka  --release 2  --no-ca-revocation-info
+ A PKI made with NoCR has CA certificates without CRL and OCSP addresses.

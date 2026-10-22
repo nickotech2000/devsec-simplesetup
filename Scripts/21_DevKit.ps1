@@ -43,6 +43,7 @@ function Write-PkiDevKitEnv {
     [void]$L.Add("# Made $([DateTime]::UtcNow.ToString('yyyy-MM-dd HH:mm')) UTC on $([Environment]::MachineName). Do not edit by hand: rebuild the DevKit instead.")
     [void]$L.Add("PKI_KIT_VERSION=$(& $q $script:PkiGeneratorVersion)")
     [void]$L.Add("PKI_PROFILE=$(& $q $c.Profile)")
+    [void]$L.Add("PKI_FOLDER=$(& $q (Split-Path -Leaf ([string]$c.PkiRoot).TrimEnd('\', '/')))")
     [void]$L.Add("ORG_NAME=$(& $q (Get-PkiLeafSubjectValue 'Organization' 'O' 'Agantra Inovatif OU' 'OV'))")
     [void]$L.Add("CPS_URL=$(& $q (Get-PkiCpsUrl -Level 'OV'))")
     [void]$L.Add("CPS_URL_EV=$(& $q (Get-PkiCpsUrl -Level 'EV'))")
@@ -102,22 +103,29 @@ $script:PkiDevKitIssuerScripts = @('GenerateLeafCertificate', 'GeneratePersonLea
 $script:PkiDevKitIssuerManuals = @('GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'GenerateCodeSigningCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'Sign-Code-MANUAL.txt')
 
 function Copy-PkiDevKitTree {
-    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit, [bool]$WithKeys = $true)
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit, [bool]$WithKeys = $true, [string[]]$ConfigPaths = @(), [string]$DefaultProfile)
     Ensure-PkiDirectory -Path $Kit
     $issuers = $script:PkiDevKitIssuerScripts
     # scripts and project files the PowerShell generators and the transport need
     $top = [System.Collections.Generic.List[string]]::new()
-    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'Create-WebServerConfig.ps1', 'Install-DevEnvironment.ps1', (Split-Path -Leaf $script:Pki.ConfigPath), '.gitattributes') { [void]$top.Add($f) }
+    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'Create-WebServerConfig.ps1', 'Install-DevEnvironment.ps1', '.gitattributes') { [void]$top.Add($f) }
     if ($WithKeys) { foreach ($n in $issuers) { [void]$top.Add("$n.ps1") } }
     foreach ($f in $top) {
         $src = Join-Path $Root $f
         if (Test-Path -LiteralPath $src -PathType Leaf) { Copy-Item -LiteralPath $src -Destination $Kit -Force }
         elseif ($f -ne '.gitattributes') { throw "DevKit: $src is missing." }
     }
-    # pki_tools.cnf of the kit: the PKI of this kit is its default PKI (the scripts of the kit need no -Pki)
+    # 7.9.8: the configuration of EVERY company in the kit (<name>_pki.cnf), so -Pki <name> works in the kit as on the master
+    if (@($ConfigPaths).Count -eq 0) { $ConfigPaths = @($script:Pki.ConfigPath) }
+    foreach ($cp in @($ConfigPaths | Select-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $cp -PathType Leaf)) { throw "DevKit: the configuration $cp is missing." }
+        Copy-Item -LiteralPath $cp -Destination $Kit -Force
+    }
+    # pki_tools.cnf of the kit: the default company of the kit is its default PKI (the scripts of the kit need -Pki only for another one)
+    if (-not $DefaultProfile) { $DefaultProfile = $script:Pki.Profile }
     $tools = Join-Path $Root 'pki_tools.cnf'
     $tt = if (Test-Path -LiteralPath $tools) { [System.IO.File]::ReadAllText($tools) } else { "[ general ]`nDefaultPki = agantra`n" }
-    $tt = if ($tt -match '(?im)^\s*DefaultPki\s*=') { [regex]::Replace($tt, '(?im)^(\s*DefaultPki\s*=).*$', "`$1 $($script:Pki.Profile)") } else { "[ general ]`nDefaultPki = $($script:Pki.Profile)`n" + $tt }
+    $tt = if ($tt -match '(?im)^\s*DefaultPki\s*=') { [regex]::Replace($tt, '(?im)^(\s*DefaultPki\s*=).*$', "`$1 $DefaultProfile") } else { "[ general ]`nDefaultPki = $DefaultProfile`n" + $tt }
     Write-Utf8NoBom -Path (Join-Path $Kit 'pki_tools.cnf') -Content $tt
     $shTop = @('pki-transport.sh', 'Install-DevEnvironment.sh', 'Create-WebServerConfig.sh')
     if ($WithKeys) { $shTop += 'Sign-Code.sh' }
@@ -167,17 +175,19 @@ function Add-PkiDevKitServerKit {
         It is the package of  New-PkiServerPackage.ps1  (no key is ever in it; the package is scanned) unpacked into the kit. ONE kit serves all four
         installs on Ubuntu 24.04 / 26.04:  CRL only (--crl-only), CRL + OCSP (--no-tsa), time stamp only (--tsa-only), everything (no flag).
     #>
-    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit, [Parameter(Mandatory)][string]$PkiRoot, [Parameter(Mandatory)][string]$Work)
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit, [Parameter(Mandatory)][string]$PkiRoot, [Parameter(Mandatory)][string]$Work, [string]$RootName = 'server', [string]$Company)
     $np = Join-Path $Root 'New-PkiServerPackage.ps1'
     if (-not (Test-Path -LiteralPath $np -PathType Leaf)) { throw "DevKit: $np is missing (the server kit goes into the DevKit; -DevKitNoServer leaves it out)." }
-    $zip = Join-Path $Work 'server-kit.zip'
+    $zip = Join-Path $Work "$RootName-kit.zip"
     $pw = (Get-Process -Id $PID).Path
-    $out = & $pw -NoProfile -File $np -PkiRoot $PkiRoot -Output $zip -RootName 'server' -Force 2>&1
+    $na = @('-NoProfile', '-File', $np, '-PkiRoot', $PkiRoot, '-Output', $zip, '-RootName', $RootName, '-Force')
+    if ($Company) { $na += @('-PkiProfile', $Company) }          # 7.9.8: the configuration of the company of THIS PKI folder
+    $out = & $pw @na 2>&1
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $zip)) { throw "DevKit: the server kit could not be made (exit $LASTEXITCODE): $((@($out) | Select-Object -Last 3) -join ' | ')" }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     [System.IO.Compression.ZipFile]::ExtractToDirectory($zip, $Kit)
     Remove-Item -LiteralPath $zip -Force
-    Write-PkiLog 'DevKit: the server kit is in the folder server\ (pki-server.sh: CRL, OCSP, time stamping; no private key).' 'OK'
+    Write-PkiLog "DevKit: the server kit of $(Split-Path -Leaf $PkiRoot) is in the folder $RootName\ (pki-server.sh: CRL, OCSP, time stamping; no private key)." 'OK'
 }
 
 function ConvertTo-PkiLf {
@@ -231,18 +241,41 @@ function New-PkiDevKit {
     param(
         [Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$OutFile, [Parameter(Mandatory)][string]$Password,
         [ValidateSet('zip', '7z')][string]$KitFormat = 'zip', [ValidateSet('zip', '7z')][string]$PackageFormat = 'zip',
-        [string]$SevenZipPath, [string]$Comment = '', [string]$LeafRoot, [bool]$WithKeys = $true, [switch]$NoVerify, [bool]$WithServer = $true
+        [string]$SevenZipPath, [string]$Comment = '', [string]$LeafRoot, [bool]$WithKeys = $true, [switch]$NoVerify, [bool]$WithServer = $true,
+        # 7.9.8: the PKI folders of the kit (Resolve-PkiPackPkis: default every company, release, normal and NoCR) and the -Ca choice
+        [Parameter(Mandatory)][object[]]$Pkis, [string[]]$CaFilter = @(), [hashtable]$Selection
     )
-    $c = $script:Pki
     $work = Join-Path ([System.IO.Path]::GetTempPath()) "devkit-$([guid]::NewGuid().ToString('N'))"
     $kitName = [System.IO.Path]::GetFileNameWithoutExtension($OutFile)
     $kit = Join-Path $work $kitName
     try {
-        Copy-PkiDevKitTree -Root $Root -Kit $kit -WithKeys $WithKeys
-        if ($WithServer) { Add-PkiDevKitServerKit -Root $Root -Kit $kit -PkiRoot ([string]$c.PkiRoot) -Work $work }
+        # the default PKI of the kit: the latest normal release of the default company (pki_tools.cnf DefaultPki), else of the first company
+        $profiles = @($Pkis | ForEach-Object { [string]$_.Profile } | Select-Object -Unique)
+        $defProfile = Get-PkiDefaultProfileName
+        if ($profiles -notcontains $defProfile) { $defProfile = $profiles[0] }
+        $ofDefault = @($Pkis | Where-Object { $_.Profile -eq $defProfile })
+        $defPki = @($ofDefault | Where-Object { -not $_.NoCr } | Sort-Object Release -Descending) + @($ofDefault | Sort-Object Release -Descending) | Select-Object -First 1
+        $configs = @(foreach ($p in $profiles) { (Resolve-PkiProfile -ScriptRoot $Root -Name $p).ConfigPath })
+        Copy-PkiDevKitTree -Root $Root -Kit $kit -WithKeys $WithKeys -ConfigPaths $configs -DefaultProfile $defProfile
+        if ($WithServer) {
+            # one server kit per PKI folder: server\ for a kit of ONE PKI, server-<folder>\ for each PKI of a kit of several
+            foreach ($pk in $Pkis) { Add-PkiDevKitServerKit -Root $Root -Kit $kit -PkiRoot ([string]$pk.Path) -Company ([string]$pk.Profile) -Work $work -RootName $(if (@($Pkis).Count -eq 1) { 'server' } else { "server-$($pk.Folder)" }) }
+        }
         if ($WithKeys) {
-            # devkit.env and the examples are read by the generators only
-            Write-PkiDevKitEnv -Path (Join-Path $kit 'devkit.env')
+            # the settings of EVERY PKI for the shell generators: env\<folder>.env (from the configuration of its company), env\pkis.tsv,
+            # and devkit.env = the default PKI. They and the examples are read by the generators only.
+            $envDir = Join-Path $kit 'env'; Ensure-PkiDirectory -Path $envDir
+            $tsv = [System.Collections.Generic.List[string]]::new(); [void]$tsv.Add("# folder`tcompany`trelease`tnocr   (PkiTransport.ps1 -DevKit; the shell generators choose with --pki / --release / --no-ca-revocation-info)")
+            foreach ($pk in $Pkis) {
+                Initialize-PkiConfiguration -ScriptRoot $Root -Bound @{ PkiRoot = [string]$pk.Path; PkiProfile = [string]$pk.Profile }
+                [void](Import-PkiExisting -SkipProviders)
+                Write-PkiDevKitEnv -Path (Join-Path $envDir "$($pk.Folder).env")
+                [void]$tsv.Add("$($pk.Folder)`t$($pk.Profile)`t$([int]$pk.Release)`t$(if ($pk.NoCr) { 1 } else { 0 })")
+            }
+            Write-Utf8NoBom -Path (Join-Path $envDir 'pkis.tsv') -Content (($tsv -join "`n") + "`n")
+            Copy-Item -LiteralPath (Join-Path $envDir "$($defPki.Folder).env") -Destination (Join-Path $kit 'devkit.env') -Force
+            Initialize-PkiConfiguration -ScriptRoot $Root -Bound @{ PkiRoot = [string]$defPki.Path; PkiProfile = [string]$defPki.Profile }
+            [void](Import-PkiExisting -SkipProviders)
             $ex = Join-Path $kit 'examples'; Ensure-PkiDirectory -Path $ex
             [void](Write-PkiPersonExample -Path (Join-Path $ex 'persons.example.json'))
             [void](Write-PkiOfficeExample -Path (Join-Path $ex 'office365.example.json'))
@@ -257,7 +290,8 @@ function New-PkiDevKit {
         $pkgFile = Join-Path $kit "$kitName.certpacked"
         $cmt = if ($Comment) { $Comment } else { 'DevKit' }
         $res = New-PkiCertPackage -OutFile $pkgFile -Password $Password -ArchiveFormat $PackageFormat -ZipEncryption 'Aes256' `
-            -IncludeLeafCerts:$false -IncludeCaKeys:$WithKeys -IssuingKeysOnly:$WithKeys -LeafRoot $LeafRoot -Comment $cmt -SevenZipPath $SevenZipPath -NoVerify:$NoVerify
+            -IncludeLeafCerts:$false -IncludeCaKeys:$WithKeys -IssuingKeysOnly:$WithKeys -LeafRoot $LeafRoot -Comment $cmt -SevenZipPath $SevenZipPath -NoVerify:$NoVerify `
+            -Pkis $Pkis -CaFilter $CaFilter -Selection $Selection
         # line endings of every shell file, then SHA256SUMS of the kit
         foreach ($f in Get-ChildItem -LiteralPath $kit -Recurse -File | Where-Object { $_.Extension -in '.sh', '.py', '.env' }) { ConvertTo-PkiLf -Path $f.FullName }
         $sums = [System.Text.StringBuilder]::new()

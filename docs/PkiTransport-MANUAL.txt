@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.5   2026-10-22
+ Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.8   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh
 
@@ -150,8 +150,7 @@
    pki\<folder>\*                           (-IncludeCaKeys / -IssuingKeysOnly)
  and once: ca\ca-bundle-roots.crt, ca\ca-bundle-all.crt (the CAs of ALL packed PKIs), leafcerts\*.
  certpack.json lists the PKIs (pkis) and gives every CA its company (pki) and folder (release).
- The DevKit package keeps the older layout of ONE PKI (ca\roots\<slug>.crt, pki\*), now with the
- same pki / release names.
+ The DevKit package (7.9.8) uses the same layout: every PKI of the kit in pki\<folder>\.
 
  FORMATS. A .certpacked IS an archive under another name. Rename it to .zip or .7z and 7-Zip opens
  it with the password. The scripts read the first bytes, never the extension.
@@ -411,8 +410,10 @@
    .\PkiTransport.ps1 -Pack -Pki agantra -Release 2 -Ca q2-root        release 2, the Q2 tree only
    .\PkiTransport.ps1 -Pack -PkiFolder pki-default-nocr-01 -IssuingKeysOnly
    .\PkiTransport.ps1 -Pack -Pki raksaka -Ca q1-root -ListCa           look before packing
- -DevKit and the server packages still take ONE PKI: the latest release of -Pki (default agantra),
- or -Release / -NoCaRevocationInfo / -PkiRoot. devkit.env holds PKI_RELEASE and PKI_VARIANT.
+ -DevKit (7.9.8) takes EVERY PKI by default too, with the same choices (-Pki, -Release, -Latest,
+ -NoCaRevocationInfo, -PkiFolder, -PkiRoot, -Ca, -ListCa); see DevKit-MANUAL.txt section 4.
+ The server packages still take ONE PKI: the latest release of -Pki (default agantra), or
+ -Release / -NoCaRevocationInfo / -PkiRoot.
  Settings for all runs: pki_tools.cnf has TransportFolder, ArchiveFormat and ZipEncryption.
  See pki_setup-MANUAL.txt, section 9.
 
