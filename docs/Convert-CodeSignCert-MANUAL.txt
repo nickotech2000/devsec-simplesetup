@@ -2,7 +2,7 @@
  Convert-CodeSignCert  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - convert a code-signing certificate to the format a platform needs
- Version 7.7.1   2026-10-22
+ Version 7.8.3   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Convert-CodeSignCert.ps1 (Windows, PowerShell 7+) and Convert-CodeSignCert.sh (Linux,
           macOS, bash 4+)
@@ -211,7 +211,7 @@
 ====================================================================================================
  11  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
- Version 7.7.1, tested on Ubuntu 24.04 (OpenSSL 3.0, OpenJDK 21, PowerShell 7.5) with a private-PKI
+ Version 7.8.3, tested on Ubuntu 24.04 (OpenSSL 3.0, OpenJDK 21, PowerShell 7.5) with a private-PKI
  RSA-3072 code-signing certificate: .pfx to every format and back, .crt + .key (+ chain) to .pfx,
  .keystore and .jks back to .pfx / .crt / .key, PVK, the platform presets, the read-back check, the
  .sha256 / .sha512 files (sha256sum -c / sha512sum -c), a wrong key (exit 2), an

@@ -2,7 +2,7 @@
  Verify-CodeSign  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - check signed files: signer, key, timestamp, trust, no tampering
- Version 7.7.1   2026-10-22
+ Version 7.8.3   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Verify-CodeSign.ps1 (Windows, PowerShell 7+) and Verify-CodeSign.sh (Linux, macOS,
           bash 4+)
@@ -21,6 +21,7 @@
  Related manuals:
    Sign-Code-MANUAL.txt               sign the files
    Convert-CodeSignCert-MANUAL.txt    convert the certificate for each platform
+   New-CodeSignCatalog-MANUAL.txt     json, config, js ... (no signature of their own): a catalog
  Help in the terminal:   .\Verify-CodeSign.ps1 -Help      ./Verify-CodeSign.sh --help
 
  CONTENTS
@@ -182,7 +183,7 @@
 ====================================================================================================
  10  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
- Version 7.7.1, tested on Ubuntu 24.04 (OpenSSL 3.0, osslsigncode 2.8, OpenJDK 21, PowerShell 7.5)
+ Version 7.8.3, tested on Ubuntu 24.04 (OpenSSL 3.0, osslsigncode 2.8, OpenJDK 21, PowerShell 7.5)
  with a private-PKI RSA-3072 certificate and a local RFC 3161 timestamp server, both scripts with
  the same results: a signed, an unsigned and a tampered DLL, a signed PowerShell script, a signed
  and a tampered JAR, a DLL and a JAR with a timestamp (time and server read back), -ChainFile,

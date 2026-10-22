@@ -1,7 +1,7 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 7.7.1           2026-10-22
+ Agantra Inovatif Enterprise PKI generator          Version 7.8.3           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -752,6 +752,7 @@
    Sign-Code.ps1 / .sh               sign your software
    Convert-CodeSignCert.ps1 / .sh    convert a code-signing certificate (pfx, keystore, crt, key ...)
    Verify-CodeSign.ps1 / .sh         check signed files: signer, timestamp, not tampered
+   New-CodeSignCatalog.ps1 / .sh     a signed catalog of json, config, js ... files, and its check
    PkiRevocation.ps1                 CRL, revoke, OCSP, time stamping
    PkiTransport.ps1                  move the PKI to another computer, or make a DevKit
    New-PkiTrustKit.ps1               a zip that lets a computer trust the PKI

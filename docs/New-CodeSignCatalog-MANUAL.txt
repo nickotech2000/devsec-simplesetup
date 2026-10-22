@@ -1,0 +1,183 @@
+====================================================================================================
+ New-CodeSignCatalog  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - one signature for files that cannot hold one (json, config, js)
+ Version 7.8.3   2026-10-22
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Script : New-CodeSignCatalog.ps1 (Windows, PowerShell 7+; portable catalogs also on Linux / macOS)
+          and New-CodeSignCatalog.sh (Linux, macOS, bash 4+)
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : A script that makes a signed CATALOG of a folder: the SHA-256 / SHA-512 hash of
+                every file, signed once with your code-signing certificate and a timestamp. It
+                also checks a catalog later: which file was changed, which is missing, which was
+                added, who signed, and when.
+ Who reads it : Developers, DevSecOps staff and auditors. No PKI knowledge is needed.
+ Time needed  : 5 minutes for sections 1 to 3.
+ You need     : A code-signing certificate (the same one as for Sign-Code) and OpenSSL (the .sh) or
+                PowerShell 7 (the .ps1).
+ Start with   : Section 3 (Quick start).
+----------------------------------------------------------------------------------------------------
+ Related manuals:
+   Sign-Code-MANUAL.txt               sign the files (Sign-Code -Catalog makes a catalog too)
+   Verify-CodeSign-MANUAL.txt         check signed files (exe, dll, jar, apk ...)
+   Convert-CodeSignCert-MANUAL.txt    convert the certificate for each platform
+ Help in the terminal:   .\New-CodeSignCatalog.ps1 -Help      ./New-CodeSignCatalog.sh --help
+
+ CONTENTS
+    1  Why a catalog                            6  Build systems and CI/CD
+    2  The two kinds of catalog                 7  Exit codes
+    3  Quick start                              8  Problems and answers
+    4  Make a catalog                           9  What was tested, what was not
+    5  Check a catalog
+
+====================================================================================================
+ 1  WHY A CATALOG
+====================================================================================================
+ An exe, a dll or a PowerShell script holds its own signature. Many files of an application do not:
+ appsettings.json, web.config, .xml, .js, .css, .html, images, data files. Somebody can change
+ them on the server and nobody notices.
+ A CATALOG is a list with the hash of every file of a folder. The LIST is signed (with your code-
+ signing certificate and a timestamp). Change one byte of one file, and the check of the catalog
+ names that file (TAMPERED). Remove a file: MISSING. Add a file: named too.
+ Only SHA-256 and SHA-512. Never MD5 or SHA-1.
+ Make the catalog LAST: after every file is signed (signing changes the hash of a file).
+
+====================================================================================================
+ 2  THE TWO KINDS OF CATALOG
+====================================================================================================
+ PORTABLE (made and checked on any system, by both scripts)
+   <name>.sha256 / <name>.sha512           the lists, in the sha256sum / sha512sum format: you can
+                                           check the hashes by hand with  sha256sum -c publish.sha256
+   <name>.sha256.p7s / <name>.sha512.p7s   the signature of each list (CMS, DER, with the
+                                           certificate and its chain)
+   <name>.sha256.p7s.tsr / ...512.p7s.tsr  the timestamp of each signature (RFC 3161 answer)
+ WINDOWS .cat (made on Windows only: New-CodeSignCatalog.ps1, or Sign-Code.ps1 -Catalog)
+   <name>.cat                              catalog version 2 (SHA-256), signed with Authenticode
+                                           and a timestamp. Windows checks it itself:
+                                           Test-FileCatalog, signtool verify /a.
+   <name>.cat.sha256 / .sha512             the hashes of the .cat file itself
+ On Linux / macOS: New-CodeSignCatalog.sh signs an EXISTING .cat (--sign-cat, osslsigncode) and
+ checks its signature and timestamp. Which files a .cat covers is checked on Windows.
+ The catalog files themselves are never in the list.
+
+====================================================================================================
+ 3  QUICK START
+====================================================================================================
+ Windows (a .cat):
+   $env:SIGN_PFX_PASSWORD = '...'           (or let the script ask)
+   .\New-CodeSignCatalog.ps1 -Folder .\publish -Pfx .\codesign.pfx
+   .\New-CodeSignCatalog.ps1 -Verify .\publish\publish.cat
+ Windows, both kinds:     .\New-CodeSignCatalog.ps1 -Folder .\publish -Thumbprint 3A1F... -Format Both
+ Linux / macOS (portable):
+   SIGN_PFX_PASSWORD='...' ./New-CodeSignCatalog.sh --folder ./publish --pfx codesign.pfx
+   ./New-CodeSignCatalog.sh --verify ./publish/publish.sha256 --chain-file ca-bundle.pem
+ Together with signing:
+   .\Sign-Code.ps1 -Pfx .\codesign.pfx -Folder .\publish -Catalog Auto         (a .cat, Windows)
+   ./Sign-Code.sh --pfx codesign.pfx --folder ./publish --catalog auto          (portable)
+
+====================================================================================================
+ 4  MAKE A CATALOG
+====================================================================================================
+   PowerShell                  Shell                      Meaning
+   --------------------------  -------------------------  -----------------------------------------
+   -Folder <dir>               --folder <dir>             The folder (sub-folders too)
+   -NoRecurse                  --no-recurse               Not the sub-folders
+   -Include / -Exclude         --include / --exclude      Wildcards on the path inside the folder
+   -Name <base>                --name <base>              File name. Default: the folder name
+   -OutFolder <dir>            --out-folder <dir>         Where the catalog goes. Default: -Folder
+   -Format Auto|Cat|Portable   (portable only)            Auto: Cat on Windows, Portable elsewhere
+           |Both
+   -Unsigned                   --unsigned                 Lists only, no signature
+   -Pfx, -PfxPasswordEnv       --pfx, --pfx-password-env  A .pfx and the NAME of its password
+                                                          variable (default SIGN_PFX_PASSWORD)
+   -Thumbprint, -StoreLocation (Windows only)             A certificate in the store / on a token
+   (use -Pfx)                  --cert-pem, --key-pem      PEM files (--key-password-env)
+   -ChainFile <pem>            --chain-file <pem>         CA certificates: in the signature, and
+                                                          trusted by the check
+   -Timestamp <list>           --timestamp <list>         Default DigiCert,GlobalSign; None = none
+   -TimestampUrl <url>         --timestamp-url <url>      Your own RFC 3161 server (tried first)
+   -SignCat <file.cat>         --sign-cat <file.cat>      Sign an existing .cat
+ Before anything is written the script checks: the tools (exit 4), the certificate (the key belongs
+ to it, it is valid, it has the Code Signing purpose: else exit 2), and a timestamp server (none
+ answers: exit 3). Everything is made in a temporary folder and copied out only at the end: a
+ failed run leaves no half catalog.
+ Passwords: only from an environment variable (or the prompt). Never on the command line.
+
+====================================================================================================
+ 5  CHECK A CATALOG
+====================================================================================================
+ -Verify <file> (--verify <file>): a .cat, or <name>.sha256 / <name>.sha512.
+ It checks, in this order:
+   1. the signature of the list (a changed list = TAMPERED)
+   2. who signed: subject, issuer, key, SHA-256 and SHA-512 fingerprints (-ExpectSha256 /
+      --expect-sha256 pins the certificate)
+   3. the timestamp: when, and by which server (it must belong to THIS signature)
+   4. the chain, at the time of the timestamp (-ChainFile for a private PKI)
+   5. EVERY file of the list: a different hash = TAMPERED, not there = MISSING
+   6. files that are in the folder but NOT in the list: WARN (-Strict / --strict: FAILED)
+ -Root <dir> (--root): the folder the list is about, when the catalog is kept elsewhere.
+ The hash files that Sign-Code writes next to the catalog (<name>.cat-signed.sha256 ...) are not
+ counted as extra files.
+
+====================================================================================================
+ 6  BUILD SYSTEMS AND CI/CD
+====================================================================================================
+ STANDALONE: each script is one file. Copy it into your repository (for example build\) and run it
+ after the build, as the last step before the files are published:
+   GitHub Actions (windows-latest, shell: pwsh):
+     .\build\New-CodeSignCatalog.ps1 -Ci -Folder publish -Pfx $env:RUNNER_TEMP\cs.pfx
+   GitHub Actions / GitLab / Jenkins / Bitbucket / AWS CodeBuild / Google Cloud Build / Alibaba
+   Cloud Yunxiao Flow (Linux):
+     ./build/New-CodeSignCatalog.sh --ci --folder publish --pfx "$RUNNER_TEMP/cs.pfx"
+   Azure DevOps Services (cloud) and Server (on premises): the same line in a pwsh: or bash: step.
+   The password: a pipeline secret mapped to SIGN_PFX_PASSWORD in env:.
+ MSBuild / Visual Studio 2026 after publish (Windows):
+   <Exec Command="pwsh -NoProfile -File &quot;build\New-CodeSignCatalog.ps1&quot; -Ci -Folder &quot;$(PublishDir).&quot; -Thumbprint $(SignThumbprint)" />
+   or Sign-Code.ps1 -Catalog (the MakananSisa CodeSigning.targets: SignCatalogEnabled=true).
+ On the server (deployment check):
+   .\New-CodeSignCatalog.ps1 -Verify D:\sites\shop\shop.cat -Strict
+   ./New-CodeSignCatalog.sh --verify /var/www/shop/shop.sha256 --chain-file ca-bundle.pem --strict
+
+====================================================================================================
+ 7  EXIT CODES
+====================================================================================================
+   0  done / every file matches
+   1  wrong option or input (a folder not found ...)
+   2  the certificate is refused (key does not match, expired, no Code Signing purpose)
+   3  no timestamp server answered (nothing was written)
+   4  a tool or a Windows feature is missing (nothing was written)
+   6  the check failed: TAMPERED, MISSING, a bad signature, or (with -Strict) an extra file
+   7  no file in the folder
+
+====================================================================================================
+ 8  PROBLEMS AND ANSWERS
+====================================================================================================
+ "A Windows catalog (.cat) needs Windows"   New-FileCatalog exists only in PowerShell on Windows.
+     Use -Format Portable (or the .sh) on Linux / macOS.
+ "Chain: not trusted here"   A private PKI root is not installed on this computer. Give -ChainFile
+     with the root (and intermediate) PEM, or install the root (Install-PkiCa).
+ Extra files WARN after a deploy   Log files, uploads, a cache folder: exclude them when you make
+     the catalog (-Exclude 'logs\*'), or check without -Strict.
+ TAMPERED right after publish   A build step changed a file after the catalog was made (a
+     re-pack, a config transform). Make the catalog as the last step.
+ pwsh -File from cmd / MSBuild with a list   Give one value, or use
+     pwsh -Command "& .\New-CodeSignCatalog.ps1 -Include a.json, b.json ...".
+
+====================================================================================================
+ 9  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Version 7.8.3, tested on Ubuntu 24.04 (OpenSSL 3.0, osslsigncode 2.8, PowerShell 7.5) with a
+ private-PKI RSA-3072 certificate and a local RFC 3161 timestamp server: both scripts making a
+ portable catalog and checking the catalog of the other; the timestamp list (a dead server first),
+ no server answering (exit 3, nothing written), -Unsigned, -OutFolder with -Root, a tampered, a
+ missing and an added file, a changed list, a wrong .tsr, -ExpectSha256, -Strict, a wrong password,
+ a certificate without the Code Signing purpose (exit 2), a PFX and a -ChainFile with the same CA
+ (counted once), and Sign-Code.sh --catalog.
+ NOT tested: the Windows .cat (New-FileCatalog, Set-AuthenticodeSignature, Test-FileCatalog need
+ Windows), --sign-cat / -SignCat, and the CI examples on the real services.
+
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

@@ -1,7 +1,7 @@
 ====================================================================================================
  SignCsr  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - sign a colleague's request     Version 7.7.1   2026-10-22
+ Agantra Inovatif Enterprise PKI - sign a colleague's request     Version 7.8.3   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: SignCsr.ps1 (Windows, Linux with PowerShell)   SignCsr.sh (Linux, DevKit)
 

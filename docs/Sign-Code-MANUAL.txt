@@ -2,7 +2,7 @@
  Sign-Code  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
- Version 7.7.1   2026-10-22
+ Version 7.8.3   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)
 
@@ -26,6 +26,7 @@
    PkiRevocation-MANUAL.txt   revoke a code-signing certificate
    Convert-CodeSignCert-MANUAL.txt   convert the certificate (pfx, keystore, crt, key ...) per platform
    Verify-CodeSign-MANUAL.txt   check signed files afterwards (signer, timestamp, no tampering)
+   New-CodeSignCatalog-MANUAL.txt   one signature for json, config, js ... files (a catalog)
    PKI-Design-with-FIPS-and-PQC.txt   why it is built this way (senior staff)
  Help in the terminal:   .\Sign-Code.ps1 -Help      ./Sign-Code.sh --help
 
@@ -39,6 +40,7 @@
     7  Which certificate                       16 All options
     8  Timestamp servers                       17 What was tested, what was not
     9  Tools                                   18 Other documents
+                                               19 Catalog, re-signing, faster builds (7.8.3)
 
 ====================================================================================================
  1   WHAT IS CODE SIGNING, IN PLAIN WORDS
@@ -259,13 +261,19 @@ random password; the temporary files are deleted when the script ends (also on e
 ====================================================================================================
  8   TIMESTAMP SERVERS
 ====================================================================================================
-Default is DigiCert. Change it with -Timestamp NAME (--timestamp NAME), or with -TimestampUrl
-URL (--timestamp-url URL) for any other RFC 3161 server.
+Default is the LIST DigiCert,GlobalSign (7.8.3): DigiCert first, GlobalSign when DigiCert does not
+answer. Change it with -Timestamp NAME or a list -Timestamp Sectigo,DigiCert (--timestamp ...), or
+with -TimestampUrl URL (--timestamp-url URL, tried first) for any other RFC 3161 server.
+A list is tried in order until one server passes its check; when a file's timestamp still fails
+while it is signed, that file is signed again with the next server of the list (and the next files
+use it too). A server that passed its check is not checked again for 30 minutes
+(-TimestampCheckCache / --timestamp-check-cache MINUTES, 0 = always; the file is
+%TEMP%\Sign-Code\timestamp-check.txt, shared by Sign-Code.ps1 and Sign-Code.sh).
 
   NAME         Address
   -----------  ------------------------------------------------
-  DigiCert     http://timestamp.digicert.com                    (default)
-  GlobalSign   http://timestamp.globalsign.com/tsa/r6advanced1
+  DigiCert     http://timestamp.digicert.com                    (default, first)
+  GlobalSign   http://timestamp.globalsign.com/tsa/r6advanced1  (default, second)
   Certum       http://time.certum.pl
   Sectigo      http://timestamp.sectigo.com
   SSLcom       http://ts.ssl.com
@@ -282,7 +290,7 @@ URL (--timestamp-url URL) for any other RFC 3161 server.
 The addresses are the ones the companies publish. If one changes, use -TimestampUrl.
 
 Fallback. -TimestampFallback (--timestamp-fallback): when the chosen server fails its check, the
-script tries DigiCert, Sectigo, GlobalSign, SSL.com, Certum, Entrust and Microsoft in that order
+script tries DigiCert, GlobalSign, Sectigo, SSL.com, Certum, Entrust and Microsoft in that order
 and signs with the first one that passes. Good for pipelines: one server that is down does not
 stop a release. Without the switch a failed server stops the run (exit 3).
 
@@ -659,6 +667,12 @@ NOT been run on a real pipeline (see section 17).
   -OutFolder <path>            --out-folder <path>        Sign copies; keep the originals
   -ReportFolder <path>         --report-folder <path>     Where sign-report_*.json goes (7.6.7)
   -SkipSigned                  --skip-signed              Skip files that are already signed
+  -RemoveOldSignature          --remove-old-signature     Remove an old signature, sign again (7.8.3)
+  -Catalog <f.cat>|Auto        --catalog <name>|auto      Signed catalog after signing (19, 7.8.3)
+  -CatalogFolder <dir>         --catalog-folder <dir>     Folders the catalog covers (19)
+  -ReportFile <file>           --report-file <file>       ONE report per build session (7.8.3)
+  -CleanReports                --clean-reports            Delete old sign-report_*.json first
+  -NoRevocationCheck           --no-revocation-check      No CRL / OCSP download while signing
   -UseGenerated                --use-generated            Certificates of GenerateCodeSigningCertificate
   -GeneratedRoot <dir>         --generated-root <dir>     Another leafcerts\codesign folder
   -GeneratedPlatform <p>       --generated-platform <p>   One platform for all files
@@ -674,8 +688,10 @@ NOT been run on a real pipeline (see section 17).
               |PublicCa
   -Provider, -ProviderArg      --provider, --provider-arg Cloud key service or HSM
   -CertFile <file>             --cert-file <file>         Public certificate for -Provider
-  -Timestamp <name>            --timestamp <name>         DigiCert (default) and the others of 8
-  -TimestampUrl <url>          --timestamp-url <url>      Any RFC 3161 address
+  -Timestamp <list>            --timestamp <list>         DigiCert,GlobalSign (default), section 8,
+                                                          None = no timestamp
+  -TimestampUrl <url>          --timestamp-url <url>      Any RFC 3161 address (tried first)
+  -TimestampCheckCache <min>   --timestamp-check-cache    Skip the server check for N min (30)
   -TimestampFallback           --timestamp-fallback       Try the next server when one fails
   -Digest sha256|sha384|       --digest ...               File and timestamp digest (default
           sha512                                          sha256)
@@ -717,13 +733,83 @@ KeyLocker), the dnf / EPEL / COPR install path on CentOS Stream, Rocky and Oracl
 pipeline files on the real services (GitHub, Azure DevOps, AWS, Google, Alibaba). Run -CheckOnly
 first, then one small file, before you rely on a pipeline.
 
+Version 7.8.3, tested on Linux (PowerShell 7, OpenSSL, osslsigncode 2.8, a local RFC 3161 server):
+the timestamp list (a dead server first, then the local one), a timestamp that fails WHILE a file
+is signed (the file signed again with the next server), the check cache, -ReportFile with two runs
+in one report, -CleanReports, -RemoveOldSignature on a signed .ps1 (Sign-Code.sh, osslsigncode; the
+PowerShell function on its own), Sign-Code.sh --catalog (a portable catalog, checked with
+New-CodeSignCatalog.sh --verify), --timestamp none, and the MSBuild targets with dotnet build /
+publish on Linux (scripts found in bin\ and publish\, Debug / Release switch, script certificate,
+log folders deleted and a source folder kept, the report reset). NOT tested in 7.8.3: -Catalog of
+Sign-Code.ps1 (New-FileCatalog needs Windows), signtool remove, and signing .ps1 files with
+Set-AuthenticodeSignature (Windows only).
+
 ====================================================================================================
  18  OTHER DOCUMENTS
 ====================================================================================================
  VERSION-INFO.txt   (what -Version / --version prints)
- Convert-CodeSignCert-MANUAL.txt   Verify-CodeSign-MANUAL.txt   (standalone, like Sign-Code)
+ Convert-CodeSignCert-MANUAL.txt   Verify-CodeSign-MANUAL.txt   New-CodeSignCatalog-MANUAL.txt
+ (standalone, like Sign-Code)
  GenerateLeafCertificate-MANUAL.txt   PkiTrustKit-MANUAL.txt   PkiTransport-MANUAL.txt
  PkiRevocation-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
+
+====================================================================================================
+ 19  CATALOG, RE-SIGNING, FASTER BUILDS (7.8.3)
+====================================================================================================
+CATALOG. A json, config, xml, js, css or image file cannot hold a signature. A CATALOG holds the
+hash of every file of a folder and is signed once: change one byte of one file and the check of
+the catalog names that file.
+  .\Sign-Code.ps1 -Pfx .\codesign.pfx -Folder .\publish -Catalog Auto
+      signs the files, then makes publish\publish.cat (a Windows catalog, version 2 = SHA-256) of
+      EVERY file in the folder and signs it with the same certificate and timestamp. Windows only
+      (New-FileCatalog). -Catalog <path>.cat for another name, -CatalogFolder for other folders.
+      -Catalog without a file to sign: only the catalog. The old catalog is deleted first.
+  ./Sign-Code.sh --pfx codesign.pfx --folder ./publish --catalog auto
+      the same with a PORTABLE catalog (publish.sha256 / .sha512 + .p7s + .tsr), made by
+      New-CodeSignCatalog.sh next to Sign-Code.sh (or env SIGN_CATALOG_TOOL).
+  Check: Test-FileCatalog -CatalogFilePath publish.cat -Path .\publish -Detailed, or
+         New-CodeSignCatalog.ps1 / .sh -Verify <catalog>. Details: New-CodeSignCatalog-MANUAL.txt.
+
+RE-SIGNING. -RemoveOldSignature (--remove-old-signature): a file that already has a signature (an
+old certificate, another company) gets it removed, then it is signed with the current certificate.
+PowerShell scripts: the signature block is cut out (the encoding of the file is kept). Windows
+files: signtool remove /s (Sign-Code.sh: osslsigncode remove-signature). Not together with
+-SkipSigned.
+
+FASTER. Most of the time of a signing run is the network:
+  * the timestamp server: a list (DigiCert,GlobalSign), and a check cache of 30 minutes (section 8);
+  * the CRL / OCSP download of the check after signing: -NoRevocationCheck (--no-revocation-check)
+    skips it (signtool verify is not run, osslsigncode verify gets -ignore-cdp, NuGet uses the
+    offline revocation mode). The signature is the same; check the files later with Verify-CodeSign.
+  * Debug builds: -Timestamp None (no timestamp server at all).
+
+ONE REPORT PER BUILD. -ReportFile <file> (--report-file): every run of the build adds its files to
+this one report (the parallel builds of a solution wait for each other: a named mutex / flock). The
+report has the totals and one entry per run. -CleanReports deletes the old sign-report_*.json of the
+report folder first. MSBuild deletes the report when a build starts, so it shows the current build.
+
+MSBUILD FOR A WHOLE SOLUTION (CodeSigning.props / CodeSigning.targets, imported by
+Directory.Build.props / .targets). The settings of 7.8.3:
+  SignTimestamp                  DigiCert,GlobalSign   the timestamp list (Debug: None)
+  SignDebugNoRevocationCheck     true                  no CRL / OCSP download in Debug
+  SignReleaseNoRevocationCheck   false                 Release checks the signature after signing
+  SignScriptsRelease             true                  sign the .ps1 / .psm1 / .psd1 that the build
+  SignScriptsDebug               false                 copies to bin\ and publish\ (the source files
+                                                       are not touched)
+  SignScriptsResign              true                  old signature removed, signed again
+  SignScriptsInclude / Exclude   **\*.ps1;... / tools  patterns relative to the output folder; the
+                                                       signing tools are never signed by a build
+  SignScriptsReleasePfx / ...Thumbprint, SignScriptsDebugPfx / ...Thumbprint
+                                                       another certificate for the scripts, Debug and
+                                                       Release separate; the password of a .pfx is the
+                                                       existing SignReleasePassword / SignDebugPassword
+                                                       (else the profile password, else the variable
+                                                       SIGN_PFX_PASSWORD): no new password setting
+  SignCatalogEnabled             false                 signed .cat of the Release publish folder
+  SignCleanLogFolders            true                  delete the log folders before every build
+  SignLogFolders                 log;logs              in the project folder and the output folder; a
+                                                       folder with source code is never deleted
+ The report of a build: obj\<Configuration>\<framework>\sign-code\sign-report.json.
 
 ====================================================================================================
  Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com

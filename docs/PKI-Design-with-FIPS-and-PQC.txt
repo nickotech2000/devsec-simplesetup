@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.7.1                      Updated: 2026-10-22
+ Version : 7.8.3                      Updated: 2026-10-22
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,22 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.190 DECIDED   (7.8.3) Catalogs: the PORTABLE format is two plain hash lists (sha256sum / sha512sum
+                 format, readable without any tool) with a detached CMS signature and an RFC 3161
+                 token per list, so any system with OpenSSL or .NET can make and check it, and a
+                 list that is tampered breaks its signature. A Windows .cat is made only on Windows
+                 (New-FileCatalog; no Linux tool writes .cat); Linux only signs and checks one. A
+                 catalog is made AFTER the files are signed, because signing changes their hashes.
+                 Timestamps: a list of servers (DigiCert, GlobalSign) is tried in order, a file
+                 whose timestamp fails is signed again with the next server, and a check that passed
+                 is cached for 30 minutes (shared by the .ps1 and the .sh) instead of one network
+                 round trip per run. -NoRevocationCheck only skips the CRL / OCSP download of the
+                 check AFTER signing; the signature itself is the same. MSBuild signs the COPIES of
+                 PowerShell scripts in bin\ / publish\, never the source files (a build must not
+                 change files under version control), and removes an old signature first so that a
+                 script copied from another project is re-signed with this build's certificate. Log
+                 folders that hold source code are never deleted. No new password property: a
+                 scripts certificate uses the existing per-configuration password properties.
 10.189 DECIDED   (7.7.1) Convert-CodeSignCert and Verify-CodeSign are standalone (one file, no module)
                  like Sign-Code, so a project or a build agent copies only what it runs. Converted
                  files and certificates are identified by SHA-256 and SHA-512 only. Verify-CodeSign

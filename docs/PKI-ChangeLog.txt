@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.7.1                       Updated: 2026-10-22
+ Version : 7.8.3                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,35 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.8.3  2026-10-22  MINOR + REVISION (minor +1, revision +2)
+    * NEW New-CodeSignCatalog.ps1 / New-CodeSignCatalog.sh (standalone): a signed CATALOG of files that
+      cannot hold a signature (json, config, xml, js, css, html, images). PORTABLE catalog on any system:
+      <name>.sha256 / .sha512 lists (sha256sum format), each with a detached CMS signature (.p7s) and an
+      RFC 3161 timestamp (.tsr). WINDOWS catalog (.cat, version 2 = SHA-256) on Windows with
+      New-FileCatalog, signed and timestamped; the .sh signs an existing .cat (--sign-cat). -Verify /
+      --verify checks the signature, the certificate, the timestamp, the chain and EVERY file
+      (TAMPERED, missing; added files WARN, -Strict FAIL). Each script checks the catalogs of the other.
+      Only SHA-256 / SHA-512. Exit 0 / 1 / 2 / 3 / 4 / 6 / 7.
+    * Sign-Code.ps1 -Catalog <file.cat>|Auto [-CatalogFolder]: after the files are signed, a Windows
+      catalog of the folders (also json, config ...) is made and signed with the same certificate and
+      timestamp; -Catalog alone (no file to sign) makes only the catalog. Sign-Code.sh --catalog
+      <name>|auto [--catalog-folder] makes a portable catalog (New-CodeSignCatalog.sh next to it).
+    * Sign-Code -RemoveOldSignature / --remove-old-signature: a signed file (PowerShell, Windows files)
+      gets its old signature removed, then it is signed with the current certificate.
+    * Sign-Code faster: -NoRevocationCheck / --no-revocation-check (no CRL / OCSP download while
+      signing; NuGet offline revocation), -Timestamp takes a LIST (default DigiCert,GlobalSign): the first
+      server that answers is used, and a file whose timestamp fails is signed again with the next one.
+      -TimestampCheckCache / --timestamp-check-cache: a server checked less than 30 minutes ago is not
+      checked again. The fallback order is DigiCert, GlobalSign, Sectigo, SSL.com, Certum, Entrust,
+      Microsoft. Sign-Code.sh also takes --timestamp none.
+    * Sign-Code -ReportFile / --report-file: ONE report per build session (parallel builds add to it
+      under a lock); -CleanReports / --clean-reports deletes the old sign-report_*.json first.
+    * MSBuild (the MakananSisa CodeSigning.targets, Sign-Code-MANUAL section 19): PowerShell scripts that
+      a build copies to bin\ / publish\ are signed there (Release by default, Debug optional, their own
+      certificate per configuration, an old signature removed first); a new sign report per build;
+      the log folders of the project are deleted before every build (never a folder with source code);
+      optional signed catalog of the publish folder; DigiCert,GlobalSign; no revocation download in Debug.
 
   7.7.1  2026-10-22  MINOR + REVISION (minor +1, revision 1)
     * NEW Convert-CodeSignCert.ps1 / Convert-CodeSignCert.sh (standalone, one file each): convert a
