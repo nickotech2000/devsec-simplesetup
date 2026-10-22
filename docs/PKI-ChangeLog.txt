@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.9.1                       Updated: 2026-10-22
+ Version : 7.9.5                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,30 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.9.5  2026-10-22  REVISION (revision +4)
+    * Install-DevEnvironment.ps1 on Windows PowerShell 5.1 (Windows Sandbox): fixed "The property 'Patch'
+      cannot be found on this object" (line 590, PropertyNotFoundStrict). 5.1 has a [System.Version]
+      (Build, no Patch); the host detection now reads Patch or Build, under Set-StrictMode.
+    * Install-DevEnvironment.ps1: when winget is missing (Windows Sandbox, LTSC, some Server images) it
+      installs it first the Microsoft way (NuGet provider, the module Microsoft.WinGet.Client from the
+      PowerShell Gallery, Repair-WinGetPackageManager -AllUsers). If that fails it prints the three
+      lines to run by hand. -Check does not install it.
+    * NEW docs\RUN-SCRIPTS-WINDOWS.txt (also at the top of every DevKit and -Kit folder): blocked scripts,
+      the execution policy for ONE window (Set-ExecutionPolicy -Scope Process Bypass, pwsh
+      -ExecutionPolicy Bypass -File), the Internet mark (Unblock-File), and Windows Sandbox step by step
+      (Windows PowerShell 5.1 only, no winget, no pwsh; a .wsb with a mapped folder). The -Help of
+      Install-DevEnvironment.ps1, Install-PkiTrust.ps1, PkiTransport.ps1 and Unpack-PkiTransport.ps1 has
+      a short BLOCKED SCRIPTS / WINDOWS SANDBOX section; Install-PkiTrust.sh and pki-transport.sh
+      --help point to the file.
+    * PkiTransport.ps1 -DevKit -DevKitNoKeys makes a TRUST kit: it no longer holds the scripts that issue
+      or sign (GenerateLeafCertificate, GeneratePersonLeafCertificate, GenerateOffice365LeafCertificate,
+      GenerateCodeSigningCertificate, SignCsr, Sign-Code; .ps1 and .sh), their manuals, lib\, devkit.env
+      or examples\. START-HERE.txt is the trust version (devkit\START-HERE-TRUST.txt). Install-PkiTrust
+      then ends with "CA certificates only". The -Kit folder of -Pack never had them. A kit WITH keys
+      is unchanged.
+    * Docs: DevKit-MANUAL (sections 4, 5, 6, 8, 15, 17), Install-DevEnvironment-MANUAL (11, 12, 17),
+      PkiTransport-MANUAL (5, 7, 14), START-HERE, scripts-README, design 10.192, html.
 
   7.9.1  2026-10-22  MINOR + REVISION (minor +1, revision 1)
     * PkiTransport.ps1 -Pack: ONE package can hold MANY PKIs. Without a choice it packs EVERY CA of every

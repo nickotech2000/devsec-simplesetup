@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.1   2026-10-22
+ Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.5   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Install-DevEnvironment.ps1 (Windows)   linux/Install-DevEnvironment.sh (Linux)
 
@@ -262,6 +262,15 @@
  Unblock and unlock
      .\Install-DevEnvironment.ps1 -Unblock
      ./linux/Install-DevEnvironment.sh --unblock
+ Scripts blocked ("running scripts is disabled"): free THIS window only, nothing is stored
+     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-DevEnvironment.ps1 -Check
+ Windows Sandbox (Windows PowerShell 5.1, no winget, no PowerShell 7), as administrator:
+     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+     .\Install-DevEnvironment.ps1 -Only PowerShell,OpenSSL,7Zip
+   winget is missing: the script installs it first, the Microsoft way (the NuGet provider, the
+   module Microsoft.WinGet.Client from the PowerShell Gallery, Repair-WinGetPackageManager
+   -AllUsers). Then open a NEW window for pwsh. All steps: RUN-SCRIPTS-WINDOWS.txt.
 
 ====================================================================================================
  12  PROBLEMS AND ANSWERS
@@ -302,6 +311,13 @@
  Windows: red text in the window                Read the log:
                                                 %ProgramData%\Agantra\WindowsDeveloperBootstrap\Logs
  Exit 5                                         This computer is refused (section 3).
+ "The property 'Patch' cannot be found on this  Windows PowerShell 5.1 (a [System.Version] has
+ object" (line 590, Windows Sandbox)            Build, not Patch) under Set-StrictMode. Fixed in
+                                                7.9.5: the script reads Patch or Build.
+ "WinGet was not detected"                      Windows Sandbox, LTSC, some Server images. 7.9.5
+                                                installs winget itself (needs the Internet and
+                                                the PowerShell Gallery). By hand: the three lines
+                                                the script prints, or RUN-SCRIPTS-WINDOWS.txt.
 
 ====================================================================================================
  13  LIMITS YOU MUST KNOW
@@ -374,6 +390,9 @@
  install on RHEL, SUSE; the PPA (add-apt-repository, the two PPA packages: no Launchpad access in
  the sandbox); the package names of dotnet, node, go and php; the pwsh download itself (only the
  version lookup and the plan). What to run on your machines: PKI-Acceptance-Checklists.txt, E45.
+ 7.9.5: the 'Patch' fix was tested on PowerShell 7 with Set-StrictMode against a [System.Version]
+ like the one of Windows PowerShell 5.1 (the old line fails with PropertyNotFoundStrict, the new
+ one reads Build). NOT tested: the winget bootstrap in a real Windows Sandbox.
 
 ====================================================================================================
  18  OTHER DOCUMENTS

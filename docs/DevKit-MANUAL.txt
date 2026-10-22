@@ -1,7 +1,7 @@
 ====================================================================================================
  DevKit  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - the developer kit          Version 7.9.1           2026-10-22
+ Agantra Inovatif Enterprise PKI - the developer kit          Version 7.9.5           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -99,8 +99,9 @@
  Other ways:
      .\PkiTransport.ps1 -DevKit -Out D:\share\devkit.zip -PackagePassword 'a strong password 12+'
      .\PkiTransport.ps1 -DevKit -KitArchiveFormat 7z -ArchiveFormat 7z -Out D:\share\devkit.7z
-     .\PkiTransport.ps1 -DevKit -DevKitNoKeys        CA certificates only. Developers can trust
-                                                     the PKI but cannot issue.
+     .\PkiTransport.ps1 -DevKit -DevKitNoKeys        A TRUST kit: CA certificates only. It has
+                                                     no generator, no SignCsr, no Sign-Code
+                                                     (section 6).
 
  ONE kit holds ONE PKI: the latest release. Choose another with -Release N, -NoCaRevocationInfo or
  -PkiRoot. Make one kit for each release.
@@ -140,7 +141,12 @@
  docs\                                  The manuals.
  server\                                The server kit for CRL, OCSP and time stamping. It has
                                         NO private key. Copy only this folder to a server.
+ RUN-SCRIPTS-WINDOWS.txt                Blocked scripts, execution policy, Windows Sandbox.
  SHA256SUMS                             The hash of every file.
+
+ A TRUST kit (-DevKitNoKeys) has only: the .certpacked, START-HERE.txt (the trust version),
+ Install-PkiTrust, New-PkiCsr, Prepare-Computer, Install-DevEnvironment, Create-WebServerConfig,
+ Make-ShExecutable, the transport scripts, the settings, scripts\, docs\, server\, SHA256SUMS.
 
  After Install-PkiTrust the kit also has:
    ca\ (CA certificates, bundles, chains, CRLs)   pki\ (the issuing CAs with their KEYS)
@@ -159,7 +165,11 @@
    * The keys of the OCSP responder and the time stamp server, old leaf keys, any .pfx or .p12.
 
  certpack.json says so:  "scope": { "caPrivateKeys": true, "issuingKeysOnly": true }
- -DevKitNoKeys leaves out every key.
+ -DevKitNoKeys leaves out every key. Since 7.9.5 it also leaves out every script that issues or
+ signs, because without a key they cannot work: GenerateLeafCertificate, GeneratePersonLeaf-
+ Certificate, GenerateOffice365LeafCertificate, GenerateCodeSigningCertificate, SignCsr and
+ Sign-Code (.ps1 and .sh), their manuals, lib\, devkit.env and examples\. The kit then only makes
+ a computer trust the root and intermediate CAs of the private PKI.
 
  WHAT THIS MEANS. A developer with the kit can make certificates that your clients trust, until you
  revoke the intermediate CA. So:
@@ -186,13 +196,16 @@
 ====================================================================================================
  Step 1   Unzip (right-click, Extract All) to a short path, for example C:\pki-devkit.
           Do not unzip into OneDrive or Downloads.
- Step 2   If Windows blocks the scripts:   Unblock-File .\*.ps1
- Step 3   No OpenSSL 4 yet? Once, as administrator:
-              .\Install-DevEnvironment.ps1 -Only OpenSSL,7Zip
+ Step 2   If Windows blocks the scripts, free THIS window only (nothing is stored):
+              Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+              Get-ChildItem -Recurse -File | Unblock-File
+ Step 3   No PowerShell 7 or OpenSSL 4 yet? Once, as administrator:
+              .\Install-DevEnvironment.ps1 -Only PowerShell,OpenSSL,7Zip
           Then open a NEW PowerShell.
  Step 4   Start PowerShell 7 AS ADMINISTRATOR:
               cd C:\pki-devkit
               .\Install-PkiTrust.ps1
+          or from any window:  pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiTrust.ps1
           It asks for the password and then:
             * checks the computer (Windows 11 24H2+ or Server, OpenSSL 4.0.1+),
             * checks the SHA-256 of every file and unpacks to this folder,
@@ -204,6 +217,10 @@
  Step 5   From now on a normal PowerShell is enough:
               .\GenerateLeafCertificate.ps1 -OV -DnsName www.example.com
  Step 6   Read section 10 for people, Office and the other scripts.
+
+ WINDOWS SANDBOX: it has no PowerShell 7 and no winget, and forgets everything when it closes.
+ Install-DevEnvironment.ps1 (step 3, in Windows PowerShell) adds winget first, then PowerShell 7.
+ All steps: RUN-SCRIPTS-WINDOWS.txt, section 3.
 
  Install-PkiTrust.ps1 again later? It installs the trust again and leaves pki\ and leafcerts\
  alone. -Reset unpacks pki\ anew (new serials; leafcerts is kept).
@@ -360,6 +377,16 @@
  --------------------------------------------------  --------------------------------------------
  "must be run as Administrator"                      Start PowerShell 7 with Run as administrator.
                                                      The Local Machine store needs it.
+ "running scripts is disabled on this system"        Set-ExecutionPolicy -Scope Process Bypass
+                                                     -Force (this window only), or pwsh
+                                                     -ExecutionPolicy Bypass -File <script>.
+                                                     RUN-SCRIPTS-WINDOWS.txt.
+ "The property 'Patch' cannot be found" (Install-    Windows PowerShell 5.1, before 7.9.5. Fixed;
+ DevEnvironment, Windows Sandbox)                    build the kit again.
+ "WinGet was not detected" (Windows Sandbox)          7.9.5 adds winget itself (needs the Internet).
+                                                     By hand: RUN-SCRIPTS-WINDOWS.txt, section 3.
+ GenerateLeafCertificate is missing                   A trust kit (-DevKitNoKeys). Ask for a kit
+                                                     with keys, or send a CSR to the owner.
  "Operating system FAIL"                             Windows is older than 11 24H2. Use
                                                      Unpack-PkiTransport.ps1 -Package <file> and
                                                      import the roots yourself (certlm.msc).
@@ -425,6 +452,9 @@
  Sign-Code                 Sign software                             Sign-Code-MANUAL.txt
  Make-ShExecutable.ps1     Windows: fix .sh files                    this manual, section 15
  make-executable.sh        Linux: fix .sh files                      this manual, section 9
+ A trust kit (-DevKitNoKeys) has no GenerateLeaf..., GeneratePerson..., GenerateOffice365...,
+ GenerateCodeSigning..., SignCsr and Sign-Code. Running scripts on Windows and in Windows Sandbox:
+ RUN-SCRIPTS-WINDOWS.txt.
 
  Options of the kit scripts:
    Install-PkiTrust.ps1   -Package -PackagePassword -TrustOnly -Reset -InstallMissing

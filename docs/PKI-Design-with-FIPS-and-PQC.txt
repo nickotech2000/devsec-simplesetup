@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.9.1                      Updated: 2026-10-22
+ Version : 7.9.5                      Updated: 2026-10-22
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,16 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.192 DECIDED   (7.9.5) A kit without CA keys carries no script that issues or signs: a
+                 generator, SignCsr or Sign-Code there could only fail, and a trust kit should
+                 show by its contents that it only adds trust. Blocked scripts are opened for ONE
+                 window (scope Process, or -ExecutionPolicy Bypass on the command line), never
+                 stored for the computer by the kit; Enable-DevMachine stays the only tool that
+                 stores Bypass, for the owner's own laptop. Windows Sandbox has no winget: the
+                 bootstrap adds it the way Microsoft documents (Microsoft.WinGet.Client,
+                 Repair-WinGetPackageManager) instead of downloading packages by hand. Code that
+                 runs on Windows PowerShell 5.1 under Set-StrictMode reads only properties that
+                 exist there ([System.Version] has Build, not Patch).
 10.191 DECIDED   (7.9.1) One .certpacked holds MANY PKIs and -Pack takes every CA by default; the
                  parameters only narrow it (company, cnf file, release, latest, NoCR, folder, CA).
                  The layout of the trust kit (ca/roots/<folder>-<slug>.crt, pki and release in the

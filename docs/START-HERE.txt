@@ -1,6 +1,6 @@
 ====================================================================================================
  START HERE  -  which file for which job
- Version 7.9.1
+ Version 7.9.5
  Author : Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
 ====================================================================================================
 
@@ -59,6 +59,7 @@
    What to run to accept a version  PKI-Acceptance-Checklists.txt
    Modules and shell scripts ...... scripts-README.txt, linux-README.txt
    Make my laptop a dev machine ... Enable-DevMachine-MANUAL.txt (unsigned .ps1 run in every session)
+   Scripts blocked, Sandbox ....... RUN-SCRIPTS-WINDOWS.txt (Bypass for one window, Windows Sandbox)
    Scripts clean? Checksums ....... SECURITY-AUDIT.txt  (what the scripts do, how to check them)
    Version and system report ...... VERSION-INFO.txt  (-Version / --version of any script)
    Other ........................... PKI-Server-Design.txt, PUBLIC-CA-ENTERPRISE-ROOT.txt

@@ -1162,10 +1162,13 @@ function Write-PkiTransportKit {
     Ensure-PkiDirectory -Path $scripts
     $top = 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'pki-transport.sh', 'Install-DevEnvironment.ps1', 'Install-DevEnvironment.sh', 'Create-WebServerConfig.ps1', 'Create-WebServerConfig.sh'
     $kitDocs = Join-Path $KitDirectory 'docs'
-    foreach ($d in 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt') {
+    foreach ($d in 'PkiTransport-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt', 'RUN-SCRIPTS-WINDOWS.txt') {
         $dsrc = Join-Path (Join-Path $Root 'docs') $d
         if (Test-Path -LiteralPath $dsrc -PathType Leaf) { Ensure-PkiDirectory -Path $kitDocs; Copy-Item -LiteralPath $dsrc -Destination $kitDocs -Force }
     }
+    # 7.9.5: blocked scripts and Windows Sandbox, also at the top of the kit. The kit never holds a generator, SignCsr or Sign-Code.
+    $run = Join-Path (Join-Path $Root 'docs') 'RUN-SCRIPTS-WINDOWS.txt'
+    if (Test-Path -LiteralPath $run -PathType Leaf) { Copy-Item -LiteralPath $run -Destination $KitDirectory -Force }
     foreach ($f in $top) {
         # the shell scripts are in <root>/linux/; the kit is flat
         $src = @((Join-Path $Root $f), (Join-Path (Join-Path $Root 'linux') $f)) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1

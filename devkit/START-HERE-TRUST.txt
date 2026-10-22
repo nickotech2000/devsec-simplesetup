@@ -1,0 +1,55 @@
+====================================================================================================
+ AGANTRA INOVATIF ENTERPRISE PKI  -  TRUST KIT (DevKit without keys)          START HERE
+====================================================================================================
+ Version {{VERSION}}   built {{DATE}}
+ Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   nicko@nextmantra.com
+
+ WHAT THIS KIT DOES
+   It makes your computer trust the private PKI of the company: the root and intermediate CAs.
+   It holds NO private key. It cannot make certificates, sign requests (CSR) or sign code: the
+   generators, SignCsr and Sign-Code are not in this kit. Ask the owner of the PKI for those.
+ The full manual is docs\DevKit-MANUAL.txt. Words are explained in docs\GLOSSARY.txt.
+
+ THE PASSWORD of the package comes from the person who sent you this kit, by another way.
+ It is not in the kit.
+
+ WHAT IS IN THIS FOLDER
+   {{PACKAGE}}
+       The PKI, protected by the password. Contains {{KEYS}}.
+   Install-PkiTrust.ps1 / .sh         Unpack the package and install the trust.
+   RUN-SCRIPTS-WINDOWS.txt            Blocked scripts, execution policy, Windows Sandbox.
+   New-PkiCsr / new-pki-csr.sh        Make a key and a request, to send to the owner of the PKI.
+   Prepare-Computer                   Install OpenSSL (winget, Chocolatey, apt, dnf, zypper).
+   Install-DevEnvironment             Install PowerShell 7, OpenSSL 4 and 7-Zip.
+   Make-ShExecutable.ps1 / make-executable.sh   Make the .sh files ready for Linux.
+   server\                            The server kit (CRL, OCSP, time stamping; no private key).
+   scripts\, docs\                    Used by the scripts. SHA256SUMS lists every file.
+ Help of every script:   .\<script>.ps1 -Help          ./<script>.sh --help
+
+----------------------------------------------------------------------------------------------------
+ WINDOWS   (Windows 11 24H2 or newer; Windows Sandbox too)
+----------------------------------------------------------------------------------------------------
+ Step 1   Unzip the kit (right-click, Extract All) to a short folder, for example C:\pki-trust.
+ Step 2   Open Windows PowerShell AS ADMINISTRATOR in that folder. Free THIS window only:
+              Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+              Get-ChildItem -Recurse -File | Unblock-File
+ Step 3   No PowerShell 7 or OpenSSL 4 yet (always so in Windows Sandbox):
+              .\Install-DevEnvironment.ps1 -Only PowerShell,OpenSSL,7Zip
+ Step 4   Install the trust:
+              pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiTrust.ps1
+          It asks for the password, unpacks the kit and installs the CAs.
+ More, also for a Windows Sandbox: RUN-SCRIPTS-WINDOWS.txt
+
+----------------------------------------------------------------------------------------------------
+ LINUX / UBUNTU
+----------------------------------------------------------------------------------------------------
+ Step 1   unzip agantra-pki-devkit-*.zip && cd agantra-pki-devkit-*
+ Step 2   bash make-executable.sh
+ Step 3   ./Install-PkiTrust.sh            (sudo is asked only for the system store)
+
+----------------------------------------------------------------------------------------------------
+ GOOD TO KNOW
+----------------------------------------------------------------------------------------------------
+ * Installing again removes the older CAs of this same PKI first (only of this PKI, matched by
+   thumbprint) and puts the new ones in. Public CAs and other PKIs are never touched.
+ * Trouble? docs\DevKit-MANUAL.txt, section 15, lists the messages and the fixes.

@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.1   2026-10-22
+ Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.5   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh
 
@@ -180,7 +180,8 @@
    -Pki -Release -Latest -NoCaRevocationInfo -PkiFolder -PkiRoot -Ca -AllCa -ListCa
                          Which PKIs and which CAs: section 11.
    -Kit                  Also write <name>-kit\ : the three scripts, the modules, the bootstrap
-                         scripts, the CSR tools, Create-WebServerConfig and the manuals.
+                         scripts, the CSR tools, Create-WebServerConfig, the manuals and
+                         RUN-SCRIPTS-WINDOWS.txt. Never a generator, SignCsr or Sign-Code.
    -Comment <text>       Stored in the package, shown when it is opened.
    -NoVerify             Do not read the package back after writing.
  After writing, the script reads the package back (every entry is decrypted and authenticated).
@@ -250,6 +251,11 @@
  Exit codes: 0 done, 1 error, 2 Windows not supported, 3 not Windows (use pki-transport.sh),
  4 OpenSSL 4.0.1+ missing, 5 this system is refused.
  To see the exit code use  pwsh -File .\PkiTransport.ps1 ...  ("pwsh -Command" shows only 0 or 1).
+ Scripts blocked, or Windows Sandbox (no PowerShell 7, no winget)? Free one window only:
+     Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+     pwsh -NoProfile -ExecutionPolicy Bypass -File .\PkiTransport.ps1 -Install -Package <file>
+ All steps, also Install-DevEnvironment for pwsh in a Sandbox: RUN-SCRIPTS-WINDOWS.txt (in the
+ kit and in docs\).
 
 ====================================================================================================
  8  UNPACK ONLY (ANY COMPUTER)
@@ -515,6 +521,12 @@
 ====================================================================================================
  Message or problem                              Cause and fix
  ----------------------------------------------  ----------------------------------------------
+ "running scripts is disabled on this system"   Bypass for this window only, or
+                                                 pwsh -ExecutionPolicy Bypass -File <script>.
+                                                 RUN-SCRIPTS-WINDOWS.txt
+ "#requires ... PowerShell 7.0"                  You started powershell.exe (5.1). Use pwsh;
+                                                 in a Sandbox install it first (Install-
+                                                 DevEnvironment -Only PowerShell).
  "Windows ... not supported" (exit 2 or 5)       The computer is older than Windows 11 24H2, or a
                                                  special edition. Use Unpack-PkiTransport.ps1 and
                                                  import the roots by hand (certlm.msc).

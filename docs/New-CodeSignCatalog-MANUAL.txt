@@ -2,7 +2,7 @@
  New-CodeSignCatalog  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - one signature for files that cannot hold one (json, config, js)
- Version 7.9.1   2026-10-22
+ Version 7.9.5   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : New-CodeSignCatalog.ps1 (Windows, PowerShell 7+; portable catalogs also on Linux / macOS)
           and New-CodeSignCatalog.sh (Linux, macOS, bash 4+)

@@ -2,7 +2,7 @@
  Convert-CodeSignCert  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - convert a code-signing certificate to the format a platform needs
- Version 7.9.1   2026-10-22
+ Version 7.9.5   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Convert-CodeSignCert.ps1 (Windows, PowerShell 7+) and Convert-CodeSignCert.sh (Linux,
           macOS, bash 4+)

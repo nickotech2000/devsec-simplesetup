@@ -2,7 +2,7 @@
  PkiProfiles  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - one PKI per company, platforms and pki_tools.cnf
- Version 7.9.1   2026-10-22
+ Version 7.9.5   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : New-PkiConfig.ps1, pki_setup.ps1 (-ListPki, -Pki), pki_tools.cnf,
           scripts\00a_Platform.ps1, scripts\00b_Profiles.ps1

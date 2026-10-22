@@ -10,7 +10,8 @@
 #     * Install-PkiTrust.ps1 / .sh               unpack the .certpacked and put the PKI in the Local Machine store / the Ubuntu store
 #     * GenerateLeafCertificate / GeneratePersonLeafCertificate / GenerateOffice365LeafCertificate / GenerateCodeSigningCertificate  (.ps1 and .sh)
 #     * Make-ShExecutable.ps1 / make-executable.sh  make the .sh files executable (Windows developers: no Linux knowledge needed)
-#     * devkit.env (written from the live configuration), examples, docs, START-HERE.txt
+#     * devkit.env (written from the live configuration), examples, docs, START-HERE.txt, RUN-SCRIPTS-WINDOWS.txt
+#   7.9.5: -DevKitNoKeys makes a TRUST kit: no generator, no SignCsr, no Sign-Code, no lib\, devkit.env or examples\.
 # Needs the Library module set (configuration, catalog, leaf generator, transport).
 
 function ConvertTo-PkiShellQuoted {
@@ -96,12 +97,19 @@ function Write-PkiDevKitEnv {
     Write-Utf8NoBom -Path $Path -Content (($L -join "`n") + "`n")
 }
 
+# 7.9.5: the scripts that issue or sign. A kit WITHOUT keys (-DevKitNoKeys) leaves all of them out: it is a trust kit only.
+$script:PkiDevKitIssuerScripts = @('GenerateLeafCertificate', 'GeneratePersonLeafCertificate', 'GenerateOffice365LeafCertificate', 'GenerateCodeSigningCertificate', 'SignCsr', 'Sign-Code')
+$script:PkiDevKitIssuerManuals = @('GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'GenerateCodeSigningCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'Sign-Code-MANUAL.txt')
+
 function Copy-PkiDevKitTree {
-    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit)
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Kit, [bool]$WithKeys = $true)
     Ensure-PkiDirectory -Path $Kit
+    $issuers = $script:PkiDevKitIssuerScripts
     # scripts and project files the PowerShell generators and the transport need
-    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'GenerateLeafCertificate.ps1', 'GeneratePersonLeafCertificate.ps1', 'GenerateOffice365LeafCertificate.ps1', 'GenerateCodeSigningCertificate.ps1', 'SignCsr.ps1', 'Create-WebServerConfig.ps1', 'Sign-Code.ps1',
-                   'Install-DevEnvironment.ps1', (Split-Path -Leaf $script:Pki.ConfigPath), '.gitattributes') {
+    $top = [System.Collections.Generic.List[string]]::new()
+    foreach ($f in 'PkiTransport.ps1', 'Unpack-PkiTransport.ps1', 'Create-WebServerConfig.ps1', 'Install-DevEnvironment.ps1', (Split-Path -Leaf $script:Pki.ConfigPath), '.gitattributes') { [void]$top.Add($f) }
+    if ($WithKeys) { foreach ($n in $issuers) { [void]$top.Add("$n.ps1") } }
+    foreach ($f in $top) {
         $src = Join-Path $Root $f
         if (Test-Path -LiteralPath $src -PathType Leaf) { Copy-Item -LiteralPath $src -Destination $Kit -Force }
         elseif ($f -ne '.gitattributes') { throw "DevKit: $src is missing." }
@@ -111,7 +119,9 @@ function Copy-PkiDevKitTree {
     $tt = if (Test-Path -LiteralPath $tools) { [System.IO.File]::ReadAllText($tools) } else { "[ general ]`nDefaultPki = agantra`n" }
     $tt = if ($tt -match '(?im)^\s*DefaultPki\s*=') { [regex]::Replace($tt, '(?im)^(\s*DefaultPki\s*=).*$', "`$1 $($script:Pki.Profile)") } else { "[ general ]`nDefaultPki = $($script:Pki.Profile)`n" + $tt }
     Write-Utf8NoBom -Path (Join-Path $Kit 'pki_tools.cnf') -Content $tt
-    foreach ($f in 'pki-transport.sh', 'Install-DevEnvironment.sh', 'Create-WebServerConfig.sh', 'Sign-Code.sh') {
+    $shTop = @('pki-transport.sh', 'Install-DevEnvironment.sh', 'Create-WebServerConfig.sh')
+    if ($WithKeys) { $shTop += 'Sign-Code.sh' }
+    foreach ($f in $shTop) {
         $src = Get-PkiDevKitSourceFile -Root $Root -Name $f
         if ($null -eq $src) { throw "DevKit: $f is missing." }
         Copy-Item -LiteralPath $src -Destination $Kit -Force
@@ -121,18 +131,29 @@ function Copy-PkiDevKitTree {
     # the DevKit's own files (devkit\ in the project)
     $dk = Join-Path $Root 'devkit'
     if (-not (Test-Path -LiteralPath $dk -PathType Container)) { throw "DevKit: the folder $dk is missing." }
-    foreach ($f in Get-ChildItem -LiteralPath $dk -File | Where-Object { $_.Name -ne 'START-HERE.txt' }) { Copy-Item -LiteralPath $f.FullName -Destination $Kit -Force }
+    foreach ($f in Get-ChildItem -LiteralPath $dk -File | Where-Object { $_.Name -notlike 'START-HERE*.txt' }) {
+        if (-not $WithKeys -and $issuers -contains $f.BaseName) { continue }        # GenerateLeafCertificate.sh, SignCsr.sh, ...
+        Copy-Item -LiteralPath $f.FullName -Destination $Kit -Force
+    }
+    # 7.9.5: how to run the scripts on Windows (execution policy, Windows Sandbox), at the top of the kit
+    $run = Get-PkiDevKitSourceFile -Root $Root -Name 'RUN-SCRIPTS-WINDOWS.txt'
+    if ($run) { Copy-Item -LiteralPath $run -Destination $Kit -Force }
     # 5.2.2: the destination tools - CSR maker and OpenSSL installer (templates in trustkit\)
     foreach ($f in 'New-PkiCsr.ps1', 'Prepare-Computer.ps1', 'new-pki-csr.sh', 'prepare-computer.sh') {
         $src = Join-Path (Join-Path $Root 'trustkit') $f
         if (-not (Test-Path -LiteralPath $src -PathType Leaf)) { throw "DevKit: $src is missing." }
         Copy-Item -LiteralPath $src -Destination $Kit -Force
     }
-    $lib = Join-Path $Kit 'lib'; Ensure-PkiDirectory -Path $lib
-    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $dk 'lib') -File) { Copy-Item -LiteralPath $f.FullName -Destination $lib -Force }
+    if ($WithKeys) {
+        # lib\: the shell libraries of the generators and SignCsr (not needed by a trust kit)
+        $lib = Join-Path $Kit 'lib'; Ensure-PkiDirectory -Path $lib
+        foreach ($f in Get-ChildItem -LiteralPath (Join-Path $dk 'lib') -File) { Copy-Item -LiteralPath $f.FullName -Destination $lib -Force }
+    }
     # manuals
     $docs = Join-Path $Kit 'docs'; Ensure-PkiDirectory -Path $docs
-    foreach ($n in 'DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'GenerateLeafCertificate-MANUAL.txt', 'GeneratePersonLeafCertificate-MANUAL.txt', 'GenerateOffice365LeafCertificate-MANUAL.txt', 'GenerateCodeSigningCertificate-MANUAL.txt', 'SignCsr-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt', 'Sign-Code-MANUAL.txt') {
+    $manuals = @('DevKit-MANUAL.txt', 'PkiTransport-MANUAL.txt', 'NewPkiCsr-MANUAL.txt', 'PrepareComputer-MANUAL.txt', 'Install-DevEnvironment-MANUAL.txt', 'Create-WebServerConfig-MANUAL.txt', 'RUN-SCRIPTS-WINDOWS.txt')
+    if ($WithKeys) { $manuals += $script:PkiDevKitIssuerManuals }
+    foreach ($n in $manuals) {
         $src = Get-PkiDevKitSourceFile -Root $Root -Name $n
         if ($src) { Copy-Item -LiteralPath $src -Destination $docs -Force } else { Write-PkiLog "DevKit: manual $n not found (skipped)." 'WARN' }
     }
@@ -217,14 +238,17 @@ function New-PkiDevKit {
     $kitName = [System.IO.Path]::GetFileNameWithoutExtension($OutFile)
     $kit = Join-Path $work $kitName
     try {
-        Copy-PkiDevKitTree -Root $Root -Kit $kit
+        Copy-PkiDevKitTree -Root $Root -Kit $kit -WithKeys $WithKeys
         if ($WithServer) { Add-PkiDevKitServerKit -Root $Root -Kit $kit -PkiRoot ([string]$c.PkiRoot) -Work $work }
-        Write-PkiDevKitEnv -Path (Join-Path $kit 'devkit.env')
-        $ex = Join-Path $kit 'examples'; Ensure-PkiDirectory -Path $ex
-        [void](Write-PkiPersonExample -Path (Join-Path $ex 'persons.example.json'))
-        [void](Write-PkiOfficeExample -Path (Join-Path $ex 'office365.example.json'))
-        # START-HERE.txt from the template
-        $tpl = Join-Path (Join-Path $Root 'devkit') 'START-HERE.txt'
+        if ($WithKeys) {
+            # devkit.env and the examples are read by the generators only
+            Write-PkiDevKitEnv -Path (Join-Path $kit 'devkit.env')
+            $ex = Join-Path $kit 'examples'; Ensure-PkiDirectory -Path $ex
+            [void](Write-PkiPersonExample -Path (Join-Path $ex 'persons.example.json'))
+            [void](Write-PkiOfficeExample -Path (Join-Path $ex 'office365.example.json'))
+        }
+        # START-HERE.txt from the template (START-HERE-TRUST.txt for a kit without keys)
+        $tpl = Join-Path (Join-Path $Root 'devkit') $(if ($WithKeys) { 'START-HERE.txt' } else { 'START-HERE-TRUST.txt' })
         if (Test-Path -LiteralPath $tpl) {
             $t = [System.IO.File]::ReadAllText($tpl).Replace('{{VERSION}}', [string]$script:PkiGeneratorVersion).Replace('{{DATE}}', [DateTime]::UtcNow.ToString('yyyy-MM-dd')).Replace('{{PACKAGE}}', "$kitName.certpacked").Replace('{{KEYS}}', $(if ($WithKeys) { 'the CA certificates AND the private keys of the ISSUING (intermediate) CAs - no root key' } else { 'the CA certificates only (no private keys): the generators cannot issue' }))
             Write-Utf8NoBom -Path (Join-Path $kit 'START-HERE.txt') -Content $t

@@ -1,0 +1,131 @@
+====================================================================================================
+ RUN THE SCRIPTS ON WINDOWS  -  blocked scripts, execution policy, Windows Sandbox
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - how to start Install-PkiTrust.ps1 and the other scripts
+ Version 7.9.5   2026-10-22
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : The commands that let Windows run the scripts of a kit (DevKit, trust kit,
+                transport kit) on a destination computer, and the full steps for Windows Sandbox.
+ Who reads it : The person who installs the trust on a Windows computer. No PKI knowledge needed.
+ Time needed  : 5 minutes. The install in a Sandbox takes about 5 to 10 minutes (downloads).
+ Start with   : Section 2 on a normal computer, section 3 in Windows Sandbox.
+----------------------------------------------------------------------------------------------------
+ Related manuals:
+   DevKit-MANUAL.txt                  the kit, Install-PkiTrust
+   PkiTransport-MANUAL.txt            PkiTransport.ps1 -Install, Unpack-PkiTransport.ps1
+   Install-DevEnvironment-MANUAL.txt  PowerShell 7, OpenSSL 4, 7-Zip, winget
+   Enable-DevMachine-MANUAL.txt       Bypass for EVERY session on your own development laptop
+
+ CONTENTS
+    1  Why Windows blocks the scripts           4  The same from cmd.exe, in one line
+    2  A normal Windows 11 computer             5  Problems and answers
+    3  Windows Sandbox, step by step            6  What was tested, what was not
+
+====================================================================================================
+ 1  WHY WINDOWS BLOCKS THE SCRIPTS
+====================================================================================================
+ Two things stop a .ps1 file:
+   The execution policy   Windows 11 starts with RemoteSigned (Windows Server) or Restricted. The
+                          scripts of the kit are not signed with a certificate the computer trusts
+                          yet, so PowerShell says "running scripts is disabled on this system".
+   The Internet mark      A file from a download or a zip from the Internet carries a mark
+                          (Zone.Identifier). PowerShell then asks, or refuses.
+ The safe answer: allow scripts for ONE window only (scope Process). Nothing is stored. When the
+ window closes, Windows is as before. Only on your own development laptop use Enable-DevMachine.
+ Install-PkiTrust.ps1, PkiTransport.ps1 and Unpack-PkiTransport.ps1 need PowerShell 7 (pwsh.exe).
+ Windows PowerShell 5.1 (powershell.exe) refuses them. Install-DevEnvironment.ps1 runs on both and
+ installs PowerShell 7.
+
+====================================================================================================
+ 2  A NORMAL WINDOWS 11 COMPUTER
+====================================================================================================
+ 1. Unzip the kit to a short folder, for example C:\pki-devkit.
+ 2. Start PowerShell AS ADMINISTRATOR (right-click > Run as administrator) and go to the folder:
+        cd C:\pki-devkit
+ 3. Allow scripts in THIS window, and remove the Internet mark:
+        Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+        Get-ChildItem -Recurse -File | Unblock-File
+ 4. No PowerShell 7 or OpenSSL 4 yet?
+        .\Install-DevEnvironment.ps1 -Only PowerShell,OpenSSL,7Zip
+    Close the window and open a NEW one as administrator (the PATH is read when a window starts).
+ 5. Install the trust:
+        pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiTrust.ps1
+    It asks for the password of the package. A transport kit instead:
+        pwsh -NoProfile -ExecutionPolicy Bypass -File .\PkiTransport.ps1 `
+            -Install -Package .\x.certpacked
+ Never type the password on the command line: let the script ask for it.
+
+====================================================================================================
+ 3  WINDOWS SANDBOX, STEP BY STEP
+====================================================================================================
+ Windows Sandbox is an empty, throw-away Windows 11. It has Windows PowerShell 5.1 only, NO
+ PowerShell 7, NO winget, NO OpenSSL. Its user (WDAGUtilityAccount) is already an administrator.
+ EVERYTHING is lost when the Sandbox window closes: do the steps again in each new Sandbox.
+ 1. Copy the kit zip into the Sandbox (copy and paste works) and unzip it, for example to
+        C:\Users\WDAGUtilityAccount\Downloads\agantra-pki-devkit-...
+ 2. Start > type "powershell" > Windows PowerShell > Run as administrator. Go to the kit folder:
+        cd C:\Users\WDAGUtilityAccount\Downloads\agantra-pki-devkit-...\agantra-pki-devkit-...
+ 3. Allow scripts in THIS window, and remove the Internet mark:
+        Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+        Get-ChildItem -Recurse -File | Unblock-File
+ 4. Install PowerShell 7, OpenSSL 4 and 7-Zip:
+        .\Install-DevEnvironment.ps1 -Only PowerShell,OpenSSL,7Zip
+    winget is missing in the Sandbox: the script adds it first (the NuGet provider, the module
+    Microsoft.WinGet.Client from the PowerShell Gallery, Repair-WinGetPackageManager -AllUsers).
+    This needs the Internet. If it fails, run these three lines yourself, then step 4 again:
+        Install-PackageProvider -Name NuGet -Force
+        Install-Module -Name Microsoft.WinGet.Client -Repository PSGallery -Force
+        Repair-WinGetPackageManager -AllUsers
+ 5. Close the window. Open a NEW Windows PowerShell as administrator (the new PATH), go to the
+    kit folder again, and install the trust with PowerShell 7:
+        pwsh -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiTrust.ps1
+ 6. Check: certlm.msc > Trusted Root Certification Authorities > Certificates. Your roots are
+    there; the public CAs of Windows are unchanged.
+ A Sandbox started from a .wsb file can open the kit folder of the host directly (read-only):
+     <Configuration>
+       <MappedFolders><MappedFolder>
+         <HostFolder>C:\pki-devkit</HostFolder><ReadOnly>true</ReadOnly>
+       </MappedFolder></MappedFolders>
+     </Configuration>
+ Inside, the folder is C:\Users\WDAGUtilityAccount\Desktop\pki-devkit. Copy it to Downloads
+ first: Install-PkiTrust writes pki\ and ca\ next to itself and the mapped folder is read-only.
+
+====================================================================================================
+ 4  THE SAME FROM CMD.EXE, IN ONE LINE
+====================================================================================================
+ -ExecutionPolicy Bypass on the command line holds for that one process only:
+     powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-DevEnvironment.ps1 -Only Git
+     pwsh.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-PkiTrust.ps1
+ Give the options AFTER the file name. Use -File, not a bare path: with -File the exit code of
+ the script reaches cmd (%ERRORLEVEL%).
+
+====================================================================================================
+ 5  PROBLEMS AND ANSWERS
+====================================================================================================
+ "running scripts is disabled on this system"   Step 3 of section 2 or 3, or the one-line form.
+ "cannot be loaded ... not digitally signed"    The Internet mark: Get-ChildItem -Recurse -File |
+                                                Unblock-File
+ "The script ... cannot be run because it contained a "#requires" statement for Windows
+ PowerShell 7.0"                                 You started powershell.exe. Use pwsh.exe.
+ "pwsh is not recognized"                        PowerShell 7 is missing, or the window is older
+                                                 than the install. Open a NEW window.
+ "WinGet was not detected"                       No Internet in the Sandbox, or the PowerShell
+                                                 Gallery is blocked. Section 3, step 4.
+ "The property 'Patch' cannot be found"          Fixed in 7.9.5 (Install-DevEnvironment on
+                                                 Windows PowerShell 5.1). Use the newer kit.
+ A Group Policy sets the execution policy        Process scope cannot beat it. Ask IT.
+
+====================================================================================================
+ 6  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Version 7.9.5: the commands were written from the PowerShell and Windows Sandbox documentation
+ and from the error report of a real Windows Sandbox (Windows 11 Enterprise 26100). The 'Patch'
+ fix was tested on PowerShell 7 with Set-StrictMode against a [System.Version] like the one of
+ Windows PowerShell 5.1. NOT tested here: a real Windows Sandbox, the winget bootstrap, a .wsb.
+
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================
