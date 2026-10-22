@@ -3,7 +3,7 @@
  Author : Nicko Satria Utama
  Company: Agantra Inovatif OU (NextMantra)
  Email  : nicko@nextmantra.com
- Version: 7.6.9
+ Version: 7.7.1
 ====================================================================================================
 
  READ THIS FIRST

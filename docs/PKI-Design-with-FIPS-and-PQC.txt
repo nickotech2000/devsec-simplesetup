@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.6.9                      Updated: 2026-10-21
+ Version : 7.7.1                      Updated: 2026-10-22
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,14 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.189 DECIDED   (7.7.1) Convert-CodeSignCert and Verify-CodeSign are standalone (one file, no module)
+                 like Sign-Code, so a project or a build agent copies only what it runs. Converted
+                 files and certificates are identified by SHA-256 and SHA-512 only. Verify-CodeSign
+                 trusts the hash check of each platform's own tool (Authenticode, jarsigner,
+                 apksigner, dotnet nuget verify, rcodesign) and reads the certificate and the
+                 timestamp from the signature itself; the chain is checked at the time of the
+                 timestamp. An untrusted chain is a warning by default (a private PKI without
+                 -ChainFile) and a failure with -Strict; a tampered file is always a failure.
 10.188 DECIDED   (7.6.9) -Timestamp None exists for fast local Debug signing only: a timestamp server
                  is one network round trip per file, which dominates a solution build of many
                  projects. It is an explicit value (never a fallback when the server fails), so a

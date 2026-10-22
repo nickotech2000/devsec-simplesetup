@@ -1,0 +1,198 @@
+====================================================================================================
+ Verify-CodeSign  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - check signed files: signer, key, timestamp, trust, no tampering
+ Version 7.7.1   2026-10-22
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Script : Verify-CodeSign.ps1 (Windows, PowerShell 7+) and Verify-CodeSign.sh (Linux, macOS,
+          bash 4+)
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : A script that checks signed files and says, for each one: is it signed, was it
+                changed after signing (TAMPERED), who signed it (certificate, RSA / EC key,
+                digest), when (the timestamp, and by which server), and does the chain reach a
+                trusted root. It fails the build when a rule is broken.
+ Who reads it : Developers, DevSecOps staff and auditors. No PKI knowledge is needed.
+ Time needed  : 5 minutes for sections 1 to 3.
+ You need     : The signed files, and the tool that checks each file type (section 4).
+ Start with   : Section 3 (Quick start).
+----------------------------------------------------------------------------------------------------
+ Related manuals:
+   Sign-Code-MANUAL.txt               sign the files
+   Convert-CodeSignCert-MANUAL.txt    convert the certificate for each platform
+ Help in the terminal:   .\Verify-CodeSign.ps1 -Help      ./Verify-CodeSign.sh --help
+
+ CONTENTS
+    1  What it checks                           6  The result of each file
+    2  Standalone: where to put it              7  Build systems and CI/CD
+    3  Quick start                              8  Exit codes
+    4  Which files, which tools                 9  Problems and answers
+    5  The rules                               10  What was tested, what was not
+
+====================================================================================================
+ 1  WHAT IT CHECKS
+====================================================================================================
+ For EVERY file:
+ 1. SIGNED and NOT CHANGED. The tool of the file type recomputes the hash of the file and compares
+    it with the hash inside the signature. One changed byte = TAMPERED.
+    A hash file next to the file is checked too: <file>-signed.sha256 / .sha512 (written by
+    Sign-Code) or <file>.sha256 / .sha512. A different hash = TAMPERED.
+ 2. WHO SIGNED. Subject, issuer, serial number, validity, the key (RSA-4096, EC P-384 ...), the
+    signature digest (SHA-256, SHA-384 ...), the purposes (Code Signing) and the SHA-256 and
+    SHA-512 fingerprints of the certificate. Never MD5 or SHA-1 fingerprints.
+ 3. THE TIMESTAMP. When it was signed and by which timestamp server. Without a timestamp the
+    signature ends when the certificate expires (a warning, or a failure with the rule).
+ 4. TRUST. The chain from the signing certificate to a root this computer trusts, or to the CA
+    file you give (a private PKI), checked at the time of the timestamp (so a file signed while
+    the certificate was valid stays valid after it expires).
+ 5. YOUR RULES (section 5). A file signed with an MD5 or SHA-1 digest always FAILS.
+ Nothing is changed: the script only reads the files.
+
+====================================================================================================
+ 2  STANDALONE: WHERE TO PUT IT
+====================================================================================================
+ The script needs no other file of this project. Copy one file (or both) into your repository,
+ for example build\Verify-CodeSign.ps1 and build/Verify-CodeSign.sh, and run it:
+   after Sign-Code in the same pipeline (the last step before the files are published),
+   after the build in MSBuild (an Exec task, section 7), Gradle, Maven or npm,
+   from Visual Studio 2026 (Developer PowerShell), VS Code (a task) or JetBrains (a run
+   configuration), or by hand on a file you downloaded.
+ Linux: chmod +x build/Verify-CodeSign.sh once (git update-index --chmod=+x ...).
+
+====================================================================================================
+ 3  QUICK START
+====================================================================================================
+   .\Verify-CodeSign.ps1 -File .\App.exe, .\App.dll
+   .\Verify-CodeSign.ps1 -Folder .\publish
+   ./Verify-CodeSign.sh --folder ./publish
+ A private PKI: give the root and intermediate certificates (PEM) so the chain can be trusted:
+   .\Verify-CodeSign.ps1 -Folder .\publish -ChainFile .\pki-root-and-intermediate.pem
+   ./Verify-CodeSign.sh --folder ./publish --chain-file ./pki-root-and-intermediate.pem
+ Release gate (the exact certificate, a timestamp, a trusted chain, RSA 3072 or more):
+   .\Verify-CodeSign.ps1 -Folder .\publish -ExpectSha256 <sha256 of your certificate> `
+       -RequireTimestamp -Strict -MinRsaBits 3072 -ReportFolder .\reports
+   ./Verify-CodeSign.sh --folder ./publish --expect-sha256 <sha256> --require-timestamp --strict \
+       --min-rsa-bits 3072 --report-folder ./reports
+ The SHA-256 of your certificate: Convert-CodeSignCert writes it in
+ <name>-certificate-fingerprints.txt; Sign-Code prints it.
+
+====================================================================================================
+ 4  WHICH FILES, WHICH TOOLS
+====================================================================================================
+   File types                                            Hash check by
+   Windows: exe dll sys ocx scr cpl efi winmd msi msp   Windows: Get-AuthenticodeSignature (built
+            cab cat msix appx                           in). Linux / macOS: osslsigncode.
+   PowerShell: ps1 psm1 psd1 ps1xml psc1 cdxml          the same
+   Java: jar war ear, Android App Bundle aab            jarsigner (a Java JDK 17+)
+   Android: apk                                         apksigner (Android SDK build-tools)
+   NuGet: nupkg snupkg                                  dotnet nuget verify (.NET SDK 8+)
+   Apple: Mach-O, .app .framework .dmg .pkg              rcodesign (apple-codesign)
+ The certificate, the key, the digest and the timestamp are read from the signature itself: by
+ .NET in the .ps1 (SignedCms, RFC 3161 token, X509Chain), by OpenSSL in the .sh.
+ Only the tools of the file types found are needed. A missing tool stops the run BEFORE any file
+ is checked (exit 4) and prints how to install it:
+   osslsigncode   sudo apt install osslsigncode / sudo dnf install osslsigncode (EPEL) / brew
+   jarsigner      winget install Microsoft.OpenJDK.21 / apt install openjdk-21-jdk-headless
+   apksigner      sdkmanager "build-tools;36.0.0" and ANDROID_HOME (found in build-tools by itself)
+   dotnet         winget install Microsoft.DotNet.SDK.8 / https://dot.net
+   rcodesign      cargo install apple-codesign
+ -Folder / --folder takes every supported file, in sub-folders too (-NoRecurse / --no-recurse to
+ stop that). -Include / -Exclude (--include / --exclude) filter on the file name (*.dll).
+
+====================================================================================================
+ 5  THE RULES
+====================================================================================================
+   -ChainFile / --chain-file <pem>     CA certificates to trust (private PKI root + intermediates).
+   -ExpectSha256 / --expect-sha256     The signing certificate must be this one (SHA-256
+                                       fingerprint, colons allowed). Several are allowed (old and
+                                       new certificate during a renewal).
+   -ExpectSubject / --expect-subject   The subject must contain this text (the company name).
+   -MinRsaBits / --min-rsa-bits <n>    Smallest RSA key accepted. Default 2048; 3072 is advised.
+   -RequireTimestamp / --require-timestamp   No timestamp = FAILED (APKs have none by design).
+   -Strict / --strict                  An untrusted chain = FAILED (default: a warning).
+ Always: an MD5 or SHA-1 signature digest = FAILED.
+
+====================================================================================================
+ 6  THE RESULT OF EACH FILE
+====================================================================================================
+   VERIFIED   signed, not changed, every rule met
+   FAILED     signed and not changed, but a rule is broken (the reason is printed)
+   UNSIGNED   no signature
+   TAMPERED   changed after signing (the signed hash or the hash file differs). Do not ship it.
+   ERROR      the file could not be checked (the reason is printed)
+ A block per file, then a summary table. With -ReportFolder / --report-folder <dir> (or the
+ variable SIGN_REPORT_DIR, the same as Sign-Code) a verify-report_<date-time>.json with every
+ field per file: keep it as a build artifact, it is evidence for auditors.
+ The SHA-256 and SHA-512 of each file are printed and written in the report as well.
+
+====================================================================================================
+ 7  BUILD SYSTEMS AND CI/CD
+====================================================================================================
+ Pipeline mode is on by itself on GitHub Actions, Azure DevOps, GitLab, Jenkins, TeamCity,
+ Bitbucket, AWS CodeBuild and Google Cloud Build (or -Ci / --ci). Errors and warnings become
+ annotations (::error:: on GitHub, ##vso[task.logissue] on Azure DevOps, "error VC0001" in
+ MSBuild, so they show in the Visual Studio Error List). GitHub also gets a line in the job
+ summary. A non-zero exit code fails the step.
+
+ GitHub Actions:
+   - name: Verify the signatures
+     run: ./build/Verify-CodeSign.sh --folder publish --require-timestamp --strict --report-folder reports
+   (windows-latest: shell: pwsh and .\build\Verify-CodeSign.ps1 -Folder publish ...)
+ Azure DevOps Services (cloud) and Server (on premises):
+   - pwsh: .\build\Verify-CodeSign.ps1 -Folder $(Build.ArtifactStagingDirectory) -RequireTimestamp -Strict
+   - bash: ./build/Verify-CodeSign.sh --folder $(Build.ArtifactStagingDirectory)
+ GitLab CI/CD, AWS CodeBuild, Alibaba Cloud Yunxiao Flow, Google Cloud Build, Jenkins: the same line
+   in a script step.
+ MSBuild / Visual Studio 2026 (in a .csproj or Directory.Build.targets, after Sign-Code):
+   <Target Name="VerifyCodeSign" AfterTargets="Build" Condition="'$(Configuration)' == 'Release'">
+     <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)build\Verify-CodeSign.ps1&quot; -File &quot;$(TargetPath)&quot;" />
+   </Target>
+   On Linux build agents: <Exec Command="bash build/Verify-CodeSign.sh --file &quot;$(TargetPath)&quot;" />
+ Gradle (Android):  tasks.register('verifySign', Exec) { commandLine 'bash', 'build/Verify-CodeSign.sh', '--folder', 'app/build/outputs' }
+ Note for pwsh -File from another shell: give a list as one -File per item, or use
+ pwsh -Command "& .\Verify-CodeSign.ps1 -File a.dll, b.dll".
+
+====================================================================================================
+ 8  EXIT CODES
+====================================================================================================
+   0  every file is signed, unchanged and meets the rules
+   1  wrong option (a file or folder not found, a bad number)
+   4  a needed tool is missing (no file was checked)
+   6  at least one file is UNSIGNED, TAMPERED, FAILED or ERROR
+   7  no supported file was found
+
+====================================================================================================
+ 9  PROBLEMS AND ANSWERS
+====================================================================================================
+ "chain NOT trusted: self-signed certificate in certificate chain"   The root is not trusted by
+     this computer: a private PKI. Give -ChainFile / --chain-file with the root (and intermediate)
+     PEM, or install the root (New-PkiTrustKit / Install-PkiCa).
+ "no timestamp"   The file was signed without a timestamp server (for example Sign-Code
+     -Timestamp None in Debug). Fine for tests; sign Release builds with a timestamp.
+ "signed by ANOTHER certificate than -ExpectSha256"   Somebody signed with another certificate, or
+     your certificate was renewed: add the new fingerprint as a second value.
+ TAMPERED with "the file differs from <file>-signed.sha256"   The file changed after Sign-Code
+     wrote its hash file: a later build step rewrote it (for example a re-pack). Sign after it.
+ msi / cab / msix on Windows: the timestamp time is shown as "present" (Windows gives only the
+     timestamp certificate for these types).
+ Android APK: the chain is usually not trusted (an upload key is self-signed by design); it is
+     never a failure for an APK. Use -ExpectSha256 to pin your key.
+
+====================================================================================================
+ 10  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Version 7.7.1, tested on Ubuntu 24.04 (OpenSSL 3.0, osslsigncode 2.8, OpenJDK 21, PowerShell 7.5)
+ with a private-PKI RSA-3072 certificate and a local RFC 3161 timestamp server, both scripts with
+ the same results: a signed, an unsigned and a tampered DLL, a signed PowerShell script, a signed
+ and a tampered JAR, a DLL and a JAR with a timestamp (time and server read back), -ChainFile,
+ -Strict, -RequireTimestamp, -ExpectSha256 (with colons, several values), -ExpectSubject,
+ -MinRsaBits, a hash file that matches and one that does not, an unsigned NuGet package, the JSON
+ report, a missing tool (exit 4) and an empty folder (exit 7).
+ NOT tested: the .ps1 on Windows itself (Get-AuthenticodeSignature), a signed NuGet package,
+ apksigner (no Android SDK available), rcodesign (Apple), msi / cab / msix files, and the pipeline
+ examples on the real services.
+
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

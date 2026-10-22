@@ -2,7 +2,7 @@
  Sign-Code  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
- Version 7.6.9   2026-10-21
+ Version 7.7.1   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)
 
@@ -24,6 +24,8 @@
    PkiTrustKit-MANUAL.txt   make Windows trust your private root
    PkiTransport-MANUAL.txt   move files to a build machine
    PkiRevocation-MANUAL.txt   revoke a code-signing certificate
+   Convert-CodeSignCert-MANUAL.txt   convert the certificate (pfx, keystore, crt, key ...) per platform
+   Verify-CodeSign-MANUAL.txt   check signed files afterwards (signer, timestamp, no tampering)
    PKI-Design-with-FIPS-and-PQC.txt   why it is built this way (senior staff)
  Help in the terminal:   .\Sign-Code.ps1 -Help      ./Sign-Code.sh --help
 
@@ -719,6 +721,7 @@ first, then one small file, before you rely on a pipeline.
  18  OTHER DOCUMENTS
 ====================================================================================================
  VERSION-INFO.txt   (what -Version / --version prints)
+ Convert-CodeSignCert-MANUAL.txt   Verify-CodeSign-MANUAL.txt   (standalone, like Sign-Code)
  GenerateLeafCertificate-MANUAL.txt   PkiTrustKit-MANUAL.txt   PkiTransport-MANUAL.txt
  PkiRevocation-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt
 

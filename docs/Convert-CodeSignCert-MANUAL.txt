@@ -1,0 +1,225 @@
+====================================================================================================
+ Convert-CodeSignCert  -  USER MANUAL
+====================================================================================================
+ Agantra Inovatif Enterprise PKI - convert a code-signing certificate to the format a platform needs
+ Version 7.7.1   2026-10-22
+ Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
+ Script : Convert-CodeSignCert.ps1 (Windows, PowerShell 7+) and Convert-CodeSignCert.sh (Linux,
+          macOS, bash 4+)
+
+ READ THIS FIRST
+----------------------------------------------------------------------------------------------------
+ What it is   : A script that turns ONE code-signing certificate with its private key into the
+                files each platform wants: .pfx for Windows, .keystore for Android and Java, .crt
+                and .key for Linux and the clouds, and back again. Every output is read back and
+                checked, and gets a .sha256 and a .sha512 file.
+ Who reads it : Developers and DevSecOps staff. No PKI knowledge is needed.
+ Time needed  : 5 minutes for sections 1 to 3.
+ You need     : The certificate you bought (DigiCert, Sectigo, GlobalSign, SSL.com, Certum ...) or
+                made with your private PKI, its password, and OpenSSL 3 or newer.
+ Start with   : Section 3 (Quick start).
+----------------------------------------------------------------------------------------------------
+ Related manuals:
+   Sign-Code-MANUAL.txt                        sign files with the converted certificate
+   Verify-CodeSign-MANUAL.txt                  check the signed files afterwards
+   GenerateCodeSigningCertificate-MANUAL.txt   make code-signing certificates with the private PKI
+ Help in the terminal:   .\Convert-CodeSignCert.ps1 -Help      ./Convert-CodeSignCert.sh --help
+
+ CONTENTS
+    1  What it does                             7  Passwords
+    2  Standalone: where to put it              8  Build systems and CI/CD
+    3  Quick start                              9  Exit codes
+    4  The input                               10  Problems and answers
+    5  The output formats                      11  What was tested, what was not
+    6  Platform presets
+
+====================================================================================================
+ 1  WHAT IT DOES
+====================================================================================================
+ 1. Checks the tools FIRST: OpenSSL 3 or newer, and keytool (a Java JDK) only when a .jks is read
+    or written. A missing tool stops the run before anything is written (exit 4), with the line
+    that installs it.
+ 2. Reads the input (recognised by its content, not only by its extension), checks that the
+    private key belongs to the certificate (exit 2 if not), and prints the certificate: subject,
+    issuer, serial, validity, key type and size, and the SHA-256 and SHA-512 fingerprints.
+ 3. Writes every format you asked for.
+ 4. READS EACH OUTPUT BACK: the same certificate, the same key, the alias of a keystore. A broken
+    output stops the run (exit 5); do not use the files then.
+ 5. Writes <file>.sha256 and <file>.sha512 next to EVERY output (the sha256sum / sha512sum format,
+    so "sha256sum -c" works) and <name>-certificate-fingerprints.txt with the SHA-256 and SHA-512
+    fingerprints of the certificate. Never MD5 or SHA-1.
+ It never overwrites a file that exists, unless you add -Force / --force. It checks this BEFORE it
+ writes anything.
+
+====================================================================================================
+ 2  STANDALONE: WHERE TO PUT IT
+====================================================================================================
+ The script needs no other file of this project. Copy one file (or both) into your repository,
+ for example build\Convert-CodeSignCert.ps1 and build/Convert-CodeSignCert.sh, and run it from:
+   Visual Studio 2026        Developer PowerShell, or a pre-build step of a project
+   VS Code                   the terminal, or a task in .vscode/tasks.json
+   JetBrains (Rider, IDEA,   the terminal, or a "Shell Script" / "PowerShell" run configuration
+   Android Studio)
+   Any CI/CD                 GitHub Actions, Azure DevOps Services (cloud) and Server (on
+                             premises), GitLab CI/CD, AWS CodeBuild, Alibaba Cloud Yunxiao Flow,
+                             Azure, Google Cloud Build, Jenkins, Bitbucket, TeamCity (section 8)
+ On Linux, make the .sh executable once:  chmod +x build/Convert-CodeSignCert.sh
+ (git keeps the flag: git update-index --chmod=+x build/Convert-CodeSignCert.sh).
+
+====================================================================================================
+ 3  QUICK START
+====================================================================================================
+ A .pfx from a public CA, to everything Android and Java need:
+   Windows : $env:CONVERT_IN_PASSWORD = '...'
+             .\Convert-CodeSignCert.ps1 -In .\codesign.pfx -Platform Android, Java
+   Linux   : CONVERT_IN_PASSWORD='...' ./Convert-CodeSignCert.sh --in codesign.pfx --platform android,java
+
+ A .crt and .key (and the CA chain the CA sent) to a .pfx for Windows:
+   .\Convert-CodeSignCert.ps1 -In .\codesign.crt -Key .\codesign.key -Chain .\ca-bundle.crt -To pfx
+   ./Convert-CodeSignCert.sh --in codesign.crt --key codesign.key --chain ca-bundle.crt --to pfx
+
+ An Android / Java .keystore back to .pfx, .crt and .key:
+   .\Convert-CodeSignCert.ps1 -In .\release.keystore -To pfx, crt, key
+   ./Convert-CodeSignCert.sh --in release.keystore --to pfx,crt,key
+
+ Only look at a certificate (nothing is written):
+   .\Convert-CodeSignCert.ps1 -In .\codesign.pfx -CheckOnly
+   ./Convert-CodeSignCert.sh --in codesign.pfx --check-only
+
+ The files go to <name>-converted\ next to the input (or -OutFolder / --out-folder).
+
+====================================================================================================
+ 4  THE INPUT
+====================================================================================================
+ -In / --in <file>   The certificate:
+     .pfx .p12 .keystore     PKCS#12 (with the key and usually the chain)
+     .jks .keystore          Java KeyStore (old Java format; needs keytool)
+     .pem .crt .cer .der     one certificate, PEM or DER. A PEM may also hold the key and the chain.
+     .p7b .p7c .spc          a certificate chain (PKCS#7), PEM or DER
+ -Key / --key <file>  The private key when the input holds no key: .key .pem (PKCS#8 or the
+                      traditional format, encrypted or not), .der, .pvk (Microsoft).
+ -Chain / --chain <file>  Extra CA certificates (PEM bundle or .p7b), added to the outputs.
+ -Alias / --alias <name>  The entry to read from a keystore with several entries, and the alias that
+                      is written into .keystore / .jks / .pfx. Default: from the certificate name,
+                      lower case, [a-z0-9._-] (the same rule as GenerateCodeSigningCertificate).
+
+====================================================================================================
+ 5  THE OUTPUT FORMATS
+====================================================================================================
+ -To / --to <list>   (comma separated)
+   pfx, p12   PKCS#12 with key and chain. AES-256-CBC, SHA-256 MAC (OpenSSL 3 default).
+   keystore   PKCS#12 with ONE alias: Android (apksigner, Gradle, .NET MAUI) and Java 9+.
+   jks        Java KeyStore (keytool). Only for old Java tools; prefer keystore.
+   pem        certificate + chain (PEM)            crt   certificate (PEM)
+   cer        certificate (DER, as Windows likes)  key   private key, PKCS#8 PEM, AES-256 encrypted
+   p7b        certificate + chain (PKCS#7, PEM)    spc   the same in DER (the old signcode tool)
+   pvk        private key for the old Microsoft tools (RSA only)
+   bundle     key + certificate + chain in one PEM (key encrypted)
+ -PlainKey / --plain-key   Write .key / bundle WITHOUT encryption. Only for a platform that needs
+                      it (AWS ACM). Keep that file out of git and delete it after the import.
+ -Legacy / --legacy   PKCS#12 with the old algorithms (3DES, SHA-1 MAC) for Windows Server 2016 /
+                      macOS 11 and older. Only when such a system refuses the normal .pfx. The
+                      CHECKSUM files stay SHA-256 / SHA-512.
+ -Name / --name       The file name of the outputs (without extension). Default: the input name.
+ -Force / --force     Replace output files that exist.
+
+====================================================================================================
+ 6  PLATFORM PRESETS
+====================================================================================================
+ -Platform / --platform <list> adds formats to -To:
+   Windows   pfx cer                 signtool, Set-AuthenticodeSignature, Visual Studio
+   Java      jks keystore            jarsigner, Maven, Gradle
+   Android   keystore pfx            apksigner, Gradle signingConfig, .NET MAUI AndroidSigningKeyStore
+   Apple     p12 cer                 Keychain, rcodesign
+   Linux     pem crt key             osslsigncode, openssl
+   Azure     pfx                     Key Vault import, Artifact Signing (BYO certificate)
+   Aws       crt key pem             ACM import (needs -PlainKey / --plain-key)
+   Gcp       pem key                 Certificate Manager
+   All       pfx keystore jks pem crt cer key p7b
+
+====================================================================================================
+ 7  PASSWORDS
+====================================================================================================
+ Passwords are NEVER options on the command line (they would show in the process list and the
+ build log). They come from environment variables:
+   input   : -InPasswordEnv / --in-password-env <NAME>, else CONVERT_IN_PASSWORD, else
+             SIGN_PFX_PASSWORD (the same variable Sign-Code uses).
+   outputs : -OutPasswordEnv / --out-password-env <NAME>, else CONVERT_OUT_PASSWORD, else the
+             input password.
+ On a terminal with no variable set, the script asks (hidden input). In pipeline mode it never
+ asks. The tools receive the password as env:... (OpenSSL) and :env (keytool), never as text.
+ In GitHub Actions the passwords are also masked in the log (::add-mask::).
+
+====================================================================================================
+ 8  BUILD SYSTEMS AND CI/CD
+====================================================================================================
+ Pipeline mode is on by itself on GitHub Actions, Azure DevOps, GitLab, Jenkins, TeamCity,
+ Bitbucket, AWS CodeBuild and Google Cloud Build (or -Ci / --ci). Errors become annotations
+ (::error:: on GitHub, ##vso[task.logissue] on Azure DevOps, "error CC0001" in MSBuild).
+ Keep the certificate in the secret store as Base64 and decode it in the step:
+
+ GitHub Actions (ubuntu-latest):
+   - name: Convert the code-signing certificate
+     env:
+       CODESIGN_PFX_B64: ${{ secrets.CODESIGN_PFX_B64 }}
+       CONVERT_IN_PASSWORD: ${{ secrets.CODESIGN_PFX_PASSWORD }}
+     run: |
+       echo "$CODESIGN_PFX_B64" | base64 -d > "$RUNNER_TEMP/cs.pfx"
+       ./build/Convert-CodeSignCert.sh --in "$RUNNER_TEMP/cs.pfx" --to keystore --out-folder "$RUNNER_TEMP/cs"
+ GitHub Actions (windows-latest): the same in "shell: pwsh" with
+       [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cs.pfx", [Convert]::FromBase64String($env:CODESIGN_PFX_B64))
+       .\build\Convert-CodeSignCert.ps1 -In "$env:RUNNER_TEMP\cs.pfx" -To keystore -OutFolder "$env:RUNNER_TEMP\cs"
+ Azure DevOps Services (cloud) and Azure DevOps Server (on premises): a Bash@3 or PowerShell@2
+   (pwsh: true) task; map the secret variable in env: (secret variables are not passed by
+   themselves). A Secure File (DownloadSecureFile@1) works as well as Base64.
+ GitLab CI/CD: a masked, protected CI/CD variable of type File or Base64, and the same two lines in
+   script:.
+ AWS CodeBuild: secrets-manager: in the buildspec env section, the same two lines in a phase.
+ Alibaba Cloud Yunxiao Flow (and Alibaba Cloud KMS secrets): a secret variable, the same lines.
+ Google Cloud Build: availableSecrets with Secret Manager, the same lines in a bash step.
+ Azure Pipelines on a Windows on-premises agent: Developer PowerShell or pwsh, the .ps1.
+ Visual Studio 2026 / MSBuild, before the build (convert once per build, for example for MAUI):
+   <Target Name="ConvertCodeSign" BeforeTargets="Build" Condition="!Exists('$(IntermediateOutputPath)cs\release.keystore')">
+     <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildThisFileDirectory)build\Convert-CodeSignCert.ps1&quot; -In &quot;$(CodeSignPfx)&quot; -To keystore -OutFolder &quot;$(IntermediateOutputPath)cs&quot; -Name release -Ci" />
+   </Target>
+   (The password comes from the environment, never from the project file.)
+ Delete the converted files at the end of the job (the hosted agents are thrown away; your own
+ on-premises agents are not).
+
+====================================================================================================
+ 9  EXIT CODES
+====================================================================================================
+   0  done
+   1  wrong input or option (a file not found, an unknown format, an output exists without -Force)
+   2  the key does not belong to the certificate, or no certificate was found
+   4  a needed tool is missing (nothing was written)
+   5  an output could not be read back correctly (do not use the outputs)
+
+====================================================================================================
+ 10  PROBLEMS AND ANSWERS
+====================================================================================================
+ "mac verify failure" / "wrong password"   The input password is wrong, or it is in another
+     variable: set CONVERT_IN_PASSWORD or give -InPasswordEnv.
+ "the key does not match the certificate"  The .key belongs to another certificate (for example
+     the one of last year). Use the key you made the request (CSR) with.
+ Windows Server 2016 says the .pfx password is wrong although it is right: add -Legacy.
+ keytool not found: install a JDK (winget install Microsoft.OpenJDK.21 / apt install
+     openjdk-21-jdk-headless) or set JAVA_HOME. Only .jks needs keytool; .keystore does not.
+ Several entries in a .jks: give -Alias / --alias (keytool -list -keystore x.jks shows them).
+ AWS stops with "needs --plain-key": ACM imports only an unencrypted key; this is on purpose.
+
+====================================================================================================
+ 11  WHAT WAS TESTED, WHAT WAS NOT
+====================================================================================================
+ Version 7.7.1, tested on Ubuntu 24.04 (OpenSSL 3.0, OpenJDK 21, PowerShell 7.5) with a private-PKI
+ RSA-3072 code-signing certificate: .pfx to every format and back, .crt + .key (+ chain) to .pfx,
+ .keystore and .jks back to .pfx / .crt / .key, PVK, the platform presets, the read-back check, the
+ .sha256 / .sha512 files (sha256sum -c / sha512sum -c), a wrong key (exit 2), an
+ existing output without --force, and a missing tool (exit 4). Both scripts write the same .crt.
+ NOT tested: the PowerShell script on Windows itself, -Legacy on a real Windows Server 2016, the
+ imports into Azure Key Vault, AWS ACM and Google Certificate Manager, and the pipeline examples on
+ the real services. Run -CheckOnly first.
+
+====================================================================================================
+ Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com
+====================================================================================================

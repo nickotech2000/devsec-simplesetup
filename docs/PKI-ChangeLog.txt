@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.6.9                       Updated: 2026-10-21
+ Version : 7.7.1                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,23 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.7.1  2026-10-22  MINOR + REVISION (minor +1, revision 1)
+    * NEW Convert-CodeSignCert.ps1 / Convert-CodeSignCert.sh (standalone, one file each): convert a
+      code-signing certificate from a public CA or the private PKI between pfx, p12, keystore, jks,
+      pem, crt, cer, key, p7b, spc, pvk and bundle, and back. Platform presets for Windows, Java,
+      Android, Apple, Linux, Azure, AWS and Google Cloud. The tools are checked first (exit 4, nothing
+      written), the key must match the certificate (exit 2), every output is read back (exit 5), and
+      every output gets a .sha256 and a .sha512 file plus <name>-certificate-fingerprints.txt (SHA-256
+      and SHA-512 only, never MD5 or SHA-1). Passwords only from environment variables.
+    * NEW Verify-CodeSign.ps1 / Verify-CodeSign.sh (standalone): check signed files (Windows files and
+      PowerShell, Java jar / aab, Android apk, NuGet, Apple): signed, NOT tampered (the signed hash and
+      the -signed.sha256 / .sha512 files of Sign-Code), the signing certificate (subject, issuer,
+      serial, RSA / EC key size, digest, SHA-256 and SHA-512 fingerprints), the timestamp and its
+      server, and the chain (-ChainFile for a private PKI, at the time of the timestamp). Rules:
+      -ExpectSha256, -ExpectSubject, -MinRsaBits, -RequireTimestamp, -Strict; MD5 / SHA-1 digests fail.
+      Exit 0 / 1 / 4 / 6 / 7, a JSON report, annotations for GitHub, Azure DevOps and MSBuild.
+    * Manuals Convert-CodeSignCert-MANUAL.txt and Verify-CodeSign-MANUAL.txt (also as html pages).
 
   7.6.9  2026-10-21  REVISION (revision +1)
     * Sign-Code.ps1 -Timestamp None: sign without a timestamp server (no network, no wait), for Debug

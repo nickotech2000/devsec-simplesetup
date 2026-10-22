@@ -2,7 +2,7 @@
  Export-PkiCa  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - CA files for CDNs, proxies and load balancers
- Version 7.6.9   2026-10-21
+ Version 7.7.1   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Export-PkiCa.ps1
 
