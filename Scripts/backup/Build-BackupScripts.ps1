@@ -1,7 +1,7 @@
 # ============================================================
 # PKI Script
 # Author : Nicko Satria Utama
-# Company: Agantra Inovatif OÜ (NextMantra)
+# Company: Agantra Inovatif OU (NextMantra)
 # Email  : nicko@nextmantra.com
 # ============================================================
 # Build-BackupScripts.ps1  -  maker of the three STANDALONE backup scripts (a maintainer tool, not for users)

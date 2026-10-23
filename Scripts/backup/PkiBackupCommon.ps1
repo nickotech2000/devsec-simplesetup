@@ -1,7 +1,7 @@
 # ============================================================
 # PKI Script
 # Author : Nicko Satria Utama
-# Company: Agantra Inovatif OÜ (NextMantra)
+# Company: Agantra Inovatif OU (NextMantra)
 # Email  : nicko@nextmantra.com
 # ============================================================
 # PkiBackupCommon.ps1  -  the code shared by Backup-Pki.ps1, Restore-Pki.ps1 and Test-PkiBackup.ps1  (SOURCE of the embedded copy)
@@ -17,7 +17,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:BkVersion = '7.9.10'
+$script:BkVersion = '7.9.11'
 $script:BkAssumeYes = $false
 $script:BkFormat = 'agantra-pki-backup'
 $script:BkFormatVersion = 1
@@ -354,7 +354,7 @@ function Open-BkPackage {
 # Certificates, private keys, the Local Machine certificate store
 # ------------------------------------------------------------
 function ConvertTo-BkNorm {
-    # for comparing names: no accents (OÜ = OU), lower case, one space
+    # for comparing names: no accents (O-umlaut = O), lower case, one space
     param([string]$Text)
     if ([string]::IsNullOrWhiteSpace($Text)) { return '' }
     $d = $Text.Normalize([System.Text.NormalizationForm]::FormD)

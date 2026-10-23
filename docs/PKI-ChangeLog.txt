@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.9.10                       Updated: 2026-10-22
+ Version : 7.9.11                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,17 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.9.11  2026-10-23  REVISION (revision +1)
+    * Install-DevEnvironment.ps1 7.9.10 stopped at once in Windows PowerShell 5.1 (Windows Sandbox):
+      'parsing "^[...-...\s]+..." - [x-y] range in reverse order'. The progress-bar filter held the block
+      characters themselves; 5.1 reads a script without BOM as ANSI, so each became 3 other characters.
+      Now written as \u2580-\u259F. The script is pure ASCII again (also its help: "OU").
+    * Every .ps1 that can run in Windows PowerShell 5.1 (Install-DevEnvironment, Enable-DevMachine, the
+      trust-kit scripts, Backup / Restore / Test-PkiBackup, Update-VersionBlock) is pure ASCII now.
+      NEW pre-commit check: a .ps1 outside scripts\ without "#requires -Version 7" is refused when it
+      holds a non-ASCII character (the modules in scripts\ are loaded only by PowerShell 7 scripts).
+    * Docs: Install-DevEnvironment-MANUAL (12, 17), RUN-SCRIPTS-WINDOWS (5), design 10.195, html.
 
   7.9.10  2026-10-23  REVISION (revision +1)
     * Install-DevEnvironment.ps1: an install that hangs (reported: .NET 10 SDK at "Starting package

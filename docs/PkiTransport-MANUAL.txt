@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.10   2026-10-22
+ Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.11   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh
 

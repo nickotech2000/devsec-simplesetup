@@ -21,6 +21,19 @@ while IFS= read -r f; do
     *) if git show ":$f" 2>/dev/null | head -c 200000 | grep -Pzaq -- '-----BEGIN [A-Z ]*PRIVATE KEY-----\r?\n[A-Za-z0-9+/=]{40,}'; then echo "pre-commit: PRIVATE KEY text in $f - refused"; fail=1; fi ;;
   esac
 done < <(git diff --cached --name-only --diff-filter=ACMR)
+# (3b) 7.9.11: a .ps1 that may run in Windows PowerShell 5.1 (no "#requires -Version 7") must be pure ASCII: 5.1 reads a
+#      file without BOM as ANSI, so a non-ASCII character becomes 2-3 other characters (a regex range like [x-y] breaks).
+#      Write such characters as \uXXXX in a regex or [char]0xXXXX in code.
+while IFS= read -r f; do
+  case "$f" in
+    Scripts/*) ;;      # the modules: loaded only by scripts that require PowerShell 7 (UTF-8 without BOM is read right)
+    *.ps1|*.psm1)
+      blob="$(git show ":$f" 2>/dev/null)" || continue
+      printf '%s' "$blob" | head -40 | grep -qi '^#requires -version 7' && continue
+      bad="$(printf '%s' "$blob" | LC_ALL=C grep -naP '[^\x00-\x7F]' | head -3)"
+      if [ -n "$bad" ]; then echo "pre-commit: non-ASCII in $f (Windows PowerShell 5.1 misreads it; use \\uXXXX / [char]0xXXXX, or add #requires -Version 7):"; printf '%s\n' "$bad" | cut -c1-120; fail=1; fi ;;
+  esac
+done < <(git diff --cached --name-only --diff-filter=ACMR)
 # (4) the html\ folder is made from docs\*.txt: rebuild it when a text document is newer, and stage the result
 if command -v pwsh >/dev/null 2>&1 && [ -f Build-HtmlDocs.ps1 ]; then
   pwsh -NoProfile -File ./Build-HtmlDocs.ps1 -IfStale >/dev/null 2>&1 && git add -A html 2>/dev/null

@@ -2,7 +2,7 @@
  Enable-DevMachine  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - a Windows laptop as development machine
- Version 7.9.10   2026-10-22
+ Version 7.9.11   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

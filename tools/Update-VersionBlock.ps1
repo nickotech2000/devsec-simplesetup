@@ -1,9 +1,9 @@
 # ============================================================
 # PKI Tool (developer only, not part of the runtime)
 # Author : Nicko Satria Utama
-# Company: Agantra Inovatif OÜ (NextMantra)
+# Company: Agantra Inovatif OU (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 7.9.10
+# Version: 7.9.11
 # ============================================================
 # Puts the shared -Version block (tools\version-block.ps1) into the given .ps1 files:
 # adds [switch]$Version to the param() block and (re)places the marked block right after it.

@@ -2,7 +2,7 @@
  Verify-CodeSign  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - check signed files: signer, key, timestamp, trust, no tampering
- Version 7.9.10   2026-10-22
+ Version 7.9.11   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : Verify-CodeSign.ps1 (Windows, PowerShell 7+) and Verify-CodeSign.sh (Linux, macOS,
           bash 4+)

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.10">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.11">
 <meta name="description" content="nginx and Apache configuration for Ubuntu and RHEL style Linux.">
 <title>Web server configuration - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.10</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.11</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -170,7 +170,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="lead">nginx and Apache configuration for Ubuntu and RHEL style Linux.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-create-webserverconfig-does">1   WHAT CREATE-WEBSERVERCONFIG DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2   THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3   BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4   QUICK START</a></li><li class="l2"><a href="#5-ubuntu-or-rhel-style-distro">5   UBUNTU OR RHEL STYLE (-DISTRO)</a></li><li class="l2"><a href="#6-what-goes-into-the-configuration-and-why">6   WHAT GOES INTO THE CONFIGURATION, AND WHY</a></li><li class="l2"><a href="#7-defaults-by-certificate">7   DEFAULTS BY CERTIFICATE</a></li><li class="l2"><a href="#8-the-output-folder">8   THE OUTPUT FOLDER</a></li><li class="l2"><a href="#9-putting-the-files-on-the-server-step-by-step">9   PUTTING THE FILES ON THE SERVER (STEP BY STEP)</a></li><li class="l2"><a href="#10-quic-http-3-brotli-tcp-udp-stream-ech">10  QUIC / HTTP/3, BROTLI, TCP / UDP STREAM, ECH</a></li><li class="l2"><a href="#11-post-quantum-ml-dsa-certificates">11  POST-QUANTUM (ML-DSA) CERTIFICATES</a></li><li class="l2"><a href="#12-the-wizard">12  THE WIZARD</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l2"><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></li></ol></details>
 <div class="code"><pre> Agantra Inovatif Enterprise PKI - nginx and Apache configuration for a certificate
- Version 7.9.10   2026-10-22
+ Version 7.9.11   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Script : Create-WebServerConfig.ps1 (PowerShell 7+) and Create-WebServerConfig.sh (bash 4+)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
@@ -386,7 +386,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h2 id="author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com<a class="anchor" href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma" aria-label="Link to this section">#</a></h2>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="Export-PkiCa-MANUAL.html"><small>&larr; Previous</small>Export CA certificates</a><a class="nx" href="Sign-Code-MANUAL.html"><small>Next &rarr;</small>Code signing</a></nav>
-<p class="crumb">Made from Create-WebServerConfig-MANUAL.txt by Build-HtmlDocs.ps1 7.9.10.</p>
+<p class="crumb">Made from Create-WebServerConfig-MANUAL.txt by Build-HtmlDocs.ps1 7.9.11.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-create-webserverconfig-does">1   WHAT CREATE-WEBSERVERCONFIG DOES</a><a href="#2-the-words-you-need">2   THE WORDS YOU NEED</a><a href="#3-before-you-start">3   BEFORE YOU START</a><a href="#4-quick-start">4   QUICK START</a><a href="#5-ubuntu-or-rhel-style-distro">5   UBUNTU OR RHEL STYLE (-DISTRO)</a><a href="#6-what-goes-into-the-configuration-and-why">6   WHAT GOES INTO THE CONFIGURATION, AND WHY</a><a href="#7-defaults-by-certificate">7   DEFAULTS BY CERTIFICATE</a><a href="#8-the-output-folder">8   THE OUTPUT FOLDER</a><a href="#9-putting-the-files-on-the-server-step-by-step">9   PUTTING THE FILES ON THE SERVER (STEP BY STEP)</a><a href="#10-quic-http-3-brotli-tcp-udp-stream-ech">10  QUIC / HTTP/3, BROTLI, TCP / UDP STREAM, ECH</a><a href="#11-post-quantum-ml-dsa-certificates">11  POST-QUANTUM (ML-DSA) CERTIFICATES</a><a href="#12-the-wizard">12  THE WIZARD</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></aside>
@@ -396,7 +396,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.10</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.11</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

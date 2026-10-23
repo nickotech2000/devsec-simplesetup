@@ -1,7 +1,7 @@
 ====================================================================================================
  SignExternalCa  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - sign the CA of a department     Version 7.9.10   2026-10-22
+ Agantra Inovatif Enterprise PKI - sign the CA of a department     Version 7.9.11   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Script : SignExternalCa.ps1
 

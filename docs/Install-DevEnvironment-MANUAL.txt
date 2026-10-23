@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.10   2026-10-22
+ Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.11   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Install-DevEnvironment.ps1 (Windows)   linux/Install-DevEnvironment.sh (Linux)
 
@@ -314,6 +314,8 @@
  "The property 'Patch' cannot be found on this  Windows PowerShell 5.1 (a [System.Version] has
  object" (line 590, Windows Sandbox)            Build, not Patch) under Set-StrictMode. Fixed in
                                                 7.9.5: the script reads Patch or Build.
+ "[x-y] range in reverse order" (7.9.10, the    Fixed in 7.9.11: the script held non-ASCII
+ first package, Windows PowerShell 5.1)         characters that 5.1 reads wrong. Use the newer kit.
  Stuck at "Starting package install..."         The installer waits without a word: a prompt
  (for example .NET 10 SDK in Windows Sandbox)   nobody sees, or Windows Installer still busy
                                                 with another install - often the installer of a
@@ -413,6 +415,8 @@
  7.9.5: the 'Patch' fix was tested on PowerShell 7 with Set-StrictMode against a [System.Version]
  like the one of Windows PowerShell 5.1 (the old line fails with PropertyNotFoundStrict, the new
  one reads Build). NOT tested: the winget bootstrap in a real Windows Sandbox.
+ 7.9.11: the progress-bar regex was checked on PowerShell 7 (a block-character line matches, a text
+ line does not); the file has no non-ASCII character (the new pre-commit check). NOT run on 5.1.
  7.9.10: Invoke-WinGetTimed was tested on PowerShell 7 (Linux) with a stand-in for winget: normal
  end (exit code kept, empty and spinner lines and a progress bar left out of the log), and an
  install that never ends with a 1-minute limit: a heartbeat after 1 minute, then the process tree

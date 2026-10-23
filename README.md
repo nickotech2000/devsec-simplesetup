@@ -4,7 +4,7 @@ A private, multi-level PKI for development and internal use, written in **PowerS
 It builds the CAs (classic RSA / ECDSA and post-quantum ML-DSA, FIPS and non-FIPS), issues TLS, code-signing, S/MIME, person and Office 365 certificates,
 runs CRL / OCSP / time stamping on Ubuntu, and gives your developers one zip that installs the trust and lets them ask for their own certificates on **Windows or Linux**.
 
-> **Version 7.9.10** · Author: Nicko Satria Utama · Company: Agantra Inovatif OÜ (NextMantra) · Email: nicko@nextmantra.com
+> **Version 7.9.11** · Author: Nicko Satria Utama · Company: Agantra Inovatif OÜ (NextMantra) · Email: nicko@nextmantra.com
 > **Read the documentation as web pages:** open `html/index.html` (double click) or run `.\Serve-Docs.ps1` and open http://localhost:1434. Light / dark theme, accessibility panel, search. `.\Build-HtmlDocs.ps1 -Watch` rebuilds it when a text document changes.
 > What changed: [`docs/PKI-ChangeLog.txt`](docs/PKI-ChangeLog.txt) · Which file to read: [`docs/START-HERE.txt`](docs/START-HERE.txt)
 > The PKI itself (`pki/`, `leafcerts/`, every `*.key`, every `<company>_pki.cnf` except `agantra_pki.cnf`) is in `.gitignore` and never goes to Git.

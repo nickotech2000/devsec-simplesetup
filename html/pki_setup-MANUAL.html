@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.10">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.11">
 <meta name="description" content="Make the root and intermediate CAs. The owner reads this first.">
 <title>Build the PKI (pki_setup) - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.10</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.11</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Build the PKI (pki_setup)</h1>
 <p class="lead">Make the root and intermediate CAs. The owner reads this first.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#5-which-quadrant-do-i-use">5  WHICH QUADRANT DO I USE?</a></li><li class="l2"><a href="#6-what-is-created">6  WHAT IS CREATED</a></li><li class="l2"><a href="#7-trust-the-root-on-every-device">7  TRUST THE ROOT ON EVERY DEVICE</a></li><li class="l2"><a href="#8-use-the-certificates-in-your-servers">8  USE THE CERTIFICATES IN YOUR SERVERS</a></li><li class="l2"><a href="#9-many-pkis-releases-and-the-nocr-variant">9  MANY PKIs, RELEASES AND THE NoCR VARIANT</a></li><li class="l2"><a href="#10-names-of-the-cas">10  NAMES OF THE CAs</a></li><li class="l2"><a href="#11-classic-pki-only-and-a-public-ca-root">11  CLASSIC PKI ONLY, AND A PUBLIC CA ROOT</a></li><li class="l2"><a href="#12-maintenance">12  MAINTENANCE</a></li><li class="l2"><a href="#13-removing-a-pki">13  REMOVING A PKI</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI generator          Version 7.9.10           2026-10-22
+<div class="code"><pre> Agantra Inovatif Enterprise PKI generator          Version 7.9.11           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : A script. It builds your own private PKI: the root CAs, the intermediate CAs and
@@ -766,7 +766,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    <a href="PKI-Design-with-FIPS-and-PQC.html">PKI-Design-with-FIPS-and-PQC.txt</a>        What to run to accept a version:
    <a href="PKI-Acceptance-Checklists.html">PKI-Acceptance-Checklists.txt</a>           What changed:  <a href="PKI-ChangeLog.html">PKI-ChangeLog.txt</a></pre></div>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="GLOSSARY-ENGLISH.html"><small>&larr; Previous</small>Glossary (English words)</a><a class="nx" href="PkiProfiles-MANUAL.html"><small>Next &rarr;</small>Profiles: PKI for another company</a></nav>
-<p class="crumb">Made from pki_setup-MANUAL.txt by Build-HtmlDocs.ps1 7.9.10.</p>
+<p class="crumb">Made from pki_setup-MANUAL.txt by Build-HtmlDocs.ps1 7.9.11.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a><a href="#5-which-quadrant-do-i-use">5  WHICH QUADRANT DO I USE?</a><a href="#6-what-is-created">6  WHAT IS CREATED</a><a href="#7-trust-the-root-on-every-device">7  TRUST THE ROOT ON EVERY DEVICE</a><a href="#8-use-the-certificates-in-your-servers">8  USE THE CERTIFICATES IN YOUR SERVERS</a><a href="#9-many-pkis-releases-and-the-nocr-variant">9  MANY PKIs, RELEASES AND THE NoCR VARIANT</a><a href="#10-names-of-the-cas">10  NAMES OF THE CAs</a><a href="#11-classic-pki-only-and-a-public-ca-root">11  CLASSIC PKI ONLY, AND A PUBLIC CA ROOT</a><a href="#12-maintenance">12  MAINTENANCE</a><a href="#13-removing-a-pki">13  REMOVING A PKI</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a></aside>
@@ -776,7 +776,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.10</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.11</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>
