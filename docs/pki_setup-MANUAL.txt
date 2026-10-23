@@ -1,7 +1,7 @@
 ====================================================================================================
  pki_setup.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI generator          Version 7.9.11           2026-10-22
+ Agantra Inovatif Enterprise PKI generator          Version 7.9.12           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

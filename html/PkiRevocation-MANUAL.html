@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.11">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.12">
 <meta name="description" content="Revoke certificates and run the CRL, OCSP and timestamp services.">
 <title>Revocation, CRL, OCSP, time stamp - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.11</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.12</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Revocation, CRL, OCSP, time stamp</h1>
 <p class="lead">Revoke certificates and run the CRL, OCSP and timestamp services.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-this-script-does">1  WHAT THIS SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-look-at-the-state-status-info">5  LOOK AT THE STATE (STATUS, INFO)</a></li><li class="l2"><a href="#6-revoke-a-certificate">6  REVOKE A CERTIFICATE</a></li><li class="l2"><a href="#7-make-a-new-crl">7  MAKE A NEW CRL</a></li><li class="l2"><a href="#8-ocsp-and-time-stamp-certificates">8  OCSP AND TIME STAMP CERTIFICATES</a></li><li class="l2"><a href="#9-keys-on-the-server-signcsr">9  KEYS ON THE SERVER (SIGNCSR)</a></li><li class="l2"><a href="#10-the-time-stamp-certificate">10  THE TIME STAMP CERTIFICATE</a></li><li class="l2"><a href="#11-which-pki-is-used">11  WHICH PKI IS USED</a></li><li class="l2"><a href="#12-what-is-made-for-you-automatically">12  WHAT IS MADE FOR YOU AUTOMATICALLY</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l3"><a href="#pkiprofiles-manual-txt-glossary-txt-glossary-english-txt">PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - revoke, CRL, OCSP, time stamp     Version 7.9.11   2026-10-22
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - revoke, CRL, OCSP, time stamp     Version 7.9.12   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Script : PkiRevocation.ps1</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
@@ -374,7 +374,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h3 id="pkiprofiles-manual-txt-glossary-txt-glossary-english-txt">PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt<a class="anchor" href="#pkiprofiles-manual-txt-glossary-txt-glossary-english-txt" aria-label="Link to this section">#</a></h3>
 <p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="New-CodeSignCatalog-MANUAL.html"><small>&larr; Previous</small>Sign a catalog of files</a><a class="nx" href="PKI-SERVER-MANUAL.html"><small>Next &rarr;</small>The PKI server (Ubuntu)</a></nav>
-<p class="crumb">Made from PkiRevocation-MANUAL.txt by Build-HtmlDocs.ps1 7.9.11.</p>
+<p class="crumb">Made from PkiRevocation-MANUAL.txt by Build-HtmlDocs.ps1 7.9.12.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-this-script-does">1  WHAT THIS SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-look-at-the-state-status-info">5  LOOK AT THE STATE (STATUS, INFO)</a><a href="#6-revoke-a-certificate">6  REVOKE A CERTIFICATE</a><a href="#7-make-a-new-crl">7  MAKE A NEW CRL</a><a href="#8-ocsp-and-time-stamp-certificates">8  OCSP AND TIME STAMP CERTIFICATES</a><a href="#9-keys-on-the-server-signcsr">9  KEYS ON THE SERVER (SIGNCSR)</a><a href="#10-the-time-stamp-certificate">10  THE TIME STAMP CERTIFICATE</a><a href="#11-which-pki-is-used">11  WHICH PKI IS USED</a><a href="#12-what-is-made-for-you-automatically">12  WHAT IS MADE FOR YOU AUTOMATICALLY</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a class="l3" href="#pkiprofiles-manual-txt-glossary-txt-glossary-english-txt">PkiProfiles-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></aside>
@@ -384,7 +384,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.11</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.12</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

@@ -307,7 +307,11 @@ function Write-PkiFatalError {
     Write-PkiTelemetryFile
 
     Write-Host ''
-    Write-PkiLog 'PKI GENERATION FAILED' 'ERROR'
+    # the banner names the script that failed (pki_setup.ps1 is the PKI generation)
+    $entry = @(Get-PSCallStack | Where-Object { $_.ScriptName }) | Select-Object -Last 1
+    $entryName = if ($entry) { Split-Path -Leaf $entry.ScriptName } else { '' }
+    if (-not $entryName -or $entryName -eq 'pki_setup.ps1') { Write-PkiLog 'PKI GENERATION FAILED' 'ERROR' }
+    else { Write-PkiLog "$entryName FAILED" 'ERROR' }
     Write-PkiLog "Exception: $($ErrorRecord.Exception.GetType().FullName)" 'ERROR'
     Write-PkiLog "Details: $($ErrorRecord.Exception.Message)" 'ERROR'
     if ($loc.File)   { Write-PkiLog "Filename: $($loc.File)" 'ERROR' }

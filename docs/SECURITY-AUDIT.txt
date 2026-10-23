@@ -2,7 +2,7 @@
  SECURITY-AUDIT  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - are the scripts clean? What they do, how to check them
- Version 7.9.11   2026-10-22
+ Version 7.9.12   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

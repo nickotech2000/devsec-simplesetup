@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.9.11                       Updated: 2026-10-22
+ Version : 7.9.12                       Updated: 2026-10-23
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,21 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.9.12  2026-10-23  REVISION (revision +1)
+    * Unpack-PkiTransport.ps1 -Package .\name.certpacked, run as administrator in Windows
+      Sandbox, failed: 'Could not find file C:\Windows\system32\name.certpacked'. .NET reads a
+      relative path from the folder the process started in (system32 for an elevated shell),
+      not from the PowerShell location. Every script now aligns the two at start; PkiTransport
+      and Unpack-PkiTransport also make -Package, -Destination, -Out, -SevenZipPath,
+      -ConfigFile and -OpenSslPath full paths at once.
+    * A missing package says "Package not found: <full path>" and names the current folder.
+    * The error banner names the script that failed ("Unpack-PkiTransport.ps1 FAILED"); only
+      pki_setup.ps1 still says "PKI GENERATION FAILED".
+    * The shell scripts were checked: they change folder only in subshells, so a relative
+      path keeps its meaning. No change.
+    * Build-BackupScripts writes the standalone backup scripts as pure ASCII (or refuses).
+    * Docs: PkiTransport-MANUAL (14), RUN-SCRIPTS-WINDOWS (5), design 10.196, html.
 
   7.9.11  2026-10-23  REVISION (revision +1)
     * Install-DevEnvironment.ps1 7.9.10 stopped at once in Windows PowerShell 5.1 (Windows Sandbox):

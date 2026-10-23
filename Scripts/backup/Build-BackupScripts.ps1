@@ -17,7 +17,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if (-not $ProjectRoot) { $ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path }
 $common = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'PkiBackupCommon.ps1'))
-$pack = [System.IO.File]::ReadAllText((Join-Path $ProjectRoot 'scripts\16_CertPack.ps1'))
+$pack = [System.IO.File]::ReadAllText((Join-Path $ProjectRoot 'Scripts/16_CertPack.ps1'))
 
 # the zip / AES engine only: everything before the 7-Zip section
 $cut = $pack.IndexOf("# ------------------------------------------------------------`n# 7-Zip")
@@ -41,6 +41,9 @@ foreach ($n in 'Backup-Pki', 'Restore-Pki', 'Test-PkiBackup') {
     if ($src -notmatch '#@@EMBED-LIBRARY@@') { throw "$n.src.ps1 has no #@@EMBED-LIBRARY@@ line" }
     $out = $src.Replace('#@@EMBED-LIBRARY@@', $embed)
     $out = ($out -replace "`r`n", "`n")
+    # Windows PowerShell 5.1 reads a file without BOM as ANSI: the standalone scripts stay pure ASCII
+    $out = $out.Replace([string][char]0x00DC, 'U')
+    if ($out -match '[^\x00-\x7F]') { throw "$n.ps1 would hold a non-ASCII character: write it as ASCII in the source" }
     [System.IO.File]::WriteAllText((Join-Path $ProjectRoot "$n.ps1"), $out, [System.Text.UTF8Encoding]::new($false))
     Write-Host ("[OK] {0}.ps1  ({1:N0} KB, standalone)" -f $n, ($out.Length / 1KB))
 }

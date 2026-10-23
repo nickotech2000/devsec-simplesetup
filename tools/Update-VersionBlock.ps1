@@ -3,7 +3,7 @@
 # Author : Nicko Satria Utama
 # Company: Agantra Inovatif OU (NextMantra)
 # Email  : nicko@nextmantra.com
-# Version: 7.9.11
+# Version: 7.9.12
 # ============================================================
 # Puts the shared -Version block (tools\version-block.ps1) into the given .ps1 files:
 # adds [switch]$Version to the param() block and (re)places the marked block right after it.

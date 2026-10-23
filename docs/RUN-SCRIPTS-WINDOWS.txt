@@ -2,7 +2,7 @@
  RUN THE SCRIPTS ON WINDOWS  -  blocked scripts, execution policy, Windows Sandbox
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - how to start Install-PkiTrust.ps1 and the other scripts
- Version 7.9.11   2026-10-22
+ Version 7.9.12   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -123,6 +123,9 @@
                                                  (default 30) and goes on. A new run waits for a
                                                  leftover installer first. Install-DevEnvironment
                                                  -MANUAL.txt, section 12.
+ "Could not find file 'C:\Windows\system32\...'"  Fixed in 7.9.12 (a relative path in an
+                                                 administrator window). Use the newer kit, or
+                                                 give the full path.
  A Group Policy sets the execution policy        Process scope cannot beat it. Ask IT.
 
 ====================================================================================================

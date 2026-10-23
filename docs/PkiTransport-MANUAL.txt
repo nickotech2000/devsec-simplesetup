@@ -1,7 +1,7 @@
 ====================================================================================================
  PkiTransport  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.11   2026-10-22
+ Agantra Inovatif Enterprise PKI - carry the PKI to other machines     Version 7.9.12   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: PkiTransport.ps1   Unpack-PkiTransport.ps1   pki-transport.sh
 
@@ -546,6 +546,11 @@
                                                  --7z.
  7-Zip install fails on the RHEL family          Enable EPEL (and CRB), or give --7z, or pack with
                                                  -ZipEncryption ZipCrypto (CA certificates only).
+ "Could not find file C:\Windows\system32\..."    Before 7.9.12: a relative -Package in an
+                                                 administrator window. Update the scripts, or
+                                                 give the full path.
+ "Package not found: <path>"                     The file is not at that full path. The message
+                                                 names the folder a relative path is read from.
  "exists and differs"                            Use -Force / --force, or another destination.
  "Nothing in this package matches ..."           The package lacks it (scope). The message lists
                                                  what it holds.
