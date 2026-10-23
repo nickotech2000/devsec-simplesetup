@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.9.9                       Updated: 2026-10-22
+ Version : 7.9.10                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,22 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.9.10  2026-10-23  REVISION (revision +1)
+    * Install-DevEnvironment.ps1: an install that hangs (reported: .NET 10 SDK at "Starting package
+      install..." in Windows Sandbox, no error for hours) no longer blocks the script. Each winget call
+      runs with a time limit, NEW -PackageTimeoutMinutes (default 30): every minute the log says what
+      is still running (winget and the installer processes it started); at the limit the winget process
+      tree is stopped, the package is listed under "Timed out" in the summary, and the next component
+      follows. Exit codes 0x8A15002B / 0x8A150061 (already installed) count as done; other codes are
+      listed under "Not installed".
+    * A rerun after Ctrl+C recovers: closing PowerShell does not stop the installer winget started, and
+      the next install would then wait for Windows Installer for ever. Before each install the script
+      waits (at most 10 minutes) until no installer from winget's own download folder (%TEMP%\WinGet)
+      runs and Windows Installer is idle (the Global\_MSIExecute mutex); then it stops only such a
+      leftover installer. No other process is touched. Still busy: restart (or a new Sandbox).
+    * Docs: Install-DevEnvironment-MANUAL (12, 14, 17), RUN-SCRIPTS-WINDOWS (5), -Help, design 10.194,
+      html.
 
   7.9.9  2026-10-23  REVISION (revision +1)
     * Install-DevEnvironment.ps1 (Windows Sandbox, after "Successfully installed" of Windows Terminal):

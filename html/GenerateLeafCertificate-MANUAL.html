@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.9">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.10">
 <meta name="description" content="Make server, client, code-signing, e-mail and document-signing certificates.">
 <title>Leaf certificates - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.9</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.10</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Leaf certificates</h1>
 <p class="lead">Make server, client, code-signing, e-mail and document-signing certificates.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a></li><li class="l2"><a href="#5-the-seven-certificates-purposes">5  THE SEVEN CERTIFICATES (PURPOSES)</a></li><li class="l3"><a href="#choose-which-purposes">CHOOSE WHICH PURPOSES</a></li><li class="l2"><a href="#6-the-files-you-get-formats">6  THE FILES YOU GET (FORMATS)</a></li><li class="l2"><a href="#7-hash-files">7  HASH FILES</a></li><li class="l2"><a href="#8-where-the-files-go">8  WHERE THE FILES GO</a></li><li class="l2"><a href="#9-level-and-quadrant">9  LEVEL AND QUADRANT</a></li><li class="l2"><a href="#10-subject-and-names">10  SUBJECT AND NAMES</a></li><li class="l2"><a href="#11-keys-hashes-and-validity">11  KEYS, HASHES AND VALIDITY</a></li><li class="l2"><a href="#12-revocation-switches-no-crl-no-ocsp">12  REVOCATION SWITCHES (NO CRL, NO OCSP)</a></li><li class="l2"><a href="#13-development-san">13  DEVELOPMENT SAN</a></li><li class="l2"><a href="#14-recipes-copy-and-paste">14  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#15-problems-and-answers">15  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#16-limits-you-must-know">16  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#17-all-options">17  ALL OPTIONS</a></li><li class="l2"><a href="#18-what-was-tested-what-was-not">18  WHAT WAS TESTED, WHAT WAS NOT</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - leaf certificates          Version 7.9.9           2026-10-22
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - leaf certificates          Version 7.9.10           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : A script. It makes the certificates that servers, people and programs use. It
@@ -501,7 +501,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
    * -Help runs; the manual and the help fit 100 columns.</pre></div>
 <p>NOT tested: * -InstallPfx and everything that touches the Windows certificate stores. * Windows part of the unblock (Unblock-File). * The server settings of tls-guidance.txt in your nginx, Apache or Kestrel versions. * Windows Server 2022 and Windows 11 behaviour. Only simulated with test switches. * RHEL-family and SUSE shells for the .sh twin.</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="PkiProfiles-MANUAL.html"><small>&larr; Previous</small>Profiles: PKI for another company</a><a class="nx" href="GeneratePersonLeafCertificate-MANUAL.html"><small>Next &rarr;</small>Person certificates</a></nav>
-<p class="crumb">Made from GenerateLeafCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.9.9.</p>
+<p class="crumb">Made from GenerateLeafCertificate-MANUAL.txt by Build-HtmlDocs.ps1 7.9.10.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-the-script-does">1  WHAT THE SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-first-run-step-by-step">4  FIRST RUN, STEP BY STEP</a><a href="#5-the-seven-certificates-purposes">5  THE SEVEN CERTIFICATES (PURPOSES)</a><a class="l3" href="#choose-which-purposes">CHOOSE WHICH PURPOSES</a><a href="#6-the-files-you-get-formats">6  THE FILES YOU GET (FORMATS)</a><a href="#7-hash-files">7  HASH FILES</a><a href="#8-where-the-files-go">8  WHERE THE FILES GO</a><a href="#9-level-and-quadrant">9  LEVEL AND QUADRANT</a><a href="#10-subject-and-names">10  SUBJECT AND NAMES</a><a href="#11-keys-hashes-and-validity">11  KEYS, HASHES AND VALIDITY</a><a href="#12-revocation-switches-no-crl-no-ocsp">12  REVOCATION SWITCHES (NO CRL, NO OCSP)</a><a href="#13-development-san">13  DEVELOPMENT SAN</a><a href="#14-recipes-copy-and-paste">14  RECIPES, COPY AND PASTE</a><a href="#15-problems-and-answers">15  PROBLEMS AND ANSWERS</a><a href="#16-limits-you-must-know">16  LIMITS YOU MUST KNOW</a><a href="#17-all-options">17  ALL OPTIONS</a><a href="#18-what-was-tested-what-was-not">18  WHAT WAS TESTED, WHAT WAS NOT</a></aside>
@@ -511,7 +511,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.9</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.10</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

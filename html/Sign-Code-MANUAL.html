@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.9">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.10">
 <meta name="description" content="Sign your software (Windows, Java, Android, Apple); set up a build pipeline.">
 <title>Code signing - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.9</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.10</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -170,7 +170,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="lead">Sign your software (Windows, Java, Android, Apple); set up a build pipeline.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-is-code-signing-in-plain-words">1   WHAT IS CODE SIGNING, IN PLAIN WORDS</a></li><li class="l2"><a href="#2-the-words-you-need">2   THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3   BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start-5-minutes">4   QUICK START (5 MINUTES)</a></li><li class="l2"><a href="#5-what-the-script-checks-before-it-signs">5   WHAT THE SCRIPT CHECKS BEFORE IT SIGNS</a></li><li class="l2"><a href="#6-which-files-can-be-signed">6   WHICH FILES CAN BE SIGNED</a></li><li class="l2"><a href="#7-which-certificate-can-be-used">7   WHICH CERTIFICATE CAN BE USED</a></li><li class="l2"><a href="#8-timestamp-servers">8   TIMESTAMP SERVERS</a></li><li class="l2"><a href="#9-tools-what-is-installed-and-how">9   TOOLS: WHAT IS INSTALLED, AND HOW</a></li><li class="l2"><a href="#10-what-you-get-after-signing">10  WHAT YOU GET AFTER SIGNING</a></li><li class="l2"><a href="#11-setting-up-a-build-environment-for-devsecops">11  SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)</a></li><li class="l2"><a href="#12-exit-codes">12  EXIT CODES</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l2"><a href="#19-catalog-re-signing-faster-builds-7-8-3">19  CATALOG, RE-SIGNING, FASTER BUILDS (7.8.3)</a></li><li class="l2"><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></li></ol></details>
 <div class="code"><pre> Agantra Inovatif Enterprise PKI - sign your software with a code-signing certificate
- Version 7.9.9   2026-10-22
+ Version 7.9.10   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Script : Sign-Code.ps1 (Windows, PowerShell 7+) and Sign-Code.sh (Linux, bash 4+)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
@@ -738,7 +738,7 @@ Directory.Build.props / .targets). The settings of 7.8.3:
 <h2 id="author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com<a class="anchor" href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma" aria-label="Link to this section">#</a></h2>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="Create-WebServerConfig-MANUAL.html"><small>&larr; Previous</small>Web server configuration</a><a class="nx" href="Convert-CodeSignCert-MANUAL.html"><small>Next &rarr;</small>Convert a code-signing certificate</a></nav>
-<p class="crumb">Made from Sign-Code-MANUAL.txt by Build-HtmlDocs.ps1 7.9.9.</p>
+<p class="crumb">Made from Sign-Code-MANUAL.txt by Build-HtmlDocs.ps1 7.9.10.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-is-code-signing-in-plain-words">1   WHAT IS CODE SIGNING, IN PLAIN WORDS</a><a href="#2-the-words-you-need">2   THE WORDS YOU NEED</a><a href="#3-before-you-start">3   BEFORE YOU START</a><a href="#4-quick-start-5-minutes">4   QUICK START (5 MINUTES)</a><a href="#5-what-the-script-checks-before-it-signs">5   WHAT THE SCRIPT CHECKS BEFORE IT SIGNS</a><a href="#6-which-files-can-be-signed">6   WHICH FILES CAN BE SIGNED</a><a href="#7-which-certificate-can-be-used">7   WHICH CERTIFICATE CAN BE USED</a><a href="#8-timestamp-servers">8   TIMESTAMP SERVERS</a><a href="#9-tools-what-is-installed-and-how">9   TOOLS: WHAT IS INSTALLED, AND HOW</a><a href="#10-what-you-get-after-signing">10  WHAT YOU GET AFTER SIGNING</a><a href="#11-setting-up-a-build-environment-for-devsecops">11  SETTING UP A BUILD ENVIRONMENT (FOR DEVSECOPS)</a><a href="#12-exit-codes">12  EXIT CODES</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a href="#19-catalog-re-signing-faster-builds-7-8-3">19  CATALOG, RE-SIGNING, FASTER BUILDS (7.8.3)</a><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></aside>
@@ -748,7 +748,7 @@ Directory.Build.props / .targets). The settings of 7.8.3:
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.9</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.10</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

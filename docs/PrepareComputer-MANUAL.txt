@@ -1,7 +1,7 @@
 ====================================================================================================
  PrepareComputer  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - get a computer ready     Version 7.9.9   2026-10-22
+ Agantra Inovatif Enterprise PKI - get a computer ready     Version 7.9.10   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Prepare-Computer.ps1 (Windows)   prepare-computer.sh (Linux)
 

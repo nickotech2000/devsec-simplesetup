@@ -2,7 +2,7 @@
  RUN THE SCRIPTS ON WINDOWS  -  blocked scripts, execution policy, Windows Sandbox
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - how to start Install-PkiTrust.ps1 and the other scripts
- Version 7.9.9   2026-10-22
+ Version 7.9.10   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -118,6 +118,10 @@
                                                  Windows PowerShell 5.1). Use the newer kit.
  "Cannot bind argument to parameter 'Message'"  Fixed in 7.9.9 (Install-DevEnvironment, an empty
                                                  line of winget). Use the newer kit.
+ Stuck at "Starting package install..."         7.9.10 stops it after -PackageTimeoutMinutes
+                                                 (default 30) and goes on. A new run waits for a
+                                                 leftover installer first. Install-DevEnvironment
+                                                 -MANUAL.txt, section 12.
  A Group Policy sets the execution policy        Process scope cannot beat it. Ask IT.
 
 ====================================================================================================

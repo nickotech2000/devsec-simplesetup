@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.9.9                      Updated: 2026-10-22
+ Version : 7.9.10                      Updated: 2026-10-22
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,14 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.194 DECIDED   (7.9.10) No install may hang the bootstrap without a word. Every winget call has
+                 a time limit and a heartbeat that names the running installer; at the limit only
+                 the process tree THIS run started is stopped. A leftover installer of a cancelled
+                 run is recognised by its place (winget's own download folder), never by its name,
+                 and Windows Installer being busy by its system mutex; the script waits for both
+                 before it stops anything, and stops nothing else. A package that timed out is
+                 reported in the summary instead of failing the whole run, so the PKI components
+                 (OpenSSL, 7-Zip) still get installed and proved.
 10.193 DECIDED   (7.9.8) The DevKit follows -Pack: every PKI of the master by default, the same
                  parameters narrow it. A developer who works for several companies or releases
                  needs one kit, not one per PKI. The kit keeps the layout of the master

@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.9   2026-10-22
+ Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.10   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Install-DevEnvironment.ps1 (Windows)   linux/Install-DevEnvironment.sh (Linux)
 
@@ -314,6 +314,19 @@
  "The property 'Patch' cannot be found on this  Windows PowerShell 5.1 (a [System.Version] has
  object" (line 590, Windows Sandbox)            Build, not Patch) under Set-StrictMode. Fixed in
                                                 7.9.5: the script reads Patch or Build.
+ Stuck at "Starting package install..."         The installer waits without a word: a prompt
+ (for example .NET 10 SDK in Windows Sandbox)   nobody sees, or Windows Installer still busy
+                                                with another install - often the installer of a
+                                                run cancelled with Ctrl+C (closing PowerShell does
+                                                not stop it). 7.9.10: every minute the log names
+                                                what still runs; after -PackageTimeoutMinutes
+                                                (default 30) winget and its installer are
+                                                stopped and the next component follows. A new run
+                                                first waits (max. 10 min) for a leftover installer
+                                                and for Windows Installer to be idle, then stops
+                                                only an installer from %TEMP%\WinGet. Still busy:
+                                                restart (or open a new Sandbox). Skip it:
+                                                -SkipDotNet, or -Only without DotNet.
  "Cannot bind argument to parameter 'Message'   winget printed an empty line (after "Successfully
  because it is an empty string" (line 748)      installed", Windows Sandbox). Fixed in 7.9.9: empty
                                                 lines and the spinner are skipped; stderr lines no
@@ -344,6 +357,9 @@
    -SkipPowerShell -SkipDotNet -SkipNodeJS -SkipGo -SkipPHP -SkipPython -SkipGit -SkipJava -SkipOpenSSL
    -SkipWindowsTerminal -Skip7Zip
    -Check   -WithOqsProvider   -Unblock   -Help
+   -PackageTimeoutMinutes <n>   The longest time ONE winget install may take (default 30, 1-600).
+                     Then winget and the installer it started are stopped, the summary lists the
+                     package, and the next component follows.
 
  Install-DevEnvironment.sh (Linux)
    --only LIST   --skip LIST   --check   --yes, -y   --dry-run
@@ -397,6 +413,11 @@
  7.9.5: the 'Patch' fix was tested on PowerShell 7 with Set-StrictMode against a [System.Version]
  like the one of Windows PowerShell 5.1 (the old line fails with PropertyNotFoundStrict, the new
  one reads Build). NOT tested: the winget bootstrap in a real Windows Sandbox.
+ 7.9.10: Invoke-WinGetTimed was tested on PowerShell 7 (Linux) with a stand-in for winget: normal
+ end (exit code kept, empty and spinner lines and a progress bar left out of the log), and an
+ install that never ends with a 1-minute limit: a heartbeat after 1 minute, then the process tree
+ was stopped and -1 returned after 60 s. NOT tested: the Windows parts (the _MSIExecute check, the
+ leftover installer in %TEMP%\WinGet, taskkill /T, Win32_Process) and the real .NET 10 SDK hang.
  7.9.9: Invoke-NativeLogged was tested on PowerShell 7 with Set-StrictMode and ErrorAction Stop
  against a program that prints empty lines, spinner lines with carriage returns, a stderr line and
  exit code 3: only the text lines are logged, the exit code is kept, nothing stops.
