@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.9.8                       Updated: 2026-10-22
+ Version : 7.9.9                       Updated: 2026-10-22
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -20,7 +20,16 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
 
-  7.9.8  2026-10-22  REVISION (revision +3)
+  7.9.9  2026-10-23  REVISION (revision +1)
+    * Install-DevEnvironment.ps1 (Windows Sandbox, after "Successfully installed" of Windows Terminal):
+      fixed "Cannot bind argument to parameter 'Message' because it is an empty string" (line 748). The
+      output of winget and of openssl fipsinstall now goes through Invoke-NativeLogged: empty lines and
+      the winget spinner / progress redraws (carriage returns) are skipped, and $ErrorActionPreference
+      is 'Continue' while the program runs, so a stderr line no longer stops Windows PowerShell 5.1;
+      the exit code decides. Write-Log accepts an empty message. $Args (an automatic variable) is no
+      longer overwritten (now $WingetArgs).
+    * Docs: Install-DevEnvironment-MANUAL (12, 17), RUN-SCRIPTS-WINDOWS (5), html.
+
     * PkiTransport.ps1 -DevKit packs EVERY PKI by default, like -Pack: every company with a built PKI
       (<name>_pki.cnf), every release, normal and NoCR, every root with its intermediates. The same
       choices narrow it: -Pki a,b (or a <name>_pki.cnf file), -Release, -Latest, -NoCaRevocationInfo,

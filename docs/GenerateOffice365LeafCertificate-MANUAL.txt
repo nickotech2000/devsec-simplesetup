@@ -2,7 +2,7 @@
  GenerateOffice365LeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - Office / Microsoft 365 signing certificates
- Version 7.9.8           2026-10-22
+ Version 7.9.9           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST

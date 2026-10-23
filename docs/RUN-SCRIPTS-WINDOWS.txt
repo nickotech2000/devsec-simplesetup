@@ -2,7 +2,7 @@
  RUN THE SCRIPTS ON WINDOWS  -  blocked scripts, execution policy, Windows Sandbox
 ====================================================================================================
  Agantra Inovatif Enterprise PKI - how to start Install-PkiTrust.ps1 and the other scripts
- Version 7.9.8   2026-10-22
+ Version 7.9.9   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -116,6 +116,8 @@
                                                  Gallery is blocked. Section 3, step 4.
  "The property 'Patch' cannot be found"          Fixed in 7.9.5 (Install-DevEnvironment on
                                                  Windows PowerShell 5.1). Use the newer kit.
+ "Cannot bind argument to parameter 'Message'"  Fixed in 7.9.9 (Install-DevEnvironment, an empty
+                                                 line of winget). Use the newer kit.
  A Group Policy sets the execution policy        Process scope cannot beat it. Ask IT.
 
 ====================================================================================================

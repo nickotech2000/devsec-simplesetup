@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com   Version: 7.9.8
+# Author : Nicko Satria Utama   Company: Agantra Inovatif OÜ (NextMantra)   Email: nicko@nextmantra.com   Version: 7.9.9
 # Developer tool: static audit of every script for patterns that malware uses. Read only.
 # Use:  python3 tools/audit_scripts.py [--sums]    (--sums writes SHA256SUMS of all files except pki/ transport/ ...)
 import os, re, sys, hashlib, unicodedata

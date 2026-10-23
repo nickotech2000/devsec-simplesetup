@@ -1,7 +1,7 @@
 ====================================================================================================
  Install-DevEnvironment  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.8   2026-10-22
+ Agantra Inovatif Enterprise PKI - developer bootstrap     Version 7.9.9   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
  Scripts: Install-DevEnvironment.ps1 (Windows)   linux/Install-DevEnvironment.sh (Linux)
 
@@ -314,6 +314,10 @@
  "The property 'Patch' cannot be found on this  Windows PowerShell 5.1 (a [System.Version] has
  object" (line 590, Windows Sandbox)            Build, not Patch) under Set-StrictMode. Fixed in
                                                 7.9.5: the script reads Patch or Build.
+ "Cannot bind argument to parameter 'Message'   winget printed an empty line (after "Successfully
+ because it is an empty string" (line 748)      installed", Windows Sandbox). Fixed in 7.9.9: empty
+                                                lines and the spinner are skipped; stderr lines no
+                                                longer stop Windows PowerShell 5.1.
  "WinGet was not detected"                      Windows Sandbox, LTSC, some Server images. 7.9.5
                                                 installs winget itself (needs the Internet and
                                                 the PowerShell Gallery). By hand: the three lines
@@ -393,6 +397,9 @@
  7.9.5: the 'Patch' fix was tested on PowerShell 7 with Set-StrictMode against a [System.Version]
  like the one of Windows PowerShell 5.1 (the old line fails with PropertyNotFoundStrict, the new
  one reads Build). NOT tested: the winget bootstrap in a real Windows Sandbox.
+ 7.9.9: Invoke-NativeLogged was tested on PowerShell 7 with Set-StrictMode and ErrorAction Stop
+ against a program that prints empty lines, spinner lines with carriage returns, a stderr line and
+ exit code 3: only the text lines are logged, the exit code is kept, nothing stops.
 
 ====================================================================================================
  18  OTHER DOCUMENTS

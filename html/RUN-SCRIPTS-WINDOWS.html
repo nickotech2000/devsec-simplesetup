@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.8">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.9">
 <meta name="description" content="Blocked scripts, execution policy for one window, Windows Sandbox step by step.">
 <title>Run the scripts on Windows (Sandbox) - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.8</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.9</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -170,7 +170,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="lead">Blocked scripts, execution policy for one window, Windows Sandbox step by step.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-why-windows-blocks-the-scripts">1  WHY WINDOWS BLOCKS THE SCRIPTS</a></li><li class="l2"><a href="#2-a-normal-windows-11-computer">2  A NORMAL WINDOWS 11 COMPUTER</a></li><li class="l2"><a href="#3-windows-sandbox-step-by-step">3  WINDOWS SANDBOX, STEP BY STEP</a></li><li class="l2"><a href="#4-the-same-from-cmd-exe-in-one-line">4  THE SAME FROM CMD.EXE, IN ONE LINE</a></li><li class="l2"><a href="#5-problems-and-answers">5  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#6-what-was-tested-what-was-not">6  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></li></ol></details>
 <div class="code"><pre> Agantra Inovatif Enterprise PKI - how to start Install-PkiTrust.ps1 and the other scripts
- Version 7.9.8   2026-10-22
+ Version 7.9.9   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : The commands that let Windows run the scripts of a kit (DevKit, trust kit,
@@ -265,13 +265,15 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
                                                  Gallery is blocked. Section 3, step 4.
  &quot;The property &#39;Patch&#39; cannot be found&quot;          Fixed in 7.9.5 (Install-DevEnvironment on
                                                  Windows PowerShell 5.1). Use the newer kit.
+ &quot;Cannot bind argument to parameter &#39;Message&#39;&quot;  Fixed in 7.9.9 (Install-DevEnvironment, an empty
+                                                 line of winget). Use the newer kit.
  A Group Policy sets the execution policy        Process scope cannot beat it. Ask IT.</pre></div>
 <h2 id="6-what-was-tested-what-was-not">6  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#6-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
 <p>Version 7.9.5: the commands were written from the PowerShell and Windows Sandbox documentation and from the error report of a real Windows Sandbox (Windows 11 Enterprise 26100). The &#39;Patch&#39; fix was tested on PowerShell 7 with Set-StrictMode against a [System.Version] like the one of Windows PowerShell 5.1. NOT tested here: a real Windows Sandbox, the winget bootstrap, a .wsb.</p>
 <h2 id="author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com<a class="anchor" href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma" aria-label="Link to this section">#</a></h2>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="Enable-DevMachine-MANUAL.html"><small>&larr; Previous</small>Development laptop (Bypass)</a><a class="nx" href="SECURITY-AUDIT.html"><small>Next &rarr;</small>Security audit of the scripts</a></nav>
-<p class="crumb">Made from RUN-SCRIPTS-WINDOWS.txt by Build-HtmlDocs.ps1 7.9.8.</p>
+<p class="crumb">Made from RUN-SCRIPTS-WINDOWS.txt by Build-HtmlDocs.ps1 7.9.9.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-why-windows-blocks-the-scripts">1  WHY WINDOWS BLOCKS THE SCRIPTS</a><a href="#2-a-normal-windows-11-computer">2  A NORMAL WINDOWS 11 COMPUTER</a><a href="#3-windows-sandbox-step-by-step">3  WINDOWS SANDBOX, STEP BY STEP</a><a href="#4-the-same-from-cmd-exe-in-one-line">4  THE SAME FROM CMD.EXE, IN ONE LINE</a><a href="#5-problems-and-answers">5  PROBLEMS AND ANSWERS</a><a href="#6-what-was-tested-what-was-not">6  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></aside>
@@ -281,7 +283,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.8</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.9</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>

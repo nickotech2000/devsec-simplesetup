@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.8">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.9">
 <meta name="description" content="Make a key and a certificate request.">
 <title>Make a request (New-PkiCsr) - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.8</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.9</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -169,7 +169,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h1>Make a request (New-PkiCsr)</h1>
 <p class="lead">Make a key and a certificate request.</p>
 <details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-what-this-script-does">1  WHAT THIS SCRIPT DOES</a></li><li class="l2"><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a></li><li class="l2"><a href="#3-before-you-start">3  BEFORE YOU START</a></li><li class="l2"><a href="#4-quick-start">4  QUICK START</a></li><li class="l2"><a href="#5-the-questions-one-by-one">5  THE QUESTIONS, ONE BY ONE</a></li><li class="l2"><a href="#6-leaf-or-ca-request">6  LEAF OR CA REQUEST</a></li><li class="l2"><a href="#7-names-san-and-development-names">7  NAMES (SAN) AND DEVELOPMENT NAMES</a></li><li class="l2"><a href="#8-key-and-hash">8  KEY AND HASH</a></li><li class="l2"><a href="#9-what-is-in-the-new-folder">9  WHAT IS IN THE NEW FOLDER</a></li><li class="l2"><a href="#10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS</a></li><li class="l2"><a href="#11-after-you-get-the-certificate">11  AFTER YOU GET THE CERTIFICATE</a></li><li class="l2"><a href="#12-rules-the-script-enforces">12  RULES THE SCRIPT ENFORCES</a></li><li class="l2"><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a></li><li class="l2"><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a></li><li class="l2"><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a></li><li class="l2"><a href="#16-all-options">16  ALL OPTIONS</a></li><li class="l2"><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#18-other-documents">18  OTHER DOCUMENTS</a></li><li class="l3"><a href="#signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo">SignExternalCa-MANUAL.txt   DevKit-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></li></ol></details>
-<div class="code"><pre> Agantra Inovatif Enterprise PKI - ask for a certificate     Version 7.9.8   2026-10-22
+<div class="code"><pre> Agantra Inovatif Enterprise PKI - ask for a certificate     Version 7.9.9   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;
  Scripts: New-PkiCsr.ps1 (Windows, Linux with PowerShell)   new-pki-csr.sh (Linux)</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
@@ -383,7 +383,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h3 id="signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo">SignExternalCa-MANUAL.txt   DevKit-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt<a class="anchor" href="#signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo" aria-label="Link to this section">#</a></h3>
 <p>Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</p>
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="SignExternalCa-MANUAL.html"><small>&larr; Previous</small>Sign a CA of a department</a><a class="nx" href="GenerateCodeSigningCertificate-MANUAL.html"><small>Next &rarr;</small>Code signing certificates</a></nav>
-<p class="crumb">Made from NewPkiCsr-MANUAL.txt by Build-HtmlDocs.ps1 7.9.8.</p>
+<p class="crumb">Made from NewPkiCsr-MANUAL.txt by Build-HtmlDocs.ps1 7.9.9.</p>
 
 </div>
 <aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-what-this-script-does">1  WHAT THIS SCRIPT DOES</a><a href="#2-the-words-you-need">2  THE WORDS YOU NEED</a><a href="#3-before-you-start">3  BEFORE YOU START</a><a href="#4-quick-start">4  QUICK START</a><a href="#5-the-questions-one-by-one">5  THE QUESTIONS, ONE BY ONE</a><a href="#6-leaf-or-ca-request">6  LEAF OR CA REQUEST</a><a href="#7-names-san-and-development-names">7  NAMES (SAN) AND DEVELOPMENT NAMES</a><a href="#8-key-and-hash">8  KEY AND HASH</a><a href="#9-what-is-in-the-new-folder">9  WHAT IS IN THE NEW FOLDER</a><a href="#10-what-the-certificate-contains">10  WHAT THE CERTIFICATE CONTAINS</a><a href="#11-after-you-get-the-certificate">11  AFTER YOU GET THE CERTIFICATE</a><a href="#12-rules-the-script-enforces">12  RULES THE SCRIPT ENFORCES</a><a href="#13-recipes-copy-and-paste">13  RECIPES, COPY AND PASTE</a><a href="#14-problems-and-answers">14  PROBLEMS AND ANSWERS</a><a href="#15-limits-you-must-know">15  LIMITS YOU MUST KNOW</a><a href="#16-all-options">16  ALL OPTIONS</a><a href="#17-what-was-tested-what-was-not">17  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#18-other-documents">18  OTHER DOCUMENTS</a><a class="l3" href="#signexternalca-manual-txt-devkit-manual-txt-glossary-txt-glo">SignExternalCa-MANUAL.txt   DevKit-MANUAL.txt   GLOSSARY.txt   GLOSSARY-ENGLISH.txt</a></aside>
@@ -393,7 +393,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.8</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.9</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>
