@@ -1,0 +1,5 @@
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/ocsp-mock"
+  status = 200
+  force = true
