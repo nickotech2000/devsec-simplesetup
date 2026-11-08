@@ -1,0 +1,10 @@
+{
+  "name": "nextmantra-ocsp",
+  "private": true,
+  "type": "module",
+  "description": "Pre-signed OCSP responder for the Agantra private PKI (Netlify)",
+  "scripts": {
+    "bundle": "node tools/build-bundle.mjs",
+    "test": "node tools/selftest.mjs"
+  }
+}

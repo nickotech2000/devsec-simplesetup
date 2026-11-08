@@ -1,5 +1,8 @@
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/ocsp-mock"
-  status = 200
-  force = true
+# Pre-signed OCSP responder. The function (netlify/functions/ocsp.mjs) answers every path itself ("/*"),
+# so no redirect is needed. The answers come from netlify/data/ocsp-bundle.json (see README.md).
+[build]
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
