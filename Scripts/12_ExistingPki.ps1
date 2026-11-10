@@ -13,7 +13,7 @@
 #     GenerateLeafCertificate.ps1  (Phase B: issues leaves from the intermediates)
 #     transport / install script   (Phase C: reads thumbprints and files)
 #
-# Provides : Import-PkiExisting, ConvertTo-PkiActualKey
+# Provides : Import-PkiExisting, ConvertTo-PkiActualKey, Repair-PkiMovedFolder
 # Requires : 00_Common, 01_Configuration (+ Initialize-PkiConfiguration already run),
 #            01b_CaNaming, 02_OpenSSL, 03_RuntimeConfig
 # ============================================================
@@ -66,6 +66,7 @@ function Import-PkiExisting {
         $c.Built[$ca.Id] = $h
     }
     foreach ($l in @($m['leaves'])) { [void]$c.Leaves.Add($l) }
+    Repair-PkiMovedFolder -Manifest $m -ManifestPath $manifestPath
 
     # Enterprise Root signed by a public CA?
     $c.ExternalRoot = $null
@@ -79,4 +80,76 @@ function Import-PkiExisting {
         }
     }
     return $m
+}
+
+function Repair-PkiMovedFolder {
+    <#
+    .SYNOPSIS
+        A PKI folder that was renamed or moved (pki-default-01 -> pki-agantra-01, another drive, another
+        computer) still holds its old full paths: the "dir" line of each CA's OpenSSL configuration and the
+        file paths in pki-manifest.json. They are pointed at the folder the PKI is in now. Only paths
+        under the old PKI folder change; keys, certificates and the CA databases are not touched.
+    #>
+    param([Parameter(Mandatory)][hashtable]$Manifest, [Parameter(Mandatory)][string]$ManifestPath)
+    $c = $script:Pki
+    $newRoot = ([System.IO.Path]::GetFullPath($c.PkiRoot)).TrimEnd('\', '/')
+    $newNorm = $newRoot -replace '\\', '/'
+
+    # the old folder: a CA certificate path of the manifest minus <RelDir>/<file>
+    $oldRoot = $null
+    foreach ($ca in $c.Catalog) {
+        if (-not $c.Built.Contains($ca.Id)) { continue }
+        $cert = [string]$c.Built[$ca.Id]['certificate']
+        if ([string]::IsNullOrWhiteSpace($cert)) { continue }
+        $norm = $cert -replace '\\', '/'
+        $tail = '/' + (($ca.RelDir -replace '\\', '/').Trim('/')) + '/' + ($norm.Substring($norm.LastIndexOf('/') + 1))
+        if ($norm.EndsWith($tail, [System.StringComparison]::OrdinalIgnoreCase)) { $oldRoot = $norm.Substring(0, $norm.Length - $tail.Length); break }
+    }
+
+    # the "dir" line of every CA configuration (openssl ca reads the CA key and database from there)
+    $fixed = 0
+    foreach ($ca in $c.Catalog) {
+        $p = Get-PkiCaPaths -Ca $ca
+        if (-not (Test-Path -LiteralPath $p.Cnf -PathType Leaf)) { continue }
+        $want = 'dir             = ' + (ConvertTo-PkiConfValue (ConvertTo-PkiConfPath $p.Dir))
+        $lines = [System.IO.File]::ReadAllLines($p.Cnf)
+        $changed = $false
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match '^dir\s*=' -and $lines[$i] -ne $want) { $lines[$i] = $want; $changed = $true }
+        }
+        if ($changed) { Write-Utf8NoBom -Path $p.Cnf -Content (($lines -join "`n") + "`n"); $fixed++ }
+    }
+
+    $moved = (-not [string]::IsNullOrEmpty($oldRoot)) -and -not [string]::Equals($oldRoot, $newNorm, [System.StringComparison]::OrdinalIgnoreCase)
+    if ($moved) {
+        $rebase = {
+            param([string]$Value)
+            $n = $Value -replace '\\', '/'
+            if (-not $n.StartsWith($oldRoot + '/', [System.StringComparison]::OrdinalIgnoreCase)) { return $Value }
+            return (Join-Path $newRoot ($n.Substring($oldRoot.Length + 1) -replace '/', [System.IO.Path]::DirectorySeparatorChar))
+        }
+        $fixEntry = {
+            param($Entry)
+            if ($Entry -isnot [System.Collections.IDictionary]) { return }
+            foreach ($k in @($Entry.Keys)) { if ($Entry[$k] -is [string]) { $Entry[$k] = & $rebase $Entry[$k] } }
+        }
+        foreach ($e in @($Manifest['certificateAuthorities'])) { & $fixEntry $e }
+        foreach ($e in @($Manifest['leaves'])) { & $fixEntry $e }
+        foreach ($k in @($c.Built.Keys)) { & $fixEntry $c.Built[$k] }
+        # the manifest file: every JSON string under the old folder (the rest of the file stays as it is)
+        $raw = [System.IO.File]::ReadAllText($ManifestPath)
+        $raw = [regex]::Replace($raw, '"(?:[^"\\]|\\.)*"', {
+            param($mt)
+            $v = $mt.Value | ConvertFrom-Json
+            if ($v -isnot [string]) { return $mt.Value }
+            $r = & $rebase $v
+            if ($r -eq $v) { return $mt.Value }
+            return ($r | ConvertTo-Json -Compress)
+        })
+        Write-Utf8NoBom -Path $ManifestPath -Content $raw
+    }
+    if ($moved -or $fixed -gt 0) {
+        $from = $(if ($moved) { $oldRoot } else { 'another folder' })
+        Write-PkiLog "This PKI was renamed or moved (it was $from). The paths in pki-manifest.json and $fixed CA configuration(s) now point at $newRoot." 'WARN'
+    }
 }

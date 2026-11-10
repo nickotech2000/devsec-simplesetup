@@ -416,6 +416,9 @@ function Get-PkiFolderCaFile {
         $norm = $cert -replace '\\', '/'
         $m = [regex]::Match($norm, '/' + [regex]::Escape((Split-Path -Leaf $Folder)) + '/(?<rest>.+)$')
         if ($m.Success) { [void]$cands.Add((Join-Path $Folder ($m.Groups['rest'].Value -replace '/', [System.IO.Path]::DirectorySeparatorChar))) }
+        # a renamed PKI folder (pki-default-01 -> pki-agantra-01): the part after the old pki-<name>-NN folder
+        $m2 = [regex]::Match($norm, '/pki-[a-z][a-z0-9]*-(?:nocr-)?\d{2,}/(?<rest>.+)$', 'IgnoreCase')
+        if ($m2.Success) { [void]$cands.Add((Join-Path $Folder ($m2.Groups['rest'].Value -replace '/', [System.IO.Path]::DirectorySeparatorChar))) }
         [void]$cands.Add($cert)
     }
     if ($Ca['slug']) { [void]$cands.Add((Join-Path (Join-Path $Folder 'publish') "$($Ca['slug']).crt")) }
