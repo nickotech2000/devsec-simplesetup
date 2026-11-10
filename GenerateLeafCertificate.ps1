@@ -86,7 +86,7 @@ param(
 
     # ---- subject values: default comes from agantra_pki.cnf ----
     [string]$Organization,
-    [string]$OrganizationalUnit,
+    [Alias('OU')][string]$OrganizationalUnit,       # -OU Sales (without this alias PowerShell read -OU as the short form of -OutputRoot and wrote to a folder named Sales)
     [string]$Country,
     [string]$State,
     [string]$Locality,

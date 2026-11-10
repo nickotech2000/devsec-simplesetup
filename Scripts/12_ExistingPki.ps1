@@ -13,7 +13,7 @@
 #     GenerateLeafCertificate.ps1  (Phase B: issues leaves from the intermediates)
 #     transport / install script   (Phase C: reads thumbprints and files)
 #
-# Provides : Import-PkiExisting, ConvertTo-PkiActualKey
+# Provides : Import-PkiExisting, ConvertTo-PkiActualKey, Repair-PkiRelocatedPaths
 # Requires : 00_Common, 01_Configuration (+ Initialize-PkiConfiguration already run),
 #            01b_CaNaming, 02_OpenSSL, 03_RuntimeConfig
 # ============================================================
@@ -27,6 +27,36 @@ function ConvertTo-PkiActualKey {
     if ($Algorithm -match '^ML-DSA-(\d+)$') { return [ordered]@{ Family = 'pqc'; Bits = 0; Curve = $null; Algorithm = $Algorithm; Fallback = $false } }
     if ($Algorithm -match '^ECDSA-P(\d+)$') { return [ordered]@{ Family = 'ecdsa'; Bits = 0; Curve = "P-$($Matches[1])"; Algorithm = $Algorithm; Fallback = $false } }
     throw "Unknown key algorithm in the manifest: '$Algorithm'"
+}
+
+function Repair-PkiRelocatedPaths {
+    <#
+    .SYNOPSIS
+        A PKI folder that was renamed or moved (pki-default-01 -> pki-agantra-01, or the whole project to another drive) still has
+        the OLD absolute path in the "dir =" line of every CA configuration (<id>.cnf). OpenSSL then looks for the CA key in the
+        old folder ("Could not open file or uri for loading CA private key"). The line is always the folder of the file itself,
+        so it is set again here. Only that line changes; a file that is right is not touched.
+    .OUTPUTS
+        the number of configuration files that were corrected.
+    #>
+    param([Parameter(Mandatory)][string]$PkiRoot)
+    $fixed = 0
+    foreach ($f in @(Get-ChildItem -LiteralPath $PkiRoot -Recurse -File -Filter '*.cnf' -ErrorAction SilentlyContinue)) {
+        $text = [System.IO.File]::ReadAllText($f.FullName)
+        if ($text -notmatch '(?m)^\[ CA_default \]\s*$') { continue }
+        $want = ConvertTo-PkiConfValue (ConvertTo-PkiConfPath $f.DirectoryName)
+        $m = [regex]::Match($text, '(?m)^dir[ \t]*=[ \t]*(.*?)[ \t]*\r?$')
+        if (-not $m.Success -or $m.Groups[1].Value -ceq $want) { continue }
+        $new = $text.Substring(0, $m.Index) + 'dir             = ' + $want + $text.Substring($m.Index + $m.Length - $(if ($m.Value.EndsWith("`r")) { 1 } else { 0 }))
+        $attr = $f.Attributes
+        try {
+            if ($f.IsReadOnly) { $f.IsReadOnly = $false }
+            Write-Utf8NoBom -Path $f.FullName -Content $new
+        } finally { try { $f.Attributes = $attr } catch { } }
+        $fixed++
+    }
+    if ($fixed -gt 0) { Write-PkiLog "The PKI folder was renamed or moved: the folder path was corrected in $fixed CA configuration file(s) of $PkiRoot" 'WARN' }
+    return $fixed
 }
 
 function Import-PkiExisting {
@@ -52,6 +82,7 @@ function Import-PkiExisting {
     $c.Release = $(if ($m.ContainsKey('release') -and [int]$m['release'] -gt 0) { [int]$m['release'] } else { $c.Release })
     $c.NoCaRevocationInfo = $(if ($m.ContainsKey('noCaRevocationInfo')) { [bool]$m['noCaRevocationInfo'] } else { [bool]$c.NoCaRevocationInfo })
     if ($c.Contains('QuantumLabelInUse')) { $c.Remove('QuantumLabelInUse') }
+    [void](Repair-PkiRelocatedPaths -PkiRoot $c.PkiRoot)
     $c.Catalog = New-PkiCatalog
     if (-not $SkipProviders) { Initialize-PkiProviderConfigs }
 

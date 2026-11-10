@@ -1,0 +1,15 @@
+# Author : Nicko Satria Utama
+# Company: Agantra Inovatif OU (NextMantra)
+# Email  : nicko@nextmantra.com
+# Native OpenSSL providers only. No ENGINE API, no oqsprovider.
+openssl_conf = openssl_init
+
+[ openssl_init ]
+providers = provider_sect
+
+[ provider_sect ]
+default = default_sect
+
+[ default_sect ]
+activate = 1
+
