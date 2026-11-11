@@ -11,7 +11,7 @@
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
  Owner   : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
- Version : 7.9.12                      Updated: 2026-10-23
+ Version : 7.9.13                      Updated: 2026-11-10
  Scope   : pki_setup.ps1 + <short>_pki.cnf (agantra_pki.cnf = default PKI; 5.0.0: one profile per
            company, see PkiProfiles-MANUAL.txt) + scripts\  (Phase A: complete, waiting for your
            acceptance)  GenerateLeafCertificate.ps1, PkiTransport.ps1, the DevKit, person / Office
@@ -1223,6 +1223,11 @@
                  quadrants need no FIPS module. Find-PkiFipsModuleConfig (pki_setup, pwsh on Linux)
                  knows the same two folders. Not tested with the real PPA package (no access from
                  the author's sandbox).
+10.197 DECIDED   (7.9.13) A PKI folder may be renamed or moved. The full paths written at build
+                 time (the "dir" line of each CA configuration, the file paths in pki-manifest.json)
+                 are checked whenever a script loads the PKI and pointed at its current folder;
+                 the old folder is found from a CA certificate path minus its place in the PKI.
+                 Only paths under the old folder change.
 10.196 DECIDED   (7.9.12) A relative path means the PowerShell location of the user, also for the
                  .NET calls ([IO.File], the zip engine). Each script sets
                  [Environment]::CurrentDirectory to that location at start (an elevated shell starts

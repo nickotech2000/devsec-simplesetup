@@ -1,7 +1,7 @@
 ====================================================================================================
  GenerateLeafCertificate.ps1  -  USER MANUAL
 ====================================================================================================
- Agantra Inovatif Enterprise PKI - leaf certificates          Version 7.9.12           2026-10-22
+ Agantra Inovatif Enterprise PKI - leaf certificates          Version 7.9.13           2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  <nicko@nextmantra.com>
 
  READ THIS FIRST
@@ -417,6 +417,9 @@
  "-ExcludePurpose removed every purpose"         Leave at least one purpose.
  "ServerAuth needs at least one DNS name or IP"  Add -DnsName or -IpAddress.
  "EmailProtection needs ... e-mail address"      Add -EmailAddress.
+ "Could not open file ... CA private key from    The PKI folder was renamed or moved. Before
+ .../pki-default-01/..."                         7.9.13: update the scripts (they fix the paths
+                                                 themselves) or rename the folder back.
  "Invalid leaf naming"                           A template in [ leaf_names ] is wrong.
  The folder already exists                       Not an error. A NEW folder with the time was made.
  Old leaf does not verify                        pki_setup -Clean made new CA keys. Make a new leaf.

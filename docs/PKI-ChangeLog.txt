@@ -1,7 +1,7 @@
 ====================================================================================================
  AGANTRA INOVATIF ENTERPRISE PKI  -  CHANGE LOG
 ====================================================================================================
- Version : 7.9.12                       Updated: 2026-10-23
+ Version : 7.9.13                       Updated: 2026-11-10
  Author  : Nicko Satria Utama   Company: Agantra Inovatif OU (NextMantra)
  Email   : nicko@nextmantra.com
  What    : what changed in each version, newest first. The reasons are the numbered decisions in
@@ -19,6 +19,15 @@
  Start with   : Read the top entry.
  Words        : GLOSSARY.txt (technical terms), GLOSSARY-ENGLISH.txt (everyday English words)
 ----------------------------------------------------------------------------------------------------
+
+  7.9.13  2026-11-10  REVISION (revision +1)
+    * A PKI folder that was renamed (pki-default-01 -> pki-agantra-01) or moved (another drive,
+      another computer) could not issue: 'Could not open file ... for loading CA private key from
+      .../pki-default-01/classical/q1/ov/q1-ov.key'. Each CA's OpenSSL configuration and
+      pki-manifest.json held the old full paths. Every script that loads a PKI now points them at
+      the folder the PKI is in, once, with a WARN line. Keys, certificates and CA databases are not
+      touched. The transport and trust kit also find the CA files of a renamed folder.
+    * Docs: GenerateLeafCertificate-MANUAL (15), design 10.197, html.
 
   7.9.12  2026-10-23  REVISION (revision +1)
     * Unpack-PkiTransport.ps1 -Package .\name.certpacked, run as administrator in Windows

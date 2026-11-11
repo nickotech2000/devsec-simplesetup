@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="author" content="Nicko Satria Utama, Agantra Inovatif OÜ, nicko@nextmantra.com">
-<meta name="generator" content="Build-HtmlDocs.ps1 7.9.12">
+<meta name="generator" content="Build-HtmlDocs.ps1 7.9.13">
 <meta name="description" content="What the scripts do, how to check them, antivirus false positives.">
 <title>Security audit of the scripts - PKI DevSecOps Agantra</title>
 <style>
@@ -120,7 +120,7 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <body>
 <a class="skip" href="#content">Skip to content</a>
 <header class="bar">
-<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.12</small></a>
+<a class="brand" href="index.html"><span class="ms" aria-hidden="true">verified_user</span>PKI DevSecOps Agantra<small>7.9.13</small></a>
 <span class="grow"></span>
 <nav class="topnav" aria-label="Main">
 <a class="nb" href="index.html">Home</a>
@@ -168,9 +168,9 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <p class="crumb"><a href="index.html">Home</a> &rsaquo; Start</p>
 <h1>Security audit of the scripts</h1>
 <p class="lead">What the scripts do, how to check them, antivirus false positives.</p>
-<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-why-this-matters">1  WHY THIS MATTERS</a></li><li class="l2"><a href="#2-what-the-audit-looks-for">2  WHAT THE AUDIT LOOKS FOR</a></li><li class="l2"><a href="#3-antivirus-warnings-false-positives">3  ANTIVIRUS WARNINGS (FALSE POSITIVES)</a></li><li class="l2"><a href="#4-what-the-scripts-really-do">4  WHAT THE SCRIPTS REALLY DO</a></li><li class="l2"><a href="#5-check-your-copy">5  CHECK YOUR COPY</a></li><li class="l2"><a href="#6-rules-for-the-maintainer">6  RULES FOR THE MAINTAINER</a></li><li class="l2"><a href="#7-what-was-tested-what-was-not">7  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#8-other-documents">8  OTHER DOCUMENTS</a></li><li class="l2"><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></li></ol></details>
+<details class="toc"><summary>On this page</summary><ol><li class="l2"><a href="#read-this-first">READ THIS FIRST</a></li><li class="l2"><a href="#1-why-this-matters">1  WHY THIS MATTERS</a></li><li class="l2"><a href="#2-what-the-audit-looks-for">2  WHAT THE AUDIT LOOKS FOR</a></li><li class="l2"><a href="#3-antivirus-warnings-false-positives">3  ANTIVIRUS WARNINGS (FALSE POSITIVES)</a></li><li class="l2"><a href="#4-what-the-scripts-really-do">4  WHAT THE SCRIPTS REALLY DO</a></li><li class="l2"><a href="#5-check-your-copy">5  CHECK YOUR COPY</a></li><li class="l2"><a href="#6-rules-for-the-maintainer">6  RULES FOR THE MAINTAINER</a></li><li class="l2"><a href="#6a-the-proxy-sources-c-folder-nextmantra-reverse-proxy">6A  THE PROXY SOURCES (C#, folder nextmantra-reverse-proxy)</a></li><li class="l2"><a href="#7-what-was-tested-what-was-not">7  WHAT WAS TESTED, WHAT WAS NOT</a></li><li class="l2"><a href="#8-other-documents">8  OTHER DOCUMENTS</a></li><li class="l2"><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></li></ol></details>
 <div class="code"><pre> Agantra Inovatif Enterprise PKI - are the scripts clean? What they do, how to check them
- Version 7.9.12   2026-10-22
+ Version 7.9.13   2026-10-22
  Author : Nicko Satria Utama, Agantra Inovatif OU (NextMantra)  &lt;nicko@nextmantra.com&gt;</pre></div>
 <h2 id="read-this-first">READ THIS FIRST<a class="anchor" href="#read-this-first" aria-label="Link to this section">#</a></h2>
 <div class="code"><pre> What it is   : The result of a check of every .ps1 and .sh script, the reasons why an antivirus
@@ -253,6 +253,19 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
  Compare also the SHA-256 of the zip with the value the sender gives you on another channel.</pre></div>
 <h2 id="6-rules-for-the-maintainer">6  RULES FOR THE MAINTAINER<a class="anchor" href="#6-rules-for-the-maintainer" aria-label="Link to this section">#</a></h2>
 <ul><li>Run  python3 tools/audit_scripts.py --sums  before each release: read the new hits, then write SHA256SUMS. Add nothing from the list in section 2 without writing the reason here.</li><li>No Base64 or other payload inside a script, no download without a request from the user, no Bypass of the execution policy, no hidden window, no start-up entry.</li><li>Sign the release scripts with Sign-Code.ps1 when a code-signing certificate is available.</li></ul>
+<h2 id="6a-the-proxy-sources-c-folder-nextmantra-reverse-proxy">6A  THE PROXY SOURCES (C#, folder nextmantra-reverse-proxy)<a class="anchor" href="#6a-the-proxy-sources-c-folder-nextmantra-reverse-proxy" aria-label="Link to this section">#</a></h2>
+<div class="code"><pre> audit_scripts.py scans the .cs files too. A match that is meant is not hidden and not ignored: the
+ source line (or the file) carries  audit:allow(rule) reason  and the report lists every allowed line at
+ the end, under [allowed], with the reason. Read the reasons; remove a marker if the reason is weak.
+ The markers that exist and why:
+   Handlers.cs     encoded-command   decodes the client&#39;s Basic Proxy-Authorization header; compared only
+   Dns.cs, DnsTest.cs   raw-socket-shell   a proxy and DNS server opens sockets by design
+   DnsTest.cs      hidden-window     --dns-test runs node/java/go with captured output (no console window)
+   Installer.cs    hidden-window, persistence   --install-service / --install-systemd, explicit admin switches
+   SecurityInfo.cs defender-off      writes a TEXT script for the administrator (Defender file exclusion for
+                                     ONE file, hash checked first); the proxy never runs it
+   SecurityInfo.cs encoded-command, exec-policy   a sentence saying the program does NOT do these
+ Customer hand-over: &lt;proxy&gt; --security-info [--admin-script], and SECURITY-HANDOVER.txt.</pre></div>
 <h2 id="7-what-was-tested-what-was-not">7  WHAT WAS TESTED, WHAT WAS NOT<a class="anchor" href="#7-what-was-tested-what-was-not" aria-label="Link to this section">#</a></h2>
 <p>Tested: the static audit on Ubuntu 24.04 (all 125 script-like files), -VerifyAll with one PKI (PASSED, exit 0), SHA256SUMS creation. NOT tested: Bitdefender or any other antivirus program, -VerifyAll with several PKIs and with a damaged one, the Windows commands of section 5. A static audit finds patterns; it does not prove that a file is harmless.</p>
 <h2 id="8-other-documents">8  OTHER DOCUMENTS<a class="anchor" href="#8-other-documents" aria-label="Link to this section">#</a></h2>
@@ -260,17 +273,17 @@ mark{background:#ffe58a;color:#000;padding:0 2px;border-radius:3px}
 <h2 id="author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com<a class="anchor" href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma" aria-label="Link to this section">#</a></h2>
 
 <nav class="pn" aria-label="Previous and next document"><a class="pv" href="RUN-SCRIPTS-WINDOWS.html"><small>&larr; Previous</small>Run the scripts on Windows (Sandbox)</a><a class="nx" href="VERSION-INFO.html"><small>Next &rarr;</small>Version and system report</a></nav>
-<p class="crumb">Made from SECURITY-AUDIT.txt by Build-HtmlDocs.ps1 7.9.12.</p>
+<p class="crumb">Made from SECURITY-AUDIT.txt by Build-HtmlDocs.ps1 7.9.13.</p>
 
 </div>
-<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-why-this-matters">1  WHY THIS MATTERS</a><a href="#2-what-the-audit-looks-for">2  WHAT THE AUDIT LOOKS FOR</a><a href="#3-antivirus-warnings-false-positives">3  ANTIVIRUS WARNINGS (FALSE POSITIVES)</a><a href="#4-what-the-scripts-really-do">4  WHAT THE SCRIPTS REALLY DO</a><a href="#5-check-your-copy">5  CHECK YOUR COPY</a><a href="#6-rules-for-the-maintainer">6  RULES FOR THE MAINTAINER</a><a href="#7-what-was-tested-what-was-not">7  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#8-other-documents">8  OTHER DOCUMENTS</a><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></aside>
+<aside class="side" aria-label="On this page"><h2>On this page</h2><a href="#read-this-first">READ THIS FIRST</a><a href="#1-why-this-matters">1  WHY THIS MATTERS</a><a href="#2-what-the-audit-looks-for">2  WHAT THE AUDIT LOOKS FOR</a><a href="#3-antivirus-warnings-false-positives">3  ANTIVIRUS WARNINGS (FALSE POSITIVES)</a><a href="#4-what-the-scripts-really-do">4  WHAT THE SCRIPTS REALLY DO</a><a href="#5-check-your-copy">5  CHECK YOUR COPY</a><a href="#6-rules-for-the-maintainer">6  RULES FOR THE MAINTAINER</a><a href="#6a-the-proxy-sources-c-folder-nextmantra-reverse-proxy">6A  THE PROXY SOURCES (C#, folder nextmantra-reverse-proxy)</a><a href="#7-what-was-tested-what-was-not">7  WHAT WAS TESTED, WHAT WAS NOT</a><a href="#8-other-documents">8  OTHER DOCUMENTS</a><a href="#author-nicko-satria-utama-company-agantra-inovatif-ou-nextma">Author: Nicko Satria Utama  Company: Agantra Inovatif OU (NextMantra)  Email: nicko@nextmantra.com</a></aside>
 </main>
 <footer class="foot"><div class="in">
 <div><p>Copyright 2026 by <a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">Agantra Inovatif OÜ</a></p>
 <p>We are an Estonian company in AI and Web3.</p></div>
 <div><p><span class="fa fa-globe" aria-hidden="true"></span><a href="https://nextmantra.com" target="_blank" rel="noopener noreferrer">nextmantra.com</a></p>
 <p><span class="fa fa-envelope" aria-hidden="true"></span><a href="mailto:nicko@nextmantra.com">nicko@nextmantra.com</a></p></div>
-<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.12</p></div>
+<div><p>Author: Nicko Satria Utama</p><p>PKI DevSecOps Agantra version 7.9.13</p></div>
 </div></footer>
 <button type="button" class="btn" id="totop" aria-label="Back to top"><span class="ms" aria-hidden="true">arrow_upward</span></button>
 <script>
