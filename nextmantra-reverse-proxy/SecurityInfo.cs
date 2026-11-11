@@ -81,6 +81,7 @@ static class SecurityInfo
             L("   - Record of the change: /var/lib/pkiproxy/proxy-changes.json");
         }
         L("   - Optional, only if the administrator runs them: --hosts-add (hosts file), --install-service / --install-systemd (a service).");
+        L("     A plain-proxy service runs as a limited account (LocalService / user pkiproxy). A full-mode service (--with-dns) runs as LocalSystem / root, because changing name resolution needs those rights.");
         L("   See them:  <exe> --dns-os-status        Remove them:  <exe> --clean       (a normal stop also removes them)");
         L();
         L("6. OTHER PROGRAMS IT STARTS (fixed commands, no user input inside them)");

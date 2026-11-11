@@ -60,6 +60,15 @@ static class Installer
 
     static string Self => Environment.ProcessPath ?? throw new InvalidOperationException("Cannot find the executable path");
 
+    // Full mode (tiny DNS + OS routing) needs more rights than a plain proxy: it must add name-resolution rules (Windows) or
+    // create a helper link and call resolvectl (Linux). Decided by --mode full, --with-dns, or Mode "full" in the installed settings.
+    static bool WantsDns(Args a, string settingsFile)
+    {
+        if (a.Has("with-dns") || string.Equals(a.Value("mode"), "full", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(a.Value("mode"), "proxy", StringComparison.OrdinalIgnoreCase)) return false;
+        try { return File.Exists(settingsFile) && Config.Load(settingsFile).Mode == "full"; } catch { return false; }
+    }
+
     // Copies the executable and, when missing, the config next to it.
     static string Deploy(Args a, string dir)
     {
@@ -94,11 +103,15 @@ static class Installer
         var exe = Deploy(a, WinDir);
         Directory.CreateDirectory(WinData);
         bad += Step("cache folder rights", Exec("icacls.exe", WinData, "/grant", "NT AUTHORITY\\LocalService:(OI)(CI)M"), false);
-        var bin = "\"" + exe + "\" --service";
+        bool dns = WantsDns(a, Path.Combine(WinDir, "appsettings.json"));
+        var bin = "\"" + exe + "\" --service" + (dns ? " --mode full" : "");
+        // Full mode runs as LocalSystem: adding name-resolution rules needs administrator rights, which LocalService does not have.
+        string account = dns ? "LocalSystem" : "NT AUTHORITY\\LocalService";
         bad += exists
-            ? Step("service updated", Exec("sc.exe", "config", WinService.Name, "binPath=", bin, "start=", "auto"))
-            : Step("service created (LocalService, automatic start)", Exec("sc.exe", "create", WinService.Name, "binPath=", bin, "start=", "auto",
-                "obj=", "NT AUTHORITY\\LocalService", "DisplayName=", "Agantra PKI Proxy"));
+            ? Step("service updated (" + (dns ? "LocalSystem, full mode" : "LocalService") + ")", Exec("sc.exe", "config", WinService.Name, "binPath=", bin, "start=", "auto", "obj=", account))
+            : Step("service created (" + (dns ? "LocalSystem, full mode: tiny DNS and OS routing" : "LocalService") + ", automatic start)", Exec("sc.exe", "create", WinService.Name, "binPath=", bin, "start=", "auto",
+                "obj=", account, "DisplayName=", "Agantra PKI Proxy"));
+        if (dns) Step("start after the DNS Client service", Exec("sc.exe", "config", WinService.Name, "depend=", "Dnscache"), false);
         Step("description", Exec("sc.exe", "description", WinService.Name, "CRL/OCSP reverse proxy and TCP/HTTP relay (Agantra Inovatif OU)"), false);
         Step("restart on failure", Exec("sc.exe", "failure", WinService.Name, "reset=", "86400", "actions=", "restart/5000/restart/5000/restart/30000"), false);
         if (a.Has("with-hosts")) bad += Hosts.Apply(true, Path.Combine(WinDir, "appsettings.json"), a);
@@ -117,6 +130,7 @@ static class Installer
             bad += Step("service deleted", Exec("sc.exe", "delete", WinService.Name));
         }
         else Console.WriteLine("  skip service not installed");
+        OsRouting.Clean();   // whatever a stopped or crashed service left behind
         try
         {
             if (!string.Equals(Path.GetDirectoryName(Path.GetFullPath(Self)), WinDir, StringComparison.OrdinalIgnoreCase) && Directory.Exists(WinDir)) Directory.Delete(WinDir, true);
@@ -130,7 +144,8 @@ static class Installer
     static int InstallLinux(Args a)
     {
         int bad = 0;
-        if (Exec("id", "-u", LinuxUser).Code != 0)
+        bool dns = WantsDns(a, Path.Combine(LinuxDir, "appsettings.json")) || (Paths.Config(a) is var c0 && WantsDns(a, c0));
+        if (!dns && Exec("id", "-u", LinuxUser).Code != 0)
             bad += Step("system user " + LinuxUser, Exec("useradd", "--system", "--no-create-home", "--shell", "/usr/sbin/nologin", LinuxUser));
         Exec("systemctl", "stop", "pkiproxy");
         var exe = Deploy(a, LinuxDir);
@@ -139,7 +154,29 @@ static class Installer
         if (File.Exists(cfg)) File.SetUnixFileMode(cfg, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
         Exec("restorecon", "-R", LinuxDir);
 
-        File.WriteAllText(LinuxUnit, $"""
+        string unit = dns ? $"""
+            [Unit]
+            Description=Agantra PKI proxy (CRL/OCSP, tiny DNS, mode full)
+            After=network-online.target systemd-resolved.service
+            Wants=network-online.target
+
+            [Service]
+            # Full mode runs as root: it creates the helper link pkiproxy0 and calls resolvectl. It removes both again when it stops.
+            Type=simple
+            ExecStart={exe} --service --mode full --config {cfg}
+            WorkingDirectory={LinuxDir}
+            Restart=always
+            RestartSec=5
+            StateDirectory=pkiproxy
+            RuntimeDirectory=pkiproxy
+            NoNewPrivileges=yes
+            ProtectSystem=full
+            ProtectHome=yes
+            PrivateTmp=yes
+
+            [Install]
+            WantedBy=multi-user.target
+            """ : $"""
             [Unit]
             Description=Agantra PKI proxy
             After=network-online.target
@@ -167,7 +204,9 @@ static class Installer
 
             [Install]
             WantedBy=multi-user.target
-            """.Replace("\r\n", "\n") + "\n");
+            """;
+        File.WriteAllText(LinuxUnit, unit.Replace("\r\n", "\n") + "\n");
+        if (dns) Console.WriteLine("  note full mode: the service runs as root so it can create the helper link and call resolvectl");
         Console.WriteLine("  ok   unit file " + LinuxUnit);
         bad += Step("daemon-reload", Exec("systemctl", "daemon-reload"));
         if (a.Has("with-hosts")) bad += Hosts.Apply(true, cfg, a);
@@ -182,6 +221,7 @@ static class Installer
         Step("disable and stop", Exec("systemctl", "disable", "--now", "pkiproxy"), false);
         try { if (File.Exists(LinuxUnit)) File.Delete(LinuxUnit); } catch (Exception ex) { Console.WriteLine("  FAIL unit: " + ex.Message); bad++; }
         Step("daemon-reload", Exec("systemctl", "daemon-reload"), false);
+        OsRouting.Clean();   // whatever a stopped or crashed service left behind
         try { if (Directory.Exists(LinuxDir)) Directory.Delete(LinuxDir, true); } catch { Console.WriteLine("  skip " + LinuxDir + " not removed"); }
         Console.WriteLine("  note the system user '" + LinuxUser + "' and /var/lib/pkiproxy are kept");
         return bad == 0 ? 0 : 3;

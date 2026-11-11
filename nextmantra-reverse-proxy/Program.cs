@@ -23,17 +23,21 @@ sealed class Args(string[] a)
     [
         "help", "h", "?", "stop", "kill", "k", "status", "reload", "service", "config", "mode", "no-os-routing", "dns-os-status", "clean",
         "dns-test", "names", "env-report", "security-info", "admin-script", "out", "out-dir", "hosts-add", "hosts-remove", "hosts-status", "hosts-file", "ip", "ipv6", "dry-run",
-        "install-service", "uninstall-service", "install-systemd", "uninstall-systemd", "with-hosts",
+        "install-service", "uninstall-service", "install-systemd", "uninstall-systemd", "with-hosts", "with-dns",
     ];
 
     static string Name(string x) => x.TrimStart('-').Split('=')[0].ToLowerInvariant();
 
+    // Only the forms Has() and Value() really understand are accepted: "--name" (or "--name=value"), and the one-letter -h -k -?.
+    // A single dash with a long name ("-dns-test") used to slip through and start the proxy; now it is refused with a hint.
     public static string? Unknown(string[] argv)
     {
         foreach (var x in argv)
         {
             if (!x.StartsWith('-')) continue;
-            if (!Known.Contains(Name(x))) return x;
+            var n = Name(x);
+            bool dbl = x.StartsWith("--");
+            if (dbl ? !Known.Contains(n) : !(n.Length == 1 && Known.Contains(n))) return x;
         }
         return null;
     }
@@ -98,6 +102,9 @@ static class Program
                             --ip <addr> (default 127.0.0.1)  --ipv6  --dry-run  --hosts-file <path>
             Windows:        --install-service | --uninstall-service     (add --with-hosts to also edit the hosts file)
             Linux systemd:  --install-systemd | --uninstall-systemd     (add --with-hosts)
+            Full mode as a service: add --with-dns (or --mode full, or Mode "full" in the installed appsettings.json). The service then
+                            runs as LocalSystem (Windows) / root (Linux), because it must add the OS name-resolution change; it
+                            removes it on stop, and the uninstall switches remove anything left behind.
             Install/hosts switches need Administrator or root.
             """);
     }

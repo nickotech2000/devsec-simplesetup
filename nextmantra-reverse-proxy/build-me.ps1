@@ -13,6 +13,9 @@ Email   : nicko@nextmantra.com
       agantra-inovatif-crl-ocsp-proxy-win64.exe / -linux64 / -mac
 .PARAMETER Rid
     Runtime identifiers to build. Default: win-x64, linux-x64, osx-arm64.
+.PARAMETER BaseName
+    First part of the output file names. Default agantra-inovatif-crl-ocsp-proxy; for example
+    -BaseName agantra-inovatif-tinydns-proxy gives agantra-inovatif-tinydns-proxy-win64.exe / -linux64 / -mac.
 .PARAMETER Aot
     Native AOT instead of ReadyToRun + trimming (smaller memory, faster start). Native AOT cannot cross-compile, so it only
     works for the OS you are on (needs the C++ build tools on Windows); other runtime identifiers are skipped.
@@ -36,6 +39,7 @@ Email   : nicko@nextmantra.com
 param(
     [ValidateSet('win-x64', 'linux-x64', 'osx-arm64')]
     [string[]]$Rid = @('win-x64', 'linux-x64', 'osx-arm64'),
+    [string]$BaseName = 'agantra-inovatif-tinydns-proxy',
     [switch]$Aot,
     [switch]$KeepTemp,
     [switch]$Smoke,
@@ -71,11 +75,10 @@ else {
     Write-Host "SDK     : $sdk" -ForegroundColor Gray
 }
 
-$BaseName = 'agantra-inovatif-tinydns-proxy'
 $Targets = @{
     'win-x64'   = @{ Ext = '.exe'; Suffix = '-win64' }
-    'linux-x64' = @{ Ext = ''; Suffix = '-linux64' }
-    'osx-arm64' = @{ Ext = ''; Suffix = '-mac' }
+    'linux-x64' = @{ Ext = '';     Suffix = '-linux64' }
+    'osx-arm64' = @{ Ext = '';     Suffix = '-mac' }
 }
 
 # Native AOT only builds for the OS it runs on.

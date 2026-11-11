@@ -88,6 +88,9 @@ static class OsRouting
         try { RemoveInternal(quiet: false); } catch (Exception ex) { Say("could not remove: " + ex.Message + " (run --clean)"); }
     }
 
+    // Used by the uninstall switches: remove whatever is left, say so only when something was removed.
+    public static void Clean() { try { RemoveInternal(quiet: false); } catch (Exception ex) { Say("could not remove: " + ex.Message + " (run --clean)"); } }
+
     // ----- switches: --dns-os-status, --clean [--dry-run] -----
     public static int Run(Args a)
     {

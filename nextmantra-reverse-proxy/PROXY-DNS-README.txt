@@ -31,6 +31,11 @@ OS ROUTING (step 2): how the OS learns about the tiny DNS, and how to remove it
   Not elevated: the proxy and DNS still run, the OS is not changed, and it tells you to run elevated or use --hosts-add.
   Domain-joined PCs: group-policy NRPT rules make Windows ignore local rules; the check fails, the rules are removed and
   the administrator must add the names to the policy (see the security hand-over text, coming in step 3).
+  As a service: --install-service / --install-systemd with --with-dns (or --mode full, or Mode "full" in the installed settings).
+    A plain-proxy service keeps its limited account. A full-mode service runs as LocalSystem (Windows) / root (Linux), because
+    adding name-resolution rules or a helper link needs those rights. The Linux unit is the one tested on Ubuntu 26.04:
+    root, NoNewPrivileges, ProtectSystem=full, ProtectHome, PrivateTmp, After=systemd-resolved. A stop removes the routing; a crash
+    leaves it until the next start (which removes it first) or --clean; --uninstall-* removes anything left.
   Not covered yet: Oracle Linux / CentOS Stream without systemd-resolved and WSL without systemd (send --env-report).
 
 SETTINGS (PkiProxySettings)
