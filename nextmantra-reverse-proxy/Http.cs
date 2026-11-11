@@ -18,13 +18,14 @@ sealed class HttpError(int code, string text) : Exception(text) { public int Cod
 // Counters instead of logs; shown by --status.
 static class Stats
 {
-    public static long Requests, Hits, Misses, Stale, Rejected, Errors, Active;
+    public static long Requests, Hits, Misses, Stale, Rejected, Errors, Active, DnsLocal, DnsForwarded;
     public static readonly DateTime Started = DateTime.UtcNow;
 
     public static string Text() =>
         $"uptime {(DateTime.UtcNow - Started):d\\.hh\\:mm\\:ss}\nactive {Interlocked.Read(ref Active)}\nrequests {Interlocked.Read(ref Requests)}\n" +
         $"cache-hit {Interlocked.Read(ref Hits)}\ncache-miss {Interlocked.Read(ref Misses)}\ncache-stale {Interlocked.Read(ref Stale)}\n" +
-        $"rejected {Interlocked.Read(ref Rejected)}\nerrors {Interlocked.Read(ref Errors)}";
+        $"rejected {Interlocked.Read(ref Rejected)}\nerrors {Interlocked.Read(ref Errors)}" +
+        (DnsServer.Running ? $"\ndns-local {Interlocked.Read(ref DnsLocal)}\ndns-forwarded {Interlocked.Read(ref DnsForwarded)}" : "");
 }
 
 sealed class Head

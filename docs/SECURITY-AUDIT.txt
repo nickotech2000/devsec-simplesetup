@@ -122,6 +122,22 @@
  - Sign the release scripts with Sign-Code.ps1 when a code-signing certificate is available.
 
 ====================================================================================================
+ 6A  THE PROXY SOURCES (C#, folder nextmantra-reverse-proxy)
+====================================================================================================
+ audit_scripts.py scans the .cs files too. A match that is meant is not hidden and not ignored: the
+ source line (or the file) carries  audit:allow(rule) reason  and the report lists every allowed line at
+ the end, under [allowed], with the reason. Read the reasons; remove a marker if the reason is weak.
+ The markers that exist and why:
+   Handlers.cs     encoded-command   decodes the client's Basic Proxy-Authorization header; compared only
+   Dns.cs, DnsTest.cs   raw-socket-shell   a proxy and DNS server opens sockets by design
+   DnsTest.cs      hidden-window     --dns-test runs node/java/go with captured output (no console window)
+   Installer.cs    hidden-window, persistence   --install-service / --install-systemd, explicit admin switches
+   SecurityInfo.cs defender-off      writes a TEXT script for the administrator (Defender file exclusion for
+                                     ONE file, hash checked first); the proxy never runs it
+   SecurityInfo.cs encoded-command, exec-policy   a sentence saying the program does NOT do these
+ Customer hand-over: <proxy> --security-info [--admin-script], and SECURITY-HANDOVER.txt.
+
+====================================================================================================
  7  WHAT WAS TESTED, WHAT WAS NOT
 ====================================================================================================
  Tested: the static audit on Ubuntu 24.04 (all 125 script-like files), -VerifyAll with one PKI

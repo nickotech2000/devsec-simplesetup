@@ -1,0 +1,98 @@
+Agantra PKI proxy environment report, 2026-11-11 16:51:05 +07:00
+Read-only: nothing on this machine is changed.
+
+== Program
+  executable                E:\ProjectCommons\DevSec-SimpleSetup\nextmantra-reverse-proxy\agantra-inovatif-tinydns-proxy-win64.exe
+  settings file             E:\ProjectCommons\DevSec-SimpleSetup\nextmantra-reverse-proxy\appsettings.json
+  settings valid            yes, mode 'full'
+  elevated (admin/root)     no
+  .NET runtime              .NET 10.0.15
+
+== Operating system
+  description               Microsoft Windows 10.0.26300
+  architecture              X64
+  machine name              INT-NSU-LT01
+  Windows                   Windows 10 Pro 26H2 build 26300.9818
+  DNS domain (joined?)      (none: not domain-joined)
+
+== Windows name-resolution rules (NRPT) already present
+  local rules               5 rule(s)
+      tsa.nextmantra.internal  -> 127.0.0.2
+      crl.nextmantra.internal  -> 127.0.0.2
+      timestamp.nextmantra.internal  -> 127.0.0.2
+      ocsp.nextmantra.internal  -> 127.0.0.2
+      crt.nextmantra.internal  -> 127.0.0.2
+  group-policy rules        0 rule(s)
+
+== WSL on this Windows machine
+  wsl.exe present           yes
+  .wslconfig                (none: default NAT networking)
+
+== Network adapters (up)
+  vEthernet (Default Switch) [Ethernet] Hyper-V Virtual Ethernet Adapter
+      DNS servers: fec0:0:0:ffff::1, fec0:0:0:ffff::2, fec0:0:0:ffff::3
+  Wi-Fi [Wireless80211] Intel(R) Wi-Fi 6E AX211 160MHz
+      DNS servers: 10.10.12.1
+  vSwitch (Default Switch)-Hyper-V Virtual Switch Extension Filter-0000 [Ethernet] Hyper-V Virtual Switch Extension Adapter-Hyper-V Virtual Switch Extension Filter-0000
+      DNS servers: (none)
+  vEthernet (Default Switch)-WFP Native MAC Layer LightWeight Filter-0000 [Ethernet] Hyper-V Virtual Ethernet Adapter-WFP Native MAC Layer LightWeight Filter-0000
+      DNS servers: (none)
+  vEthernet (Default Switch)-VirtualBox NDIS Light-Weight Filter-0000 [Ethernet] Hyper-V Virtual Ethernet Adapter-VirtualBox NDIS Light-Weight Filter-0000
+      DNS servers: (none)
+  vEthernet (Default Switch)-QoS Packet Scheduler-0000 [Ethernet] Hyper-V Virtual Ethernet Adapter-QoS Packet Scheduler-0000
+      DNS servers: (none)
+  vEthernet (Default Switch)-WFP 802.3 MAC Layer LightWeight Filter-0000 [Ethernet] Hyper-V Virtual Ethernet Adapter-WFP 802.3 MAC Layer LightWeight Filter-0000
+      DNS servers: (none)
+  Local Area Connection* 6-WFP Native MAC Layer LightWeight Filter-0000 [Ethernet] WAN Miniport (IP)-WFP Native MAC Layer LightWeight Filter-0000
+      DNS servers: (none)
+  Local Area Connection* 6-QoS Packet Scheduler-0000 [Ethernet] WAN Miniport (IP)-QoS Packet Scheduler-0000
+      DNS servers: (none)
+  Local Area Connection* 7-WFP Native MAC Layer LightWeight Filter-0000 [Ethernet] WAN Miniport (IPv6)-WFP Native MAC Layer LightWeight Filter-0000
+      DNS servers: (none)
+  Local Area Connection* 7-QoS Packet Scheduler-0000 [Ethernet] WAN Miniport (IPv6)-QoS Packet Scheduler-0000
+      DNS servers: (none)
+  Local Area Connection* 8-WFP Native MAC Layer LightWeight Filter-0000 [Ethernet] WAN Miniport (Network Monitor)-WFP Native MAC Layer LightWeight Filter-0000
+      DNS servers: (none)
+  Local Area Connection* 8-QoS Packet Scheduler-0000 [Ethernet] WAN Miniport (Network Monitor)-QoS Packet Scheduler-0000
+      DNS servers: (none)
+  Local Area Connection* 6 [Ethernet] WAN Miniport (IP)
+      DNS servers: (none)
+  Local Area Connection* 7 [Ethernet] WAN Miniport (IPv6)
+      DNS servers: (none)
+  Local Area Connection* 8 [Ethernet] WAN Miniport (Network Monitor)
+      DNS servers: (none)
+  vSwitch (Default Switch) [Ethernet] Hyper-V Virtual Switch Extension Adapter
+      DNS servers: (none)
+  Wi-Fi-WFP Native MAC Layer LightWeight Filter-0000 [Wireless80211] Intel(R) Wi-Fi 6E AX211 160MHz-WFP Native MAC Layer LightWeight Filter-0000
+      DNS servers: (none)
+  Wi-Fi-Virtual WiFi Filter Driver-0000 [Wireless80211] Intel(R) Wi-Fi 6E AX211 160MHz-Virtual WiFi Filter Driver-0000
+      DNS servers: (none)
+  Wi-Fi-Native WiFi Filter Driver-0000 [Wireless80211] Intel(R) Wi-Fi 6E AX211 160MHz-Native WiFi Filter Driver-0000
+      DNS servers: (none)
+  Wi-Fi-VirtualBox NDIS Light-Weight Filter-0000 [Wireless80211] Intel(R) Wi-Fi 6E AX211 160MHz-VirtualBox NDIS Light-Weight Filter-0000
+      DNS servers: (none)
+  Wi-Fi-QoS Packet Scheduler-0000 [Wireless80211] Intel(R) Wi-Fi 6E AX211 160MHz-QoS Packet Scheduler-0000
+      DNS servers: (none)
+  Wi-Fi-WFP 802.3 MAC Layer LightWeight Filter-0000 [Wireless80211] Intel(R) Wi-Fi 6E AX211 160MHz-WFP 802.3 MAC Layer LightWeight Filter-0000
+      DNS servers: (none)
+
+== Ports the tiny DNS and the proxy need (a test bind, closed at once)
+  UDP 127.0.0.2:53          free
+  TCP 127.0.0.2:53          free
+  TCP 127.0.0.1:80 [pki]    free
+
+== Names from the settings in the hosts file
+  hosts file                C:\WINDOWS\system32\drivers\etc\hosts (5 active lines)
+  crl.nextmantra.internal   (not in the hosts file)
+  crt.nextmantra.internal   (not in the hosts file)
+  ocsp.nextmantra.internal  (not in the hosts file)
+  timestamp.nextmantra.internal(not in the hosts file)
+  tsa.nextmantra.internal   (not in the hosts file)
+
+== Runtimes
+  dotnet                    11.0.100
+  node                      v26.13.0
+  java                      openjdk version "21.0.13" 2026-10-20 LTS
+  go                        go version go1.27.1 windows/amd64
+
+End of report.

@@ -18,8 +18,21 @@ sealed class Settings
     public string Bind { get; set; } = "127.0.0.1:80";
     public string[]? Allow { get; set; }
     public int MaxConnections { get; set; } = 256;
+    public string? Mode { get; set; }              // proxy (default) | full (tiny local DNS + proxy)
+    public DnsSettings? Dns { get; set; }
     public CacheSettings? Cache { get; set; }
     public List<ListenerSettings>? Listeners { get; set; }
+}
+
+// Tiny local DNS (used when Mode is "full"). Names are listed one by one; there are no wildcards.
+sealed class DnsSettings
+{
+    public string? Bind { get; set; }              // loopback address:port the DNS listens on, default 127.0.0.2:53
+    public string? Answer { get; set; }            // address given for every listed name, default: the address of the first http-reverse listener
+    public int? Ttl { get; set; }                  // seconds, default 60
+    public Dictionary<string, string>? Names { get; set; }   // name -> address ("" = the Answer address)
+    public bool? FromRoutes { get; set; }          // also answer for every http-reverse route host name, default true
+    public string[]? Upstream { get; set; }        // DNS servers for every other name; empty = the servers the OS uses now
 }
 
 sealed class CacheSettings
@@ -114,13 +127,26 @@ sealed class Listener
     }
 }
 
+sealed class DnsRuntime
+{
+    public IPEndPoint Bind = new(IPAddress.Parse("127.0.0.2"), 53);
+    public int Ttl = 60;
+    public Dictionary<string, IPAddress> Names = new();
+    public IPEndPoint[] Upstream = [];
+}
+
 sealed class Config
 {
     public Listener[] Listeners = [];
     public CacheSettings Cache = new();
+    public string Mode = "proxy";
+    public DnsRuntime Dns = new();
+
+    // Set from --mode on the command line; it wins over PkiProxySettings:Mode.
+    public static string? ModeOverride;
 
     // Host names that http-reverse listeners answer for; used by the --hosts-* switches (wildcards cannot go in a hosts file).
-    public string[] HostNames() => Listeners.Where(l => l.Mode == "http-reverse").SelectMany(l => l.Routes.Keys)
+    public string[] HostNames() => Listeners.Where(l => l.Mode == "http-reverse").SelectMany(l => l.Routes.Keys).Concat(Dns.Names.Keys)
         .Where(h => !h.Contains('*')).Distinct().OrderBy(h => h, StringComparer.Ordinal).ToArray();
 
     public static Config Load(string path)
@@ -139,7 +165,77 @@ sealed class Config
         for (int i = 0; i < raw.Count; i++) list.Add(Make(raw[i], i));
         var dup = list.GroupBy(l => l.Bind.ToString()).FirstOrDefault(g => g.Count() > 1);
         if (dup != null) throw new InvalidOperationException("Two listeners use the same bind address: " + dup.Key);
-        return new Config { Listeners = list.ToArray(), Cache = s.Cache ?? new CacheSettings() };
+        string mode = (ModeOverride ?? s.Mode ?? "proxy").Trim().ToLowerInvariant();
+        if (mode != "proxy" && mode != "full") throw new InvalidOperationException("Mode must be proxy or full (got '" + mode + "')");
+        var cfg = new Config { Listeners = list.ToArray(), Cache = s.Cache ?? new CacheSettings(), Mode = mode };
+        cfg.Dns = MakeDns(s.Dns, cfg.Listeners);
+        return cfg;
+    }
+
+    // ----- tiny DNS settings; always validated, only started when Mode is "full" -----
+    static DnsRuntime MakeDns(DnsSettings? d, Listener[] listeners)
+    {
+        d ??= new DnsSettings();
+        var r = new DnsRuntime();
+        const string w = "Dns: ";
+
+        if (!string.IsNullOrWhiteSpace(d.Bind))
+        {
+            if (!IPEndPoint.TryParse(d.Bind, out var ep)) throw new InvalidOperationException(w + "Bind must look like 127.0.0.2:53");
+            r.Bind = ep.Port == 0 ? new IPEndPoint(ep.Address, 53) : ep;
+        }
+        // Loopback only: a resolver on a LAN address would answer anybody on the network.
+        if (!IPAddress.IsLoopback(r.Bind.Address)) throw new InvalidOperationException(w + "Bind must be a loopback address (127.x.x.x or ::1), got " + r.Bind.Address);
+        r.Ttl = Math.Clamp(d.Ttl ?? 60, 0, 3600);
+
+        IPAddress answer = IPAddress.Loopback;
+        var first = listeners.FirstOrDefault(l => l.Mode == "http-reverse");
+        if (first != null && !first.Bind.Address.Equals(IPAddress.Any) && !first.Bind.Address.Equals(IPAddress.IPv6Any) && first.Bind.AddressFamily == AddressFamily.InterNetwork) answer = first.Bind.Address;
+        if (!string.IsNullOrWhiteSpace(d.Answer))
+        {
+            if (!IPAddress.TryParse(d.Answer, out var a) || a.AddressFamily != AddressFamily.InterNetwork) throw new InvalidOperationException(w + "Answer must be an IPv4 address");
+            answer = a;
+        }
+
+        if (d.FromRoutes ?? true)
+            foreach (var l in listeners.Where(l => l.Mode == "http-reverse"))
+                foreach (var host in l.Routes.Keys)
+                    if (!host.Contains('*')) r.Names[CheckName(host)] = answer;
+
+        if (d.Names != null)
+            foreach (var kv in d.Names)
+            {
+                IPAddress ip = answer;
+                if (!string.IsNullOrWhiteSpace(kv.Value))
+                    if (!IPAddress.TryParse(kv.Value.Trim(), out ip!) || ip.AddressFamily != AddressFamily.InterNetwork) throw new InvalidOperationException(w + "'" + kv.Key + "' needs an IPv4 address or an empty value");
+                r.Names[CheckName(kv.Key)] = ip;
+            }
+
+        if (d.Upstream is { Length: > 0 })
+        {
+            var ups = new List<IPEndPoint>();
+            foreach (var u in d.Upstream)
+            {
+                if (!IPEndPoint.TryParse(u.Trim(), out var ep)) throw new InvalidOperationException(w + "Upstream '" + u + "' is not an address (use 9.9.9.9 or 9.9.9.9:53)");
+                if (ep.Port == 0) ep = new IPEndPoint(ep.Address, 53);
+                if (ep.Equals(r.Bind)) throw new InvalidOperationException(w + "Upstream may not be the DNS's own address");
+                ups.Add(ep);
+            }
+            r.Upstream = ups.ToArray();
+        }
+        return r;
+    }
+
+    // One literal host name per entry: letters, digits, '-', at least two labels, no wildcard.
+    static string CheckName(string raw)
+    {
+        string n = raw.Trim().ToLowerInvariant().TrimEnd('.');
+        bool ok = n.Length is > 3 and <= 253 && n.Contains('.');
+        if (ok)
+            foreach (var label in n.Split('.'))
+                if (label.Length is 0 or > 63 || label[0] == '-' || label[^1] == '-' || !label.All(ch => ch is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-')) { ok = false; break; }
+        if (!ok) throw new InvalidOperationException("Dns: '" + raw + "' is not a plain host name (wildcards are not supported; list every name)");
+        return n;
     }
 
     static Listener Make(ListenerSettings x, int i)

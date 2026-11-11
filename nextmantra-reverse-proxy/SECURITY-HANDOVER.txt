@@ -1,0 +1,55 @@
+AGANTRA PKI PROXY - NOTE FOR THE CUSTOMER'S ADMINISTRATOR
+Author: Nicko Satria Utama   Company: Agantra Inovatif OU   Email: nicko@nextmantra.com
+
+Why you receive this
+  The proxy is a small program that serves certificate revocation traffic (CRL, OCSP) on the local machine and can run a tiny
+  local DNS server. Endpoint security software (Microsoft Defender, Bitdefender, ESET, other EDR) may warn about it, because it
+  listens on ports 53 and 80, can add Windows name-resolution rules, and starts powershell.exe or systemctl. A name such as
+  "Heur" or "Pantera" in a warning is a behaviour score, not proof of malware. Please check the file before you allow it.
+
+What you should receive together
+  1. the program      agantra-inovatif-crl-ocsp-proxy-win64.exe  (or -linux64)
+  2. SHA256SUMS-proxy.txt   the SHA-256 of every file in the release
+  3. this note
+  Ask us to confirm the SHA-256 on another channel (phone, a different mail) if you want to be sure.
+
+Step 1 - check the file
+  Windows (PowerShell):   Get-FileHash .\agantra-inovatif-crl-ocsp-proxy-win64.exe -Algorithm SHA256
+  Linux:                  sha256sum agantra-inovatif-crl-ocsp-proxy-linux64
+  The value must equal the line in SHA256SUMS-proxy.txt. If it does not, stop and tell us.
+  If the file is code-signed, also run:  Get-AuthenticodeSignature <file>    (Status should be Valid)
+
+Step 2 - read what it does, on this machine
+  Run, from the folder where the file will stay:
+      <program> --security-info                      prints the hand-over text (also --out report.txt to save it)
+      <program> --security-info --admin-script       also writes admin-handover\Allow-AgantraPkiProxy.ps1 and
+                                                      Remove-AgantraPkiProxyAllow.ps1 (Windows, Microsoft Defender only)
+  The text lists: the file hash and signer, every port and outbound host, every change to the computer, every program it
+  starts, every file it writes, and what to allow in Defender, Bitdefender, ESET and other EDR. These commands only report;
+  they change nothing. The program never changes security software by itself.
+
+Step 3 - allow exactly this one file (narrowest first)
+  - Allow this one file by SHA-256 or exact path. Do not exclude a whole folder or drive.
+  - Microsoft Defender: read Allow-AgantraPkiProxy.ps1, then run it in an elevated PowerShell. It checks the hash first and
+    adds one file exclusion. If another security product is active, Defender is passive: use that product's console.
+  - Bitdefender / ESET / other EDR: add the same file (path or hash, or the signer certificate) in the product's console.
+    Menu names differ by version; --security-info lists the usual places.
+  - If your product quarantined the file already, restore it, then allow it. If you think it is a false positive, send the file
+    to the vendor's sample submission page (Microsoft: https://www.microsoft.com/wdsi/filesubmission).
+
+Step 4 - what the administrator may be asked to allow when the proxy runs
+  - Ports: TCP 80 and TCP/UDP 53 on the loopback address only (127.0.0.1 / 127.0.0.2). Nothing listens on the network.
+  - Outbound HTTPS from the proxy to the hosts shown in --security-info (for example crl.<domain>.com, ocsp.<domain>.com).
+  - powershell.exe started by the proxy with fixed text (Add-/Get-/Remove-DnsClientNrptRule, Clear-DnsClientCache), only when it
+    runs elevated in --mode full. On Linux: resolvectl and systemctl.
+  - Domain-joined Windows PCs: if group policy defines name-resolution (NRPT) rules, Windows ignores local rules. The proxy then
+    removes its rules again and says so. The administrator must add the names to the policy, or use the hosts file.
+
+How to remove everything
+  <program> --clean                          removes the name-resolution change (a normal stop does this too)
+  <program> --hosts-remove                   if the hosts file was edited with --hosts-add
+  <program> --uninstall-service              (Windows) or --uninstall-systemd (Linux), if a service was installed
+  Remove-AgantraPkiProxyAllow.ps1            removes the Defender exclusion again
+  <program> --dns-os-status                  shows that nothing is left
+
+Contact: nicko@nextmantra.com

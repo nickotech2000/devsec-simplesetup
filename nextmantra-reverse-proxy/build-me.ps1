@@ -18,6 +18,15 @@ Email   : nicko@nextmantra.com
     works for the OS you are on (needs the C++ build tools on Windows); other runtime identifiers are skipped.
 .PARAMETER KeepTemp
     Keep the generated project folder (for troubleshooting).
+.PARAMETER Smoke
+    After the build, start the binary for this OS once with --help and --env-report (both read-only, nothing is changed)
+    to prove it starts. Skipped when the binary for this OS was not built.
+.PARAMETER SumsOnly
+    Do not build: only write SHA256SUMS-proxy.txt for the binaries that are already in this folder. Use it after you have
+    code-signed the binaries, because signing changes the hash.
+.PARAMETER Sums
+    Write SHA256SUMS-proxy.txt next to the binaries (hash of every built file and of appsettings.json). Give this file to the
+    customer's administrator together with the security hand-over text, so the files can be verified and allow-listed.
 .EXAMPLE
     .\build-me.ps1
     .\build-me.ps1 -Rid win-x64
@@ -28,7 +37,10 @@ param(
     [ValidateSet('win-x64', 'linux-x64', 'osx-arm64')]
     [string[]]$Rid = @('win-x64', 'linux-x64', 'osx-arm64'),
     [switch]$Aot,
-    [switch]$KeepTemp
+    [switch]$KeepTemp,
+    [switch]$Smoke,
+    [switch]$Sums,
+    [switch]$SumsOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,13 +58,24 @@ $sources = @(Get-ChildItem -Path $ProjectDir -Filter '*.cs' -File)
 if ($sources.Count -eq 0) { Write-Error "No .cs files found in $ProjectDir"; return }
 Write-Host ("Sources : " + (($sources | ForEach-Object Name) -join ', ')) -ForegroundColor Gray
 
-if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { Write-Error 'dotnet SDK not found on PATH.'; return }
+# These files make up the proxy; a missing one would compile into a program without the tiny DNS or the test switches.
+$required = 'Config.cs', 'Program.cs', 'Http.cs', 'Handlers.cs', 'Installer.cs', 'Dns.cs', 'DnsTest.cs', 'DnsOsSetup.cs', 'EnvReport.cs', 'SecurityInfo.cs'
+$missing = @($required | Where-Object { $sources.Name -notcontains $_ })
+if ($missing.Count -gt 0) { Write-Error ("Missing source file(s): " + ($missing -join ', ') + ". Copy the complete set into $ProjectDir."); return }
 
-$BaseName = 'agantra-inovatif-crl-ocsp-proxy'
+if ($SumsOnly) { $Sums = [switch]$true }
+else {
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) { Write-Error 'dotnet SDK not found on PATH.'; return }
+    $sdk = (& dotnet --version) 2>$null
+    if ($sdk -and ([version]($sdk -replace '[-+].*$', '')).Major -lt 10) { Write-Error ".NET SDK 10 or newer is required (found $sdk)."; return }
+    Write-Host "SDK     : $sdk" -ForegroundColor Gray
+}
+
+$BaseName = 'agantra-inovatif-tinydns-proxy'
 $Targets = @{
     'win-x64'   = @{ Ext = '.exe'; Suffix = '-win64' }
-    'linux-x64' = @{ Ext = '';     Suffix = '-linux64' }
-    'osx-arm64' = @{ Ext = '';     Suffix = '-mac' }
+    'linux-x64' = @{ Ext = ''; Suffix = '-linux64' }
+    'osx-arm64' = @{ Ext = ''; Suffix = '-mac' }
 }
 
 # Native AOT only builds for the OS it runs on.
@@ -108,7 +131,7 @@ Set-Content -Path (Join-Path $work 'pkiproxy.csproj') -Value $csproj -Encoding U
 
 $errors = 0
 try {
-    foreach ($r in $Rid) {
+    foreach ($r in $(if ($SumsOnly) { @() } else { $Rid })) {
         $t = $Targets[$r]
         $final = "$BaseName$($t.Suffix)$($t.Ext)"
         if ($Aot -and $r -ne $hostRid) {
@@ -143,11 +166,34 @@ finally {
     else { Remove-Item -Path $work -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
+$built = @(Get-ChildItem -Path $ProjectDir -File | Where-Object { $_.Name -like "$BaseName*" -and $_.Name -notlike '*.txt' })
+
+if ($Sums -and $built.Count -gt 0) {
+    $lines = @($built + @(Get-Item (Join-Path $ProjectDir 'appsettings.json') -ErrorAction SilentlyContinue) | ForEach-Object {
+        '{0}  {1}' -f (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name })
+    [IO.File]::WriteAllText((Join-Path $ProjectDir 'SHA256SUMS-proxy.txt'), (($lines -join "`n") + "`n"), (New-Object Text.UTF8Encoding($false)))
+    Write-Host '[+] SHA256SUMS-proxy.txt written' -ForegroundColor Green
+}
+
+if ($Smoke) {
+    $mine = Join-Path $ProjectDir ("$BaseName$($Targets[$hostRid].Suffix)$($Targets[$hostRid].Ext)")
+    if (Test-Path -LiteralPath $mine) {
+        Write-Host "`n[smoke] $([IO.Path]::GetFileName($mine))" -ForegroundColor Yellow
+        $env:DOTNET_gcServer = '0'
+        foreach ($sw in @('--help'), @('--env-report')) {
+            $out = & $mine @sw 2>&1 | Out-String
+            if ($LASTEXITCODE -eq 0 -and $out.Length -gt 0) { Write-Host ("  ok   " + ($sw -join ' ')) -ForegroundColor Green }
+            else { Write-Host ("  FAIL " + ($sw -join ' ') + " (exit $LASTEXITCODE)") -ForegroundColor Red; $errors++ }
+        }
+    } else { Write-Host "`n[smoke] skipped: no binary for $hostRid was built." -ForegroundColor DarkYellow }
+}
+
 Write-Host "`n========================================================" -ForegroundColor Green
 if ($errors -eq 0) { Write-Host '[+] BUILD COMPLETE' -ForegroundColor Green }
 else { Write-Host "[-] BUILD FINISHED WITH $errors ERROR(S)" -ForegroundColor Red }
-Get-ChildItem -Path $ProjectDir -File | Where-Object { $_.Name -like "$BaseName*" -or $_.Name -eq 'appsettings.json' } |
+Get-ChildItem -Path $ProjectDir -File | Where-Object { $_.Name -like "$BaseName*" -or $_.Name -eq 'appsettings.json' -or $_.Name -like 'SHA256SUMS-proxy*' } |
     Select-Object Name, @{ Name = 'Size (MB)'; Expression = { [Math]::Round($_.Length / 1MB, 2) } } | Format-Table -AutoSize
-Write-Host 'Binaries are not signed here; sign them with your usual code-signing step.' -ForegroundColor Gray
+Write-Host 'Binaries are not signed here. For a customer: sign them, run .\build-me.ps1 -SumsOnly, then send the binary, SHA256SUMS-proxy.txt and SECURITY-HANDOVER.txt.' -ForegroundColor Gray
+Write-Host 'On the customer machine the administrator runs:  <binary> --security-info --admin-script   (see SECURITY-HANDOVER.txt)' -ForegroundColor Gray
 Write-Host '========================================================' -ForegroundColor Green
 if ($errors -gt 0) { exit 1 }

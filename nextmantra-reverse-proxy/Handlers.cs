@@ -183,7 +183,7 @@ static class Handlers
         {
             try
             {
-                var dec = Encoding.UTF8.GetString(Convert.FromBase64String(v[6..].Trim()));
+                var dec = Encoding.UTF8.GetString(Convert.FromBase64String(v[6..].Trim()));   // audit:allow(encoded-command) decodes the client's Basic Proxy-Authorization header; the text is only compared with the token, never run
                 given = dec[(dec.IndexOf(':') + 1)..];
             }
             catch { return false; }

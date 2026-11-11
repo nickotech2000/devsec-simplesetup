@@ -4,6 +4,8 @@ Company : Agantra Inovatif OU
 Email   : nicko@nextmantra.com
 ------------------------------------------------*/
 
+// audit:allow-file(hidden-window,persistence) --install-service / --install-systemd are explicit administrator switches; child commands run with captured output
+
 using System.Diagnostics;
 using System.Net;
 using System.Text;
