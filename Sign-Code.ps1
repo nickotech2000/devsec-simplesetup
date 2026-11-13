@@ -1571,6 +1571,13 @@ try {
                         $r = Set-AuthenticodeSignature -LiteralPath $target -Certificate $c0 @tsP -HashAlgorithm $Digest.ToUpperInvariant()
                         if ($r.Status -notin 'Valid', 'UnknownError') { throw "Set-AuthenticodeSignature: $($r.Status) $($r.StatusMessage)" }
                         if ($r.Status -eq 'UnknownError') { $row.message = 'signature written; the root is not trusted on this PC (normal for a private PKI)' }
+                        # Set-AuthenticodeSignature reports no error when the server does not understand its timestamp protocol (GlobalSign r6advanced1 and
+                        # Microsoft ACS do not; DigiCert and Sectigo do): the script was signed WITHOUT a timestamp and the signature would stop being valid
+                        # when the certificate expires. Found 2026-11-13 (restart-nodes.ps1 and others had no timestamp). Fail with a "timestamp" message so
+                        # the catch below tries the next server of the list, and the file fails if no server of the list adds a timestamp.
+                        if ($tsUrl -and -not (Get-AuthenticodeSignature -LiteralPath $target).TimeStamperCertificate) {
+                            throw "timestamp: $tsUrl signed the script but added no timestamp (Set-AuthenticodeSignature does not get a timestamp from this server)."
+                        }
                     }
                     'java' {
                         $pw = 'SIGNCODE_JS_PASS'; [Environment]::SetEnvironmentVariable($pw, $pfxPass)
